@@ -29,6 +29,7 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${inter.variable} ${poppins.variable} h-full antialiased`}
     >
+      
       <body className="min-h-full flex flex-col bg-white text-neutral-900">
         {children}
       </body>
