@@ -553,7 +553,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-[16/10] bg-neutral-100">
+                  <div className="relative aspect-16/10 bg-neutral-100">
                     {v.fotos?.length > 0 ? (
                       <Image
                         src={v.fotos[0]}
