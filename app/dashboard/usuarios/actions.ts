@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient as createCookieClient } from '@/utils/supabase/server'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/utils/supabase/admin'
 
 export type CreateUserResponse = {
   success?: string
@@ -14,44 +14,36 @@ export type CreateUserResponse = {
   }
 }
 
-/**
- * Server Action para tornar o usuário atual um administrador (exclusivo para desenvolvimento/testes).
- */
-export async function makeMeAdmin() {
+const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin']
+
+async function assertAdmin() {
   const supabase = await createCookieClient()
-  
-  // Atualiza os metadados do usuário logado
-  const { error } = await supabase.auth.updateUser({
-    data: { role: 'admin' }
-  })
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (error) {
-    return { error: error.message }
+  if (!user) throw new Error('Não autorizado. Faça login novamente.')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin') {
+    throw new Error('Acesso negado. Apenas administradores podem criar usuários.')
   }
-
-  revalidatePath('/dashboard')
-  revalidatePath('/dashboard/usuarios')
-  return { success: 'Seu usuário agora é Administrador!' }
 }
 
 /**
- * Server Action para criar um novo usuário no Supabase sem afetar os cookies da sessão atual do admin.
+ * Server Action para criar um novo usuário (somente admin).
+ * Usa a service_role key, então não é afetada pelo bloqueio de signup público.
  */
 export async function createUserAction(formData: FormData): Promise<CreateUserResponse> {
-  const cookieClient = await createCookieClient()
-  
-  // 1. Validar se o usuário logado existe e é admin
-  const { data: { user: currentUser } } = await cookieClient.auth.getUser()
-  if (!currentUser) {
-    return { error: 'Não autorizado. Faça login novamente.' }
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
   }
 
-  const userRole = currentUser.user_metadata?.role
-  if (userRole !== 'admin') {
-    return { error: 'Acesso negado. Apenas administradores podem criar usuários.' }
-  }
-
-  // 2. Extrair e validar dados do formulário
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
@@ -70,28 +62,17 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
     return { error: 'A senha deve ter no mínimo 6 caracteres.' }
   }
 
-  // 3. Criar cliente Supabase sem persistência de sessão (para não sobrescrever a sessão do admin)
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  
-  const rawSupabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false
-    }
-  })
+  if (!ROLES_VALIDOS.includes(role)) {
+    return { error: 'Perfil de acesso inválido.' }
+  }
 
-  // 4. Cadastrar o novo usuário com metadados de perfil
-  const { data, error } = await rawSupabase.auth.signUp({
+  const adminClient = createAdminClient()
+
+  const { data, error } = await adminClient.auth.admin.createUser({
     email,
     password,
-    options: {
-      data: {
-        role,
-        name: name || undefined
-      }
-    }
+    email_confirm: true,
+    user_metadata: name ? { name } : undefined,
   })
 
   if (error) {
@@ -102,12 +83,23 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
     return { error: 'Erro desconhecido ao criar usuário.' }
   }
 
+  const { error: profileError } = await adminClient
+    .from('profiles')
+    .update({ role })
+    .eq('id', data.user.id)
+
+  if (profileError) {
+    return { error: `Usuário criado, mas houve erro ao definir o perfil: ${profileError.message}` }
+  }
+
+  revalidatePath('/dashboard/usuarios')
+
   return {
     success: `Usuário cadastrado com sucesso com perfil de ${role}!`,
     user: {
       email: data.user.email || email,
       role,
-      name: data.user.user_metadata?.name
-    }
+      name,
+    },
   }
 }

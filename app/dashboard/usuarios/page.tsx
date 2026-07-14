@@ -1,19 +1,23 @@
-import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
 import UserManagementClient from './UserManagementClient'
-
-export const metadata = {
-  title: 'Gerenciar Usuários | Liberty Car',
-  description: 'Área administrativa para cadastro de colaboradores.',
-}
 
 export default async function UsuariosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
-  return <UserManagementClient currentUser={user} />
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  return (
+    <UserManagementClient
+      currentUser={user}
+      currentUserRole={profile?.role ?? null}
+    />
+  )
 }

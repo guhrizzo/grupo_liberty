@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { createUserAction, makeMeAdmin } from './actions'
+import { createUserAction } from './actions'
 
 interface UserManagementClientProps {
   currentUser: any
+  currentUserRole: string | null
 }
 
 interface SessionUser {
@@ -15,10 +15,8 @@ interface SessionUser {
   name?: string
 }
 
-export default function UserManagementClient({ currentUser }: UserManagementClientProps) {
-  const router = useRouter()
+export default function UserManagementClient({ currentUser, currentUserRole }: UserManagementClientProps) {
   const [loading, setLoading] = useState(false)
-  const [adminLoading, setAdminLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [createdUsers, setCreatedUsers] = useState<SessionUser[]>([])
 
@@ -29,25 +27,7 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
   const [confirmPassword, setConfirmPassword] = useState('')
   const [role, setRole] = useState('vendedor')
 
-  const currentRole = currentUser?.user_metadata?.role
-
-  const handleMakeAdmin = async () => {
-    setAdminLoading(true)
-    setMessage(null)
-    try {
-      const result = await makeMeAdmin()
-      if (result.error) {
-        setMessage({ type: 'error', text: result.error })
-      } else {
-        setMessage({ type: 'success', text: result.success || 'Agora você é administrador!' })
-        router.refresh()
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Erro ao atualizar para admin.' })
-    } finally {
-      setAdminLoading(false)
-    }
-  }
+  const currentRole = currentUserRole
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,9 +54,7 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
         setMessage({ type: 'error', text: result.error })
       } else if (result.success && result.user) {
         setMessage({ type: 'success', text: result.success })
-        // Adiciona à lista da sessão
         setCreatedUsers((prev) => [result.user!, ...prev])
-        // Limpa formulário
         setName('')
         setEmail('')
         setPassword('')
@@ -110,7 +88,7 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
 
           <div className="flex items-center gap-3">
             <span className="text-sm text-neutral-600">
-              Logado como: <strong className="text-neutral-900">{currentUser.email}</strong> 
+              Logado como: <strong className="text-neutral-900">{currentUser.email}</strong>
               {currentRole ? (
                 <span className="ml-2 rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-800 uppercase">
                   {currentRole}
@@ -121,15 +99,6 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
                 </span>
               )}
             </span>
-            {!currentRole && (
-              <button
-                onClick={handleMakeAdmin}
-                disabled={adminLoading}
-                className="rounded bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1.5 text-xs font-semibold shadow-xs transition-colors disabled:opacity-50"
-              >
-                {adminLoading ? 'Atualizando...' : 'Tornar Admin (Dev)'}
-              </button>
-            )}
           </div>
         </div>
 
@@ -148,7 +117,7 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
 
         {/* Conteúdo Principal */}
         <div className="grid gap-8 lg:grid-cols-12">
-          {/* Formulário de Criação (Coluna Principal/Esquerda) */}
+          {/* Formulário de Criação */}
           <div className="lg:col-span-7">
             <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
               <h2 className="text-lg font-semibold text-neutral-900 mb-6">
@@ -158,18 +127,9 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
               {currentRole !== 'admin' ? (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-5 text-amber-800">
                   <p className="font-semibold mb-2">Acesso Restrito</p>
-                  <p className="text-sm mb-4">
+                  <p className="text-sm">
                     Sua conta atual não possui privilégios de administrador para criar novos usuários.
                   </p>
-                  {!currentRole && (
-                    <button
-                      onClick={handleMakeAdmin}
-                      disabled={adminLoading}
-                      className="rounded bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-                    >
-                      {adminLoading ? 'Processando...' : 'Liberar Perfil de Administrador (Dev)'}
-                    </button>
-                  )}
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5">
@@ -269,7 +229,7 @@ export default function UserManagementClient({ currentUser }: UserManagementClie
             </div>
           </div>
 
-          {/* Lista de Criados na Sessão (Coluna Lateral/Direita) */}
+          {/* Lista de Criados na Sessão */}
           <div className="lg:col-span-5">
             <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs h-full flex flex-col">
               <h2 className="text-lg font-semibold text-neutral-900 mb-2">
