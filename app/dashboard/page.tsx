@@ -98,24 +98,33 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Módulo Placeholder para outros perfis */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between opacity-75">
+          {/* Módulo de Veículos (Apenas Admin) */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between">
             <div>
               <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center font-bold text-neutral-700 mb-4">
-                V
+                🚗
               </div>
               <h4 className="text-lg font-bold text-neutral-900">
-                Módulo de Vendas / Contratos
+                Gerenciar Veículos
               </h4>
               <p className="text-sm text-neutral-500 mt-1">
-                Visualização de propostas de veículos e contratos. (Futura implementação)
+                Cadastre veículos com fotos, gerencie o estoque e controle as informações da frota.
               </p>
             </div>
             
             <div className="mt-6">
-              <span className="text-xs font-semibold text-neutral-400">
-                Em breve
-              </span>
+              {role === 'admin' ? (
+                <Link
+                  href="/dashboard/veiculos"
+                  className="inline-block rounded-lg bg-neutral-950 hover:bg-neutral-850 text-white text-sm font-medium px-4 py-2 transition-colors"
+                >
+                  Acessar Painel
+                </Link>
+              ) : (
+                <span className="text-xs font-semibold text-neutral-400">
+                  Requer perfil de Administrador.
+                </span>
+              )}
             </div>
           </div>
         </div>
