@@ -51,15 +51,9 @@ export default async function LoginPage({
         <div className="flex gap-2">
           <button
             formAction={login}
-            className="flex-1 rounded bg-black py-2 text-white"
+            className="w-full rounded bg-black py-2 text-white"
           >
             Entrar
-          </button>
-          <button
-            formAction={signup}
-            className="flex-1 rounded border border-black py-2"
-          >
-            Cadastrar
           </button>
         </div>
       </form>

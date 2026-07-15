@@ -610,20 +610,30 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       </span>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between">
-                      <p className="text-lg font-bold text-neutral-950">
-                        {formatCurrency(v.preco)}
-                      </p>
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="text-lg font-bold text-neutral-950">
+                          {formatCurrency(v.preco)}
+                        </p>
 
-                      {currentRole === 'admin' && (
-                        <button
-                          onClick={() => setDeleteId(v.id)}
-                          className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                          Remover
-                        </button>
-                      )}
-                    </div>
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/veiculos/${v.id}`}
+                            target="_blank"
+                            className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+                          >
+                            Link
+                          </Link>
+                          {currentRole === 'admin' && (
+                            <button
+                              onClick={() => setDeleteId(v.id)}
+                              className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              Remover
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
                   </div>
                 </div>
               ))}

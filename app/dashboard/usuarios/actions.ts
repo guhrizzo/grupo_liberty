@@ -32,11 +32,100 @@ async function assertAdmin() {
     throw new Error('Acesso negado. Apenas administradores podem criar usuários.')
   }
 }
+/**
+ * Busca todos os perfis de usuários cadastrados (somente admin).
+ */
+export async function getAllUsersAction() {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    throw new Error(err.message)
+  }
+
+  const adminClient = createAdminClient()
+
+  // 1. Buscar todos os perfis da tabela profiles (role e data de criação)
+  const { data: profiles, error: profileError } = await adminClient
+    .from('profiles')
+    .select('id, role, created_at')
+
+  if (profileError) {
+    throw new Error(`Erro ao buscar perfis: ${profileError.message}`)
+  }
+
+  // 2. Buscar usuários do Supabase Auth para obter email e metadata (nome)
+  const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers()
+
+  if (authError) {
+    throw new Error(`Erro ao buscar usuários do Auth: ${authError.message}`)
+  }
+
+  // 3. Cruzar dados por ID
+  const combined = users.map((u) => {
+    const profile = profiles?.find((p) => p.id === u.id)
+    return {
+      id: u.id,
+      email: u.email || '',
+      name: u.user_metadata?.name || '',
+      role: profile?.role || null,
+      created_at: profile?.created_at || u.created_at,
+    }
+  })
+
+  return combined
+}
 
 /**
- * Server Action para criar um novo usuário (somente admin).
- * Usa a service_role key, então não é afetada pelo bloqueio de signup público.
+ * Atualiza a role de um usuário (somente admin).
  */
+export async function updateUserRoleAction(userId: string, newRole: string): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  if (!ROLES_VALIDOS.includes(newRole)) {
+    return { error: 'Perfil de acesso inválido.' }
+  }
+
+  const adminClient = createAdminClient()
+
+  const { error } = await adminClient
+    .from('profiles')
+    .update({ role: newRole })
+    .eq('id', userId)
+
+  if (error) {
+    return { error: `Erro ao atualizar perfil: ${error.message}` }
+  }
+
+  revalidatePath('/dashboard/usuarios')
+  return { success: 'Perfil de acesso atualizado com sucesso!' }
+}
+
+/**
+ * Exclui um usuário do Supabase Auth (somente admin).
+ */
+export async function deleteUserAction(userId: string): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  const adminClient = createAdminClient()
+
+  const { error } = await adminClient.auth.admin.deleteUser(userId)
+
+  if (error) {
+    return { error: `Erro ao deletar usuário: ${error.message}` }
+  }
+
+  revalidatePath('/dashboard/usuarios')
+  return { success: 'Usuário removido com sucesso!' }
+}
+ 
 export async function createUserAction(formData: FormData): Promise<CreateUserResponse> {
   try {
     await assertAdmin()

@@ -1,9 +1,10 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { logout } from '@/app/login/actions'
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Dashboard | Liberty Car',
 }
 
