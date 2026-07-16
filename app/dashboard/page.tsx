@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { logout } from '@/app/login/actions'
 
 export const metadata: Metadata = {
@@ -9,12 +10,20 @@ export const metadata: Metadata = {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) redirect('/login')
 
-  if (!user) redirect('/login')
+  let user: any = null
+  let role = null
 
-  const role = user.user_metadata?.role
+  try {
+    user = await adminAuth.verifySessionCookie(session, true)
+    const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
+    role = profileDoc.data()?.role || null
+  } catch (error) {
+    redirect('/login')
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 px-4 py-8 md:px-8">

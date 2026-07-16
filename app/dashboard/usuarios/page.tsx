@@ -1,23 +1,32 @@
-import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import UserManagementClient from './UserManagementClient'
 
 export default async function UsuariosPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) redirect('/login')
 
-  if (!user) redirect('/login')
+  let user: any = null
+  let role = null
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  try {
+    const decoded = await adminAuth.verifySessionCookie(session, true)
+    user = {
+      id: decoded.uid,
+      email: decoded.email,
+    }
+    const profileDoc = await adminDb.collection('profiles').doc(user.id).get()
+    role = profileDoc.data()?.role || null
+  } catch (error) {
+    redirect('/login')
+  }
 
   return (
     <UserManagementClient
       currentUser={user}
-      currentUserRole={profile?.role ?? null}
+      currentUserRole={role}
     />
   )
 }

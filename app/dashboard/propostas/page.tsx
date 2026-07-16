@@ -1,5 +1,6 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getPropostas } from './actions'
 import PropostasClient from './PropostasClient'
 
@@ -9,21 +10,24 @@ export const metadata = {
 }
 
 export default async function PropostasDashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user) {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) {
     redirect('/login')
   }
 
-  // Verificar se possui perfil autorizado (admin ou vendedor)
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  let user: any = null
+  let role = null
 
-  if (!profile || !['admin', 'vendedor'].includes(profile.role)) {
+  try {
+    user = await adminAuth.verifySessionCookie(session, true)
+    const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
+    role = profileDoc.data()?.role || null
+  } catch (error) {
+    redirect('/login')
+  }
+
+  if (!role || !['admin', 'vendedor'].includes(role)) {
     redirect('/dashboard')
   }
 

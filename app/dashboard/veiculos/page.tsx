@@ -1,5 +1,6 @@
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from './actions'
 import VeiculosClient from './VeiculosClient'
 
@@ -9,10 +10,21 @@ export const metadata = {
 }
 
 export default async function VeiculosPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) {
+    redirect('/login')
+  }
 
-  if (!user) {
+  let user: any = null
+
+  try {
+    const decoded = await adminAuth.verifySessionCookie(session, true)
+    user = {
+      id: decoded.uid,
+      email: decoded.email,
+    }
+  } catch (error) {
     redirect('/login')
   }
 

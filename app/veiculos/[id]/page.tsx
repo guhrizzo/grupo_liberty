@@ -1,26 +1,35 @@
-import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
 
 export default async function VeiculoPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
+  
+  // Buscar dados do veículo no Firestore
+  const docRef = adminDb.collection('veiculos').doc(id)
+  const docSnap = await docRef.get()
 
-  // Buscar dados do veículo
-  const { data: veiculo, error } = await supabase
-    .from('veiculos')
-    .select('*')
-    .eq('id', id)
-    .single()
-
-  if (error || !veiculo) {
+  if (!docSnap.exists) {
     notFound()
   }
 
-  // Verificar se o usuário está logado
-  const { data: { user } } = await supabase.auth.getUser()
+  const veiculo = { id: docSnap.id, ...docSnap.data() } as any
+
+  // Verificar se o usuário está logado via Firebase Session Cookie
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  let user: any = null
+
+  if (session) {
+    try {
+      user = await adminAuth.verifySessionCookie(session, true)
+    } catch (error) {
+      // Ignorar erro e continuar como deslogado
+    }
+  }
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)

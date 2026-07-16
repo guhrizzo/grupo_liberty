@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient as createCookieClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
+import { cookies } from 'next/headers'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 export type CreateUserResponse = {
   success?: string
@@ -16,22 +16,31 @@ export type CreateUserResponse = {
 
 const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin']
 
-async function assertAdmin() {
-  const supabase = await createCookieClient()
-  const { data: { user } } = await supabase.auth.getUser()
+async function getSessionUser() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) return null
 
-  if (!user) throw new Error('Não autorizado. Faça login novamente.')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Apenas administradores podem criar usuários.')
+  try {
+    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
+    return decodedClaims
+  } catch (error) {
+    return null
   }
 }
+
+async function assertAdmin() {
+  const user = await getSessionUser()
+  if (!user) throw new Error('Não autorizado. Faça login novamente.')
+
+  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
+  const profile = profileDoc.data()
+
+  if (!profileDoc.exists || profile?.role !== 'admin') {
+    throw new Error('Acesso negado. Apenas administradores podem gerenciar usuários.')
+  }
+}
+
 /**
  * Busca todos os perfis de usuários cadastrados (somente admin).
  */
@@ -42,33 +51,26 @@ export async function getAllUsersAction() {
     throw new Error(err.message)
   }
 
-  const adminClient = createAdminClient()
+  // 1. Buscar todos os perfis da coleção profiles
+  const profilesSnapshot = await adminDb.collection('profiles').get()
+  const profiles: any[] = []
+  profilesSnapshot.forEach((doc: any) => {
+    profiles.push({ id: doc.id, ...doc.data() })
+  })
 
-  // 1. Buscar todos os perfis da tabela profiles (role e data de criação)
-  const { data: profiles, error: profileError } = await adminClient
-    .from('profiles')
-    .select('id, role, created_at')
-
-  if (profileError) {
-    throw new Error(`Erro ao buscar perfis: ${profileError.message}`)
-  }
-
-  // 2. Buscar usuários do Supabase Auth para obter email e metadata (nome)
-  const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers()
-
-  if (authError) {
-    throw new Error(`Erro ao buscar usuários do Auth: ${authError.message}`)
-  }
+  // 2. Buscar usuários do Firebase Auth
+  const listUsersResult = await adminAuth.listUsers()
+  const authUsers = listUsersResult.users
 
   // 3. Cruzar dados por ID
-  const combined = users.map((u) => {
-    const profile = profiles?.find((p) => p.id === u.id)
+  const combined = authUsers.map((u: any) => {
+    const profile = profiles.find((p: any) => p.id === u.uid)
     return {
-      id: u.id,
+      id: u.uid,
       email: u.email || '',
-      name: u.user_metadata?.name || '',
+      name: u.displayName || '',
       role: profile?.role || null,
-      created_at: profile?.created_at || u.created_at,
+      created_at: profile?.created_at || u.metadata.creationTime,
     }
   })
 
@@ -89,23 +91,21 @@ export async function updateUserRoleAction(userId: string, newRole: string): Pro
     return { error: 'Perfil de acesso inválido.' }
   }
 
-  const adminClient = createAdminClient()
+  try {
+    await adminDb.collection('profiles').doc(userId).update({
+      role: newRole,
+      updated_at: new Date().toISOString(),
+    })
 
-  const { error } = await adminClient
-    .from('profiles')
-    .update({ role: newRole })
-    .eq('id', userId)
-
-  if (error) {
+    revalidatePath('/dashboard/usuarios')
+    return { success: 'Perfil de acesso atualizado com sucesso!' }
+  } catch (error: any) {
     return { error: `Erro ao atualizar perfil: ${error.message}` }
   }
-
-  revalidatePath('/dashboard/usuarios')
-  return { success: 'Perfil de acesso atualizado com sucesso!' }
 }
 
 /**
- * Exclui um usuário do Supabase Auth (somente admin).
+ * Exclui um usuário do Firebase Auth e Firestore (somente admin).
  */
 export async function deleteUserAction(userId: string): Promise<{ success?: string; error?: string }> {
   try {
@@ -114,16 +114,18 @@ export async function deleteUserAction(userId: string): Promise<{ success?: stri
     return { error: err.message }
   }
 
-  const adminClient = createAdminClient()
+  try {
+    // 1. Deletar do Auth
+    await adminAuth.deleteUser(userId)
 
-  const { error } = await adminClient.auth.admin.deleteUser(userId)
+    // 2. Deletar do Firestore profiles
+    await adminDb.collection('profiles').doc(userId).delete()
 
-  if (error) {
+    revalidatePath('/dashboard/usuarios')
+    return { success: 'Usuário removido com sucesso!' }
+  } catch (error: any) {
     return { error: `Erro ao deletar usuário: ${error.message}` }
   }
-
-  revalidatePath('/dashboard/usuarios')
-  return { success: 'Usuário removido com sucesso!' }
 }
  
 export async function createUserAction(formData: FormData): Promise<CreateUserResponse> {
@@ -155,40 +157,33 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
     return { error: 'Perfil de acesso inválido.' }
   }
 
-  const adminClient = createAdminClient()
+  try {
+    // 1. Criar usuário no Firebase Auth
+    const userRecord = await adminAuth.createUser({
+      email,
+      password,
+      displayName: name || undefined,
+    })
 
-  const { data, error } = await adminClient.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: name ? { name } : undefined,
-  })
-
-  if (error) {
-    return { error: error.message }
-  }
-
-  if (!data.user) {
-    return { error: 'Erro desconhecido ao criar usuário.' }
-  }
-
-  const { error: profileError } = await adminClient
-    .from('profiles')
-    .update({ role })
-    .eq('id', data.user.id)
-
-  if (profileError) {
-    return { error: `Usuário criado, mas houve erro ao definir o perfil: ${profileError.message}` }
-  }
-
-  revalidatePath('/dashboard/usuarios')
-
-  return {
-    success: `Usuário cadastrado com sucesso com perfil de ${role}!`,
-    user: {
-      email: data.user.email || email,
+    // 2. Criar perfil correspondente no Firestore
+    const now = new Date().toISOString()
+    await adminDb.collection('profiles').doc(userRecord.uid).set({
       role,
-      name,
-    },
+      created_at: now,
+      updated_at: now,
+    })
+
+    revalidatePath('/dashboard/usuarios')
+
+    return {
+      success: `Usuário cadastrado com sucesso com perfil de ${role}!`,
+      user: {
+        email: userRecord.email || email,
+        role,
+        name,
+      },
+    }
+  } catch (error: any) {
+    return { error: error.message || 'Erro desconhecido ao criar usuário.' }
   }
 }

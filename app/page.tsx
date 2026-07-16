@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
+import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import PublicVehiclesList from './PublicVehiclesList'
 
@@ -9,8 +10,17 @@ export const metadata = {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  let user: any = null
+
+  if (session) {
+    try {
+      user = await adminAuth.verifySessionCookie(session, true)
+    } catch (error) {
+      // Ignorar erro e continuar como deslogado
+    }
+  }
   const veiculos = await getVehicles()
 
   return (

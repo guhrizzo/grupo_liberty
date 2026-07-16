@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient as createCookieClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
+import { cookies } from 'next/headers'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 export interface Proposta {
   id: string
@@ -21,23 +21,31 @@ export interface Proposta {
   user_name?: string
 }
 
-async function assertAuthorized() {
-  const supabase = await createCookieClient()
-  const { data: { user } } = await supabase.auth.getUser()
+async function getSessionUser() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) return null
 
+  try {
+    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
+    return decodedClaims
+  } catch (error) {
+    return null
+  }
+}
+
+async function assertAuthorized() {
+  const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
+  const profile = profileDoc.data()
 
-  if (profileError || !profile || !['admin', 'vendedor'].includes(profile.role)) {
+  if (!profileDoc.exists || !profile || !['admin', 'vendedor'].includes(profile.role)) {
     throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
   }
 
-  return { supabase, user, role: profile.role }
+  return { user, role: profile.role }
 }
 
 /**
@@ -45,40 +53,56 @@ async function assertAuthorized() {
  */
 export async function getPropostas(): Promise<Proposta[]> {
   try {
-    const { supabase } = await assertAuthorized()
+    await assertAuthorized()
 
-    const { data, error } = await supabase
-      .from('propostas')
-      .select('*, veiculos(marca, modelo, preco)')
-      .order('created_at', { ascending: false })
+    // 1. Buscar todas as propostas
+    const propostasSnapshot = await adminDb.collection('propostas')
+      .orderBy('created_at', 'desc')
+      .get()
 
-    if (error) {
-      console.error('Erro ao buscar propostas:', error.message)
-      return []
-    }
+    const propostasList: any[] = []
+    propostasSnapshot.forEach((doc: any) => {
+      propostasList.push({ id: doc.id, ...doc.data() })
+    })
 
-    const propostas = (data as any[]) || []
-    if (propostas.length === 0) return []
+    if (propostasList.length === 0) return []
 
-    // Cruzar com informações dos usuários (email / nome)
-    const adminClient = createAdminClient()
-    const { data: { users }, error: authError } = await adminClient.auth.admin.listUsers()
+    // 2. Buscar todos os veículos para mapeamento (evita consultas N+1)
+    const veiculosSnapshot = await adminDb.collection('veiculos').get()
+    const veiculosMap: Record<string, { marca: string; modelo: string; preco: number }> = {}
+    veiculosSnapshot.forEach((doc: any) => {
+      const data = doc.data()
+      veiculosMap[doc.id] = {
+        marca: data.marca,
+        modelo: data.modelo,
+        preco: data.preco,
+      }
+    })
 
-    if (authError) {
-      console.error('Erro ao buscar lista de usuários para mapeamento:', authError.message)
-      return propostas as Proposta[]
-    }
+    // 3. Buscar usuários do Auth para obter e-mail e nome
+    const listUsersResult = await adminAuth.listUsers()
+    const authUsers = listUsersResult.users
 
-    return propostas.map((p) => {
-      const authUser = users.find((u) => u.id === p.user_id)
+    // 4. Cruzar dados das propostas, veículos e usuários
+    return propostasList.map((p: any) => {
+      const authUser = authUsers.find((u: any) => u.uid === p.user_id)
+      const veiculoInfo = veiculosMap[p.veiculo_id] || null
+
       return {
-        ...p,
+        id: p.id,
+        veiculo_id: p.veiculo_id,
+        user_id: p.user_id,
+        valor: p.valor,
+        mensagem: p.mensagem,
+        status: p.status,
+        created_at: p.created_at,
+        veiculos: veiculoInfo,
         user_email: authUser?.email || 'N/A',
-        user_name: authUser?.user_metadata?.name || 'Cliente',
+        user_name: authUser?.displayName || 'Cliente',
       }
     })
   } catch (err) {
-    console.error(err)
+    console.error('Erro ao buscar propostas:', err)
     return []
   }
 }
@@ -88,16 +112,12 @@ export async function getPropostas(): Promise<Proposta[]> {
  */
 export async function updatePropostaStatus(id: string, newStatus: 'pendente' | 'aceito' | 'recusado'): Promise<{ success?: string; error?: string }> {
   try {
-    const { supabase } = await assertAuthorized()
+    await assertAuthorized()
 
-    const { error } = await supabase
-      .from('propostas')
-      .update({ status: newStatus })
-      .eq('id', id)
-
-    if (error) {
-      return { error: `Erro ao atualizar proposta: ${error.message}` }
-    }
+    await adminDb.collection('propostas').doc(id).update({
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
 
     revalidatePath('/dashboard/propostas')
     return { success: 'Status da proposta atualizado com sucesso!' }

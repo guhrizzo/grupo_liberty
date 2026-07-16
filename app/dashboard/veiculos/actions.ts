@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient as createCookieClient } from '@/utils/supabase/server'
-import { createAdminClient } from '@/utils/supabase/admin'
+import { cookies } from 'next/headers'
+import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -32,58 +32,87 @@ export type VeiculoResponse = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function assertAdmin() {
-  const supabase = await createCookieClient()
-  const { data: { user } } = await supabase.auth.getUser()
+async function getSessionUser() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) return null
 
+  try {
+    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
+    return decodedClaims
+  } catch (error) {
+    return null
+  }
+}
+
+async function assertAdmin() {
+  const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
+  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
+  const profile = profileDoc.data()
 
-  if (profileError || profile?.role !== 'admin') {
+  if (!profileDoc.exists || profile?.role !== 'admin') {
     throw new Error('Acesso negado.')
   }
 
-  return { supabase, user }
+  return { user }
 }
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
 /**
  * Busca todos os veículos cadastrados.
- * Usa o cliente admin (service role) para garantir acesso independente de RLS,
- * tanto em produção quanto em desenvolvimento.
  */
 export async function getVehicles(): Promise<Veiculo[]> {
-  // Usamos o cliente admin para leitura pública — o RLS não interfere
-  // e a listagem funciona mesmo sem usuário autenticado.
-  const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('veiculos')
-    .select('*')
-    .order('created_at', { ascending: false })
+  try {
+    const snapshot = await adminDb.collection('veiculos')
+      .orderBy('created_at', 'desc')
+      .get()
 
-  if (error) {
-    console.error('Erro ao buscar veículos:', error.message)
+    const vehicles: Veiculo[] = []
+    snapshot.forEach((doc: any) => {
+      const data = doc.data()
+      vehicles.push({
+        id: doc.id,
+        marca: data.marca,
+        modelo: data.modelo,
+        ano: data.ano,
+        cor: data.cor || null,
+        quilometragem: data.quilometragem || null,
+        preco: data.preco,
+        cambio: data.cambio,
+        combustivel: data.combustivel,
+        placa: data.placa || null,
+        descricao: data.descricao || null,
+        fotos: data.fotos || [],
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        created_by: data.created_by || null,
+      })
+    })
+
+    return vehicles
+  } catch (error) {
+    console.error('Erro ao buscar veículos:', error)
     return []
   }
-
-  return (data as Veiculo[]) || []
 }
 
 /**
- * Faz upload das fotos para o Supabase Storage e retorna as URLs públicas.
+ * Faz upload das fotos para o Firebase Storage e retorna as URLs públicas.
  */
 export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: string[]; error?: string }> {
-  const { supabase } = await assertAdmin()
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
 
   const files = formData.getAll('photos') as File[]
   if (!files.length) return { urls: [] }
 
   const uploadedUrls: string[] = []
+  const bucket = adminStorage.bucket()
 
   for (const file of files) {
     if (!file.size) continue
@@ -93,24 +122,21 @@ export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: 
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
     const filePath = `fotos/${fileName}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('veiculos')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
+    try {
+      const fileRef = bucket.file(filePath)
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      await fileRef.save(buffer, {
+        metadata: { contentType: file.type || 'image/jpeg' },
       })
 
-    if (uploadError) {
-      console.error('Erro no upload:', uploadError.message)
+      await fileRef.makePublic()
+      uploadedUrls.push(fileRef.publicUrl())
+    } catch (uploadError: any) {
+      console.error('Erro no upload do Firebase:', uploadError)
       return { error: `Falha ao enviar foto "${file.name}": ${uploadError.message}` }
     }
-
-    // Gerar URL pública
-    const { data: urlData } = supabase.storage
-      .from('veiculos')
-      .getPublicUrl(filePath)
-
-    uploadedUrls.push(urlData.publicUrl)
   }
 
   return { urls: uploadedUrls }
@@ -120,7 +146,13 @@ export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: 
  * Cria um veículo no banco de dados.
  */
 export async function createVehicle(formData: FormData): Promise<VeiculoResponse> {
-  const { supabase, user } = await assertAdmin()
+  let user: any
+  try {
+    const res = await assertAdmin()
+    user = res.user
+  } catch (err: any) {
+    return { error: err.message }
+  }
 
   // Extrair campos
   const marca = formData.get('marca') as string
@@ -151,10 +183,11 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     return { error: 'Preço inválido.' }
   }
 
-  // Inserir no banco
-  const { data, error } = await supabase
-    .from('veiculos')
-    .insert({
+  try {
+    const docRef = adminDb.collection('veiculos').doc()
+    const now = new Date().toISOString()
+
+    const novoVeiculo = {
       marca,
       modelo,
       ano,
@@ -166,59 +199,68 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       placa,
       descricao,
       fotos,
-      created_by: user.id,
-    })
-    .select()
-    .single()
+      created_by: user.uid,
+      created_at: now,
+      updated_at: now,
+    }
 
-  if (error) {
+    await docRef.set(novoVeiculo)
+
+    revalidatePath('/dashboard/veiculos')
+    return {
+      success: 'Veículo cadastrado com sucesso!',
+      veiculo: { id: docRef.id, ...novoVeiculo }
+    }
+  } catch (error: any) {
     return { error: `Erro ao cadastrar veículo: ${error.message}` }
   }
-
-  revalidatePath('/dashboard/veiculos')
-  return { success: 'Veículo cadastrado com sucesso!', veiculo: data as Veiculo }
 }
 
 /**
  * Remove um veículo e suas fotos do Storage.
  */
 export async function deleteVehicle(id: string): Promise<{ success?: string; error?: string }> {
-  const { supabase } = await assertAdmin()
-
-  // 1. Buscar veículo para pegar as fotos
-  const { data: veiculo, error: fetchError } = await supabase
-    .from('veiculos')
-    .select('fotos')
-    .eq('id', id)
-    .single()
-
-  if (fetchError) {
-    return { error: `Veículo não encontrado: ${fetchError.message}` }
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
   }
 
-  // 2. Remover fotos do Storage
-  if (veiculo?.fotos?.length) {
-    const filePaths = veiculo.fotos.map((url: string) => {
-      // Extrair path relativo da URL pública
-      const parts = url.split('/storage/v1/object/public/veiculos/')
-      return parts[1] || ''
-    }).filter(Boolean)
-
-    if (filePaths.length) {
-      await supabase.storage.from('veiculos').remove(filePaths)
+  try {
+    // 1. Buscar veículo para pegar as fotos
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+    
+    if (!doc.exists) {
+      return { error: 'Veículo não encontrado.' }
     }
+
+    const veiculo = doc.data()
+    const bucket = adminStorage.bucket()
+
+    // 2. Remover fotos do Storage
+    if (veiculo?.fotos?.length) {
+      for (const url of veiculo.fotos) {
+        const parts = url.split('storage.googleapis.com/')
+        if (parts[1]) {
+          const subParts = parts[1].split('/')
+          subParts.shift() // remover nome do bucket
+          const filePath = subParts.join('/')
+          try {
+            await bucket.file(filePath).delete()
+          } catch (deleteFileErr) {
+            console.error(`Erro ao deletar arquivo ${filePath} do Firebase Storage:`, deleteFileErr)
+          }
+        }
+      }
+    }
+
+    // 3. Deletar do banco
+    await docRef.delete()
+
+    revalidatePath('/dashboard/veiculos')
+    return { success: 'Veículo removido com sucesso!' }
+  } catch (error: any) {
+    return { error: `Erro ao deletar veículo: ${error.message}` }
   }
-
-  // 3. Deletar do banco
-  const { error: deleteError } = await supabase
-    .from('veiculos')
-    .delete()
-    .eq('id', id)
-
-  if (deleteError) {
-    return { error: `Erro ao deletar veículo: ${deleteError.message}` }
-  }
-
-  revalidatePath('/dashboard/veiculos')
-  return { success: 'Veículo removido com sucesso!' }
 }

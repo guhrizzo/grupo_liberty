@@ -1,11 +1,24 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
+
+async function getSessionUser() {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('session')?.value
+  if (!session) return null
+
+  try {
+    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
+    return decodedClaims
+  } catch (error) {
+    return null
+  }
+}
 
 export async function enviarPropostaAction(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
 
   if (!user) {
     return { error: 'Você precisa estar logado para enviar uma proposta.' }
@@ -29,21 +42,22 @@ export async function enviarPropostaAction(formData: FormData) {
     return { error: 'Valor da proposta inválido.' }
   }
 
-  const { error } = await supabase
-    .from('propostas')
-    .insert({
+  try {
+    const docRef = adminDb.collection('propostas').doc()
+    await docRef.set({
       veiculo_id: veiculoId,
-      user_id: user.id,
+      user_id: user.uid,
       valor,
       mensagem,
-      status: 'pendente'
+      status: 'pendente',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     })
 
-  if (error) {
-    console.error('Erro ao enviar proposta:', error.message)
+    revalidatePath(`/veiculos/${veiculoId}`)
+    return { success: 'Proposta enviada com sucesso! Nossa equipe entrará em contato.' }
+  } catch (error: any) {
+    console.error('Erro ao enviar proposta:', error)
     return { error: `Erro ao enviar proposta: ${error.message}` }
   }
-
-  revalidatePath(`/veiculos/${veiculoId}`)
-  return { success: 'Proposta enviada com sucesso! Nossa equipe entrará em contato.' }
 }
