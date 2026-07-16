@@ -1,11 +1,14 @@
 import { createClient } from '@/utils/supabase/server'
 import { notFound } from 'next/navigation'
-import Image from 'next/image'
+import Link from 'next/link'
+import PropostaForm from './PropostaForm'
+import GalleryViewer from './GalleryViewer'
 
 export default async function VeiculoPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
 
+  // Buscar dados do veículo
   const { data: veiculo, error } = await supabase
     .from('veiculos')
     .select('*')
@@ -16,42 +19,138 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
     notFound()
   }
 
+  // Verificar se o usuário está logado
+  const { data: { user } } = await supabase.auth.getUser()
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8">
-      <div className="mx-auto max-w-4xl bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-        <h1 className="text-3xl font-bold text-neutral-950">
-          {veiculo.marca} {veiculo.modelo}
-        </h1>
-        <p className="text-xl font-bold text-neutral-700 mt-2">{formatCurrency(veiculo.preco)}</p>
+    <div className="min-h-screen bg-neutral-50 px-4 py-8 md:px-8">
+      <div className="mx-auto max-w-6xl">
+        {/* Cabeçalho de Navegação */}
+        <div className="mb-6 flex items-center justify-between">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 13L5 8l5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Voltar para a listagem
+          </Link>
 
-        {veiculo.fotos && veiculo.fotos.length > 0 && (
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            {veiculo.fotos.map((url: string, index: number) => (
-              <div key={index} className="relative aspect-video rounded-lg overflow-hidden border border-neutral-200">
-                <Image src={url} alt={`${veiculo.marca} ${veiculo.modelo} - Foto ${index + 1}`} fill className="object-cover" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-8 space-y-4">
-          <h2 className="text-lg font-semibold">Detalhes</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm text-neutral-600">
-            <p>Ano: {veiculo.ano}</p>
-            {veiculo.cor && <p>Cor: {veiculo.cor}</p>}
-            {veiculo.quilometragem && <p>Quilometragem: {veiculo.quilometragem.toLocaleString()} km</p>}
-            <p>Câmbio: {veiculo.cambio}</p>
-            <p>Combustível: {veiculo.combustivel}</p>
-          </div>
-          {veiculo.descricao && (
-            <div className="mt-4 pt-4 border-t border-neutral-100">
-              <h3 className="font-semibold text-sm mb-2">Descrição</h3>
-              <p className="text-sm text-neutral-600 whitespace-pre-line">{veiculo.descricao}</p>
-            </div>
+          {user && (
+            <Link
+              href="/dashboard"
+              className="text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 text-neutral-800 px-3.5 py-1.5 rounded-lg transition-colors"
+            >
+              Ir para o Dashboard
+            </Link>
           )}
+        </div>
+
+        {/* Layout Principal em Duas Colunas */}
+        <div className="grid gap-8 lg:grid-cols-3 items-start">
+          
+          {/* Coluna 1 & 2: Galeria e Detalhes */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            {/* Fotos / Galeria */}
+            <div className="bg-white rounded-2xl border border-neutral-200 p-4 shadow-xs">
+              <GalleryViewer fotos={veiculo.fotos} alt={`${veiculo.marca} ${veiculo.modelo}`} />
+            </div>
+
+            {/* Informações Básicas do Veículo */}
+            <div className="bg-white rounded-2xl border border-neutral-200 p-6 shadow-xs">
+              <div className="border-b border-neutral-100 pb-4 mb-4">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  {veiculo.marca}
+                </span>
+                <h1 className="text-3xl font-extrabold text-neutral-950 tracking-tight mt-1">
+                  {veiculo.modelo}
+                </h1>
+                <p className="text-2xl font-black text-neutral-950 mt-2">
+                  {formatCurrency(veiculo.preco)}
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-900">
+                  Ficha Técnica
+                </h2>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="rounded-xl bg-neutral-50 p-3.5 border border-neutral-100">
+                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Ano</p>
+                    <p className="text-sm font-semibold text-neutral-900 mt-0.5">{veiculo.ano}</p>
+                  </div>
+                  {veiculo.cor && (
+                    <div className="rounded-xl bg-neutral-50 p-3.5 border border-neutral-100">
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Cor</p>
+                      <p className="text-sm font-semibold text-neutral-900 mt-0.5">{veiculo.cor}</p>
+                    </div>
+                  )}
+                  {veiculo.quilometragem !== null && (
+                    <div className="rounded-xl bg-neutral-50 p-3.5 border border-neutral-100">
+                      <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Km</p>
+                      <p className="text-sm font-semibold text-neutral-900 mt-0.5">
+                        {veiculo.quilometragem.toLocaleString('pt-BR')} km
+                      </p>
+                    </div>
+                  )}
+                  <div className="rounded-xl bg-neutral-50 p-3.5 border border-neutral-100">
+                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Câmbio</p>
+                    <p className="text-sm font-semibold text-neutral-950 uppercase mt-0.5">{veiculo.cambio}</p>
+                  </div>
+                  <div className="rounded-xl bg-neutral-50 p-3.5 border border-neutral-100">
+                    <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Combustível</p>
+                    <p className="text-sm font-semibold text-neutral-950 uppercase mt-0.5">{veiculo.combustivel}</p>
+                  </div>
+                </div>
+
+                {veiculo.descricao && (
+                  <div className="border-t border-neutral-100 pt-6">
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-900 mb-3">
+                      Descrição do Veículo
+                    </h3>
+                    <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-line">
+                      {veiculo.descricao}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Coluna 3: Caixa de Proposta / Login CTA */}
+          <div className="space-y-6 lg:sticky lg:top-8">
+            {user ? (
+              <PropostaForm veiculoId={veiculo.id} veiculoModelo={`${veiculo.marca} ${veiculo.modelo}`} />
+            ) : (
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-900 text-white p-6 shadow-md">
+                <h3 className="text-lg font-bold mb-2">Faça uma Proposta</h3>
+                <p className="text-xs text-neutral-400 mb-6 leading-relaxed">
+                  Para enviar propostas de compra, tirar dúvidas ou agendar visitas a este veículo, você precisa estar autenticado em nosso sistema.
+                </p>
+                <div className="space-y-3">
+                  <Link
+                    href={`/login?redirect=/veiculos/${veiculo.id}`}
+                    className="block w-full text-center bg-white hover:bg-neutral-100 text-neutral-900 font-bold py-3 rounded-xl text-sm transition-colors shadow-xs"
+                  >
+                    Fazer Login
+                  </Link>
+                  <div className="text-center">
+                    <span className="text-xs text-neutral-400">
+                      Não tem uma conta? Solicite ou faça cadastro no painel.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>

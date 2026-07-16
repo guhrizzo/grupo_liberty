@@ -108,7 +108,7 @@ export default async function DashboardPage() {
               <h4 className="text-lg font-bold text-neutral-900">
                 Gerenciar Veículos
               </h4>
-              <p className="text-sm text-neutral-500 mt-1">
+              <p className="text-sm text-neutral-550 mt-1">
                 Cadastre veículos com fotos, gerencie o estoque e controle as informações da frota.
               </p>
             </div>
@@ -124,6 +124,36 @@ export default async function DashboardPage() {
               ) : (
                 <span className="text-xs font-semibold text-neutral-400">
                   Requer perfil de Administrador.
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Módulo de Gerenciamento de Propostas (Admin e Vendedor) */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center font-bold text-neutral-700 mb-4">
+                📩
+              </div>
+              <h4 className="text-lg font-bold text-neutral-900">
+                Gerenciar Propostas
+              </h4>
+              <p className="text-sm text-neutral-550 mt-1">
+                Visualize e responda as mensagens de interesse e propostas de compra enviadas por clientes.
+              </p>
+            </div>
+            
+            <div className="mt-6">
+              {role === 'admin' || role === 'vendedor' ? (
+                <Link
+                  href="/dashboard/propostas"
+                  className="inline-block rounded-lg bg-neutral-950 hover:bg-neutral-850 text-white text-sm font-medium px-4 py-2 transition-colors"
+                >
+                  Acessar Painel
+                </Link>
+              ) : (
+                <span className="text-xs font-semibold text-neutral-400">
+                  Requer perfil de Vendedor ou Administrador.
                 </span>
               )}
             </div>
