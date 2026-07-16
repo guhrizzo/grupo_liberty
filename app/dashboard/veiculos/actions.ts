@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient as createCookieClient } from '@/utils/supabase/server'
+import { createAdminClient } from '@/utils/supabase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -53,9 +54,13 @@ async function assertAdmin() {
 
 /**
  * Busca todos os veículos cadastrados.
+ * Usa o cliente admin (service role) para garantir acesso independente de RLS,
+ * tanto em produção quanto em desenvolvimento.
  */
 export async function getVehicles(): Promise<Veiculo[]> {
-  const supabase = await createCookieClient()
+  // Usamos o cliente admin para leitura pública — o RLS não interfere
+  // e a listagem funciona mesmo sem usuário autenticado.
+  const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('veiculos')
     .select('*')
