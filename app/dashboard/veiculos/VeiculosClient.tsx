@@ -28,7 +28,7 @@ interface PhotoPreview {
 export default function VeiculosClient({ currentUser, veiculos }: VeiculosClientProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const currentRole = currentUser?.user_metadata?.role
+  const currentRole = currentUser?.role
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
@@ -553,7 +553,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-md transition-shadow"
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-16/10 bg-neutral-100">
+                  <div className="relative aspect-video bg-neutral-100">
                     {v.fotos?.length > 0 ? (
                       <Image
                         src={v.fotos[0]}

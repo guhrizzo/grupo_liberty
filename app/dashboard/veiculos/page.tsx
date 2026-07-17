@@ -23,6 +23,7 @@ export default async function VeiculosPage() {
     user = {
       id: decoded.uid,
       email: decoded.email,
+      role: (decoded as any).role ?? (decoded as any).admin ? 'admin' : undefined,
     }
   } catch (error) {
     redirect('/login')

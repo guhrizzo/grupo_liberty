@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
         hostname: 'tdnioxrmhfhfvlfvuand.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'grupo-liberty.firebasestorage.app',
+        pathname: '/**',
+      },
     ],
   },
 };

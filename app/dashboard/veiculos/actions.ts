@@ -49,11 +49,16 @@ async function assertAdmin() {
   const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
 
+  const claims: any = user
+  const isAdminByClaim = claims.admin === true || claims.role === 'admin'
+
+  if (isAdminByClaim) return { user }
+
   const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
   const profile = profileDoc.data()
 
   if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado.')
+    throw new Error('Acesso negado. Você precisa ser administrador para realizar esta ação.')
   }
 
   return { user }
