@@ -53,11 +53,8 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-6xl">
-        
-        {/* Cabeçalho */}
-        <div className="mb-8">
+    <div className="space-y-6">
+      <div>
           <div className="flex items-center gap-2 text-sm text-neutral-500">
             <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
               Dashboard
@@ -228,7 +225,6 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
             ))}
           </div>
         )}
-      </div>
     </div>
   )
 }

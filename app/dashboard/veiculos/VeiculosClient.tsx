@@ -210,10 +210,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-6xl">
-        {/* Cabeçalho */}
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <div className="flex items-center gap-2 text-sm text-neutral-500">
               <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
@@ -640,7 +638,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             </div>
           )}
         </div>
-      </div>
 
       {/* Modal de Confirmação de Exclusão */}
       {deleteId && (

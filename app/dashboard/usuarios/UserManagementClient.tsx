@@ -144,54 +144,35 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   })
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-8 md:px-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Cabeçalho */}
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500">
-              <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
-                Dashboard
-              </Link>
-              <span>/</span>
-              <span className="font-medium text-neutral-900">Gerenciar Usuários</span>
-            </div>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
-              Controle de Acessos
-            </h1>
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
+              Dashboard
+            </Link>
+            <span>/</span>
+            <span className="font-medium text-neutral-900">Gerenciar Usuários</span>
           </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-600">
-              Logado como: <strong className="text-neutral-900">{currentUser.email}</strong>
-              {currentRole ? (
-                <span className="ml-2 rounded-full bg-neutral-200 px-2.5 py-0.5 text-xs font-semibold text-neutral-800 uppercase">
-                  {currentRole}
-                </span>
-              ) : (
-                <span className="ml-2 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800">
-                  Sem Perfil
-                </span>
-              )}
-            </span>
-          </div>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
+            Controle de Acessos
+          </h1>
         </div>
+      </div>
 
-        {/* Alerta de Mensagem */}
-        {message && (
-          <div
-            className={`mb-6 rounded-lg p-4 text-sm font-medium ${
-              message.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
+      {message && (
+        <div
+          className={`rounded-lg p-4 text-sm font-medium ${
+            message.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
 
-        {/* Conteúdo Principal */}
-        <div className="grid gap-8 lg:grid-cols-12">
+      <div className="grid gap-8 lg:grid-cols-12">
           {/* Formulário de Criação */}
           <div className="lg:col-span-4">
             <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
@@ -396,7 +377,6 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             </div>
           </div>
         </div>
-      </div>
 
       {/* Modal de Confirmação para Atualização de Role */}
       {userToUpdateRole && (
