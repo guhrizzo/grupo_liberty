@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { IconArrowLeft } from '@tabler/icons-react'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
@@ -43,9 +44,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
             href="/"
             className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900 transition-colors"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 13L5 8l5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <IconArrowLeft size={16} stroke={2} />
             Voltar para a listagem
           </Link>
 

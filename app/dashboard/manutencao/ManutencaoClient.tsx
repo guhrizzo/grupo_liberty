@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { IconPlus } from '@tabler/icons-react'
 
 type Status = 'agendada' | 'em_execucao' | 'concluida' | 'cancelada'
 
@@ -261,9 +262,7 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
           onClick={openCreate}
           className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-4 py-2.5 transition-colors shadow-xs cursor-pointer"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+          <IconPlus size={14} stroke={2.5} />
           Nova Manutenção
         </button>
       </div>

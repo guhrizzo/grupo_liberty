@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { IconSearch, IconCar } from '@tabler/icons-react'
+import LoadingBar from './components/LoadingBar'
 import { Veiculo } from './dashboard/veiculos/actions'
 
 interface PublicVehiclesListProps {
@@ -14,6 +16,12 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
   const [selectedBrand, setSelectedBrand] = useState('Todas')
   const [selectedCambio, setSelectedCambio] = useState('Todos')
   const [sortBy, setSortBy] = useState('recente') // 'recente' | 'preco-cresc' | 'preco-decresc' | 'ano-novo'
+  const [showInitialLoading, setShowInitialLoading] = useState(true)
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowInitialLoading(false), 400)
+    return () => clearTimeout(t)
+  }, [])
 
   // Marcas únicas presentes nos veículos
   const brands = useMemo(() => {
@@ -66,15 +74,15 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
 
   return (
     <div className="space-y-8">
+      {showInitialLoading && <LoadingBar className="h-1" />}
+
       {/* Barra de Filtros e Busca */}
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs">
         <div className="grid gap-4 md:grid-cols-4">
           {/* Campo de Busca */}
           <div className="relative md:col-span-2">
             <span className="absolute left-3.5 top-3 text-neutral-400">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <IconSearch size={18} stroke={2} />
             </span>
             <input
               type="text"
@@ -137,9 +145,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
       {filteredAndSorted.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-16 text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-400">
-              <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <IconCar size={24} stroke={1.5} className="text-neutral-400" />
           </div>
           <h3 className="text-base font-bold text-neutral-950">Nenhum veículo encontrado</h3>
           <p className="text-sm text-neutral-500 mt-1">Experimente mudar seus filtros ou termos de busca.</p>
@@ -164,9 +170,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-300">
-                        <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+                      <IconCar size={48} stroke={1.5} className="text-neutral-300" />
                     </div>
                   )}
                   {v.fotos && v.fotos.length > 1 && (

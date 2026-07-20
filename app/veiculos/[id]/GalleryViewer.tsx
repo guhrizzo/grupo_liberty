@@ -2,6 +2,13 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import {
+  IconCar,
+  IconArrowsMaximize,
+  IconX,
+  IconChevronLeft,
+  IconChevronRight,
+} from '@tabler/icons-react'
 
 interface GalleryViewerProps {
   fotos: string[]
@@ -16,9 +23,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
   if (!fotos || fotos.length === 0) {
     return (
       <div className="flex aspect-16/9 w-full items-center justify-center rounded-xl border border-dashed border-neutral-350 bg-neutral-50 text-neutral-400">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <IconCar size={48} stroke={1.5} />
         <span className="ml-2 text-sm font-medium">Nenhuma foto cadastrada</span>
       </div>
     )
@@ -58,9 +63,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
           className="object-cover"
         />
         <div className="absolute bottom-4 right-4 rounded-xl bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-3 py-1.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-305">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-          </svg>
+          <IconArrowsMaximize size={12} stroke={2.5} />
           Clique para ampliar
         </div>
       </div>
@@ -96,25 +99,20 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xs px-4"
         >
           {/* Botão de Fechar */}
-          <button 
+          <button
             onClick={closeLightbox}
             className="absolute top-6 right-6 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all cursor-pointer"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <IconX size={20} stroke={2.5} />
           </button>
 
           {/* Navegação Anterior */}
           {fotos.length > 1 && (
-            <button 
+            <button
               onClick={prevImage}
               className="absolute left-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-all cursor-pointer hidden sm:block"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6"></polyline>
-              </svg>
+              <IconChevronLeft size={24} stroke={2.5} />
             </button>
           )}
 
@@ -131,13 +129,11 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
 
           {/* Navegação Próxima */}
           {fotos.length > 1 && (
-            <button 
+            <button
               onClick={nextImage}
               className="absolute right-6 top-1/2 -translate-y-1/2 text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-all cursor-pointer hidden sm:block"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
+              <IconChevronRight size={24} stroke={2.5} />
             </button>
           )}
 

@@ -12,11 +12,12 @@ export const metadata = {
 export default async function HomePage() {
   const cookieStore = await cookies()
   const session = cookieStore.get('session')?.value
-  let user: any = null
+  let user: { uid: string; email?: string | null } | null = null
 
   if (session) {
     try {
-      user = await adminAuth.verifySessionCookie(session, true)
+      const decoded = await adminAuth.verifySessionCookie(session, true)
+      user = { uid: decoded.uid, email: decoded.email ?? null }
     } catch (error) {
       // Ignorar erro e continuar como deslogado
     }
@@ -39,7 +40,7 @@ export default async function HomePage() {
             {user ? (
               <div className="flex items-center gap-3">
                 <span className="hidden sm:inline-block text-xs font-semibold text-neutral-500">
-                  {user.email}
+                  {user.email ?? ''}
                 </span>
                 <Link
                   href="/dashboard"

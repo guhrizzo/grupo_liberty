@@ -1,14 +1,17 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { IconPlus, IconUpload, IconX, IconCar } from '@tabler/icons-react'
+import LoadingBar from '../../components/LoadingBar'
 import {
   createVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
   type Veiculo,
+  type LocalizacaoVeiculo,
 } from './actions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,6 +49,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [combustivel, setCombustivel] = useState('flex')
   const [placa, setPlaca] = useState('')
   const [descricao, setDescricao] = useState('')
+  const [localizacao, setLocalizacao] = useState<LocalizacaoVeiculo>('jau')
 
   // Fotos
   const [photos, setPhotos] = useState<PhotoPreview[]>([])
@@ -55,6 +59,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deletePending, startDeleteTransition] = useTransition()
 
   const MAX_PHOTOS = 10
 
@@ -118,6 +123,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCombustivel('flex')
     setPlaca('')
     setDescricao('')
+    setLocalizacao('jau')
     photos.forEach(p => URL.revokeObjectURL(p.url))
     setPhotos([])
   }
@@ -158,6 +164,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('combustivel', combustivel)
       formData.append('placa', placa)
       formData.append('descricao', descricao)
+      formData.append('localizacao', localizacao)
       formData.append('fotos', JSON.stringify(photoUrls))
 
       const result = await createVehicle(formData)
@@ -230,9 +237,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               onClick={() => { setShowForm(!showForm); setMessage(null) }}
               className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-5 py-2.5 transition-colors shadow-xs cursor-pointer"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <IconPlus size={16} stroke={2.5} />
               {showForm ? 'Cancelar' : 'Novo Veículo'}
             </button>
           )}
@@ -405,6 +410,25 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
               </div>
 
+              {/* Linha 3.5: Localização */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label htmlFor="localizacao" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+                    Localização *
+                  </label>
+                  <select
+                    id="localizacao"
+                    required
+                    value={localizacao}
+                    onChange={(e) => setLocalizacao(e.target.value as LocalizacaoVeiculo)}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
+                  >
+                    <option value="jau">Jaú/SP</option>
+                    <option value="bauru">Bauru/SP</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Descrição */}
               <div>
                 <label htmlFor="descricao" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
@@ -449,9 +473,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       e.target.value = ''
                     }}
                   />
-                  <svg className="mx-auto mb-2 text-neutral-400" width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  <IconUpload className="mx-auto mb-2 text-neutral-400" size={32} stroke={1.5} />
                   <p className="text-sm text-neutral-600 font-medium">
                     Arraste as fotos aqui ou <span className="text-neutral-950 underline">clique para selecionar</span>
                   </p>
@@ -477,9 +499,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                           onClick={(e) => { e.stopPropagation(); removePhoto(index) }}
                           className="absolute top-1 right-1 rounded-full bg-black/60 hover:bg-black/80 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9 3L3 9M3 3l6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                          </svg>
+                          <IconX size={12} stroke={2.5} />
                         </button>
                         {index === 0 && (
                           <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
@@ -501,14 +521,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                >
-                  {uploadProgress ? 'Enviando fotos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
-                </button>
-              </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+        >
+          {uploadProgress ? 'Enviando fotos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
+        </button>
+      </div>
+      {loading && <LoadingBar className="h-0.5" />}
             </form>
           </div>
         )}
@@ -534,9 +555,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           {veiculos.length === 0 ? (
             <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center">
               <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-400">
-                  <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <IconCar size={24} stroke={1.5} className="text-neutral-400" />
               </div>
               <p className="text-sm font-medium text-neutral-500">Nenhum veículo cadastrado ainda</p>
               <p className="text-xs text-neutral-400 mt-1">
@@ -561,11 +580,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-300">
-                          <path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0M5 17H3v-6l2-5h9l4 5h1a2 2 0 0 1 2 2v4h-2m-4 0H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </div>
+                    <div className="flex h-full items-center justify-center">
+                      <IconCar size={40} stroke={1.5} className="text-neutral-300" />
+                    </div>
                     )}
                     {v.fotos?.length > 1 && (
                       <span className="absolute top-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-bold px-2 py-0.5">
@@ -605,6 +622,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       </span>
                       <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
                         {v.combustivel}
+                      </span>
+                      <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                        {v.localizacao === 'bauru' ? 'Bauru/SP' : 'Jaú/SP'}
                       </span>
                     </div>
 
@@ -655,13 +675,17 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               >
                 Cancelar
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleteLoading}
-                className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {deleteLoading ? 'Removendo...' : 'Sim, Remover'}
-              </button>
+          <button
+            onClick={() => {
+              startDeleteTransition(async () => {
+                await handleDelete()
+              })
+            }}
+            disabled={deleteLoading || deletePending}
+            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+          >
+            {deleteLoading || deletePending ? 'Removendo...' : 'Sim, Remover'}
+          </button>
             </div>
           </div>
         </div>

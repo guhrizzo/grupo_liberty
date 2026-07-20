@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { IconNote } from '@tabler/icons-react'
 import { updatePropostaStatus, type Proposta } from './actions'
 
 interface PropostasClientProps {
@@ -104,9 +105,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
         {filteredPropostas.length === 0 ? (
           <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center">
             <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-neutral-400">
-                <path d="M8 9h8M8 13h6M18 4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <IconNote size={24} stroke={1.5} className="text-neutral-400" />
             </div>
             <p className="text-sm font-medium text-neutral-500">Nenhuma proposta encontrada</p>
             <p className="text-xs text-neutral-400 mt-1">Aguarde novas propostas ou altere o filtro de status.</p>

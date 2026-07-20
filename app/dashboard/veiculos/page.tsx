@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth } from '@/utils/firebase/admin'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getVehicles } from './actions'
 import VeiculosClient from './VeiculosClient'
 
@@ -20,10 +20,18 @@ export default async function VeiculosPage() {
 
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
+    let role: string | undefined = (decoded as any).role
+    if (!role && (decoded as any).admin === true) role = 'admin'
+
+    if (!role) {
+      const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+      role = profileDoc.data()?.role
+    }
+
     user = {
       id: decoded.uid,
       email: decoded.email,
-      role: (decoded as any).role ?? (decoded as any).admin ? 'admin' : undefined,
+      role,
     }
   } catch (error) {
     redirect('/login')

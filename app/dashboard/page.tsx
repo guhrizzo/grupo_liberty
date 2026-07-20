@@ -64,11 +64,12 @@ export default async function DashboardPage() {
   const session = cookieStore.get('session')?.value
   if (!session) return null
 
-  let user: { uid: string; email: string | null | undefined } | null = null
+  let user: { uid: string; email?: string | null } | null = null
   let role: string | null = null
 
   try {
-    user = await adminAuth.verifySessionCookie(session, true)
+    const decoded = await adminAuth.verifySessionCookie(session, true)
+    user = { uid: decoded.uid, email: decoded.email ?? null }
     const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
     role = profileDoc.data()?.role || null
   } catch {
@@ -83,7 +84,7 @@ export default async function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Boas-vindas</p>
-            <h2 className="text-xl font-bold text-neutral-900 mt-1">{user.email}</h2>
+            <h2 className="text-xl font-bold text-neutral-900 mt-1">{user.email ?? ''}</h2>
             <p className="text-sm text-neutral-500 mt-1">
               Acesse as ferramentas e módulos do sistema autorizados para seu perfil.
             </p>

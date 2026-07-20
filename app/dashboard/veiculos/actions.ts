@@ -6,6 +6,8 @@ import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export type LocalizacaoVeiculo = 'jau' | 'bauru'
+
 export interface Veiculo {
   id: string
   marca: string
@@ -19,6 +21,7 @@ export interface Veiculo {
   placa: string | null
   descricao: string | null
   fotos: string[]
+  localizacao: LocalizacaoVeiculo
   created_at: string
   updated_at: string
   created_by: string | null
@@ -90,6 +93,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         placa: data.placa || null,
         descricao: data.descricao || null,
         fotos: data.fotos || [],
+        localizacao: data.localizacao === 'bauru' ? 'bauru' : 'jau',
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -174,6 +178,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const descricao = (formData.get('descricao') as string) || null
   const fotosJson = formData.get('fotos') as string
   const fotos: string[] = fotosJson ? JSON.parse(fotosJson) : []
+  const localizacaoRaw = formData.get('localizacao') as string
+  const localizacao: LocalizacaoVeiculo = localizacaoRaw === 'bauru' ? 'bauru' : 'jau'
 
   // Validações básicas
   if (!marca || !modelo || !ano || !preco) {
@@ -204,6 +210,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       placa,
       descricao,
       fotos,
+      localizacao,
       created_by: user.uid,
       created_at: now,
       updated_at: now,
