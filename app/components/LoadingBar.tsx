@@ -1,16 +1,14 @@
-import React from 'react';
+'use client'
 
-const Loader = () => {
+export default function LoadingBar({ className = '' }: { className?: string }) {
   return (
-    <div className="flex flex-row gap-2">
-      <div className="animate-pulse bg-gray-300 w-14 h-14 rounded-lg" />
-      <div className="flex flex-col gap-2">
-        <div className="animate-pulse bg-gray-300 w-28 h-5 rounded-lg" />
-        <div className="animate-pulse bg-gray-300 w-36 h-3 rounded-lg" />
-        <div className="animate-pulse bg-gray-300 w-36 h-2 rounded-lg" />
-      </div>
+    <div
+      role="status"
+      aria-label="Carregando"
+      className={`relative w-full overflow-hidden rounded-full bg-neutral-200 ${className}`}
+    >
+      <div className="absolute inset-y-0 w-1/3 animate-loading-bar rounded-full bg-gradient-to-r from-transparent via-neutral-500 to-transparent shadow-[0_0_12px_2px_rgba(115,115,115,0.45)]" />
+      <span className="sr-only">Carregando…</span>
     </div>
-  );
+  )
 }
-
-export default Loader;

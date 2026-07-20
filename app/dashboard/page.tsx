@@ -1,6 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
+import {
+  IconUsers,
+  IconCar,
+  IconMail,
+  IconScale,
+  IconTool,
+  type Icon,
+} from '@tabler/icons-react'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 export const metadata: Metadata = {
@@ -11,7 +19,7 @@ type ModuleCard = {
   href: string
   titulo: string
   descricao: string
-  emoji: string
+  icon: Icon
   badge: string
   allowed: string[]
 }
@@ -21,7 +29,7 @@ const MODULES: ModuleCard[] = [
     href: '/dashboard/usuarios',
     titulo: 'Gerenciar Usuários',
     descricao: 'Cadastre novas contas de administradores, vendedores, advogados ou equipe de suporte.',
-    emoji: '👥',
+    icon: IconUsers,
     badge: 'Admin',
     allowed: ['admin'],
   },
@@ -29,7 +37,7 @@ const MODULES: ModuleCard[] = [
     href: '/dashboard/veiculos',
     titulo: 'Gerenciar Veículos',
     descricao: 'Cadastre veículos com fotos, gerencie o estoque e controle as informações da frota.',
-    emoji: '🚗',
+    icon: IconCar,
     badge: 'Admin',
     allowed: ['admin'],
   },
@@ -37,7 +45,7 @@ const MODULES: ModuleCard[] = [
     href: '/dashboard/propostas',
     titulo: 'Gerenciar Propostas',
     descricao: 'Visualize e responda as mensagens de interesse e propostas de compra enviadas por clientes.',
-    emoji: '📩',
+    icon: IconMail,
     badge: 'Vendas',
     allowed: ['admin', 'vendedor'],
   },
@@ -45,7 +53,7 @@ const MODULES: ModuleCard[] = [
     href: '/dashboard/juridico',
     titulo: 'Módulo Jurídico',
     descricao: 'Acompanhe processos, contratos e prazos do departamento jurídico da Liberty Car.',
-    emoji: '⚖️',
+    icon: IconScale,
     badge: 'Jurídico',
     allowed: ['admin', 'advogado'],
   },
@@ -53,7 +61,7 @@ const MODULES: ModuleCard[] = [
     href: '/dashboard/manutencao',
     titulo: 'Manutenção da Frota',
     descricao: 'Ordens de serviço, agendamentos, oficinas e histórico de manutenções dos veículos.',
-    emoji: '🛠️',
+    icon: IconTool,
     badge: 'Operações',
     allowed: ['admin', 'vendedor', 'suporte'],
   },
@@ -109,8 +117,8 @@ export default async function DashboardPage() {
               className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
             >
               <div>
-                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center text-xl mb-4">
-                  {m.emoji}
+                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700 mb-4">
+                  <m.icon size={22} stroke={1.75} />
                 </div>
                 <h4 className="text-lg font-bold text-neutral-900">{m.titulo}</h4>
                 <p className="text-sm text-neutral-500 mt-1">{m.descricao}</p>
