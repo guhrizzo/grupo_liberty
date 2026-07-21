@@ -21,6 +21,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
+    "tabler": "^1.0.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
@@ -34,5 +35,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
     "typescript": "^5"
+  },
+  "overrides": {
+    "jose": "4.15.9"
   }
 }
