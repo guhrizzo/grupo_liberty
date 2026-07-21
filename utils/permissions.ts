@@ -1,6 +1,6 @@
 import 'server-only'
 import { cookies } from 'next/headers'
-import { adminAuth, adminDb } from './admin'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 export interface SessionUser {
   uid: string
