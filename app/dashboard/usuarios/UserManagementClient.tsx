@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createUserAction, getAllUsersAction, updateUserRoleAction, deleteUserAction } from './actions'
+import { createUserAction, getAllUsersAction, updateUserRoleAction, deleteUserAction, updateUserPermissionsAction } from './actions'
 
 interface UserManagementClientProps {
   currentUser: any
@@ -39,6 +39,9 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
 
   const [userToUpdateRole, setUserToUpdateRole] = useState<any | null>(null)
   const [pendingRole, setPendingRole] = useState<string>('')
+
+  const [pendingPermissions, setPendingPermissions] = useState<{ contratos: boolean }>({ contratos: false })
+  const [userToUpdatePerms, setUserToUpdatePerms] = useState<any | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

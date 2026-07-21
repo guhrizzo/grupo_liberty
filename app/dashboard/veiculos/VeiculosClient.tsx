@@ -944,4 +944,4 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       )}
     </div>
   )
-}
+} 

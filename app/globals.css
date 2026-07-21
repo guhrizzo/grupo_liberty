@@ -1,11 +1,196 @@
 @import "tailwindcss";
 
+/* =========================================================
+   Liberty Car — Dark Neon Design System
+   As cores/efeitos ficam em variáveis CSS no @theme.
+   Estilos visuais (fundo, cor de texto, inputs) só são
+   aplicados dentro do escopo `.neon-theme`, para que
+   páginas claras (como o dashboard) não sejam afetadas.
+   ========================================================= */
+
+@theme {
+  /* Paleta */
+  --color-bg-0: #06070b;
+  --color-bg-1: #0b0d14;
+  --color-bg-2: #11141d;
+  --color-bg-3: #161a25;
+  --color-bg-4: #1c2230;
+
+  --color-line: #1f2533;
+  --color-line-soft: #1a1f2c;
+
+  --color-text-hi: #ffffff;
+  --color-text-md: #b6bdcc;
+  --color-text-lo: #7a8195;
+  --color-text-mute: #555c70;
+
+  --color-neon: #00d4ff;
+  --color-neon-soft: #38e1ff;
+  --color-neon-deep: #0090c8;
+  --color-neon-glow: #00d4ff66;
+
+  --color-success: #2ee59d;
+  --color-danger: #ff4d6d;
+  --color-warn: #ffb547;
+
+  /* Tipografia */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-poppins), system-ui, sans-serif;
+
+  /* Animações */
+  --animate-loading-bar: loading-bar-slide 1.4s ease-in-out infinite;
+  --animate-pulse-soft: pulse-soft 2.2s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-fade-up: fade-up 0.5s ease-out both;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-spin-slow: spin 6s linear infinite;
+  --animate-glow: glow 2.4s ease-in-out infinite;
+}
+
 @keyframes loading-bar-slide {
   0%   { left: -40%; }
   100% { left: 100%; }
 }
 
-@theme {
-  --animate-loading-bar: loading-bar-slide 1.4s ease-in-out infinite;
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
 }
 
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 14px -2px var(--color-neon-glow), 0 0 0 1px var(--color-neon-soft) inset; }
+  50%      { box-shadow: 0 0 22px  0px var(--color-neon-glow), 0 0 0 1px var(--color-neon-soft) inset; }
+}
+
+/* =========================================================
+   Base global (sem cores/background — só fontes)
+   ========================================================= */
+
+html, body {
+  font-family: var(--font-sans);
+}
+
+/* =========================================================
+   Escopo do tema dark: aplique `.neon-theme` no container
+   raiz da página para ativar background, cores e inputs.
+   ========================================================= */
+
+.neon-theme {
+  background: var(--color-bg-0);
+  color: var(--color-text-md);
+}
+
+.neon-theme body,
+.neon-theme {
+  background-image:
+    radial-gradient(900px 600px at 80% -10%, rgba(0, 212, 255, 0.08), transparent 60%),
+    radial-gradient(800px 500px at -10% 110%, rgba(0, 144, 200, 0.06), transparent 60%);
+  background-attachment: fixed;
+}
+
+.neon-theme h1,
+.neon-theme h2,
+.neon-theme h3,
+.neon-theme h4,
+.neon-theme h5,
+.neon-theme h6 {
+  font-family: var(--font-display);
+  color: var(--color-text-hi);
+  letter-spacing: -0.02em;
+}
+
+.neon-theme ::selection {
+  background: var(--color-neon);
+  color: #001018;
+}
+
+.neon-theme ::-webkit-scrollbar { width: 10px; height: 10px; }
+.neon-theme ::-webkit-scrollbar-track { background: var(--color-bg-0); }
+.neon-theme ::-webkit-scrollbar-thumb {
+  background: var(--color-bg-3);
+  border-radius: 999px;
+  border: 2px solid var(--color-bg-0);
+}
+.neon-theme ::-webkit-scrollbar-thumb:hover { background: var(--color-bg-4); }
+
+.neon-theme input,
+.neon-theme select,
+.neon-theme textarea {
+  background: var(--color-bg-2);
+  color: var(--color-text-hi);
+  border-color: var(--color-line);
+}
+.neon-theme input::placeholder,
+.neon-theme textarea::placeholder { color: var(--color-text-mute); }
+.neon-theme input:focus,
+.neon-theme select:focus,
+.neon-theme textarea:focus {
+  outline: none;
+  border-color: var(--color-neon);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.15);
+}
+
+/* =========================================================
+   Helpers de utilitários visuais
+   ========================================================= */
+
+@utility glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  border: 1px solid var(--color-line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+@utility glass-strong {
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid var(--color-line);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+@utility neon-text {
+  color: var(--color-neon-soft);
+  text-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+}
+
+@utility neon-border {
+  border: 1px solid var(--color-neon);
+  box-shadow: 0 0 14px -2px var(--color-neon-glow), 0 0 0 1px rgba(0, 212, 255, 0.25) inset;
+}
+
+@utility neon-glow {
+  box-shadow: 0 0 18px -4px var(--color-neon-glow), 0 0 0 1px rgba(0, 212, 255, 0.25) inset;
+}
+
+@utility grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
+}
+
+@utility shimmer {
+  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.18), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2.4s linear infinite;
+}
+
+@utility pulse-soft {
+  animation: pulse-soft 2.2s ease-in-out infinite;
+}

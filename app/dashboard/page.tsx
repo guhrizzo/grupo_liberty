@@ -92,7 +92,7 @@ export default async function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Boas-vindas</p>
-            <h2 className="text-xl font-bold text-neutral-900 mt-1">{user.email ?? ''}</h2>
+            <h2 className="text-xl font-bold text-black mt-1">{user.email ?? ''}</h2>
             <p className="text-sm text-neutral-500 mt-1">
               Acesse as ferramentas e módulos do sistema autorizados para seu perfil.
             </p>
@@ -120,7 +120,7 @@ export default async function DashboardPage() {
                 <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700 mb-4">
                   <m.icon size={22} stroke={1.75} />
                 </div>
-                <h4 className="text-lg font-bold text-neutral-900">{m.titulo}</h4>
+                <h4 className="text-lg font-bold ">{m.titulo}</h4>
                 <p className="text-sm text-neutral-500 mt-1">{m.descricao}</p>
               </div>
               <div className="mt-6 flex items-center justify-between">

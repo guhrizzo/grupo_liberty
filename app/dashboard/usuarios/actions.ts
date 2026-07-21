@@ -70,11 +70,46 @@ export async function getAllUsersAction() {
       email: u.email || '',
       name: u.displayName || '',
       role: profile?.role || null,
+      permissions: profile?.permissions || {},
       created_at: profile?.created_at || u.metadata.creationTime,
     }
   })
 
   return combined
+}
+
+/**
+ * Atualiza permissões granulares de um usuário (somente admin).
+ */
+export async function updateUserPermissionsAction(
+  userId: string,
+  permissions: Record<string, boolean>,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  if (!userId) return { error: 'ID de usuário inválido.' }
+
+  const sanitized: Record<string, boolean> = {}
+  for (const [key, value] of Object.entries(permissions || {})) {
+    if (typeof value === 'boolean') {
+      sanitized[key.slice(0, 50)] = value
+    }
+  }
+
+  try {
+    await adminDb.collection('profiles').doc(userId).update({
+      permissions: sanitized,
+      updated_at: new Date().toISOString(),
+    })
+    revalidatePath('/dashboard/usuarios')
+    return { success: 'Permissões atualizadas com sucesso!' }
+  } catch (error: any) {
+    return { error: `Erro ao atualizar permissões: ${error.message}` }
+  }
 }
 
 /**

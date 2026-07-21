@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconNote } from '@tabler/icons-react'
+import { IconNote, IconDownload } from '@tabler/icons-react'
 import { updatePropostaStatus, type Proposta } from './actions'
 
 interface PropostasClientProps {
@@ -14,6 +14,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
   const router = useRouter()
   const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'aceito' | 'recusado'>('todos')
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const handleStatusChange = async (id: string, newStatus: 'aceito' | 'recusado') => {
@@ -32,6 +33,32 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
       setMessage({ type: 'error', text: err.message || 'Erro ao processar.' })
     } finally {
       setLoadingId(null)
+    }
+  }
+
+  const handleDownloadPDF = async (id: string) => {
+    setDownloadingId(id)
+    setMessage(null)
+    try {
+      const res = await fetch(`/api/propostas/${id}/pdf`)
+      if (!res.ok) {
+        const errorText = await res.text()
+        setMessage({ type: 'error', text: errorText || 'Erro ao gerar PDF.' })
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `proposta-${id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setMessage({ type: 'error', text: 'Erro de conexão ao gerar o PDF.' })
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -201,25 +228,43 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                   </div>
                 </div>
 
-                {/* Ações (Apenas se pendente) */}
-                {p.status === 'pendente' && (
-                  <div className="mt-6 pt-4 border-t border-neutral-100 flex justify-end gap-3">
-                    <button
-                      disabled={loadingId === p.id}
-                      onClick={() => handleStatusChange(p.id, 'recusado')}
-                      className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      Recusar Proposta
-                    </button>
-                    <button
-                      disabled={loadingId === p.id}
-                      onClick={() => handleStatusChange(p.id, 'aceito')}
-                      className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                    >
-                      Aceitar Proposta
-                    </button>
-                  </div>
-                )}
+                {/* Ações */}
+                <div className="mt-6 pt-4 border-t border-neutral-100 flex flex-wrap justify-end gap-3">
+                  {/* Botão de Download PDF — sempre visível, só ativo se aceito */}
+                  <button
+                    disabled={p.status !== 'aceito' || downloadingId === p.id}
+                    onClick={() => handleDownloadPDF(p.id)}
+                    title={p.status !== 'aceito' ? 'Disponível apenas para propostas aceitas' : 'Baixar PDF da proposta'}
+                    className={`inline-flex items-center gap-1.5 rounded-lg border text-xs font-bold px-4 py-2 transition-colors ${
+                      p.status === 'aceito'
+                        ? 'border-neutral-300 hover:bg-neutral-100 text-neutral-700 cursor-pointer'
+                        : 'border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
+                    } disabled:opacity-50`}
+                  >
+                    <IconDownload size={13} stroke={2.5} />
+                    {downloadingId === p.id ? 'Gerando...' : 'Baixar PDF'}
+                  </button>
+
+                  {/* Aceitar / Recusar — apenas se pendente */}
+                  {p.status === 'pendente' && (
+                    <>
+                      <button
+                        disabled={loadingId === p.id}
+                        onClick={() => handleStatusChange(p.id, 'recusado')}
+                        className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Recusar Proposta
+                      </button>
+                      <button
+                        disabled={loadingId === p.id}
+                        onClick={() => handleStatusChange(p.id, 'aceito')}
+                        className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                      >
+                        Aceitar Proposta
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

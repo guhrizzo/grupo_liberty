@@ -28,19 +28,19 @@ export default function RouteLoadingBar() {
 
     ;(router as any).push = (...args: any[]) => {
       start()
-      const res = originalPush(...args as any)
+      const res = originalPush.apply(router, args as any)
       Promise.resolve(res).finally(stop)
       return res
     }
     ;(router as any).replace = (...args: any[]) => {
       start()
-      const res = originalReplace(...args as any)
+      const res = originalReplace.apply(router, args as any)
       Promise.resolve(res).finally(stop)
       return res
     }
     ;(router as any).refresh = (...args: any[]) => {
       start()
-      const res = originalRefresh(...args as any)
+      const res = originalRefresh.apply(router, args as any)
       Promise.resolve(res).finally(stop)
       return res
     }
@@ -60,7 +60,7 @@ export default function RouteLoadingBar() {
   if (!loading) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100]">
+    <div className="fixed top-0 left-0 right-0 z-100">
       <LoadingBar className="h-1" />
     </div>
   )
