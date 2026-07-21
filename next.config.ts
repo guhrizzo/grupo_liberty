@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ['firebase-admin', 'jwks-rsa', 'jose'],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
