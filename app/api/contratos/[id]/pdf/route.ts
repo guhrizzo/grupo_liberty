@@ -42,7 +42,7 @@ export async function GET(
     ? sanitizeFilename(metadata.clienteNome)
     : id
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
