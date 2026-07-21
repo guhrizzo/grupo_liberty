@@ -132,7 +132,12 @@ export async function criarContrato(
       atualizadoEm: now,
     }
 
-    const buffer = await renderToBuffer(createElement(ContratoDocument, { contrato }))
+    const buffer = await renderToBuffer(
+      // @react-pdf/renderer tipa renderToBuffer para exigir ReactElement<DocumentProps>,
+      // mas nosso wrapper ContratoDocument recebe { contrato } — o cast abaixo só
+      // contorna a checagem de tipos, o componente já renderiza um <Document> por dentro.
+      createElement(ContratoDocument, { contrato }) as any,
+    )
 
     const bucket = adminStorage.bucket()
     const fileRef = bucket.file(contrato.storagePath)
@@ -186,8 +191,9 @@ export async function buscarContrato(id: string): Promise<Contrato | null> {
 
   if (!id) return null
   const doc = await adminDb.collection('contratos').doc(id).get()
-  if (!doc.exists) return null
-  return serializeContrato(doc.id, doc.data())
+  const data = doc.data()
+  if (!doc.exists || !data) return null
+  return serializeContrato(doc.id, data)
 }
 
 export async function removerContrato(id: string): Promise<{ success?: string; error?: string }> {
