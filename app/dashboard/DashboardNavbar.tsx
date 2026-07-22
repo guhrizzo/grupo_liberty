@@ -10,6 +10,7 @@ import {
   IconScale,
   IconTool,
   IconUsers,
+  IconFileText,
   IconMenu2,
 } from '@tabler/icons-react'
 import LoadingBar from '../components/LoadingBar'
@@ -54,6 +55,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'advogado'],
   },
   {
+    href: '/dashboard/contratos',
+    label: 'Contratos',
+    icon: 'file-text',
+    roles: ['admin', 'advogado', 'vendedor'],
+  },
+  {
     href: '/dashboard/manutencao',
     label: 'Manutenção',
     icon: 'wrench',
@@ -78,6 +85,8 @@ function Icon({ name }: { name: string }) {
       return <IconMail className={cls} stroke={2} />
     case 'scales':
       return <IconScale className={cls} stroke={2} />
+    case 'file-text':
+      return <IconFileText className={cls} stroke={2} />
     case 'wrench':
       return <IconTool className={cls} stroke={2} />
     case 'users':
