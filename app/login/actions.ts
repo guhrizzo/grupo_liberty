@@ -5,12 +5,14 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
-export async function login(formData: FormData) {
+type LoginResult = { error?: string }
+
+export async function login(_prev: LoginResult, formData: FormData): Promise<LoginResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
   if (!email || !password) {
-    redirect('/login?error=' + encodeURIComponent('E-mail e senha são obrigatórios.'))
+    return { error: 'E-mail e senha são obrigatórios.' }
   }
 
   try {
@@ -35,7 +37,7 @@ export async function login(formData: FormData) {
       } else {
         friendlyMessage = message
       }
-      redirect('/login?error=' + encodeURIComponent(friendlyMessage))
+      return { error: friendlyMessage }
     }
 
     const { idToken } = await res.json()
@@ -51,15 +53,14 @@ export async function login(formData: FormData) {
       path: '/',
       sameSite: 'lax',
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Erro no login:', error)
-    if (error.digest?.startsWith('NEXT_REDIRECT')) {
-      throw error
-    }
-    redirect('/login?error=' + encodeURIComponent(error.message || 'Erro ao realizar login'))
+    const message = error instanceof Error ? error.message : 'Erro ao realizar login'
+    return { error: message }
   }
 
   revalidatePath('/', 'layout')
+  // Mantemos redirect aqui porque o sucesso invalida a página inteira.
   redirect('/dashboard')
 }
 

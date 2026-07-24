@@ -210,7 +210,7 @@ type WavePosition = {
   rotate: number;
 };
 
-type FloatingLinesProps = {
+export type FloatingLinesProps = {
   linesGradient?: string[];
   enabledWaves?: Array<'top' | 'middle' | 'bottom'>;
   lineCount?: number | number[];

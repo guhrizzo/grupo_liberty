@@ -4,14 +4,27 @@ import { useState, useRef, useCallback, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
+import {
+  Breadcrumb,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  Input,
+  Select,
+  Textarea,
+  useToast,
+} from '../../components/ui'
+import { formatCurrency, formatKm } from '@/utils/format'
+import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits } from '@/utils/masks'
 import {
   createVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
   type Veiculo,
   type LocalizacaoVeiculo,
+  type VeiculoFieldErrors,
 } from './actions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -37,6 +50,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<VeiculoFieldErrors>({})
 
   // Cliente
   const [nomeCliente, setNomeCliente] = useState('')
@@ -156,6 +170,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setTelefoneAcessoria('')
     setContrato('')
     setDebitos('')
+    setFieldErrors({})
     photos.forEach(p => URL.revokeObjectURL(p.url))
     setPhotos([])
   }
@@ -164,6 +179,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     e.preventDefault()
     setLoading(true)
     setMessage(null)
+    setFieldErrors({})
 
     try {
       // 1. Upload das fotos
@@ -188,37 +204,40 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       const formData = new FormData()
       // Cliente
       formData.append('nomeCliente', nomeCliente)
-      formData.append('cpfCliente', cpfCliente)
+      formData.append('cpfCliente', onlyDigits(cpfCliente))
       formData.append('enderecoCliente', enderecoCliente)
-      formData.append('telefoneCliente', telefoneCliente)
+      formData.append('telefoneCliente', onlyDigits(telefoneCliente))
       // Veículo
       formData.append('marca', marca)
       formData.append('modelo', modelo)
       formData.append('ano', ano)
       formData.append('cor', cor)
       formData.append('quilometragem', quilometragem)
-      formData.append('preco', preco)
+      formData.append('preco', String(parseMoney(preco) || 0))
       formData.append('cambio', cambio)
       formData.append('combustivel', combustivel)
-      formData.append('placa', placa)
-      formData.append('renavam', renavam)
+      formData.append('placa', placa.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+      formData.append('renavam', onlyDigits(renavam))
       formData.append('descricao', descricao)
       formData.append('localizacao', localizacao)
       formData.append('fotos', JSON.stringify(photoUrls))
       // Financiamento
       formData.append('banco', banco)
       formData.append('parcelasRestantes', parcelasRestantes)
-      formData.append('valorParcela', valorParcela)
-      formData.append('custoAcumulado', custoAcumulado)
+      formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
+      formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
       // Acessória / Contrato
-      formData.append('telefoneAcessoria', telefoneAcessoria)
+      formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       formData.append('contrato', contrato)
       // Débitos
-      formData.append('debitos', debitos)
+      formData.append('debitos', debitos ? String(parseMoney(debitos) || 0) : '')
 
       const result = await createVehicle(formData)
 
       if (result.error) {
+        if (result.fieldErrors) {
+          setFieldErrors(result.fieldErrors)
+        }
         setMessage({ type: 'error', text: result.error })
       } else {
         setMessage({ type: 'success', text: result.success || 'Veículo cadastrado!' })
@@ -269,26 +288,25 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <div className="flex items-center gap-2 text-sm text-neutral-500">
-              <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
-                Dashboard
-              </Link>
-              <span>/</span>
-              <span className="font-medium text-neutral-900">Veículos</span>
-            </div>
+            <Breadcrumb
+              items={[
+                { label: 'Dashboard', href: '/dashboard' },
+                { label: 'Veículos' },
+              ]}
+            />
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
               Gerenciar Veículos
             </h1>
           </div>
 
           {currentRole === 'admin' && (
-            <button
+            <Button
+              variant={showForm ? 'secondary' : 'liberty'}
+              leftIcon={<IconPlus size={16} stroke={2.5} />}
               onClick={() => { setShowForm(!showForm); setMessage(null) }}
-              className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-5 py-2.5 transition-colors shadow-xs cursor-pointer"
             >
-              <IconPlus size={16} stroke={2.5} />
               {showForm ? 'Cancelar' : 'Novo Veículo'}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -320,58 +338,49 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   Cliente
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="nomeCliente" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Nome
-                    </label>
-                    <input
-                      id="nomeCliente"
-                      type="text"
-                      value={nomeCliente}
-                      onChange={(e) => setNomeCliente(e.target.value)}
-                      placeholder="Nome do cliente"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="cpfCliente" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      CPF
-                    </label>
-                    <input
-                      id="cpfCliente"
-                      type="text"
-                      value={cpfCliente}
-                      onChange={(e) => setCpfCliente(e.target.value)}
-                      placeholder="000.000.000-00"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="enderecoCliente" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Endereço
-                    </label>
-                    <input
-                      id="enderecoCliente"
-                      type="text"
-                      value={enderecoCliente}
-                      onChange={(e) => setEnderecoCliente(e.target.value)}
-                      placeholder="Endereço do cliente"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="telefoneCliente" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Telefone
-                    </label>
-                    <input
-                      id="telefoneCliente"
-                      type="text"
-                      value={telefoneCliente}
-                      onChange={(e) => setTelefoneCliente(e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Input
+                    id="nomeCliente"
+                    label="Nome"
+                    value={nomeCliente}
+                    onChange={(e) => setNomeCliente(e.target.value)}
+                    placeholder="Nome do cliente"
+                    autoComplete="name"
+                  />
+
+                  <Input
+                    id="cpfCliente"
+                    label="CPF"
+                    value={cpfCliente}
+                    onChange={(e) => setCpfCliente(maskCPFCNPJ(e.target.value))}
+                    placeholder="000.000.000-00"
+                    autoComplete="off"
+                    inputMode="numeric"
+                    mask="cpfCnpj"
+                    error={fieldErrors.cpfCliente}
+                  />
+
+                  <Input
+                    id="enderecoCliente"
+                    label="Endereço"
+                    value={enderecoCliente}
+                    onChange={(e) => setEnderecoCliente(e.target.value)}
+                    placeholder="Endereço do cliente"
+                    autoComplete="street-address"
+                    containerClassName="sm:col-span-2"
+                  />
+
+                  <Input
+                    id="telefoneCliente"
+                    label="Telefone"
+                    value={telefoneCliente}
+                    onChange={(e) => setTelefoneCliente(maskPhone(e.target.value))}
+                    placeholder="(00) 00000-0000"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    mask="phone"
+                    error={fieldErrors.telefoneCliente}
+                    containerClassName="sm:col-span-2"
+                  />
                 </div>
               </div>
 
@@ -383,196 +392,147 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
                 {/* Linha 1: Marca, Modelo, Ano */}
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <label htmlFor="marca" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Marca *
-                    </label>
-                    <input
-                      id="marca"
-                      type="text"
-                      required
-                      value={marca}
-                      onChange={(e) => setMarca(e.target.value)}
-                      placeholder="Ex: Toyota"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="modelo" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Modelo *
-                    </label>
-                    <input
-                      id="modelo"
-                      type="text"
-                      required
-                      value={modelo}
-                      onChange={(e) => setModelo(e.target.value)}
-                      placeholder="Ex: Corolla XEi"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="ano" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Ano *
-                    </label>
-                    <input
-                      id="ano"
-                      type="number"
-                      required
-                      min="1900"
-                      max={new Date().getFullYear() + 1}
-                      value={ano}
-                      onChange={(e) => setAno(e.target.value)}
-                      placeholder="2024"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Input
+                    id="marca"
+                    label="Marca *"
+                    required
+                    value={marca}
+                    onChange={(e) => setMarca(e.target.value)}
+                    placeholder="Ex: Toyota"
+                    autoComplete="off"
+                    error={fieldErrors.marca}
+                  />
+                  <Input
+                    id="modelo"
+                    label="Modelo *"
+                    required
+                    value={modelo}
+                    onChange={(e) => setModelo(e.target.value)}
+                    placeholder="Ex: Corolla XEi"
+                    autoComplete="off"
+                    error={fieldErrors.modelo}
+                  />
+                  <Input
+                    id="ano"
+                    label="Ano *"
+                    type="number"
+                    required
+                    min="1900"
+                    max={new Date().getFullYear() + 1}
+                    value={ano}
+                    onChange={(e) => setAno(e.target.value)}
+                    placeholder="2024"
+                    inputMode="numeric"
+                    error={fieldErrors.ano}
+                  />
                 </div>
 
                 {/* Linha 2: Cor, Quilometragem, Preço */}
                 <div className="grid gap-4 sm:grid-cols-3 mt-4">
-                  <div>
-                    <label htmlFor="cor" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Cor
-                    </label>
-                    <input
-                      id="cor"
-                      type="text"
-                      value={cor}
-                      onChange={(e) => setCor(e.target.value)}
-                      placeholder="Ex: Prata"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="quilometragem" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Quilometragem
-                    </label>
-                    <input
-                      id="quilometragem"
-                      type="number"
-                      min="0"
-                      value={quilometragem}
-                      onChange={(e) => setQuilometragem(e.target.value)}
-                      placeholder="Ex: 45000"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="preco" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Preço (R$) *
-                    </label>
-                    <input
-                      id="preco"
-                      type="number"
-                      required
-                      min="0"
-                      step="0.01"
-                      value={preco}
-                      onChange={(e) => setPreco(e.target.value)}
-                      placeholder="Ex: 120000"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Input
+                    id="cor"
+                    label="Cor"
+                    value={cor}
+                    onChange={(e) => setCor(e.target.value)}
+                    placeholder="Ex: Prata"
+                    autoComplete="off"
+                  />
+                  <Input
+                    id="quilometragem"
+                    label="Quilometragem"
+                    type="number"
+                    min="0"
+                    value={quilometragem}
+                    onChange={(e) => setQuilometragem(e.target.value)}
+                    placeholder="Ex: 45000"
+                    inputMode="numeric"
+                    error={fieldErrors.quilometragem}
+                  />
+                  <Input
+                    id="preco"
+                    label="Preço (R$) *"
+                    type="text"
+                    inputMode="decimal"
+                    required
+                    value={preco}
+                    onChange={(e) => setPreco(maskMoney(e.target.value))}
+                    placeholder="R$ 0,00"
+                    leftIcon={<IconCash size={14} />}
+                    error={fieldErrors.preco}
+                  />
                 </div>
 
                 {/* Linha 3: Câmbio, Combustível, Placa */}
                 <div className="grid gap-4 sm:grid-cols-3 mt-4">
-                  <div>
-                    <label htmlFor="cambio" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Câmbio
-                    </label>
-                    <select
-                      id="cambio"
-                      value={cambio}
-                      onChange={(e) => setCambio(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    >
-                      <option value="manual">Manual</option>
-                      <option value="automatico">Automático</option>
-                      <option value="cvt">CVT</option>
-                      <option value="automatizado">Automatizado</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="combustivel" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Combustível
-                    </label>
-                    <select
-                      id="combustivel"
-                      value={combustivel}
-                      onChange={(e) => setCombustivel(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    >
-                      <option value="flex">Flex</option>
-                      <option value="gasolina">Gasolina</option>
-                      <option value="etanol">Etanol</option>
-                      <option value="diesel">Diesel</option>
-                      <option value="eletrico">Elétrico</option>
-                      <option value="hibrido">Híbrido</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="placa" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Placa
-                    </label>
-                    <input
-                      id="placa"
-                      type="text"
-                      value={placa}
-                      onChange={(e) => setPlaca(e.target.value)}
-                      placeholder="ABC-1D23"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Select
+                    id="cambio"
+                    label="Câmbio"
+                    value={cambio}
+                    onChange={(e) => setCambio(e.target.value)}
+                  >
+                    <option value="manual">Manual</option>
+                    <option value="automatico">Automático</option>
+                    <option value="cvt">CVT</option>
+                    <option value="automatizado">Automatizado</option>
+                  </Select>
+                  <Select
+                    id="combustivel"
+                    label="Combustível"
+                    value={combustivel}
+                    onChange={(e) => setCombustivel(e.target.value)}
+                  >
+                    <option value="flex">Flex</option>
+                    <option value="gasolina">Gasolina</option>
+                    <option value="etanol">Etanol</option>
+                    <option value="diesel">Diesel</option>
+                    <option value="eletrico">Elétrico</option>
+                    <option value="hibrido">Híbrido</option>
+                  </Select>
+                  <Input
+                    id="placa"
+                    label="Placa"
+                    value={placa}
+                    onChange={(e) => setPlaca(maskPlate(e.target.value))}
+                    placeholder="ABC-1D23"
+                    autoComplete="off"
+                    error={fieldErrors.placa}
+                  />
                 </div>
 
                 {/* Linha 4: Renavam, Localização */}
                 <div className="grid gap-4 sm:grid-cols-3 mt-4">
-                  <div>
-                    <label htmlFor="renavam" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Renavam
-                    </label>
-                    <input
-                      id="renavam"
-                      type="text"
-                      value={renavam}
-                      onChange={(e) => setRenavam(e.target.value)}
-                      placeholder="00000000000"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="localizacao" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Unidade *
-                    </label>
-                    <select
-                      id="localizacao"
-                      required
-                      value={localizacao}
-                      onChange={(e) => setLocalizacao(e.target.value as LocalizacaoVeiculo)}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    >
-                      <option value="jau">Jaú/SP</option>
-                      <option value="bauru">Bauru/SP</option>
-                    </select>
-                  </div>
+                  <Input
+                    id="renavam"
+                    label="Renavam"
+                    value={renavam}
+                    onChange={(e) => setRenavam(maskRenavam(e.target.value))}
+                    placeholder="00000000000"
+                    autoComplete="off"
+                    inputMode="numeric"
+                    error={fieldErrors.renavam}
+                  />
+                  <Select
+                    id="localizacao"
+                    label="Unidade *"
+                    required
+                    value={localizacao}
+                    onChange={(e) => setLocalizacao(e.target.value as LocalizacaoVeiculo)}
+                  >
+                    <option value="jau">Jaú/SP</option>
+                    <option value="bauru">Bauru/SP</option>
+                  </Select>
                 </div>
 
                 {/* Descrição */}
-                <div className="mt-4">
-                  <label htmlFor="descricao" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                    Descrição
-                  </label>
-                  <textarea
-                    id="descricao"
-                    rows={3}
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    placeholder="Detalhes sobre o veículo, opcionais, revisões, etc."
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors resize-none"
-                  />
-                </div>
+                <Textarea
+                  id="descricao"
+                  label="Descrição"
+                  rows={3}
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  placeholder="Detalhes sobre o veículo, opcionais, revisões, etc."
+                  containerClassName="mt-4"
+                />
               </div>
 
               {/* ─── Financiamento ──────────────────────────────────── */}
@@ -581,63 +541,47 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   Financiamento
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="banco" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Banco
-                    </label>
-                    <input
-                      id="banco"
-                      type="text"
-                      value={banco}
-                      onChange={(e) => setBanco(e.target.value)}
-                      placeholder="Ex: Santander"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="parcelasRestantes" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Parcelas restantes
-                    </label>
-                    <input
-                      id="parcelasRestantes"
-                      type="number"
-                      min="0"
-                      value={parcelasRestantes}
-                      onChange={(e) => setParcelasRestantes(e.target.value)}
-                      placeholder="Ex: 24"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="valorParcela" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Valor da parcela (R$)
-                    </label>
-                    <input
-                      id="valorParcela"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={valorParcela}
-                      onChange={(e) => setValorParcela(e.target.value)}
-                      placeholder="Ex: 850.00"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="custoAcumulado" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Custo acumulado (R$)
-                    </label>
-                    <input
-                      id="custoAcumulado"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={custoAcumulado}
-                      onChange={(e) => setCustoAcumulado(e.target.value)}
-                      placeholder="Ex: 5200.00"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Input
+                    id="banco"
+                    label="Banco"
+                    value={banco}
+                    onChange={(e) => setBanco(e.target.value)}
+                    placeholder="Ex: Santander"
+                    autoComplete="off"
+                  />
+                  <Input
+                    id="parcelasRestantes"
+                    label="Parcelas restantes"
+                    type="number"
+                    min="0"
+                    value={parcelasRestantes}
+                    onChange={(e) => setParcelasRestantes(e.target.value)}
+                    placeholder="Ex: 24"
+                    inputMode="numeric"
+                    error={fieldErrors.parcelasRestantes}
+                  />
+                  <Input
+                    id="valorParcela"
+                    label="Valor da parcela (R$)"
+                    type="text"
+                    inputMode="decimal"
+                    value={valorParcela}
+                    onChange={(e) => setValorParcela(maskMoney(e.target.value))}
+                    placeholder="R$ 0,00"
+                    leftIcon={<IconCash size={14} />}
+                    error={fieldErrors.valorParcela}
+                  />
+                  <Input
+                    id="custoAcumulado"
+                    label="Custo acumulado (R$)"
+                    type="text"
+                    inputMode="decimal"
+                    value={custoAcumulado}
+                    onChange={(e) => setCustoAcumulado(maskMoney(e.target.value))}
+                    placeholder="R$ 0,00"
+                    leftIcon={<IconCash size={14} />}
+                    error={fieldErrors.custoAcumulado}
+                  />
                 </div>
               </div>
 
@@ -647,32 +591,25 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   Acessória / Contrato
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label htmlFor="telefoneAcessoria" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Telefone da acessória
-                    </label>
-                    <input
-                      id="telefoneAcessoria"
-                      type="text"
-                      value={telefoneAcessoria}
-                      onChange={(e) => setTelefoneAcessoria(e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="contrato" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                      Contrato (nota/link)
-                    </label>
-                    <input
-                      id="contrato"
-                      type="text"
-                      value={contrato}
-                      onChange={(e) => setContrato(e.target.value)}
-                      placeholder="Link ou observação do contrato"
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors"
-                    />
-                  </div>
+                  <Input
+                    id="telefoneAcessoria"
+                    label="Telefone da acessória"
+                    value={telefoneAcessoria}
+                    onChange={(e) => setTelefoneAcessoria(maskPhone(e.target.value))}
+                    placeholder="(00) 00000-0000"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    mask="phone"
+                    error={fieldErrors.telefoneAcessoria}
+                  />
+                  <Input
+                    id="contrato"
+                    label="Contrato (nota/link)"
+                    value={contrato}
+                    onChange={(e) => setContrato(e.target.value)}
+                    placeholder="Link ou observação do contrato"
+                    autoComplete="off"
+                  />
                 </div>
               </div>
 
@@ -681,19 +618,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Débitos do Veículo
                 </h3>
-                <div>
-                  <label htmlFor="debitos" className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                    Débitos
-                  </label>
-                  <textarea
-                    id="debitos"
-                    rows={3}
-                    value={debitos}
-                    onChange={(e) => setDebitos(e.target.value)}
-                    placeholder="IPVA, multas, etc."
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors resize-none"
-                  />
-                </div>
+                <Textarea
+                  id="debitos"
+                  label="Débitos"
+                  rows={3}
+                  value={debitos}
+                  onChange={(e) => setDebitos(e.target.value)}
+                  placeholder="IPVA, multas, etc."
+                  error={fieldErrors.debitos}
+                />
               </div>
 
               {/* ─── Upload de Fotos ────────────────────────────────── */}

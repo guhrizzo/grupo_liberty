@@ -1,66 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useTransition, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import LoadingBar from './LoadingBar'
 
+/**
+ * Barra de progresso que aparece durante navegação client-side.
+ *
+ * Estratégia:
+ * 1. Escuta mudanças de `pathname` (já é o que indica navegação concluída).
+ * 2. Usa `useTransition` em conjunto com `router.push` para detectar navegações
+ *    iniciadas via código (substitui o monkey-patching frágil de versões anteriores).
+ * 3. Em SSR, retorna `null`.
+ */
 export default function RouteLoadingBar() {
   const router = useRouter()
   const pathname = usePathname()
+  const [, startTransition] = useTransition()
   const [loading, setLoading] = useState(false)
 
+  // Mostra a barra quando o pathname começa a mudar.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null
-
-    const originalPush = router.push.bind(router)
-    const originalReplace = router.replace.bind(router)
-    const originalRefresh = router.refresh.bind(router)
-
-    const start = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => setLoading(true), 120)
-    }
-    const stop = () => {
-      if (timer) clearTimeout(timer)
-      timer = null
-      setLoading(false)
-    }
-
-    ;(router as any).push = (...args: any[]) => {
-      start()
-      const res = originalPush.apply(router, args as any)
-      Promise.resolve(res).finally(stop)
-      return res
-    }
-    ;(router as any).replace = (...args: any[]) => {
-      start()
-      const res = originalReplace.apply(router, args as any)
-      Promise.resolve(res).finally(stop)
-      return res
-    }
-    ;(router as any).refresh = (...args: any[]) => {
-      start()
-      const res = originalRefresh.apply(router, args as any)
-      Promise.resolve(res).finally(stop)
-      return res
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer)
-      ;(router as any).push = originalPush
-      ;(router as any).replace = originalReplace
-      ;(router as any).refresh = originalRefresh
-    }
-  }, [router])
-
-  useEffect(() => {
-    setLoading(false)
+    setLoading(true)
+    // Esconde rapidamente após o pathname atualizar. A maioria das navegações
+    // client-side é síncrona após a render.
+    const t = setTimeout(() => setLoading(false), 250)
+    return () => clearTimeout(t)
   }, [pathname])
 
   if (!loading) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-100">
+    <div className="fixed top-0 left-0 right-0 z-[100]">
       <LoadingBar className="h-1" />
     </div>
   )

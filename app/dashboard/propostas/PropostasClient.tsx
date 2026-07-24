@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { IconNote, IconDownload } from '@tabler/icons-react'
 import { updatePropostaStatus, type Proposta } from './actions'
+import { Breadcrumb, EmptyState, useToast } from '@/app/components/ui'
+import { formatCurrency } from '@/utils/format'
 
 interface PropostasClientProps {
   propostas: Proposta[]
@@ -15,22 +17,22 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
   const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'aceito' | 'recusado'>('todos')
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const toast = useToast()
 
   const handleStatusChange = async (id: string, newStatus: 'aceito' | 'recusado') => {
     setLoadingId(id)
-    setMessage(null)
 
     try {
       const res = await updatePropostaStatus(id, newStatus)
       if (res.error) {
-        setMessage({ type: 'error', text: res.error })
+        toast.error(res.error, 'Não foi possível atualizar')
       } else if (res.success) {
-        setMessage({ type: 'success', text: res.success })
+        toast.success(res.success, 'Status atualizado')
         router.refresh()
       }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Erro ao processar.' })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao processar.'
+      toast.error(message, 'Erro inesperado')
     } finally {
       setLoadingId(null)
     }
@@ -38,12 +40,11 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
 
   const handleDownloadPDF = async (id: string) => {
     setDownloadingId(id)
-    setMessage(null)
     try {
       const res = await fetch(`/api/propostas/${id}/pdf`)
       if (!res.ok) {
         const errorText = await res.text()
-        setMessage({ type: 'error', text: errorText || 'Erro ao gerar PDF.' })
+        toast.error(errorText || 'Erro ao gerar PDF.', 'Falha no download')
         return
       }
       const blob = await res.blob()
@@ -56,7 +57,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
       a.remove()
       URL.revokeObjectURL(url)
     } catch {
-      setMessage({ type: 'error', text: 'Erro de conexão ao gerar o PDF.' })
+      toast.error('Erro de conexão ao gerar o PDF.', 'Falha no download')
     } finally {
       setDownloadingId(null)
     }
@@ -66,9 +67,6 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
     if (filterStatus === 'todos') return true
     return p.status === filterStatus
   })
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR', {
@@ -83,33 +81,19 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
   return (
     <div className="space-y-6">
       <div>
-          <div className="flex items-center gap-2 text-sm text-neutral-500">
-            <Link href="/dashboard" className="hover:text-black hover:underline transition-all">
-              Dashboard
-            </Link>
-            <span>/</span>
-            <span className="font-medium text-neutral-900">Propostas</span>
-          </div>
+          <Breadcrumb
+            items={[
+              { label: 'Dashboard', href: '/dashboard' },
+              { label: 'Propostas' },
+            ]}
+          />
           <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
             Gerenciar Propostas
           </h1>
-          <p className="text-sm text-neutral-550">
+          <p className="mt-1 text-sm text-neutral-500">
             Gerencie o interesse e as propostas de financiamento/compra dos clientes logados.
           </p>
         </div>
-
-        {/* Feedback Alert */}
-        {message && (
-          <div
-            className={`mb-6 rounded-lg p-4 text-sm font-medium ${
-              message.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
 
         {/* Filtros por Status */}
         <div className="mb-6 flex flex-wrap gap-2">
@@ -130,13 +114,11 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
 
         {/* Listagem das Propostas */}
         {filteredPropostas.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center">
-            <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
-              <IconNote size={24} stroke={1.5} className="text-neutral-400" />
-            </div>
-            <p className="text-sm font-medium text-neutral-500">Nenhuma proposta encontrada</p>
-            <p className="text-xs text-neutral-400 mt-1">Aguarde novas propostas ou altere o filtro de status.</p>
-          </div>
+          <EmptyState
+            icon={<IconNote size={24} stroke={1.5} />}
+            title="Nenhuma proposta encontrada"
+            description="Aguarde novas propostas ou altere o filtro de status."
+          />
         ) : (
           <div className="space-y-4">
             {filteredPropostas.map((p) => (

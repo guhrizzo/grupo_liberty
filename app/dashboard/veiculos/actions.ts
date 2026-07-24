@@ -19,17 +19,43 @@ export interface Veiculo {
   cambio: string
   combustivel: string
   placa: string | null
+  renavam: string | null
   descricao: string | null
   fotos: string[]
   localizacao: LocalizacaoVeiculo
+  cpfCliente: string | null
+  telefoneCliente: string | null
+  telefoneAcessoria: string | null
+  valorParcela: number | null
+  custoAcumulado: number | null
+  debitos: number | null
+  parcelasRestantes: number | null
   created_at: string
   updated_at: string
   created_by: string | null
 }
 
+export type VeiculoFieldErrors = {
+  marca?: string
+  modelo?: string
+  ano?: string
+  preco?: string
+  placa?: string
+  renavam?: string
+  quilometragem?: string
+  cpfCliente?: string
+  telefoneCliente?: string
+  telefoneAcessoria?: string
+  valorParcela?: string
+  custoAcumulado?: string
+  debitos?: string
+  parcelasRestantes?: string
+}
+
 export type VeiculoResponse = {
   success?: string
   error?: string
+  fieldErrors?: VeiculoFieldErrors
   veiculo?: Veiculo
 }
 
@@ -91,9 +117,17 @@ export async function getVehicles(): Promise<Veiculo[]> {
         cambio: data.cambio,
         combustivel: data.combustivel,
         placa: data.placa || null,
+        renavam: data.renavam || null,
         descricao: data.descricao || null,
         fotos: data.fotos || [],
         localizacao: data.localizacao === 'bauru' ? 'bauru' : 'jau',
+        cpfCliente: data.cpfCliente || null,
+        telefoneCliente: data.telefoneCliente || null,
+        telefoneAcessoria: data.telefoneAcessoria || null,
+        valorParcela: data.valorParcela ?? null,
+        custoAcumulado: data.custoAcumulado ?? null,
+        debitos: data.debitos ?? null,
+        parcelasRestantes: data.parcelasRestantes ?? null,
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -164,34 +198,94 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   }
 
   // Extrair campos
-  const marca = formData.get('marca') as string
-  const modelo = formData.get('modelo') as string
-  const ano = parseInt(formData.get('ano') as string, 10)
-  const cor = (formData.get('cor') as string) || null
-  const quilometragem = formData.get('quilometragem')
-    ? parseInt(formData.get('quilometragem') as string, 10)
-    : null
-  const preco = parseFloat(formData.get('preco') as string)
+  const marca = ((formData.get('marca') as string) || '').trim()
+  const modelo = ((formData.get('modelo') as string) || '').trim()
+  const anoRaw = (formData.get('ano') as string) || ''
+  const ano = parseInt(anoRaw, 10)
+  const cor = ((formData.get('cor') as string) || '').trim() || null
+  const quilometragemRaw = (formData.get('quilometragem') as string) || ''
+  const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
+  const precoRaw = (formData.get('preco') as string) || ''
+  const preco = parseFloat(precoRaw)
   const cambio = (formData.get('cambio') as string) || 'manual'
   const combustivel = (formData.get('combustivel') as string) || 'flex'
-  const placa = (formData.get('placa') as string) || null
-  const descricao = (formData.get('descricao') as string) || null
+  const placa = ((formData.get('placa') as string) || '').trim().toUpperCase() || null
+  const renavam = ((formData.get('renavam') as string) || '').trim() || null
+  const descricao = ((formData.get('descricao') as string) || '').trim() || null
   const fotosJson = formData.get('fotos') as string
   const fotos: string[] = fotosJson ? JSON.parse(fotosJson) : []
   const localizacaoRaw = formData.get('localizacao') as string
   const localizacao: LocalizacaoVeiculo = localizacaoRaw === 'bauru' ? 'bauru' : 'jau'
 
-  // Validações básicas
-  if (!marca || !modelo || !ano || !preco) {
-    return { error: 'Preencha os campos obrigatórios: Marca, Modelo, Ano e Preço.' }
+  // Campos opcionais de cliente / financiamento
+  const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
+  const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
+  const telefoneAcessoria = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  const valorParcelaRaw = (formData.get('valorParcela') as string) || ''
+  const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
+  const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
+  const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const debitosRaw = (formData.get('debitos') as string) || ''
+  const debitos = debitosRaw ? parseFloat(debitosRaw) : null
+  const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
+  const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+
+  // Validações por campo.
+  const fieldErrors: VeiculoFieldErrors = {}
+  if (!marca) fieldErrors.marca = 'Informe a marca.'
+  if (!modelo) fieldErrors.modelo = 'Informe o modelo.'
+
+  if (!anoRaw) {
+    fieldErrors.ano = 'Informe o ano.'
+  } else if (Number.isNaN(ano) || ano < 1900 || ano > new Date().getFullYear() + 1) {
+    fieldErrors.ano = `Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}.`
   }
 
-  if (isNaN(ano) || ano < 1900 || ano > new Date().getFullYear() + 1) {
-    return { error: 'Ano inválido.' }
+  if (!precoRaw) {
+    fieldErrors.preco = 'Informe o preço.'
+  } else if (Number.isNaN(preco) || preco <= 0) {
+    fieldErrors.preco = 'Preço inválido.'
   }
 
-  if (isNaN(preco) || preco <= 0) {
-    return { error: 'Preço inválido.' }
+  if (quilometragem !== null && (Number.isNaN(quilometragem) || quilometragem < 0)) {
+    fieldErrors.quilometragem = 'Quilometragem inválida.'
+  }
+
+  if (placa && !/^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/.test(placa)) {
+    fieldErrors.placa = 'Placa inválida. Use o formato ABC-1234 ou ABC1D23.'
+  }
+
+  if (renavam && !/^\d{9,11}$/.test(renavam.replace(/\D/g, ''))) {
+    fieldErrors.renavam = 'Renavam inválido.'
+  }
+
+  if (cpfCliente && cpfCliente.replace(/\D/g, '').length < 11) {
+    fieldErrors.cpfCliente = 'CPF incompleto.'
+  }
+
+  if (telefoneCliente && telefoneCliente.replace(/\D/g, '').length < 10) {
+    fieldErrors.telefoneCliente = 'Telefone incompleto.'
+  }
+
+  if (telefoneAcessoria && telefoneAcessoria.replace(/\D/g, '').length < 10) {
+    fieldErrors.telefoneAcessoria = 'Telefone da acessória incompleto.'
+  }
+
+  if (valorParcela !== null && (Number.isNaN(valorParcela) || valorParcela < 0)) {
+    fieldErrors.valorParcela = 'Valor da parcela inválido.'
+  }
+  if (custoAcumulado !== null && (Number.isNaN(custoAcumulado) || custoAcumulado < 0)) {
+    fieldErrors.custoAcumulado = 'Custo acumulado inválido.'
+  }
+  if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
+    fieldErrors.debitos = 'Débitos inválido.'
+  }
+  if (parcelasRestantes !== null && (Number.isNaN(parcelasRestantes) || parcelasRestantes < 0)) {
+    fieldErrors.parcelasRestantes = 'Parcelas inválidas.'
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
   try {
@@ -208,9 +302,17 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       cambio,
       combustivel,
       placa,
+      renavam,
       descricao,
       fotos,
       localizacao,
+      cpfCliente: cpfCliente || null,
+      telefoneCliente: telefoneCliente || null,
+      telefoneAcessoria: telefoneAcessoria || null,
+      valorParcela,
+      custoAcumulado,
+      debitos,
+      parcelasRestantes,
       created_by: user.uid,
       created_at: now,
       updated_at: now,

@@ -9,6 +9,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
   size?: Size
   loading?: boolean
+  /** Texto exibido enquanto `loading` for true. Se ausente, mantém o children. */
+  loadingLabel?: string
   leftIcon?: ReactNode
   rightIcon?: ReactNode
   fullWidth?: boolean
@@ -46,6 +48,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant = 'liberty',
     size = 'md',
     loading = false,
+    loadingLabel,
     leftIcon,
     rightIcon,
     fullWidth = false,
@@ -73,12 +76,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {...rest}
     >
       {loading ? (
-        <IconLoader2 size={size === 'sm' ? 12 : 14} className="animate-spin" />
+        <>
+          <IconLoader2 size={size === 'sm' ? 12 : 14} className="animate-spin" />
+          {loadingLabel ?? children}
+        </>
       ) : (
-        leftIcon
+        <>
+          {leftIcon}
+          {children}
+          {rightIcon}
+        </>
       )}
-      {children}
-      {!loading && rightIcon}
     </button>
   )
 })

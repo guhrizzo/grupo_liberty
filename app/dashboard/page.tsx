@@ -7,6 +7,7 @@ import {
   IconMail,
   IconScale,
   IconTool,
+  IconArrowRight,
   type Icon,
 } from '@tabler/icons-react'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
@@ -88,18 +89,21 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
+      <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-white to-liberty/5 p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Boas-vindas</p>
-            <h2 className="text-xl font-bold text-black mt-1">{user.email ?? ''}</h2>
-            <p className="text-sm text-neutral-500 mt-1">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty-deep">
+              Boas-vindas
+            </p>
+            <h2 className="mt-1 text-2xl font-black text-neutral-950">{user.email ?? ''}</h2>
+            <p className="mt-1 text-sm text-neutral-500">
               Acesse as ferramentas e módulos do sistema autorizados para seu perfil.
             </p>
           </div>
 
           <div className="self-start sm:self-center">
-            <span className="rounded-full bg-neutral-900 text-white px-3.5 py-1 text-xs font-semibold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-2 rounded-full bg-liberty/10 text-liberty-deep border border-liberty/30 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-liberty" />
               Perfil: {role || 'Não definido'}
             </span>
           </div>
@@ -112,29 +116,28 @@ export default async function DashboardPage() {
         </h3>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {visibleModules.map((m) => (
-            <div
+            <Link
               key={m.href}
-              className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
+              href={m.href}
+              className="group rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:border-liberty/40 hover:shadow-lg hover:shadow-liberty/5 transition-all hover:-translate-y-0.5"
             >
               <div>
-                <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700 mb-4">
+                <div className="h-11 w-11 rounded-lg bg-liberty/10 text-liberty-deep flex items-center justify-center mb-4 group-hover:bg-liberty group-hover:text-white transition-colors">
                   <m.icon size={22} stroke={1.75} />
                 </div>
-                <h4 className="text-lg font-bold ">{m.titulo}</h4>
-                <p className="text-sm text-neutral-500 mt-1">{m.descricao}</p>
+                <h4 className="text-lg font-bold text-neutral-900">{m.titulo}</h4>
+                <p className="text-sm text-neutral-500 mt-1.5 leading-relaxed">{m.descricao}</p>
               </div>
               <div className="mt-6 flex items-center justify-between">
                 <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
                   {m.badge}
                 </span>
-                <Link
-                  href={m.href}
-                  className="inline-block rounded-lg bg-neutral-950 hover:bg-neutral-850 text-white text-sm font-medium px-4 py-2 transition-colors"
-                >
-                  Acessar Painel
-                </Link>
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-liberty-deep group-hover:gap-2 transition-all">
+                  Acessar
+                  <IconArrowRight size={14} stroke={2.5} />
+                </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

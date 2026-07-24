@@ -123,7 +123,7 @@ export function Modal({
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={cn(
-          'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl animate-zoom-in-95 dark:border-[var(--color-line)] dark:bg-[var(--color-bg-1)]',
+          'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl animate-zoom-in-95 neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)]',
           sizeMap[size],
           className,
         )}
@@ -134,13 +134,13 @@ export function Modal({
               {title && (
                 <h2
                   id={titleId}
-                  className="text-lg font-bold text-neutral-950 dark:text-white"
+                  className="text-lg font-bold text-neutral-950 neon-theme:text-white"
                 >
                   {title}
                 </h2>
               )}
               {description && (
-                <p id={descId} className="mt-1 text-sm text-neutral-600 dark:text-text-md">
+                <p id={descId} className="mt-1 text-sm text-neutral-600 neon-theme:text-text-md">
                   {description}
                 </p>
               )}
@@ -150,7 +150,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
-                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors cursor-pointer dark:text-text-lo dark:hover:bg-[var(--color-bg-3)] dark:hover:text-white"
+                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
               >
                 <IconX size={18} stroke={2} />
               </button>

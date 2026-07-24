@@ -26,7 +26,7 @@ export function ChipFilter<T extends string>({
   return (
     <div className={cn('flex flex-wrap gap-1.5 items-center', className)}>
       {label && (
-        <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-text-lo dark:text-neutral-400 mr-1">
+        <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500 mr-1">
           {label}
         </span>
       )}
@@ -43,7 +43,7 @@ export function ChipFilter<T extends string>({
               size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
               active
                 ? 'bg-liberty text-white shadow-sm shadow-liberty/30'
-                : 'bg-[var(--color-bg-2)] dark:bg-neutral-100 text-text-md dark:text-neutral-700 border border-[var(--color-line)] dark:border-neutral-200 hover:bg-[var(--color-bg-3)] dark:hover:bg-neutral-200',
+                : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200',
             )}
           >
             {o.label}

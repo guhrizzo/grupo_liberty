@@ -26,7 +26,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'rounded-xl border border-dashed border-neutral-200 dark:border-[var(--color-line)] bg-white dark:bg-[var(--color-bg-1)] text-center',
+        'rounded-xl border border-dashed border-neutral-200 neon-theme:border-[var(--color-line)] bg-white neon-theme:bg-[var(--color-bg-1)] text-center',
         padding,
         className,
       )}
@@ -34,7 +34,7 @@ export function EmptyState({
       {icon && (
         <div
           className={cn(
-            'mx-auto mb-3 rounded-full bg-neutral-100 dark:bg-[var(--color-bg-2)] flex items-center justify-center text-neutral-400 dark:text-text-lo',
+            'mx-auto mb-3 rounded-full bg-neutral-100 neon-theme:bg-[var(--color-bg-2)] flex items-center justify-center text-neutral-400 neon-theme:text-text-lo',
             iconWrap,
           )}
           style={{ width: iconWrap.split(' ').find(c => c.startsWith('w-')), height: iconWrap.split(' ').find(c => c.startsWith('h-')) }}
@@ -43,9 +43,9 @@ export function EmptyState({
           <div style={{ fontSize: iconSize }}>{icon}</div>
         </div>
       )}
-      <h3 className="text-sm font-bold text-neutral-900 dark:text-white">{title}</h3>
+      <h3 className="text-sm font-bold text-neutral-900 neon-theme:text-white">{title}</h3>
       {description && (
-        <p className="mt-1 text-xs text-neutral-500 dark:text-text-lo">{description}</p>
+        <p className="mt-1 text-xs text-neutral-500 neon-theme:text-text-lo">{description}</p>
       )}
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>

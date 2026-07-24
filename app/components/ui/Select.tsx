@@ -36,7 +36,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-text-lo dark:text-neutral-400 mb-1.5"
+          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo mb-1.5"
         >
           {label}
         </label>
@@ -47,12 +47,16 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         aria-invalid={error ? true : undefined}
         aria-describedby={cn(errorId, hintId) || undefined}
         className={cn(
-          'w-full rounded-xl border bg-[var(--color-bg-2)] dark:bg-white px-3.5 py-2.5 text-sm text-text-hi dark:text-neutral-900 transition-all cursor-pointer appearance-none',
+          'w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all cursor-pointer appearance-none',
           'focus:outline-none focus:border-liberty focus:ring-2 focus:ring-liberty/20',
           'disabled:opacity-60 disabled:cursor-not-allowed',
+          // light (default)
+          'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-300',
+          // dark (neon-theme)
+          'neon-theme:bg-[var(--color-bg-2)] neon-theme:text-text-hi neon-theme:border-[var(--color-line)]',
           error
             ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
-            : 'border-[var(--color-line)] dark:border-neutral-200',
+            : '',
           className,
         )}
         {...rest}
@@ -70,7 +74,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="mt-1.5 text-xs text-text-lo dark:text-neutral-500">
+        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo">
           {hint}
         </p>
       ) : null}

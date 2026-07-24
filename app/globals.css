@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Variante custom: aplica estilos quando o componente está dentro
+   de um container `.neon-theme` (site público dark). */
+@custom-variant neon-theme (&:where(.neon-theme, .neon-theme *));
+
 /* =========================================================
    Liberty Car — Dark Neon Design System
    As cores/efeitos ficam em variáveis CSS no @theme.
@@ -112,11 +116,13 @@
 }
 
 /* =========================================================
-   Base global (sem cores/background — só fontes)
+   Base global
    ========================================================= */
 
 html, body {
   font-family: var(--font-sans);
+  background: #f8fafc;
+  color: #0a0a0a;
 }
 
 /* =========================================================
@@ -170,7 +176,7 @@ html, body {
   border-color: var(--color-line);
 }
 .neon-theme input::placeholder,
-.neon-theme textarea::placeholder { color: var(--color-text-mute); }
+.neon-theme textarea::placeholder { color: var(--color-text-lo); }
 .neon-theme input:focus,
 .neon-theme select:focus,
 .neon-theme textarea:focus {
@@ -227,4 +233,26 @@ html, body {
 
 @utility pulse-soft {
   animation: pulse-soft 2.2s ease-in-out infinite;
+}
+
+/* =========================================================
+   Identidade Liberty (página pública clara)
+   ========================================================= */
+
+@utility liberty-gradient {
+  background: linear-gradient(135deg, rgba(0, 163, 224, 0.08), transparent 60%);
+}
+
+@utility liberty-glow {
+  box-shadow: 0 0 22px -6px rgba(0, 163, 224, 0.45),
+    0 0 0 1px rgba(0, 163, 224, 0.18) inset;
+}
+
+@utility liberty-card-hover {
+  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+.liberty-card-hover:hover {
+  border-color: rgba(0, 163, 224, 0.45);
+  box-shadow: 0 10px 30px -12px rgba(0, 163, 224, 0.25);
 }

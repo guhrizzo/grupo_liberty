@@ -1,7 +1,34 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { IconPlus } from '@tabler/icons-react'
+import {
+  IconPlus,
+  IconScale,
+  IconPencil,
+  IconTrash,
+  IconCalendar,
+  IconUser,
+} from '@tabler/icons-react'
+import {
+  Button,
+  Input,
+  Textarea,
+  Select,
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+  EmptyState,
+  StatusBadge,
+  ConfirmDialog,
+  Breadcrumb,
+  useToast,
+} from '@/app/components/ui'
+import { useDebounce } from '@/utils/useDebounce'
+import { formatDate } from '@/utils/format'
+import type { BadgeTone } from '@/app/components/ui/StatusBadge'
 
 type Status = 'em_andamento' | 'concluido' | 'pendente' | 'arquivado'
 
@@ -25,11 +52,11 @@ const STATUS_LABELS: Record<Status, string> = {
   arquivado: 'Arquivado',
 }
 
-const STATUS_STYLES: Record<Status, string> = {
-  em_andamento: 'bg-blue-100 text-blue-800',
-  concluido: 'bg-emerald-100 text-emerald-800',
-  pendente: 'bg-amber-100 text-amber-800',
-  arquivado: 'bg-neutral-200 text-neutral-700',
+const STATUS_TONE: Record<Status, BadgeTone> = {
+  em_andamento: 'info',
+  concluido: 'success',
+  pendente: 'warning',
+  arquivado: 'neutral',
 }
 
 const TIPOS = [
@@ -68,14 +95,10 @@ const initialData: Processo[] = [
   },
 ]
 
+const PAGE_SIZE = 12
+
 function genId() {
   return 'p-' + Math.random().toString(36).slice(2, 9)
-}
-
-function formatDate(iso: string) {
-  if (!iso) return '—'
-  const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('pt-BR')
 }
 
 export default function JuridicoClient({ currentRole }: { currentRole: string }) {
@@ -85,19 +108,19 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
   const [editing, setEditing] = useState<Processo | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Processo | null>(null)
+  const [page, setPage] = useState(1)
+  const debouncedSearch = useDebounce(search, 250)
+  const toast = useToast()
 
   function openCreate() {
     setEditing(null)
     setShowForm(true)
-    setMessage(null)
   }
 
   function openEdit(p: Processo) {
     setEditing(p)
     setShowForm(true)
-    setMessage(null)
   }
 
   function closeForm() {
@@ -118,7 +141,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
     const observacoes = (form.get('observacoes') as string) || ''
 
     if (!titulo || !cliente || !tipo || !responsavel) {
-      setMessage({ type: 'error', text: 'Preencha os campos obrigatórios.' })
+      toast.error('Preencha os campos obrigatórios.')
       return
     }
 
@@ -127,10 +150,10 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
         prev.map((p) =>
           p.id === editing.id
             ? { ...p, titulo, cliente, tipo, numero, status, responsavel, prazo, observacoes }
-            : p
-        )
+            : p,
+        ),
       )
-      setMessage({ type: 'success', text: 'Processo atualizado com sucesso.' })
+      toast.success('Processo atualizado com sucesso.')
     } else {
       const novo: Processo = {
         id: genId(),
@@ -145,21 +168,21 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
         createdAt: new Date().toISOString().slice(0, 10),
       }
       setProcessos((prev) => [novo, ...prev])
-      setMessage({ type: 'success', text: 'Processo cadastrado com sucesso.' })
+      toast.success('Processo cadastrado com sucesso.')
     }
     closeForm()
   }
 
   function handleDelete(p: Processo) {
     setProcessos((prev) => prev.filter((x) => x.id !== p.id))
-    setMessage({ type: 'success', text: 'Processo removido.' })
+    toast.success('Processo removido.')
     setConfirmDelete(null)
   }
 
   const filtered = useMemo(() => {
     return processos.filter((p) => {
       const matchesStatus = filterStatus === 'todos' || p.status === filterStatus
-      const term = search.toLowerCase()
+      const term = debouncedSearch.toLowerCase()
       const matchesSearch =
         !term ||
         p.titulo.toLowerCase().includes(term) ||
@@ -168,230 +191,255 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
         p.responsavel.toLowerCase().includes(term)
       return matchesStatus && matchesSearch
     })
-  }, [processos, search, filterStatus])
+  }, [processos, debouncedSearch, filterStatus])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const visible = filtered.slice(start, start + PAGE_SIZE)
+  const fromItem = filtered.length === 0 ? 0 : start + 1
+  const toItem = Math.min(start + PAGE_SIZE, filtered.length)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo Jurídico</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Gestão de processos, contratos e documentos legais do grupo Liberty Car.
-        </p>
-      </div>
+      <Breadcrumb
+        items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Jurídico' }]}
+      />
 
-      {message && (
-        <div
-          className={`rounded-lg p-4 text-sm font-medium ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}
-        >
-          {message.text}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo Jurídico</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Gestão de processos, contratos e documentos legais do grupo Liberty Car.
+          </p>
         </div>
-      )}
+
+        <Button
+          variant="liberty"
+          onClick={openCreate}
+          leftIcon={<IconPlus size={16} stroke={2.5} />}
+          className="self-start sm:self-auto"
+        >
+          Novo Processo
+        </Button>
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            type="text"
+          <Input
             placeholder="Buscar por título, cliente, número..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors w-full sm:w-72"
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            containerClassName="w-full sm:w-72"
           />
-          <select
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as 'todos' | Status)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
+            onChange={(e) => {
+              setFilterStatus(e.target.value as 'todos' | Status)
+              setPage(1)
+            }}
+            containerClassName="w-full sm:w-48"
+            aria-label="Filtrar por status"
           >
             <option value="todos">Todos os status</option>
             <option value="em_andamento">Em andamento</option>
             <option value="pendente">Pendente</option>
             <option value="concluido">Concluído</option>
             <option value="arquivado">Arquivado</option>
-          </select>
+          </Select>
         </div>
 
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-4 py-2.5 transition-colors shadow-xs cursor-pointer"
-        >
-          <IconPlus size={14} stroke={2.5} />
-          Novo Processo
-        </button>
+        <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
+          {filtered.length === 0
+            ? '0 processos'
+            : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
+        </div>
       </div>
 
       {showForm && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-5">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-5 flex items-center gap-2">
+            <IconScale size={20} className="text-liberty-deep" />
             {editing ? 'Editar Processo' : 'Cadastrar Processo'}
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                Título *
-              </label>
-              <input
-                name="titulo"
-                required
-                defaultValue={editing?.titulo}
-                placeholder="Ex: Contrato - Cliente X"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Cliente *</label>
-              <input
-                name="cliente"
-                required
-                defaultValue={editing?.cliente}
-                placeholder="Nome do cliente"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Tipo *</label>
-              <select
-                name="tipo"
-                required
-                defaultValue={editing?.tipo ?? ''}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden"
-              >
-                <option value="" disabled>Selecione</option>
-                {TIPOS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Número do processo</label>
-              <input
-                name="numero"
-                defaultValue={editing?.numero}
-                placeholder="0000000-00.0000"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Status</label>
-              <select
-                name="status"
-                defaultValue={editing?.status ?? 'em_andamento'}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden"
-              >
-                <option value="em_andamento">Em andamento</option>
-                <option value="pendente">Pendente</option>
-                <option value="concluido">Concluído</option>
-                <option value="arquivado">Arquivado</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Responsável *</label>
-              <input
-                name="responsavel"
-                required
-                defaultValue={editing?.responsavel}
-                placeholder="Nome do advogado responsável"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Prazo</label>
-              <input
-                name="prazo"
-                type="date"
-                defaultValue={editing?.prazo}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Observações</label>
-              <textarea
-                name="observacoes"
-                rows={3}
-                defaultValue={editing?.observacoes}
-                placeholder="Anotações internas, próximos passos..."
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden resize-none"
-              />
-            </div>
+            <Input
+              label="Título *"
+              name="titulo"
+              required
+              defaultValue={editing?.titulo}
+              placeholder="Ex: Contrato - Cliente X"
+              containerClassName="sm:col-span-2"
+            />
+
+            <Input
+              label="Cliente *"
+              name="cliente"
+              required
+              defaultValue={editing?.cliente}
+              placeholder="Nome do cliente"
+              autoComplete="name"
+            />
+
+            <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
+              <option value="" disabled>
+                Selecione
+              </option>
+              {TIPOS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+
+            <Input
+              label="Número do processo"
+              name="numero"
+              defaultValue={editing?.numero}
+              placeholder="0000000-00.0000"
+            />
+
+            <Select
+              label="Status"
+              name="status"
+              defaultValue={editing?.status ?? 'em_andamento'}
+            >
+              <option value="em_andamento">Em andamento</option>
+              <option value="pendente">Pendente</option>
+              <option value="concluido">Concluído</option>
+              <option value="arquivado">Arquivado</option>
+            </Select>
+
+            <Input
+              label="Responsável *"
+              name="responsavel"
+              required
+              defaultValue={editing?.responsavel}
+              placeholder="Nome do advogado responsável"
+              leftIcon={<IconUser size={14} />}
+            />
+
+            <Input
+              label="Prazo"
+              name="prazo"
+              type="date"
+              defaultValue={editing?.prazo}
+              leftIcon={<IconCalendar size={14} />}
+            />
+
+            <Textarea
+              label="Observações"
+              name="observacoes"
+              rows={3}
+              defaultValue={editing?.observacoes}
+              placeholder="Anotações internas, próximos passos..."
+              containerClassName="sm:col-span-2"
+            />
+
             <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
-              >
+              <Button type="button" variant="secondary" onClick={closeForm}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-5 py-2 transition-colors shadow-xs cursor-pointer"
-              >
+              </Button>
+              <Button type="submit" variant="liberty">
                 {editing ? 'Salvar Alterações' : 'Cadastrar'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm text-neutral-600">
-            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-700 border-b border-neutral-200">
+      {visible.length === 0 ? (
+        <EmptyState
+          icon={<IconScale size={24} />}
+          title="Nenhum processo encontrado"
+          description="Ajuste os filtros ou cadastre um novo processo jurídico."
+        />
+      ) : (
+        <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-3">Título / Cliente</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Responsável</th>
-                <th className="px-4 py-3">Prazo</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+                <TH>Título / Cliente</TH>
+                <TH>Tipo</TH>
+                <TH>Responsável</TH>
+                <TH>Prazo</TH>
+                <TH>Status</TH>
+                <TH align="right">Ações</TH>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-sm text-neutral-400 font-medium">
-                    Nenhum processo encontrado.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((p) => (
-                  <tr key={p.id} className="hover:bg-neutral-50/60 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-neutral-900">{p.titulo}</div>
-                      <div className="text-xs text-neutral-500">{p.cliente} • {p.numero || 's/ número'}</div>
-                    </td>
-                    <td className="px-4 py-3">{p.tipo}</td>
-                    <td className="px-4 py-3">{p.responsavel}</td>
-                    <td className="px-4 py-3 text-xs">{formatDate(p.prazo)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLES[p.status]}`}>
-                        {STATUS_LABELS[p.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-2">
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(p)}
-                          className="rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+            </THead>
+            <TBody>
+              {visible.map((p) => (
+                <TR key={p.id}>
+                  <TD>
+                    <div className="font-semibold text-neutral-900">{p.titulo}</div>
+                    <div className="text-xs text-neutral-500">
+                      {p.cliente} • {p.numero || 's/ número'}
+                    </div>
+                  </TD>
+                  <TD>{p.tipo}</TD>
+                  <TD>{p.responsavel}</TD>
+                  <TD className="text-xs">{formatDate(p.prazo)}</TD>
+                  <TD>
+                    <StatusBadge tone={STATUS_TONE[p.status]}>
+                      {STATUS_LABELS[p.status]}
+                    </StatusBadge>
+                  </TD>
+                  <TD align="right">
+                    <div className="inline-flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openEdit(p)}
+                        leftIcon={<IconPencil size={12} />}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setConfirmDelete(p)}
+                        leftIcon={<IconTrash size={12} />}
+                        className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-neutral-200 bg-neutral-50/60">
+              <span className="text-xs text-neutral-500">
+                Página {safePage} de {totalPages}
+              </span>
+              <div className="inline-flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {!isAdmin && (
         <p className="text-[11px] text-neutral-400">
@@ -399,30 +447,22 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
         </p>
       )}
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-neutral-950">Remover processo?</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Esta ação é local e não pode ser desfeita. Tem certeza que deseja remover o processo <strong>{confirmDelete.titulo}</strong>?
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(confirmDelete)}
-                className="rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 text-sm font-semibold transition-colors cursor-pointer"
-              >
-                Remover
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        title="Remover processo?"
+        description={
+          confirmDelete ? (
+            <>
+              Esta ação é local e não pode ser desfeita. Tem certeza que deseja remover o
+              processo <strong>{confirmDelete.titulo}</strong>?
+            </>
+          ) : null
+        }
+        confirmLabel="Remover"
+        tone="danger"
+      />
     </div>
   )
 }

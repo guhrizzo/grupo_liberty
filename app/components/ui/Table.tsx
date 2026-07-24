@@ -14,7 +14,7 @@ export function Table({
     <div className="overflow-x-auto">
       <table
         className={cn(
-          'w-full border-collapse text-left text-sm text-neutral-600 dark:text-text-md',
+          'w-full border-collapse text-left text-sm text-neutral-600 neon-theme:text-text-md',
           className,
         )}
       >
@@ -26,14 +26,14 @@ export function Table({
 
 export function THead({ children }: { children: ReactNode }) {
   return (
-    <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-700 border-b border-neutral-200 dark:bg-[var(--color-bg-2)] dark:text-neutral-300 dark:border-[var(--color-line)]">
+    <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-700 border-b border-neutral-200 neon-theme:bg-[var(--color-bg-2)] neon-theme:text-neutral-300 neon-theme:border-[var(--color-line)]">
       {children}
     </thead>
   )
 }
 
 export function TBody({ children }: { children: ReactNode }) {
-  return <tbody className="divide-y divide-neutral-200 dark:divide-[var(--color-line)]">{children}</tbody>
+  return <tbody className="divide-y divide-neutral-200 neon-theme:divide-[var(--color-line)]">{children}</tbody>
 }
 
 export function TR({
@@ -49,7 +49,7 @@ export function TR({
     <tr
       onClick={onClick}
       className={cn(
-        'hover:bg-neutral-50/60 dark:hover:bg-[var(--color-bg-2)]/60 transition-colors',
+        'hover:bg-neutral-50/60 neon-theme:hover:bg-[var(--color-bg-2)]/60 transition-colors',
         onClick && 'cursor-pointer',
         className,
       )}

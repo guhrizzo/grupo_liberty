@@ -1,7 +1,38 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { IconPlus } from '@tabler/icons-react'
+import {
+  IconPlus,
+  IconTool,
+  IconPencil,
+  IconTrash,
+  IconCar,
+  IconBuildingWarehouse,
+  IconUser,
+  IconCalendar,
+  IconCash,
+} from '@tabler/icons-react'
+import {
+  Button,
+  Input,
+  Textarea,
+  Select,
+  Table,
+  THead,
+  TBody,
+  TR,
+  TH,
+  TD,
+  EmptyState,
+  StatusBadge,
+  ConfirmDialog,
+  Breadcrumb,
+  useToast,
+} from '@/app/components/ui'
+import { useDebounce } from '@/utils/useDebounce'
+import { formatCurrency, formatDate } from '@/utils/format'
+import { maskMoney, parseMoney } from '@/utils/masks'
+import type { BadgeTone } from '@/app/components/ui/StatusBadge'
 
 type Status = 'agendada' | 'em_execucao' | 'concluida' | 'cancelada'
 
@@ -26,11 +57,11 @@ const STATUS_LABELS: Record<Status, string> = {
   cancelada: 'Cancelada',
 }
 
-const STATUS_STYLES: Record<Status, string> = {
-  agendada: 'bg-blue-100 text-blue-800',
-  em_execucao: 'bg-amber-100 text-amber-800',
-  concluida: 'bg-emerald-100 text-emerald-800',
-  cancelada: 'bg-neutral-200 text-neutral-700',
+const STATUS_TONE: Record<Status, BadgeTone> = {
+  agendada: 'info',
+  em_execucao: 'warning',
+  concluida: 'success',
+  cancelada: 'neutral',
 }
 
 const TIPOS = [
@@ -72,49 +103,44 @@ const initialData: Manutencao[] = [
   },
 ]
 
+const PAGE_SIZE = 12
+
 function genId() {
   return 'm-' + Math.random().toString(36).slice(2, 9)
 }
 
-function formatCurrency(v: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0)
-}
-
-function formatDate(iso: string) {
-  if (!iso) return '—'
-  const d = new Date(iso + 'T00:00:00')
-  return d.toLocaleDateString('pt-BR')
-}
-
 interface Props {
-  currentRole: string
   veiculos: { id: string; marca: string; modelo: string; ano: number; placa: string | null }[]
 }
 
-export default function ManutencaoClient({ currentRole, veiculos }: Props) {
+export default function ManutencaoClient({ veiculos }: Props) {
   const [items, setItems] = useState<Manutencao[]>(initialData)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Manutencao | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Manutencao | null>(null)
+  const [page, setPage] = useState(1)
+  const [custo, setCusto] = useState('')
+  const debouncedSearch = useDebounce(search, 250)
+  const toast = useToast()
 
   function openCreate() {
     setEditing(null)
+    setCusto('')
     setShowForm(true)
-    setMessage(null)
   }
 
   function openEdit(m: Manutencao) {
     setEditing(m)
+    setCusto(m.custo ? maskMoney(m.custo.toString()) : '')
     setShowForm(true)
-    setMessage(null)
   }
 
   function closeForm() {
     setShowForm(false)
     setEditing(null)
+    setCusto('')
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -132,13 +158,13 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
     const descricao = (form.get('descricao') as string)?.trim()
     const oficina = (form.get('oficina') as string)?.trim()
     const responsavel = (form.get('responsavel') as string)?.trim()
-    const custo = Number((form.get('custo') as string) || 0)
+    const custoNumber = parseMoney(custo) || 0
     const dataAgendada = (form.get('dataAgendada') as string) || ''
     const dataConclusao = (form.get('dataConclusao') as string) || ''
     const status = (form.get('status') as Status) || 'agendada'
 
     if (!veiculoLabel || !tipo || !oficina || !responsavel || !dataAgendada) {
-      setMessage({ type: 'error', text: 'Preencha os campos obrigatórios.' })
+      toast.error('Preencha os campos obrigatórios.')
       return
     }
 
@@ -146,11 +172,11 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
       setItems((prev) =>
         prev.map((m) =>
           m.id === editing.id
-            ? { ...m, veiculoId, veiculoLabel, tipo, descricao, oficina, responsavel, custo, dataAgendada, dataConclusao, status }
-            : m
-        )
+            ? { ...m, veiculoId, veiculoLabel, tipo, descricao, oficina, responsavel, custo: custoNumber, dataAgendada, dataConclusao, status }
+            : m,
+        ),
       )
-      setMessage({ type: 'success', text: 'Manutenção atualizada.' })
+      toast.success('Manutenção atualizada.')
     } else {
       const novo: Manutencao = {
         id: genId(),
@@ -160,27 +186,27 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
         descricao,
         oficina,
         responsavel,
-        custo,
+        custo: custoNumber,
         dataAgendada,
         dataConclusao,
         status,
       }
       setItems((prev) => [novo, ...prev])
-      setMessage({ type: 'success', text: 'Manutenção cadastrada.' })
+      toast.success('Manutenção cadastrada.')
     }
     closeForm()
   }
 
   function handleDelete(m: Manutencao) {
     setItems((prev) => prev.filter((x) => x.id !== m.id))
-    setMessage({ type: 'success', text: 'Manutenção removida.' })
+    toast.success('Manutenção removida.')
     setConfirmDelete(null)
   }
 
   const filtered = useMemo(() => {
     return items.filter((m) => {
       const matchesStatus = filterStatus === 'todos' || m.status === filterStatus
-      const term = search.toLowerCase()
+      const term = debouncedSearch.toLowerCase()
       const matchesSearch =
         !term ||
         m.veiculoLabel.toLowerCase().includes(term) ||
@@ -189,15 +215,25 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
         m.responsavel.toLowerCase().includes(term)
       return matchesStatus && matchesSearch
     })
-  }, [items, search, filterStatus])
+  }, [items, debouncedSearch, filterStatus])
 
-  const totalCusto = useMemo(
-    () => filtered.reduce((acc, m) => acc + (m.custo || 0), 0),
-    [filtered]
-  )
+  const totalCusto = useMemo(() => filtered.reduce((acc, m) => acc + (m.custo || 0), 0), [
+    filtered,
+  ])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const start = (safePage - 1) * PAGE_SIZE
+  const visible = filtered.slice(start, start + PAGE_SIZE)
+  const fromItem = filtered.length === 0 ? 0 : start + 1
+  const toItem = Math.min(start + PAGE_SIZE, filtered.length)
 
   return (
     <div className="space-y-6">
+      <Breadcrumb
+        items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Manutenção' }]}
+      />
+
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo de Manutenção</h1>
         <p className="text-sm text-neutral-500 mt-1">
@@ -207,299 +243,305 @@ export default function ManutencaoClient({ currentRole, veiculos }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Ordens abertas</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+            Ordens abertas
+          </p>
           <p className="mt-1 text-2xl font-bold text-neutral-950">
             {items.filter((m) => m.status === 'agendada' || m.status === 'em_execucao').length}
           </p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Concluídas</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+            Concluídas
+          </p>
           <p className="mt-1 text-2xl font-bold text-neutral-950">
             {items.filter((m) => m.status === 'concluida').length}
           </p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Custo (filtrado)</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+            Custo (filtrado)
+          </p>
           <p className="mt-1 text-2xl font-bold text-neutral-950">{formatCurrency(totalCusto)}</p>
         </div>
       </div>
 
-      {message && (
-        <div
-          className={`rounded-lg p-4 text-sm font-medium ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border border-rose-200'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <input
-            type="text"
+          <Input
             placeholder="Buscar por veículo, oficina, tipo..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden transition-colors w-full sm:w-72"
+            onChange={(e) => {
+              setSearch(e.target.value)
+              setPage(1)
+            }}
+            containerClassName="w-full sm:w-72"
           />
-          <select
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as 'todos' | Status)}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden transition-colors"
+            onChange={(e) => {
+              setFilterStatus(e.target.value as 'todos' | Status)
+              setPage(1)
+            }}
+            containerClassName="w-full sm:w-48"
+            aria-label="Filtrar por status"
           >
             <option value="todos">Todos os status</option>
             <option value="agendada">Agendada</option>
             <option value="em_execucao">Em execução</option>
             <option value="concluida">Concluída</option>
             <option value="cancelada">Cancelada</option>
-          </select>
+          </Select>
         </div>
 
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center gap-2 rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-4 py-2.5 transition-colors shadow-xs cursor-pointer"
-        >
-          <IconPlus size={14} stroke={2.5} />
-          Nova Manutenção
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
+            {filtered.length === 0
+              ? '0 itens'
+              : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
+          </div>
+          <Button
+            variant="liberty"
+            onClick={openCreate}
+            leftIcon={<IconPlus size={16} stroke={2.5} />}
+          >
+            Nova Manutenção
+          </Button>
+        </div>
       </div>
 
       {showForm && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-5">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-5 flex items-center gap-2">
+            <IconTool size={20} className="text-liberty-deep" />
             {editing ? 'Editar Manutenção' : 'Cadastrar Manutenção'}
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                Veículo (cadastrado) *
-              </label>
-              <select
-                name="veiculoId"
-                defaultValue={editing?.veiculoId ?? ''}
-                onChange={(e) => {
-                  const id = e.currentTarget.value
-                  const free = e.currentTarget.form?.elements.namedItem('veiculoLabel') as HTMLInputElement | null
-                  if (free && id) free.value = ''
-                }}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden"
-              >
-                <option value="">— Selecionar do estoque —</option>
-                {veiculos.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.marca} {v.modelo} {v.ano} {v.placa ? `• ${v.placa}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">
-                Ou digite um veículo *
-              </label>
-              <input
-                name="veiculoLabel"
-                defaultValue={editing?.veiculoId ? '' : editing?.veiculoLabel}
-                placeholder="Veículo avulso / não cadastrado"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Tipo *</label>
-              <select
-                name="tipo"
-                required
-                defaultValue={editing?.tipo ?? ''}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden"
-              >
-                <option value="" disabled>Selecione</option>
-                {TIPOS.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Oficina *</label>
-              <input
-                name="oficina"
-                required
-                defaultValue={editing?.oficina}
-                placeholder="Nome da oficina"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Responsável *</label>
-              <input
-                name="responsavel"
-                required
-                defaultValue={editing?.responsavel}
-                placeholder="Quem está acompanhando"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Custo (R$)</label>
-              <input
-                name="custo"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue={editing?.custo ?? 0}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Data agendada *</label>
-              <input
-                name="dataAgendada"
-                type="date"
-                required
-                defaultValue={editing?.dataAgendada}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Data conclusão</label>
-              <input
-                name="dataConclusao"
-                type="date"
-                defaultValue={editing?.dataConclusao}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Status</label>
-              <select
-                name="status"
-                defaultValue={editing?.status ?? 'agendada'}
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm bg-white focus:border-neutral-900 focus:outline-hidden"
-              >
-                <option value="agendada">Agendada</option>
-                <option value="em_execucao">Em execução</option>
-                <option value="concluida">Concluída</option>
-                <option value="cancelada">Cancelada</option>
-              </select>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1">Descrição</label>
-              <textarea
-                name="descricao"
-                rows={3}
-                defaultValue={editing?.descricao}
-                placeholder="Serviços a serem executados..."
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-hidden resize-none"
-              />
-            </div>
+            <Select
+              label="Veículo (cadastrado) *"
+              name="veiculoId"
+              defaultValue={editing?.veiculoId ?? ''}
+              onChange={(e) => {
+                const id = e.currentTarget.value
+                const free = e.currentTarget.form?.elements.namedItem('veiculoLabel') as HTMLInputElement | null
+                if (free && id) free.value = ''
+              }}
+            >
+              <option value="">— Selecionar do estoque —</option>
+              {veiculos.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.marca} {v.modelo} {v.ano} {v.placa ? `• ${v.placa}` : ''}
+                </option>
+              ))}
+            </Select>
+
+            <Input
+              label="Ou digite um veículo *"
+              name="veiculoLabel"
+              defaultValue={editing?.veiculoId ? '' : editing?.veiculoLabel}
+              placeholder="Veículo avulso / não cadastrado"
+              leftIcon={<IconCar size={14} />}
+            />
+
+            <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
+              <option value="" disabled>
+                Selecione
+              </option>
+              {TIPOS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+
+            <Input
+              label="Oficina *"
+              name="oficina"
+              required
+              defaultValue={editing?.oficina}
+              placeholder="Nome da oficina"
+              leftIcon={<IconBuildingWarehouse size={14} />}
+            />
+
+            <Input
+              label="Responsável *"
+              name="responsavel"
+              required
+              defaultValue={editing?.responsavel}
+              placeholder="Quem está acompanhando"
+              leftIcon={<IconUser size={14} />}
+            />
+
+            <Input
+              label="Custo (R$)"
+              name="custo"
+              type="text"
+              inputMode="decimal"
+              value={custo}
+              onChange={(e) => setCusto(maskMoney(e.target.value))}
+              placeholder="R$ 0,00"
+              leftIcon={<IconCash size={14} />}
+            />
+
+            <Input
+              label="Data agendada *"
+              name="dataAgendada"
+              type="date"
+              required
+              defaultValue={editing?.dataAgendada}
+              leftIcon={<IconCalendar size={14} />}
+            />
+
+            <Input
+              label="Data conclusão"
+              name="dataConclusao"
+              type="date"
+              defaultValue={editing?.dataConclusao}
+              leftIcon={<IconCalendar size={14} />}
+            />
+
+            <Select
+              label="Status"
+              name="status"
+              defaultValue={editing?.status ?? 'agendada'}
+              containerClassName="sm:col-span-2"
+            >
+              <option value="agendada">Agendada</option>
+              <option value="em_execucao">Em execução</option>
+              <option value="concluida">Concluída</option>
+              <option value="cancelada">Cancelada</option>
+            </Select>
+
+            <Textarea
+              label="Descrição"
+              name="descricao"
+              rows={3}
+              defaultValue={editing?.descricao}
+              placeholder="Serviços a serem executados..."
+              containerClassName="sm:col-span-2"
+            />
+
             <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
-              >
+              <Button type="button" variant="secondary" onClick={closeForm}>
                 Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white text-sm font-medium px-5 py-2 transition-colors shadow-xs cursor-pointer"
-              >
+              </Button>
+              <Button type="submit" variant="liberty">
                 {editing ? 'Salvar Alterações' : 'Cadastrar'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-sm text-neutral-600">
-            <thead className="bg-neutral-50 text-xs font-semibold uppercase tracking-wider text-neutral-700 border-b border-neutral-200">
+      {visible.length === 0 ? (
+        <EmptyState
+          icon={<IconTool size={24} />}
+          title="Nenhuma manutenção encontrada"
+          description="Ajuste os filtros ou cadastre uma nova ordem de serviço."
+        />
+      ) : (
+        <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
+          <Table>
+            <THead>
               <tr>
-                <th className="px-4 py-3">Veículo / Tipo</th>
-                <th className="px-4 py-3">Oficina / Resp.</th>
-                <th className="px-4 py-3">Agendada</th>
-                <th className="px-4 py-3">Conclusão</th>
-                <th className="px-4 py-3">Custo</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Ações</th>
+                <TH>Veículo / Tipo</TH>
+                <TH>Oficina / Resp.</TH>
+                <TH>Agendada</TH>
+                <TH>Conclusão</TH>
+                <TH align="right">Custo</TH>
+                <TH>Status</TH>
+                <TH align="right">Ações</TH>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-neutral-400 font-medium">
-                    Nenhuma manutenção encontrada.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((m) => (
-                  <tr key={m.id} className="hover:bg-neutral-50/60 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-neutral-900">{m.veiculoLabel}</div>
-                      <div className="text-xs text-neutral-500">{m.tipo}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div>{m.oficina}</div>
-                      <div className="text-xs text-neutral-500">{m.responsavel}</div>
-                    </td>
-                    <td className="px-4 py-3 text-xs">{formatDate(m.dataAgendada)}</td>
-                    <td className="px-4 py-3 text-xs">{formatDate(m.dataConclusao)}</td>
-                    <td className="px-4 py-3 font-semibold text-neutral-900">{formatCurrency(m.custo)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${STATUS_STYLES[m.status]}`}>
-                        {STATUS_LABELS[m.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-2">
-                        <button
-                          onClick={() => openEdit(m)}
-                          className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(m)}
-                          className="rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
-                        >
-                          Remover
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </THead>
+            <TBody>
+              {visible.map((m) => (
+                <TR key={m.id}>
+                  <TD>
+                    <div className="font-semibold text-neutral-900">{m.veiculoLabel}</div>
+                    <div className="text-xs text-neutral-500">{m.tipo}</div>
+                  </TD>
+                  <TD>
+                    <div>{m.oficina}</div>
+                    <div className="text-xs text-neutral-500">{m.responsavel}</div>
+                  </TD>
+                  <TD className="text-xs">{formatDate(m.dataAgendada)}</TD>
+                  <TD className="text-xs">{formatDate(m.dataConclusao)}</TD>
+                  <TD align="right" className="font-semibold text-neutral-900">
+                    {formatCurrency(m.custo)}
+                  </TD>
+                  <TD>
+                    <StatusBadge tone={STATUS_TONE[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
+                  </TD>
+                  <TD align="right">
+                    <div className="inline-flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openEdit(m)}
+                        leftIcon={<IconPencil size={12} />}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setConfirmDelete(m)}
+                        leftIcon={<IconTrash size={12} />}
+                        className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+                      >
+                        Remover
+                      </Button>
+                    </div>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
 
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-neutral-950">Remover manutenção?</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Esta ação é local. Tem certeza que deseja remover a manutenção do veículo <strong>{confirmDelete.veiculoLabel}</strong>?
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setConfirmDelete(null)}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(confirmDelete)}
-                className="rounded-lg bg-rose-600 hover:bg-rose-500 text-white px-4 py-2 text-sm font-semibold transition-colors cursor-pointer"
-              >
-                Remover
-              </button>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-neutral-200 bg-neutral-50/60">
+              <span className="text-xs text-neutral-500">
+                Página {safePage} de {totalPages}
+              </span>
+              <div className="inline-flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage === totalPages}
+                >
+                  Próxima
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
+        title="Remover manutenção?"
+        description={
+          confirmDelete ? (
+            <>
+              Esta ação é local. Tem certeza que deseja remover a manutenção do veículo{' '}
+              <strong>{confirmDelete.veiculoLabel}</strong>?
+            </>
+          ) : null
+        }
+        confirmLabel="Remover"
+        tone="danger"
+      />
     </div>
   )
 }

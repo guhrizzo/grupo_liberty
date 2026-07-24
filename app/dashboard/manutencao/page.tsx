@@ -29,5 +29,5 @@ export default async function ManutencaoPage() {
 
   const veiculos = await getVehicles()
 
-  return <ManutencaoClient currentRole={role} veiculos={veiculos} />
+  return <ManutencaoClient veiculos={veiculos} />
 }
