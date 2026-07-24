@@ -10,7 +10,7 @@ export default async function LoginPage({
   const { message, redirect } = await searchParams
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden bg-gradient-to-br from-liberty/5 via-white to-neutral-50">
+    <div className="min-h-screen flex items-center justify-center px-4 py-10 relative overflow-hidden bg-linear-to-br from-liberty/5 via-white to-neutral-50">
       <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-liberty/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
 
