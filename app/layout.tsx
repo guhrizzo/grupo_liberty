@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import RouteLoadingBar from "./components/RouteLoadingBar";
+import { ToastProvider } from "./components/ui";
 import "./globals.css";
 
 const inter = Inter({
@@ -30,10 +31,10 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${inter.variable} ${poppins.variable} h-full antialiased`}
     >
-      
+
       <body className="min-h-full flex flex-col">
         <RouteLoadingBar />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

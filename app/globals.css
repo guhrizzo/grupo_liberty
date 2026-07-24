@@ -9,7 +9,7 @@
    ========================================================= */
 
 @theme {
-  /* Paleta */
+  /* Paleta — site público (neon/dark) */
   --color-bg-0: #06070b;
   --color-bg-1: #0b0d14;
   --color-bg-2: #11141d;
@@ -33,6 +33,12 @@
   --color-danger: #ff4d6d;
   --color-warn: #ffb547;
 
+  /* Paleta — Liberty (usada no dashboard claro como identidade) */
+  --color-liberty: #00a3e0;
+  --color-liberty-soft: #38bff0;
+  --color-liberty-deep: #006fa3;
+  --color-liberty-glow: #00a3e033;
+
   /* Tipografia */
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-poppins), system-ui, sans-serif;
@@ -40,11 +46,14 @@
   /* Animações */
   --animate-loading-bar: loading-bar-slide 1.4s ease-in-out infinite;
   --animate-pulse-soft: pulse-soft 2.2s ease-in-out infinite;
-  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-fade-in: fade-in 0.25s ease-out both;
   --animate-fade-up: fade-up 0.5s ease-out both;
   --animate-shimmer: shimmer 2.4s linear infinite;
   --animate-spin-slow: spin 6s linear infinite;
   --animate-glow: glow 2.4s ease-in-out infinite;
+  --animate-zoom-in-95: zoom-in-95 0.18s ease-out both;
+  --animate-slide-in-right: slide-in-right 0.25s ease-out both;
+  --animate-slide-in-left: slide-in-left 0.25s ease-out both;
 }
 
 @keyframes loading-bar-slide {
@@ -75,6 +84,31 @@
 @keyframes glow {
   0%, 100% { box-shadow: 0 0 14px -2px var(--color-neon-glow), 0 0 0 1px var(--color-neon-soft) inset; }
   50%      { box-shadow: 0 0 22px  0px var(--color-neon-glow), 0 0 0 1px var(--color-neon-soft) inset; }
+}
+
+@keyframes zoom-in-95 {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Respeita preferências de acessibilidade: desativa animações decorativas. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* =========================================================

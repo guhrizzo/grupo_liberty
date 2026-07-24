@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "shadcn-ui": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@jpisnice/shadcn-ui-mcp-server",
+        "--github-api-key",
+        "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"
+      ]
+    },
+    "magic": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@21st-dev/magic@latest"
+      ],
+      "env": {
+        "API_KEY": "21st_sk_db3649e15b3d8c62616755724af50deea4e5edd7c6a5e8ca8e36379469de4eea"
+      }
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest"
+      ]
+    }
+  }
+}
