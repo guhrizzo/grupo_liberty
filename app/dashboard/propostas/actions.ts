@@ -7,7 +7,10 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 export interface Proposta {
   id: string
   veiculo_id: string
-  user_id: string
+  user_id: string | null
+  nome?: string
+  telefone?: string
+  email?: string
   valor: number | null
   mensagem: string
   status: 'pendente' | 'aceito' | 'recusado'
@@ -19,6 +22,7 @@ export interface Proposta {
   } | null
   user_email?: string
   user_name?: string
+  user_phone?: string
 }
 
 async function getSessionUser() {
@@ -79,26 +83,39 @@ export async function getPropostas(): Promise<Proposta[]> {
       }
     })
 
-    // 3. Buscar usuários do Auth para obter e-mail e nome
-    const listUsersResult = await adminAuth.listUsers()
-    const authUsers = listUsersResult.users
+    // 3. Buscar usuários do Auth para obter e-mail e nome (fallback)
+    let authUsers: any[] = []
+    try {
+      const listUsersResult = await adminAuth.listUsers()
+      authUsers = listUsersResult.users
+    } catch {
+      // Caso não consiga listar usuários do Auth
+    }
 
-    // 4. Cruzar dados das propostas, veículos e usuários
+    // 4. Cruzar dados das propostas, veículos e dados de contato
     return propostasList.map((p: any) => {
       const authUser = authUsers.find((u: any) => u.uid === p.user_id)
       const veiculoInfo = veiculosMap[p.veiculo_id] || null
 
+      const clienteNome = p.nome || authUser?.displayName || 'Visitante'
+      const clienteEmail = p.email || authUser?.email || 'Sem e-mail'
+      const clienteTelefone = p.telefone || 'Sem telefone'
+
       return {
         id: p.id,
         veiculo_id: p.veiculo_id,
-        user_id: p.user_id,
+        user_id: p.user_id ?? null,
+        nome: clienteNome,
+        telefone: clienteTelefone,
+        email: clienteEmail,
         valor: p.valor,
         mensagem: p.mensagem,
         status: p.status,
         created_at: p.created_at,
         veiculos: veiculoInfo,
-        user_email: authUser?.email || 'N/A',
-        user_name: authUser?.displayName || 'Cliente',
+        user_email: clienteEmail,
+        user_name: clienteNome,
+        user_phone: clienteTelefone,
       }
     })
   } catch (err) {
@@ -123,5 +140,33 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
     return { success: 'Status da proposta atualizado com sucesso!' }
   } catch (err: any) {
     return { error: err.message || 'Erro de autorização.' }
+  }
+}
+
+/**
+ * Exclui permanentemente uma proposta com status 'recusado'.
+ */
+export async function deleteProposta(id: string): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+
+    const propostaRef = adminDb.collection('propostas').doc(id)
+    const propostaDoc = await propostaRef.get()
+
+    if (!propostaDoc.exists) {
+      return { error: 'Proposta não encontrada.' }
+    }
+
+    const data = propostaDoc.data()
+    if (data?.status !== 'recusado') {
+      return { error: 'Apenas propostas recusadas podem ser excluídas.' }
+    }
+
+    await propostaRef.delete()
+
+    revalidatePath('/dashboard/propostas')
+    return { success: 'Proposta excluída com sucesso.' }
+  } catch (err: any) {
+    return { error: err.message || 'Erro ao excluir proposta.' }
   }
 }

@@ -1,17 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import { IconSend, IconMessage2, IconCash } from '@tabler/icons-react'
+import {
+  IconSend,
+  IconMessage2,
+  IconCash,
+  IconUser,
+  IconPhone,
+  IconMail,
+} from '@tabler/icons-react'
 import { enviarPropostaAction } from './actions'
 import { Button, Input, Textarea, useToast } from '../../components/ui'
-import { maskMoney, parseMoney } from '@/utils/masks'
+import { maskMoney, parseMoney, maskPhone } from '@/utils/masks'
 
 interface PropostaFormProps {
   veiculoId: string
   veiculoModelo: string
+  userEmail?: string
 }
 
-export default function PropostaForm({ veiculoId, veiculoModelo }: PropostaFormProps) {
+export default function PropostaForm({
+  veiculoId,
+  veiculoModelo,
+  userEmail = '',
+}: PropostaFormProps) {
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState(userEmail)
   const [valor, setValor] = useState('')
   const [mensagem, setMensagem] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,11 +35,27 @@ export default function PropostaForm({ veiculoId, veiculoModelo }: PropostaFormP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (!nome.trim() || nome.trim().length < 2) {
+      toast.error('Informe seu nome completo.')
+      return
+    }
+
+    if (!telefone.trim() || telefone.trim().length < 8) {
+      toast.error('Informe seu telefone / WhatsApp.')
+      return
+    }
+
+    if (!email.trim() || !email.includes('@')) {
+      toast.error('Informe um e-mail válido para receber nossa resposta.')
+      return
+    }
+
     const valorNumerico = parseMoney(valor)
     if (valor && valorNumerico <= 0) {
       toast.error('Informe um valor de proposta válido.')
       return
     }
+
     if (!mensagem.trim()) {
       toast.error('Escreva uma mensagem para a equipe.')
       return
@@ -34,20 +65,27 @@ export default function PropostaForm({ veiculoId, veiculoModelo }: PropostaFormP
 
     const formData = new FormData()
     formData.append('veiculo_id', veiculoId)
+    formData.append('nome', nome.trim())
+    formData.append('telefone', telefone.trim())
+    formData.append('email', email.trim())
     formData.append('valor', String(valorNumerico))
-    formData.append('mensagem', mensagem)
+    formData.append('mensagem', mensagem.trim())
 
     try {
       const res = await enviarPropostaAction(formData)
       if (res.error) {
         toast.error(res.error, 'Não foi possível enviar')
       } else if (res.success) {
-        toast.success(res.success, 'Proposta enviada')
+        toast.success(res.success, 'Proposta enviada!')
+        setNome('')
+        setTelefone('')
+        if (!userEmail) setEmail('')
         setValor('')
         setMensagem('')
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Ocorreu um erro ao enviar sua proposta.'
+      const message =
+        err instanceof Error ? err.message : 'Ocorreu um erro ao enviar sua proposta.'
       toast.error(message, 'Erro inesperado')
     } finally {
       setLoading(false)
@@ -60,12 +98,48 @@ export default function PropostaForm({ veiculoId, veiculoModelo }: PropostaFormP
         <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-liberty/10 liberty-glow mb-4">
           <IconMessage2 size={20} className="text-liberty" />
         </div>
-        <h3 className="text-lg font-bold text-neutral-900 mb-1">Enviar Proposta</h3>
-        <p className="text-xs text-neutral-600 mb-5">
-          Tem interesse neste <span className="text-neutral-900 font-semibold">{veiculoModelo}</span>? Envie sua proposta e nossa equipe retorna em breve.
+        <h3 className="text-lg font-bold text-neutral-900 mb-1">Faça sua Proposta</h3>
+        <p className="text-xs text-neutral-600 mb-5 leading-relaxed">
+          Preencha seus dados abaixo para enviar sua proposta ou dúvida sobre este{' '}
+          <span className="text-neutral-900 font-semibold">{veiculoModelo}</span>. Nossa equipe responderá em breve!
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            id="nomeCliente"
+            label="Seu Nome Completo *"
+            type="text"
+            required
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex: João da Silva"
+            leftIcon={<IconUser size={14} />}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              id="telefoneCliente"
+              label="Telefone / WhatsApp *"
+              type="tel"
+              required
+              value={telefone}
+              onChange={(e) => setTelefone(maskPhone(e.target.value))}
+              placeholder="(14) 99999-9999"
+              leftIcon={<IconPhone size={14} />}
+            />
+
+            <Input
+              id="emailCliente"
+              label="E-mail de Contato *"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="joao@email.com"
+              leftIcon={<IconMail size={14} />}
+            />
+          </div>
+
           <Input
             id="valorProposta"
             label="Valor da Proposta (R$) — Opcional"
@@ -82,21 +156,21 @@ export default function PropostaForm({ veiculoId, veiculoModelo }: PropostaFormP
             id="mensagemProposta"
             label="Mensagem *"
             required
-            rows={4}
+            rows={3}
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}
-            placeholder="Olá! Tenho interesse no veículo. Gostaria de saber mais informações e agendar uma visita."
+            placeholder="Olá! Tenho interesse neste veículo. Gostaria de receber mais informações e simular o financiamento."
           />
 
           <Button
             type="submit"
             variant="liberty"
             loading={loading}
-            loadingLabel="Enviando..."
+            loadingLabel="Enviando proposta..."
             leftIcon={<IconSend size={14} stroke={2.5} />}
             fullWidth
           >
-            Enviar Mensagem
+            Enviar Proposta
           </Button>
         </form>
       </div>

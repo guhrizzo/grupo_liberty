@@ -16,6 +16,7 @@ import {
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
+  IconWorld,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
 import { ConfirmDialog, useToast } from './ui'
@@ -253,6 +254,21 @@ export default function DashboardShell({
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navegação principal">
         <ul className="space-y-1">
+          {/* Ver site */}
+          <li className="pb-1 mb-1 border-b border-neutral-100">
+            <Link
+              href="/"
+              onClick={() => setOpen(false)}
+              title="Ver site"
+              className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${
+                collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
+              }`}
+            >
+              <IconWorld className="h-5 w-5 shrink-0" stroke={2} />
+              <span className={collapsed ? 'md:hidden truncate' : 'truncate'}>Ver site</span>
+            </Link>
+          </li>
+
           {allowedItems.map((item) => {
             const active = isActive(item.href)
             return (

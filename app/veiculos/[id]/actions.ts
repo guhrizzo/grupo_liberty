@@ -21,19 +21,30 @@ async function getSessionUser() {
 export async function enviarPropostaAction(formData: FormData) {
   const user = await getSessionUser()
 
-  if (!user) {
-    return { error: 'Você precisa estar logado para enviar uma proposta.' }
-  }
-
-  const veiculoId = formData.get('veiculo_id') as string
-  const valorStr = formData.get('valor') as string
-  const mensagem = formData.get('mensagem') as string
+  const veiculoId = (formData.get('veiculo_id') as string)?.trim()
+  const nome = (formData.get('nome') as string)?.trim()
+  const telefone = (formData.get('telefone') as string)?.trim()
+  const email = (formData.get('email') as string)?.trim()
+  const valorStr = (formData.get('valor') as string)?.trim()
+  const mensagem = (formData.get('mensagem') as string)?.trim()
 
   if (!veiculoId) {
     return { error: 'Veículo não especificado.' }
   }
 
-  if (!mensagem || mensagem.trim() === '') {
+  if (!nome || nome.length < 2) {
+    return { error: 'Informe seu nome completo.' }
+  }
+
+  if (!telefone || telefone.length < 8) {
+    return { error: 'Informe um telefone/WhatsApp de contato válido.' }
+  }
+
+  if (!email || !email.includes('@')) {
+    return { error: 'Informe um endereço de e-mail válido.' }
+  }
+
+  if (!mensagem) {
     return { error: 'A mensagem de interesse é obrigatória.' }
   }
 
@@ -47,7 +58,10 @@ export async function enviarPropostaAction(formData: FormData) {
     const docRef = adminDb.collection('propostas').doc()
     await docRef.set({
       veiculo_id: veiculoId,
-      user_id: user.uid,
+      user_id: user ? user.uid : null,
+      nome,
+      telefone,
+      email,
       valor,
       mensagem,
       status: 'pendente',

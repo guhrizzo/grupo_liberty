@@ -255,25 +255,11 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="space-y-6 lg:sticky lg:top-24">
-              {user ? (
-                <PropostaForm veiculoId={veiculo.id} veiculoModelo={`${veiculo.marca} ${veiculo.modelo}`} />
-              ) : (
-                <div className="relative overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-liberty/10 liberty-glow mb-4">
-                    <IconMessage2 size={20} className="text-liberty" />
-                  </div>
-                  <h3 className="text-lg font-bold text-neutral-900 mb-2">Faça uma Proposta</h3>
-                  <p className="text-xs text-neutral-600 mb-6 leading-relaxed">
-                    Para enviar propostas, tirar dúvidas ou agendar visitas, autentique-se no sistema Liberty Car.
-                  </p>
-                  <Link href={`/login?redirect=/veiculos/${veiculo.id}`}>
-                    <Button variant="liberty" fullWidth size="lg">Fazer Login</Button>
-                  </Link>
-                  <p className="text-[11px] text-neutral-500 mt-3 text-center">
-                    Não tem conta? Solicite ao administrador.
-                  </p>
-                </div>
-              )}
+              <PropostaForm
+                veiculoId={veiculo.id}
+                veiculoModelo={`${veiculo.marca} ${veiculo.modelo}`}
+                userEmail={user?.email ?? undefined}
+              />
             </div>
 
           </div>
