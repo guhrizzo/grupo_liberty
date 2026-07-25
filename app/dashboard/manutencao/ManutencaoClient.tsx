@@ -6,7 +6,6 @@ import {
   IconTool,
   IconPencil,
   IconTrash,
-  IconCar,
   IconBuildingWarehouse,
   IconUser,
   IconCalendar,
@@ -74,34 +73,7 @@ const TIPOS = [
   'Outro',
 ]
 
-const initialData: Manutencao[] = [
-  {
-    id: 'm-1',
-    veiculoId: '',
-    veiculoLabel: 'Honda Civic 2023',
-    tipo: 'Troca de óleo',
-    descricao: 'Troca de óleo 5W30 + filtro',
-    oficina: 'Auto Center Premium',
-    responsavel: 'Carlos Souza',
-    custo: 480,
-    dataAgendada: '2026-07-22',
-    dataConclusao: '',
-    status: 'agendada',
-  },
-  {
-    id: 'm-2',
-    veiculoId: '',
-    veiculoLabel: 'Toyota Corolla 2022',
-    tipo: 'Alinhamento e balanceamento',
-    descricao: 'Alinhamento 3D + balanceamento',
-    oficina: 'Pneu Center',
-    responsavel: 'Mariana Alves',
-    custo: 220,
-    dataAgendada: '2026-07-10',
-    dataConclusao: '2026-07-11',
-    status: 'concluida',
-  },
-]
+const initialData: Manutencao[] = []
 
 const PAGE_SIZE = 12
 
@@ -335,13 +307,6 @@ export default function ManutencaoClient({ veiculos }: Props) {
               ))}
             </Select>
 
-            <Input
-              label="Ou digite um veículo *"
-              name="veiculoLabel"
-              defaultValue={editing?.veiculoId ? '' : editing?.veiculoLabel}
-              placeholder="Veículo avulso / não cadastrado"
-              leftIcon={<IconCar size={14} />}
-            />
 
             <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
               <option value="" disabled>
@@ -352,6 +317,17 @@ export default function ManutencaoClient({ veiculos }: Props) {
                   {t}
                 </option>
               ))}
+            </Select>
+
+            <Select
+              label="Status"
+              name="status"
+              defaultValue={editing?.status ?? 'agendada'}
+            >
+              <option value="agendada">Agendada</option>
+              <option value="em_execucao">Em execução</option>
+              <option value="concluida">Concluída</option>
+              <option value="cancelada">Cancelada</option>
             </Select>
 
             <Input
@@ -399,18 +375,6 @@ export default function ManutencaoClient({ veiculos }: Props) {
               defaultValue={editing?.dataConclusao}
               leftIcon={<IconCalendar size={14} />}
             />
-
-            <Select
-              label="Status"
-              name="status"
-              defaultValue={editing?.status ?? 'agendada'}
-              containerClassName="sm:col-span-2"
-            >
-              <option value="agendada">Agendada</option>
-              <option value="em_execucao">Em execução</option>
-              <option value="concluida">Concluída</option>
-              <option value="cancelada">Cancelada</option>
-            </Select>
 
             <Textarea
               label="Descrição"

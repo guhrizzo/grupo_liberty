@@ -68,32 +68,7 @@ const TIPOS = [
   'Outro',
 ]
 
-const initialData: Processo[] = [
-  {
-    id: 'p-1',
-    titulo: 'Contrato - João da Silva',
-    cliente: 'João da Silva',
-    tipo: 'Contrato de compra e venda',
-    numero: '0001234-56.2025',
-    status: 'em_andamento',
-    responsavel: 'Dra. Marina Costa',
-    prazo: '2026-08-15',
-    observacoes: 'Aguardando assinatura do comprador.',
-    createdAt: '2026-07-01',
-  },
-  {
-    id: 'p-2',
-    titulo: 'Transferência - Honda Civic 2023',
-    cliente: 'Maria Oliveira',
-    tipo: 'Transferência de propriedade',
-    numero: 'INT-2026-045',
-    status: 'pendente',
-    responsavel: 'Dr. Rafael Lima',
-    prazo: '2026-07-30',
-    observacoes: 'Falta CRV original.',
-    createdAt: '2026-07-05',
-  },
-]
+const initialData: Processo[] = []
 
 const PAGE_SIZE = 12
 
@@ -383,7 +358,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
                   <TD>{p.responsavel}</TD>
                   <TD className="text-xs">{formatDate(p.prazo)}</TD>
                   <TD>
-                    <StatusBadge tone={STATUS_TONE[p.status]}>
+                    <StatusBadge tone={STATUS_TONE[p.status]} className="whitespace-nowrap">
                       {STATUS_LABELS[p.status]}
                     </StatusBadge>
                   </TD>

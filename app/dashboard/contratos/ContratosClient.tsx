@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useTransition, useMemo } from 'react'
 import {
   IconPlus,
@@ -9,7 +10,8 @@ import {
   IconBriefcase,
 } from '@tabler/icons-react'
 import type { Contrato, ContratoInput } from './types'
-import { criarContrato, removerContrato } from './actions'
+import { criarContrato } from './actions'
+import { removerContratoVeiculoAction } from '@/app/veiculos/[id]/actions'
 import {
   Button,
   Input,
@@ -57,6 +59,7 @@ export default function ContratosClient({
   const [confirmDelete, setConfirmDelete] = useState<Contrato | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [veiculoFiltro, setVeiculoFiltro] = useState<string>('')
   const debouncedSearch = useDebounce(search, 250)
 
   const [selectedVeiculoId, setSelectedVeiculoId] = useState('')
@@ -111,8 +114,18 @@ export default function ContratosClient({
   }
 
   function handleDelete(id: string) {
+    const target = contratos.find((c) => c.id === id)
+    if (!target) {
+      toast.error('Contrato não encontrado na listagem atual.')
+      return
+    }
     startTransition(async () => {
-      const res = await removerContrato(id)
+      // A página lista contratos de `veiculo_contratos`, então a exclusão
+      // precisa passar o veiculoId para a action correta.
+      const formData = new FormData()
+      formData.set('veiculoId', target.veiculoId)
+      formData.set('contratoId', target.id)
+      const res = await removerContratoVeiculoAction(formData)
       if (res.error) {
         toast.error(res.error)
       } else {
@@ -125,15 +138,17 @@ export default function ContratosClient({
 
   const filtered = useMemo(() => {
     const term = debouncedSearch.toLowerCase()
-    if (!term) return contratos
-    return contratos.filter(
-      (c) =>
+    return contratos.filter((c) => {
+      if (veiculoFiltro && c.veiculoId !== veiculoFiltro) return false
+      if (!term) return true
+      return (
         c.clienteNome.toLowerCase().includes(term) ||
         c.clienteCpfCnpj.toLowerCase().includes(term) ||
         c.veiculoResumo.toLowerCase().includes(term) ||
-        c.id.toLowerCase().includes(term),
-    )
-  }, [contratos, debouncedSearch])
+        c.id.toLowerCase().includes(term)
+      )
+    })
+  }, [contratos, debouncedSearch, veiculoFiltro])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -152,21 +167,14 @@ export default function ContratosClient({
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Gestão de Contratos</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Gere, visualize e faça o download dos contratos de compra e venda de veículos.
+            Visualize e faça o download dos contratos anexados aos veículos.
           </p>
         </div>
-
-        <Button
-          variant="liberty"
-          onClick={() => setShowForm((v) => !v)}
-          leftIcon={<IconPlus size={16} stroke={2.5} />}
-          className="self-start sm:self-auto"
-        >
-          {showForm ? 'Fechar Formulário' : 'Novo Contrato'}
-        </Button>
       </div>
 
-      {showForm && (
+      {/* Formulário de geração de contrato DESATIVADO temporariamente.
+          A página /dashboard/contratos é apenas visualização. */}
+      {false && showForm && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
           <h2 className="text-lg font-semibold text-neutral-900 mb-5 flex items-center gap-2">
             <IconFileText size={20} className="text-liberty-deep" />
@@ -285,9 +293,9 @@ export default function ContratosClient({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <Input
-          placeholder="Buscar por cliente, CPF ou veículo..."
+          placeholder="Buscar por cliente, e-mail ou veículo..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
@@ -295,7 +303,22 @@ export default function ContratosClient({
           }}
           containerClassName="w-full sm:max-w-sm"
         />
-        <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
+        <Select
+          value={veiculoFiltro}
+          onChange={(e) => {
+            setVeiculoFiltro(e.target.value)
+            setPage(1)
+          }}
+          containerClassName="w-full sm:max-w-xs"
+        >
+          <option value="">Todos os veículos</option>
+          {veiculos.map((v) => (
+            <option key={v.id} value={v.id}>
+              {v.marca} {v.modelo} ({v.ano ?? 'N/A'})
+            </option>
+          ))}
+        </Select>
+        <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap ml-auto">
           {filtered.length === 0
             ? '0 contratos'
             : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
@@ -317,9 +340,8 @@ export default function ContratosClient({
           <Table>
             <THead>
               <tr>
-                <TH>Cliente / CPF</TH>
+                <TH>Usuário</TH>
                 <TH>Veículo</TH>
-                <TH align="right">Valor</TH>
                 <TH>Data de Emissão</TH>
                 <TH align="right">Ações</TH>
               </tr>
@@ -329,17 +351,25 @@ export default function ContratosClient({
                 <TR key={c.id}>
                   <TD>
                     <div className="font-semibold text-neutral-900">{c.clienteNome}</div>
-                    <div className="text-xs text-neutral-500">{c.clienteCpfCnpj}</div>
+                    {c.clienteEmail && (
+                      <div className="text-xs text-neutral-500">{c.clienteEmail}</div>
+                    )}
                   </TD>
-                  <TD className="font-medium text-neutral-800">{c.veiculoResumo}</TD>
-                  <TD align="right" className="font-bold text-neutral-900">
-                    {formatCurrency(c.valor)}
+                  <TD>
+                    <Link
+                      href={`/veiculos/${c.veiculoId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-neutral-800 hover:text-liberty-deep hover:underline transition-colors"
+                    >
+                      {c.veiculoResumo}
+                    </Link>
                   </TD>
                   <TD className="text-xs">{formatDate(c.criadoEm)}</TD>
                   <TD align="right">
                     <div className="inline-flex gap-2">
                       <a
-                        href={`/api/contratos/${c.id}/pdf`}
+                        href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"

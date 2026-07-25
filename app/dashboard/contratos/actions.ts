@@ -61,6 +61,12 @@ function serializeContrato(id: string, data: FirebaseFirestore.DocumentData): Co
   }
 }
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
+// ─── Geração de contrato DESATIVADA temporariamente ─────────────────────────
+// A página /dashboard/contratos agora é apenas visualização dos contratos
+// anexados aos veículos (coleção `veiculo_contratos`).
+// O código original está comentado abaixo para reativação futura.
+/*
 export async function criarContrato(
   input: ContratoInput,
 ): Promise<ContratoResponse> {
@@ -133,9 +139,6 @@ export async function criarContrato(
     }
 
     const buffer = await renderToBuffer(
-      // @react-pdf/renderer tipa renderToBuffer para exigir ReactElement<DocumentProps>,
-      // mas nosso wrapper ContratoDocument recebe { contrato } — o cast abaixo só
-      // contorna a checagem de tipos, o componente já renderiza um <Document> por dentro.
       createElement(ContratoDocument, { contrato }) as any,
     )
 
@@ -165,6 +168,16 @@ export async function criarContrato(
     const message = err instanceof Error ? err.message : 'Erro ao gerar contrato.'
     return { error: message }
   }
+}
+*/
+
+// Stub da função de geração: sempre retorna desativado. Mantém a
+// assinatura para que consumidores (ex.: ContratosClient) continuem
+// importando sem quebrar.
+export async function criarContrato(
+  _input: ContratoInput,
+): Promise<ContratoResponse> {
+  return { error: 'Geração de contratos desativada no momento.' }
 }
 
 export async function listarContratos(): Promise<Contrato[]> {

@@ -179,6 +179,9 @@ export default function DashboardShell({
       try {
         await logoutAction()
       } catch (err: unknown) {
+        if ((err as { digest?: string })?.digest?.startsWith('NEXT_REDIRECT')) {
+          return
+        }
         const msg = err instanceof Error ? err.message : 'Erro ao sair'
         toast.error(msg, 'Não foi possível sair')
       }

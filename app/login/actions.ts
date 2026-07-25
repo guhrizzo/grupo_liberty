@@ -122,3 +122,49 @@ export async function logout() {
   revalidatePath('/', 'layout')
   redirect('/login')
 }
+
+export async function requestPasswordReset(email: string): Promise<{ success?: string; error?: string }> {
+  if (!email || !email.trim()) {
+    return { error: 'Informe o seu endereço de e-mail.' }
+  }
+
+  const cleanEmail = email.trim()
+
+  try {
+    // Tenta gerar o link pelo adminAuth para log de desenvolvimento (facilita testes)
+    try {
+      const link = await adminAuth.generatePasswordResetLink(cleanEmail)
+      console.log(`[PASSWORD RESET LINK for ${cleanEmail}]:`, link)
+    } catch (adminErr) {
+      console.warn('Erro ao gerar link admin (usuário pode não existir):', adminErr)
+    }
+
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: cleanEmail }),
+      }
+    )
+
+    if (!res.ok) {
+      const errorData = await res.json()
+      const message = errorData.error?.message
+      if (message === 'EMAIL_NOT_FOUND') {
+        return { error: 'Não encontramos nenhuma conta vinculada a este e-mail.' }
+      }
+      if (message === 'INVALID_EMAIL') {
+        return { error: 'Endereço de e-mail inválido.' }
+      }
+      return { error: 'Não foi possível enviar o e-mail de redefinição. Tente novamente mais tarde.' }
+    }
+
+    return { success: 'E-mail enviado! Verifique sua caixa de entrada e a pasta de SPAM / Lixo Eletrônico.' }
+  } catch (error: unknown) {
+    console.error('Erro na solicitação de recuperação de senha:', error)
+    return { error: 'Erro de conexão. Verifique sua internet e tente novamente.' }
+  }
+}
+

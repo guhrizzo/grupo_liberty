@@ -112,6 +112,11 @@ export interface VeiculoContrato {
   uploadedByUid: string
   uploadedByEmail: string | null
   uploadedAt: string
+  /** Origem do contrato: 'contrato_gerado' (Novo Contrato) ou undefined (anexado manualmente). */
+  origem?: 'contrato_gerado'
+  /** ID do contrato na coleção `contratos` quando origem === 'contrato_gerado'. */
+  contratoId?: string
+  clienteNome?: string
 }
 
 export type VeiculoContratoResponse = {
@@ -177,6 +182,41 @@ export async function listarContratosVeiculoAction(
   }
 
   return docsData
+}
+
+/**
+ * Lista todos os contratos (PDFs anexados) de todos os veículos.
+ * Usado em /dashboard/contratos para visualização geral.
+ * Gate: assertPodeGerarContratos (admin OU permissions.contratos).
+ */
+export async function listarTodosContratosVeiculoAction(): Promise<VeiculoContrato[]> {
+  try {
+    await assertPodeGerarContratos()
+  } catch {
+    return []
+  }
+
+  const snapshot = await adminDb
+    .collection('veiculo_contratos')
+    .orderBy('uploadedAt', 'desc')
+    .get()
+
+  return snapshot.docs
+    .map((doc) => serializeVeiculoContrato(doc.id, doc.data()))
+}
+
+/**
+ * Lista contratos gerados via "Novo Contrato" (coleção `contratos`)
+ * vinculados a um veículo específico. Retorna no mesmo formato
+ * VeiculoContrato para serem exibidos em conjunto na página do veículo.
+ * NOTA: Geração de contratos está desativada. Mantido para reativação futura.
+ */
+export async function listarContratosGeradosVeiculoAction(
+  veiculoId: string,
+): Promise<VeiculoContrato[]> {
+  // Geração de contratos desativada — sempre retorna vazio.
+  void veiculoId
+  return []
 }
 
 /**

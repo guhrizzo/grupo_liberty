@@ -16,6 +16,7 @@ export interface Veiculo {
   cor: string | null
   quilometragem: number | null
   preco: number
+  tabelaFipe: number | null
   cambio: string
   combustivel: string
   placa: string | null
@@ -114,6 +115,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         cor: data.cor || null,
         quilometragem: data.quilometragem || null,
         preco: data.preco,
+        tabelaFipe: data.tabelaFipe ?? null,
         cambio: data.cambio,
         combustivel: data.combustivel,
         placa: data.placa || null,
@@ -207,6 +209,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
   const precoRaw = (formData.get('preco') as string) || ''
   const preco = parseFloat(precoRaw)
+  const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
+  const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
   const cambio = (formData.get('cambio') as string) || 'manual'
   const combustivel = (formData.get('combustivel') as string) || 'flex'
   const placa = ((formData.get('placa') as string) || '').trim().toUpperCase() || null
@@ -242,9 +246,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   }
 
   if (!precoRaw) {
-    fieldErrors.preco = 'Informe o preço.'
+    fieldErrors.preco = 'Informe o valor da venda.'
   } else if (Number.isNaN(preco) || preco <= 0) {
-    fieldErrors.preco = 'Preço inválido.'
+    fieldErrors.preco = 'Valor da venda inválido.'
   }
 
   if (quilometragem !== null && (Number.isNaN(quilometragem) || quilometragem < 0)) {
@@ -299,6 +303,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       cor,
       quilometragem,
       preco,
+      tabelaFipe,
       cambio,
       combustivel,
       placa,

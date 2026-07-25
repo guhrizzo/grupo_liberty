@@ -65,6 +65,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [cor, setCor] = useState('')
   const [quilometragem, setQuilometragem] = useState('')
   const [preco, setPreco] = useState('')
+  const [tabelaFipe, setTabelaFipe] = useState('')
   const [cambio, setCambio] = useState('manual')
   const [combustivel, setCombustivel] = useState('flex')
   const [placa, setPlaca] = useState('')
@@ -89,6 +90,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [photos, setPhotos] = useState<PhotoPreview[]>([])
   const [uploadProgress, setUploadProgress] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  // Reorder drag state
+  const dragIndexRef = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -119,6 +123,48 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       copy.splice(index, 1)
       return copy
     })
+  }
+
+  // ─── Photo reorder (drag within grid) ───────────────────────────────────
+
+  const handlePhotoDragStart = (e: React.DragEvent, index: number) => {
+    dragIndexRef.current = index
+    e.dataTransfer.effectAllowed = 'move'
+    // Prevent the drop-zone handler from triggering
+    e.stopPropagation()
+  }
+
+  const handlePhotoDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragIndexRef.current !== null && dragIndexRef.current !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handlePhotoDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const fromIndex = dragIndexRef.current
+    if (fromIndex === null || fromIndex === dropIndex) {
+      dragIndexRef.current = null
+      setDragOverIndex(null)
+      return
+    }
+    setPhotos(prev => {
+      const copy = [...prev]
+      const [moved] = copy.splice(fromIndex, 1)
+      copy.splice(dropIndex, 0, moved)
+      return copy
+    })
+    dragIndexRef.current = null
+    setDragOverIndex(null)
+  }
+
+  const handlePhotoDragEnd = () => {
+    dragIndexRef.current = null
+    setDragOverIndex(null)
   }
 
   // ─── Drag & Drop ────────────────────────────────────────────────────────
@@ -157,6 +203,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCor('')
     setQuilometragem('')
     setPreco('')
+    setTabelaFipe('')
     setCambio('manual')
     setCombustivel('flex')
     setPlaca('')
@@ -214,6 +261,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('cor', cor)
       formData.append('quilometragem', quilometragem)
       formData.append('preco', String(parseMoney(preco) || 0))
+      formData.append('tabelaFipe', tabelaFipe ? String(parseMoney(tabelaFipe) || '') : '')
       formData.append('cambio', cambio)
       formData.append('combustivel', combustivel)
       formData.append('placa', placa.toUpperCase().replace(/[^A-Z0-9]/g, ''))
@@ -330,9 +378,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               Cadastrar Novo Veículo
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-8">
 
               {/* ─── Cliente ────────────────────────────────────────── */}
+              {/* 
               <div>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Cliente
@@ -344,7 +393,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={nomeCliente}
                     onChange={(e) => setNomeCliente(e.target.value)}
                     placeholder="Nome do cliente"
-                    autoComplete="name"
+                    autoComplete="off"
                   />
 
                   <Input
@@ -365,7 +414,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={enderecoCliente}
                     onChange={(e) => setEnderecoCliente(e.target.value)}
                     placeholder="Endereço do cliente"
-                    autoComplete="street-address"
+                    autoComplete="off"
                     containerClassName="sm:col-span-2"
                   />
 
@@ -375,7 +424,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={telefoneCliente}
                     onChange={(e) => setTelefoneCliente(maskPhone(e.target.value))}
                     placeholder="(00) 00000-0000"
-                    autoComplete="tel"
+                    autoComplete="off"
                     inputMode="tel"
                     mask="phone"
                     error={fieldErrors.telefoneCliente}
@@ -383,6 +432,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                 </div>
               </div>
+              */}
 
               {/* ─── Veículo ────────────────────────────────────────── */}
               <div>
@@ -427,7 +477,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                 </div>
 
-                {/* Linha 2: Cor, Quilometragem, Preço */}
+                {/* Linha 2: Cor, Quilometragem, Tabela FIPE */}
                 <div className="grid gap-4 sm:grid-cols-3 mt-4">
                   <Input
                     id="cor"
@@ -449,8 +499,23 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     error={fieldErrors.quilometragem}
                   />
                   <Input
+                    id="tabelaFipe"
+                    label="Tabela FIPE (R$)"
+                    type="text"
+                    inputMode="decimal"
+                    value={tabelaFipe}
+                    onChange={(e) => setTabelaFipe(maskMoney(e.target.value))}
+                    placeholder="R$ 0,00"
+                    leftIcon={<IconCash size={14} />}
+                    error={fieldErrors.tabelaFipe}
+                  />
+                </div>
+
+                {/* Linha 3: Valor da Venda, Câmbio, Combustível */}
+                <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                  <Input
                     id="preco"
-                    label="Preço (R$) *"
+                    label="Valor da venda (R$) *"
                     type="text"
                     inputMode="decimal"
                     required
@@ -460,10 +525,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.preco}
                   />
-                </div>
-
-                {/* Linha 3: Câmbio, Combustível, Placa */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-4">
                   <Select
                     id="cambio"
                     label="Câmbio"
@@ -488,6 +549,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     <option value="eletrico">Elétrico</option>
                     <option value="hibrido">Híbrido</option>
                   </Select>
+                </div>
+
+                {/* Linha 4: Placa, Renavam, Unidade */}
+                <div className="grid gap-4 sm:grid-cols-3 mt-4">
                   <Input
                     id="placa"
                     label="Placa"
@@ -497,10 +562,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     autoComplete="off"
                     error={fieldErrors.placa}
                   />
-                </div>
-
-                {/* Linha 4: Renavam, Localização */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-4">
                   <Input
                     id="renavam"
                     label="Renavam"
@@ -597,7 +658,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={telefoneAcessoria}
                     onChange={(e) => setTelefoneAcessoria(maskPhone(e.target.value))}
                     placeholder="(00) 00000-0000"
-                    autoComplete="tel"
+                    autoComplete="off"
                     inputMode="tel"
                     mask="phone"
                     error={fieldErrors.telefoneAcessoria}
@@ -671,18 +732,40 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 {photos.length > 0 && (
                   <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-3">
                     {photos.map((photo, index) => (
-                      <div key={index} className="group relative aspect-square rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100">
+                      <div
+                        key={photo.url}
+                        draggable
+                        onDragStart={(e) => handlePhotoDragStart(e, index)}
+                        onDragOver={(e) => handlePhotoDragOver(e, index)}
+                        onDrop={(e) => handlePhotoDrop(e, index)}
+                        onDragEnd={handlePhotoDragEnd}
+                        className={`group relative aspect-square rounded-lg overflow-hidden border-2 bg-neutral-100 transition-all cursor-grab active:cursor-grabbing select-none ${
+                          dragOverIndex === index
+                            ? 'border-neutral-900 scale-105 shadow-lg'
+                            : dragIndexRef.current === index
+                            ? 'border-dashed border-neutral-400 opacity-50'
+                            : 'border-neutral-200'
+                        }`}
+                      >
                         <Image
                           src={photo.url}
                           alt={`Foto ${index + 1}`}
                           fill
-                          className="object-cover"
+                          className="object-cover pointer-events-none"
                           unoptimized
                         />
+                        {/* Drag handle hint */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="bg-black/40 rounded-md p-1.5">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                              <path d="M9 3h1M9 9h1M9 15h1M9 21h1M15 3h1M15 9h1M15 15h1M15 21h1" strokeLinecap="round"/>
+                            </svg>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); removePhoto(index) }}
-                          className="absolute top-1 right-1 rounded-full bg-black/60 hover:bg-black/80 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          className="absolute top-1 right-1 rounded-full bg-black/60 hover:bg-black/80 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                         >
                           <IconX size={12} stroke={2.5} />
                         </button>
@@ -694,6 +777,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       </div>
                     ))}
                   </div>
+                )}
+                {photos.length > 1 && (
+                  <p className="mt-2 text-[11px] text-neutral-400 flex items-center gap-1">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 3h1M9 9h1M9 15h1M9 21h1M15 3h1M15 9h1M15 15h1M15 21h1" strokeLinecap="round"/></svg>
+                    Arraste as fotos para reordenar. A primeira imagem será a capa.
+                  </p>
                 )}
               </div>
 

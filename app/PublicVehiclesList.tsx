@@ -178,7 +178,13 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
               style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
               className="group relative rounded-2xl border border-neutral-200 bg-white overflow-hidden liberty-card-hover animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]"
             >
-              <div className="relative">
+              {/* Link que cobre o card inteiro (clicável em qualquer ponto) */}
+              <Link
+                href={`/veiculos/${v.id}`}
+                aria-label={`Ver detalhes de ${v.marca} ${v.modelo}`}
+                className="absolute inset-0 z-0"
+              />
+              <div className="relative pointer-events-none">
                 <div className="relative aspect-16/10 bg-neutral-100 overflow-hidden">
                   {v.fotos && v.fotos.length > 0 ? (
                     <Image
@@ -207,7 +213,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                 </div>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col">
+              <div className="p-5 flex-1 flex flex-col relative pointer-events-none">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty">
@@ -250,7 +256,8 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Ações interativas: acima do Link do card (z-10) */}
+                  <div className="flex items-center gap-2 shrink-0 relative z-10 pointer-events-auto">
                     <ShareButton
                       url={`/veiculos/${v.id}`}
                       title={`${v.marca} ${v.modelo} ${v.ano}`}

@@ -8,7 +8,7 @@ import ShareButton from '@/app/components/ShareButton'
 import ContratosVeiculo from './ContratosVeiculo'
 import { Button } from '@/app/components/ui'
 import { canManageContratos, getSessionUser } from '@/utils/permissions'
-import { listarContratosVeiculoAction } from './actions'
+import { listarContratosVeiculoAction, listarContratosGeradosVeiculoAction } from './actions'
 import type { Metadata } from 'next'
 
 const formatCurrency = (value: number) =>
@@ -81,8 +81,20 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
 
   // Permissão específica para gerenciar contratos anexados.
   const canManage = canManageContratos(session)
+  // Combina contratos anexados manualmente + contratos gerados via
+  // "Novo Contrato" no painel, ordenando por data de upload/criação.
   const initialContratos = canManage
-    ? await listarContratosVeiculoAction(veiculo.id)
+    ? (
+        await Promise.all([
+          listarContratosVeiculoAction(veiculo.id),
+          listarContratosGeradosVeiculoAction(veiculo.id),
+        ])
+      )
+        .flat()
+        .sort(
+          (a, b) =>
+            new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+        )
     : []
 
   return (

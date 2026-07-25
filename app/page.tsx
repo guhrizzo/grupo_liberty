@@ -164,8 +164,17 @@ export default async function HomePage() {
               Lojas
             </p>
             <ul className="mt-3 space-y-1.5 text-sm text-neutral-700">
-              <li>Jaú/SP — Av. Principal, 1234</li>
-              <li>Bauru/SP — R. das Palmeiras, 567</li>
+              <li>
+                <a
+                  href="https://maps.app.goo.gl/KKstZnVUb82SY4nf8"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-liberty transition-colors"
+                >
+                  Jaú/SP — Ver no Google Maps
+                </a>
+              </li>
+              <li>Bauru/SP — Av. Duque de Caxias, 7-75</li>
             </ul>
           </div>
           <div>
@@ -173,8 +182,8 @@ export default async function HomePage() {
               Atendimento
             </p>
             <ul className="mt-3 space-y-1.5 text-sm text-neutral-700">
-              <li>Seg–Sáb • 08h–18h</li>
-              <li>contato@libertycar.com.br</li>
+              <li>Seg–Sex • 08h–18h</li>
+              <li>Sábado • 09h–17h</li>
             </ul>
           </div>
         </div>
