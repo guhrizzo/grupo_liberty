@@ -41,6 +41,7 @@ export type VeiculoFieldErrors = {
   modelo?: string
   ano?: string
   preco?: string
+  tabelaFipe?: string
   placa?: string
   renavam?: string
   quilometragem?: string
