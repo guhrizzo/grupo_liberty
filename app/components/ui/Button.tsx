@@ -17,7 +17,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-  'inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
+  'inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-all duration-200 ease-out active:scale-[0.97] hover:-translate-y-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white'
 
 const sizes: Record<Size, string> = {
   sm: 'px-3 py-1.5 text-xs',
@@ -28,19 +28,19 @@ const sizes: Record<Size, string> = {
 const variants: Record<Variant, string> = {
   // No site público (neon-theme) — botão neon primário.
   primary:
-    'bg-[var(--color-neon)] hover:bg-[var(--color-neon-soft)] text-[#001018] shadow-[0_0_18px_-4px_rgba(0,212,255,0.6)] hover:shadow-[0_0_22px_-2px_rgba(0,212,255,0.85)]',
+    'bg-[var(--color-neon)] hover:bg-[var(--color-neon-soft)] text-[#001018] shadow-[0_0_18px_-4px_rgba(0,212,255,0.6)] hover:shadow-[0_0_24px_0_rgba(0,212,255,0.85)]',
   // Dashboard (claro) — usa o azul Liberty.
   liberty:
-    'bg-liberty hover:bg-liberty-deep text-white shadow-sm hover:shadow-md hover:shadow-liberty/20',
+    'bg-liberty hover:bg-liberty-deep text-white shadow-sm hover:shadow-lg hover:shadow-liberty/25',
   // Dashboard (claro) — outline neutro.
   secondary:
-    'bg-white border border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300',
+    'bg-white border border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 hover:shadow-sm',
   // Dashboard (claro) — sem borda, hover sutil.
   ghost:
     'bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900',
   // Ação destrutiva.
   danger:
-    'bg-rose-600 hover:bg-rose-500 text-white shadow-sm',
+    'bg-rose-600 hover:bg-rose-500 text-white shadow-sm hover:shadow-rose-500/20',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

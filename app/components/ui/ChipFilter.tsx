@@ -39,11 +39,11 @@ export function ChipFilter<T extends string>({
             onClick={() => onChange(o.value)}
             aria-pressed={active}
             className={cn(
-              'rounded-lg font-semibold transition-all cursor-pointer',
+              'rounded-lg font-semibold transition-all duration-200 ease-out cursor-pointer active:scale-95 hover:scale-[1.02]',
               size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
               active
-                ? 'bg-liberty text-white shadow-sm shadow-liberty/30'
-                : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200',
+                ? 'bg-liberty text-white shadow-md shadow-liberty/30'
+                : 'bg-neutral-100 text-neutral-700 border border-neutral-200 hover:bg-neutral-200/80 hover:border-neutral-300',
             )}
           >
             {o.label}

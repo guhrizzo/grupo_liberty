@@ -5,6 +5,7 @@ import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import PublicVehiclesList from './PublicVehiclesList'
 import { Button } from './components/ui'
+import FooterLegalLinks from './components/FooterLegalLinks'
 
 export const metadata = {
   title: 'Liberty Car | Encontre seu Veículo Ideal',
@@ -80,23 +81,23 @@ export default async function HomePage() {
             <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
 
             <div className="relative px-6 py-14 md:px-16 md:py-20 text-center max-w-3xl mx-auto space-y-5">
-              <span className="inline-flex items-center gap-2 rounded-full border border-liberty/30 bg-liberty/5 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.25em] text-liberty-deep">
+              <span className="inline-flex items-center gap-2 rounded-full border border-liberty/30 bg-liberty/5 px-3.5 py-1 text-xs font-extrabold uppercase tracking-[0.25em] text-liberty-deep animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]">
                 <span className="h-1.5 w-1.5 rounded-full bg-liberty animate-[pulse-soft_1.4s_ease-in-out_infinite]" />
                 Estoque Atualizado
               </span>
-              <h1 className="text-4xl md:text-6xl font-black text-neutral-900 tracking-tight leading-[1.05]">
+              <h1 className="text-4xl md:text-6xl font-black text-neutral-900 tracking-tight leading-[1.05] animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_100ms_both]">
                 Seu próximo carro com <span className="text-liberty">segurança</span> e a melhor taxa.
               </h1>
-              <p className="text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto">
+              <p className="text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_200ms_both]">
                 Veículos vistoriados, procedência garantida e atendimento de Jaú/SP e Bauru/SP. Explore a frota e faça sua proposta.
               </p>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]">
                 <a href="#estoque">
                   <Button variant="liberty" size="lg" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
                     Ver Estoque
                   </Button>
                 </a>
-                <a href="#sobre">
+                <a href="https://libertycar.net.br" target="_blank" rel="noopener noreferrer">
                   <Button variant="secondary" size="lg">
                     Sobre a Liberty
                   </Button>
@@ -104,17 +105,17 @@ export default async function HomePage() {
               </div>
 
               {/* Trust strip */}
-              <div className="pt-6 mt-2 border-t border-neutral-200 grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xl md:text-2xl font-black text-liberty">{veiculos.length}</p>
+              <div className="pt-6 mt-2 border-t border-neutral-200 grid grid-cols-3 gap-4 text-center animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_400ms_both]">
+                <div className="group cursor-default">
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">{veiculos.length}</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Veículos</p>
                 </div>
-                <div>
-                  <p className="text-xl md:text-2xl font-black text-liberty">2</p>
+                <div className="group cursor-default">
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">2</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Lojas</p>
                 </div>
-                <div>
-                  <p className="text-xl md:text-2xl font-black text-liberty">100%</p>
+                <div className="group cursor-default">
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">100%</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Vistoriados</p>
                 </div>
               </div>
@@ -179,10 +180,7 @@ export default async function HomePage() {
         </div>
         <div className="mx-auto max-w-7xl mt-8 pt-6 border-t border-neutral-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-500">
           <p>© {new Date().getFullYear()} Liberty Car. Todos os direitos reservados.</p>
-          <div className="flex gap-4">
-            <a href="#" className="hover:text-liberty transition-colors">Termos</a>
-            <a href="#" className="hover:text-liberty transition-colors">Privacidade</a>
-          </div>
+          <FooterLegalLinks />
         </div>
       </footer>
 

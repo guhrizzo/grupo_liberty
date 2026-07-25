@@ -73,9 +73,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           }}
           className={cn(
             // base
-            'w-full rounded-xl border text-sm transition-all py-2.5',
+            'w-full rounded-xl border text-sm transition-all duration-200 ease-out py-2.5',
             'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo',
-            'focus:outline-none focus:border-liberty focus:ring-2 focus:ring-liberty/20',
+            'focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15',
             'disabled:opacity-60 disabled:cursor-not-allowed',
             // light (default — dashboard)
             'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-300',

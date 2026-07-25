@@ -93,7 +93,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
       {showInitialLoading && <LoadingBar className="h-1" />}
 
       {/* Barra de Filtros e Busca */}
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm hover:shadow-md transition-shadow duration-300 animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]">
         <div className="grid gap-4 md:grid-cols-12">
           <div className="md:col-span-6">
             <Input
@@ -103,40 +103,31 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               leftIcon={<IconSearch size={18} stroke={2} />}
-              autoComplete="off"
             />
           </div>
-
-          <div className="md:col-span-3">
-            <Select
-              id="vehicle-brand"
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              aria-label="Filtrar por marca"
-            >
-              <option value="Todas">Todas as marcas</option>
-              {brands.filter(b => b !== 'Todas').map(brand => (
-                <option key={brand} value={brand}>{brand}</option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="md:col-span-3">
+          <div className="md:col-span-6 flex items-center justify-end">
             <Select
               id="vehicle-sort"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
-              aria-label="Ordenar veículos"
-            >
-              <option value="recente">Mais recentes</option>
-              <option value="preco-cresc">Menor preço</option>
-              <option value="preco-decresc">Maior preço</option>
-              <option value="ano-novo">Mais novos (ano)</option>
-            </Select>
+              options={[
+                { value: 'recente', label: 'Mais recentes' },
+                { value: 'preco-cresc', label: 'Menor preço' },
+                { value: 'preco-decresc', label: 'Maior preço' },
+                { value: 'ano-novo', label: 'Ano mais novo' },
+              ]}
+            />
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-neutral-200">
+        {/* Chips de Marcas e Câmbio */}
+        <div className="mt-4 pt-4 border-t border-neutral-100 flex flex-wrap gap-4 items-center justify-between">
+          <ChipFilter
+            label="Marca"
+            value={selectedBrand}
+            onChange={setSelectedBrand}
+            options={brands}
+          />
           <ChipFilter<CambioFilter>
             label="Câmbio"
             value={cambio}
@@ -153,7 +144,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
 
       {/* Contador de resultados */}
       {hasFilters && (
-        <p className="text-xs font-semibold text-neutral-500 px-1">
+        <p className="text-xs font-semibold text-neutral-500 px-1 animate-[fade-in_0.3s_ease-out_both]">
           Mostrando <span className="text-liberty font-bold">{filteredCount}</span> de {totalCount} veículos
         </p>
       )}
@@ -184,8 +175,8 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
           {filteredAndSorted.map((v, idx) => (
             <div
               key={v.id}
-              style={{ animationDelay: `${idx * 40}ms` }}
-              className="group relative rounded-2xl border border-neutral-200 bg-white overflow-hidden liberty-card-hover hover:-translate-y-1 animate-[fade-up_0.5s_ease-out_both]"
+              style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
+              className="group relative rounded-2xl border border-neutral-200 bg-white overflow-hidden liberty-card-hover animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]"
             >
               <div className="relative">
                 <div className="relative aspect-16/10 bg-neutral-100 overflow-hidden">
@@ -194,7 +185,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       src={v.fotos[0]}
                       alt={`${v.marca} ${v.modelo}`}
                       fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   ) : (
