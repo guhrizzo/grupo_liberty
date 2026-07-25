@@ -229,7 +229,7 @@ export default function LegalTermsModal({
                 4. Seus Direitos como Titular
               </h3>
               <p>
-                Você possui o direito de solicitar a atualização, correção ou exclusão dos seus dados cadastrais a qualquer momento. Para isso, entre em contato diretamente com nossa equipe através do e-mail <strong>contato@libertycar.com.br</strong>.
+                Você possui o direito de solicitar a atualização, correção ou exclusão dos seus dados cadastrais a qualquer momento. Para isso, entre em contato diretamente com nossa equipe.
               </p>
             </section>
           </>
