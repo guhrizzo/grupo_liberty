@@ -86,7 +86,7 @@ export default async function HomePage() {
                 Estoque Atualizado
               </span>
               <h1 className="text-4xl md:text-6xl font-black text-neutral-900 tracking-tight leading-[1.05] animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_100ms_both]">
-                Seu próximo carro com <span className="text-liberty">segurança</span> e a melhor taxa.
+                Seu próximo carro com <span className="text-liberty">segurança</span> e o melhor Preço.
               </h1>
               <p className="text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_200ms_both]">
                 Veículos vistoriados, procedência garantida e atendimento de Jaú/SP e Bauru/SP. Explore a frota e faça sua proposta.
