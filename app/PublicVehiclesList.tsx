@@ -248,7 +248,8 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                   )}
                 </div>
 
-                <div className="mt-auto pt-5 flex items-center justify-between gap-3 border-t border-neutral-200">
+                <div className="mt-auto pt-5 border-t border-neutral-200 space-y-3">
+                  {/* Preço em linha própria, sempre visível */}
                   <div className="min-w-0">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Preço</p>
                     <p className="text-lg font-black text-neutral-900 truncate">
@@ -256,19 +257,21 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     </p>
                   </div>
 
-                  {/* Ações interativas: acima do Link do card (z-10) */}
-                  <div className="flex items-center gap-2 shrink-0 relative z-10 pointer-events-auto">
+                  {/* Ações interativas: acima do Link do card (z-10).
+                      Empilhadas no mobile, em linha no desktop. */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 relative z-10 pointer-events-auto">
                     <ShareButton
                       url={`/veiculos/${v.id}`}
                       title={`${v.marca} ${v.modelo} ${v.ano}`}
                       text={`${v.marca} ${v.modelo} ${v.ano} por ${formatCurrency(v.preco)}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-all cursor-pointer bg-white"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-all cursor-pointer bg-white w-full sm:w-auto"
                     />
-                    <Link href={`/veiculos/${v.id}`}>
+                    <Link href={`/veiculos/${v.id}`} className="w-full sm:w-auto">
                       <Button
                         variant="liberty"
                         size="sm"
                         rightIcon={<IconArrowRight size={12} stroke={3} />}
+                        className="w-full sm:w-auto"
                       >
                         Ver Detalhes
                       </Button>
