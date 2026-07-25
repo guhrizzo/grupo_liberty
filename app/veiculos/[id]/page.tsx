@@ -1,12 +1,14 @@
-import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { IconBolt, IconArrowRight, IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconMessage2, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
 import ShareButton from '@/app/components/ShareButton'
+import ContratosVeiculo from './ContratosVeiculo'
 import { Button } from '@/app/components/ui'
+import { canManageContratos, getSessionUser } from '@/utils/permissions'
+import { listarContratosVeiculoAction } from './actions'
 import type { Metadata } from 'next'
 
 const formatCurrency = (value: number) =>
@@ -63,28 +65,25 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
 
   const veiculo = { id: docSnap.id, ...docSnap.data() } as any
 
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  let user: { uid: string; email?: string | null; role?: string | null } | null = null
-
-  if (session) {
-    try {
-      const decoded = await adminAuth.verifySessionCookie(session, true)
-      const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
-      user = {
-        uid: decoded.uid,
-        email: decoded.email ?? null,
-        role: profileDoc.data()?.role || null,
+  const session = await getSessionUser()
+  const user = session
+    ? {
+        uid: session.uid,
+        email: session.email,
+        role: session.role,
       }
-    } catch (error) {
-      // Ignorar erro
-    }
-  }
+    : null
 
   // Flag para exibir informações internas (acessória, débitos, financiamento)
   // para o próprio time (admin/vendedor/advogado/suporte).
   const showInternalInfo =
     !!user && ['admin', 'vendedor', 'advogado', 'suporte'].includes(user.role ?? '')
+
+  // Permissão específica para gerenciar contratos anexados.
+  const canManage = canManageContratos(session)
+  const initialContratos = canManage
+    ? await listarContratosVeiculoAction(veiculo.id)
+    : []
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -240,6 +239,16 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                         }
                       />
                     </div>
+                  </div>
+                )}
+
+                {/* Contratos do Veículo — visível só para quem pode gerenciar contratos. */}
+                {canManage && (
+                  <div className="border-t border-neutral-200 pt-6 mt-6">
+                    <ContratosVeiculo
+                      veiculoId={veiculo.id}
+                      initialContratos={initialContratos}
+                    />
                   </div>
                 )}
               </div>

@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "veiculo_contratos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "veiculoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "uploadedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

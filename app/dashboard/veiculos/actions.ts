@@ -369,6 +369,31 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
       }
     }
 
+    // 2.5 Remover contratos anexados (PDFs) e seus arquivos no Storage
+    const contratosSnap = await adminDb
+      .collection('veiculo_contratos')
+      .where('veiculoId', '==', id)
+      .get()
+
+    if (!contratosSnap.empty) {
+      const batch = adminDb.batch()
+      for (const cDoc of contratosSnap.docs) {
+        const cData = cDoc.data() as { storagePath?: string }
+        if (cData.storagePath) {
+          try {
+            await bucket.file(cData.storagePath).delete()
+          } catch (storageErr) {
+            console.error(
+              `Erro ao deletar contrato ${cDoc.id} do Storage:`,
+              storageErr,
+            )
+          }
+        }
+        batch.delete(cDoc.ref)
+      }
+      await batch.commit()
+    }
+
     // 3. Deletar do banco
     await docRef.delete()
 

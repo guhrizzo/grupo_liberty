@@ -74,6 +74,16 @@ export async function assertPodeGerarContratos(): Promise<SessionUser> {
 }
 
 /**
+ * Versão síncrona do gate de contratos — recebe o usuário já
+ * carregado e devolve apenas o booleano. Útil para o server
+ * decidir se renderiza blocos condicionais sem refazer query.
+ */
+export function canManageContratos(user: SessionUser | null | undefined): boolean {
+  if (!user) return false
+  return user.role === 'admin' || user.permissions?.contratos === true
+}
+
+/**
  * Garante permissão para baixar o PDF de uma proposta.
  * Permitido para admin e vendedor.
  */

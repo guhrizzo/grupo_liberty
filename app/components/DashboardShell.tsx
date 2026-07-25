@@ -14,6 +14,8 @@ import {
   IconMenu2,
   IconBolt,
   IconLogout,
+  IconChevronLeft,
+  IconChevronRight,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
 import { ConfirmDialog, useToast } from './ui'
@@ -71,7 +73,7 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 function NavIcon({ name }: { name: NavItem['icon'] }) {
-  const cls = 'h-5 w-5'
+  const cls = 'h-5 w-5 shrink-0'
   switch (name) {
     case 'home':
       return <IconHome className={cls} stroke={2} />
@@ -120,11 +122,27 @@ export default function DashboardShell({
 }: DashboardShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
   const toast = useToast()
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('dashboard_sidebar_collapsed')
+    if (stored !== null) {
+      setCollapsed(stored === 'true')
+    }
+  }, [])
+
+  function toggleCollapse() {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('dashboard_sidebar_collapsed', String(next))
+      return next
+    })
+  }
 
   const allowedItems = NAV_ITEMS.filter((item) => !role || item.roles.includes(role))
 
@@ -171,27 +189,70 @@ export default function DashboardShell({
 
   const SidebarContent = (
     <div className="flex h-full flex-col">
-      {/* Brand */}
-      <div className="px-6 py-6 border-b border-neutral-200 flex items-center gap-2.5">
-        <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
-          <IconBolt size={20} stroke={2.2} />
-        </div>
-        <div className="flex flex-col leading-none min-w-0">
-          <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
-            LIBERTY CAR
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5">
-            Painel Interno
-          </span>
-        </div>
+      {/* Brand Header */}
+      <div className="px-4 py-5 border-b border-neutral-200 flex items-center justify-between min-h-[73px]">
+        {collapsed ? (
+          <>
+            {/* Mobile (exibe o logo completo se o drawer estiver aberto) */}
+            <div className="flex md:hidden items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
+                <IconBolt size={20} stroke={2.2} />
+              </div>
+              <div className="flex flex-col leading-none min-w-0">
+                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
+                  LIBERTY CAR
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5">
+                  Painel Interno
+                </span>
+              </div>
+            </div>
+
+            {/* Desktop recolhido: exibe botão de expandir centralizado no topo */}
+            <div className="hidden md:flex w-full justify-center">
+              <button
+                type="button"
+                onClick={toggleCollapse}
+                className="h-9 w-9 rounded-lg grid place-items-center bg-neutral-100 hover:bg-liberty/10 hover:text-liberty-deep text-neutral-600 transition-colors cursor-pointer"
+                title="Expandir menu lateral"
+                aria-label="Expandir menu lateral"
+              >
+                <IconChevronRight size={20} stroke={2.2} />
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Quando expandido: marca + botão de recolher */
+          <>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
+                <IconBolt size={20} stroke={2.2} />
+              </div>
+              <div className="flex flex-col leading-none min-w-0">
+                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
+                  LIBERTY CAR
+                </span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5">
+                  Painel Interno
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors cursor-pointer shrink-0"
+              title="Recolher menu lateral"
+              aria-label="Recolher menu lateral"
+            >
+              <IconChevronLeft size={18} stroke={2} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Nav */}
-      <nav
-        className="flex-1 overflow-y-auto px-3 py-4"
-        aria-label="Navegação principal"
-      >
-        <ul className="space-y-0.5">
+      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navegação principal">
+        <ul className="space-y-1">
           {allowedItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -199,8 +260,11 @@ export default function DashboardShell({
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
+                  title={item.label}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                  className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                    collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
+                  } ${
                     active
                       ? 'bg-neutral-950 text-white shadow-xs'
                       : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
@@ -213,7 +277,7 @@ export default function DashboardShell({
                     />
                   )}
                   <NavIcon name={item.icon} />
-                  <span>{item.label}</span>
+                  <span className={collapsed ? 'md:hidden truncate' : 'truncate'}>{item.label}</span>
                 </Link>
               </li>
             )
@@ -222,16 +286,17 @@ export default function DashboardShell({
       </nav>
 
       {/* User */}
-      <div className="border-t border-neutral-200 p-4">
-        <div className="flex items-center gap-3 mb-3">
+      <div className={`border-t border-neutral-200 p-4 ${collapsed ? 'md:p-2.5' : ''}`}>
+        <div className={`flex items-center gap-3 mb-3 ${collapsed ? 'md:justify-center md:mb-2' : ''}`}>
           <div
             className="relative h-10 w-10 rounded-full bg-liberty/10 text-liberty-deep flex items-center justify-center font-bold text-sm shrink-0"
             aria-hidden
+            title={displayName || email}
           >
             {initials}
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-liberty border-2 border-white" />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>
             <p className="text-sm font-semibold text-neutral-900 truncate">
               {displayName || email}
             </p>
@@ -245,10 +310,15 @@ export default function DashboardShell({
           type="button"
           onClick={() => setConfirmLogout(true)}
           disabled={isLoggingOut}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 px-3 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+          title={isLoggingOut ? 'Saindo...' : 'Sair da conta'}
+          className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 ${
+            collapsed ? 'md:px-0 md:py-2.5' : 'px-3'
+          }`}
         >
-          <IconLogout size={14} stroke={2} />
-          {isLoggingOut ? 'Saindo...' : 'Sair da conta'}
+          <IconLogout size={16} stroke={2} />
+          <span className={collapsed ? 'md:hidden' : ''}>
+            {isLoggingOut ? 'Saindo...' : 'Sair da conta'}
+          </span>
         </button>
       </div>
     </div>
@@ -273,9 +343,9 @@ export default function DashboardShell({
       <aside
         id="dashboard-sidebar"
         ref={drawerRef}
-        className={`fixed md:static z-40 inset-y-0 left-0 w-64 bg-white border-r border-neutral-200 flex flex-col transform transition-transform duration-200 md:translate-x-0 ${
+        className={`fixed md:static z-40 inset-y-0 left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        } ${collapsed ? 'w-64 md:w-[70px]' : 'w-64 md:w-64'}`}
         aria-label="Menu lateral"
       >
         {SidebarContent}
