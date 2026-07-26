@@ -191,7 +191,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       src={v.fotos[0]}
                       alt={`${v.marca} ${v.modelo}`}
                       fill
-                      className="object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
+                      className="object-cover group-hover:scale-108 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   ) : (
@@ -237,7 +237,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                   <span className="uppercase">{v.cambio}</span>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                <div className="mt-4 flex flex-wrap gap-1.5 mb-4">
                   <span className="rounded-md bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-bold text-neutral-700 uppercase tracking-wide">
                     {v.combustivel}
                   </span>
@@ -264,7 +264,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       url={`/veiculos/${v.id}`}
                       title={`${v.marca} ${v.modelo} ${v.ano}`}
                       text={`${v.marca} ${v.modelo} ${v.ano} por ${formatCurrency(v.preco)}`}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-all cursor-pointer bg-white w-full sm:w-auto"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-[color,border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer bg-white w-full sm:w-auto"
                     />
                     <Link href={`/veiculos/${v.id}`} className="w-full sm:w-auto">
                       <Button

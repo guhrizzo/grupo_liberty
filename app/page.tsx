@@ -76,7 +76,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl space-y-12 md:space-y-16">
 
           {/* Hero Section */}
-          <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-gradient-to-br from-liberty/8 via-white to-white shadow-lg shadow-liberty/5">
+          <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-linear-to-br from-liberty/8 via-white to-white shadow-lg shadow-liberty/5">
             <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-liberty/10 blur-3xl pointer-events-none" />
             <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
 
@@ -107,15 +107,15 @@ export default async function HomePage() {
               {/* Trust strip */}
               <div className="pt-6 mt-2 border-t border-neutral-200 grid grid-cols-3 gap-4 text-center animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_400ms_both]">
                 <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">{veiculos.length}</p>
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">{veiculos.length}</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Veículos</p>
                 </div>
                 <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">2</p>
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">2</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Lojas</p>
                 </div>
                 <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300">100%</p>
+                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">100%</p>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Vistoriados</p>
                 </div>
               </div>
@@ -191,7 +191,7 @@ export default async function HomePage() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:border-liberty hover:bg-liberty/10 hover:text-liberty hover:shadow-lg hover:shadow-liberty/20 active:scale-95"
+                className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-[color,background-color,border-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:-translate-y-0.5 hover:border-liberty hover:bg-liberty/10 hover:text-liberty hover:shadow-lg hover:shadow-liberty/20 active:scale-95"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -216,7 +216,7 @@ export default async function HomePage() {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="WhatsApp"
-                className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20 active:scale-95"
+                className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 text-neutral-700 transition-[color,background-color,border-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-110 hover:-translate-y-0.5 hover:border-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 hover:shadow-lg hover:shadow-emerald-500/20 active:scale-95"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

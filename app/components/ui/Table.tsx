@@ -49,7 +49,7 @@ export function TR({
     <tr
       onClick={onClick}
       className={cn(
-        'hover:bg-neutral-50/60 neon-theme:hover:bg-[var(--color-bg-2)]/60 transition-colors',
+        'hover:bg-neutral-50/80 neon-theme:hover:bg-[var(--color-bg-2)]/60 transition-[background-color] duration-200 ease-out',
         onClick && 'cursor-pointer',
         className,
       )}

@@ -39,7 +39,7 @@ export function ChipFilter<T extends string>({
             onClick={() => onChange(o.value)}
             aria-pressed={active}
             className={cn(
-              'rounded-lg font-semibold transition-all duration-200 ease-out cursor-pointer active:scale-95 hover:scale-[1.02]',
+              'rounded-lg font-semibold transition-[background-color,border-color,color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer active:scale-[0.97]',
               size === 'sm' ? 'px-2.5 py-1 text-[11px]' : 'px-3 py-1.5 text-xs',
               active
                 ? 'bg-liberty text-white shadow-md shadow-liberty/30'

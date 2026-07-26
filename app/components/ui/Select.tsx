@@ -200,7 +200,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           onClick={() => setIsOpen((prev) => !prev)}
           className={cn(
             // base
-            'w-full flex items-center justify-between gap-2 rounded-xl border text-sm font-semibold transition-all duration-200 ease-out cursor-pointer py-2.5 px-3.5 text-left',
+            'w-full flex items-center justify-between gap-2 rounded-xl border text-sm font-semibold transition-[border-color,box-shadow,background-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer py-2.5 px-3.5 text-left',
             'focus:outline-none focus:ring-4',
             'disabled:opacity-60 disabled:cursor-not-allowed',
             // tema claro (Dashboard e padrão)
@@ -252,7 +252,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
                   type="button"
                   onClick={() => handleSelectOption(opt.value)}
                   className={cn(
-                    'w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-lg text-left transition-colors cursor-pointer',
+                    'w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-lg text-left transition-ui-fast cursor-pointer',
                     // tema claro
                     isSelected
                       ? 'bg-liberty/10 text-liberty-deep font-extrabold'

@@ -75,14 +75,14 @@ export default function LegalTermsModal({
             <button
               onClick={handleCopyLink}
               title="Copiar link do site"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-ui cursor-pointer"
             >
               {copied ? <IconCheck size={14} className="text-emerald-400" /> : <IconCopy size={14} />}
               {copied ? 'Copiado!' : 'Compartilhar'}
             </button>
             <button
               onClick={onClose}
-              className="h-8 w-8 rounded-lg grid place-items-center bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-neutral-400 transition-colors cursor-pointer"
+              className="h-8 w-8 rounded-lg grid place-items-center bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-neutral-400 transition-ui cursor-pointer"
               aria-label="Fechar modal"
             >
               <IconX size={18} />
@@ -94,7 +94,7 @@ export default function LegalTermsModal({
         <div className="flex gap-2 pt-2">
           <button
             onClick={() => handleTabChange('termos')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 ${
               activeTab === 'termos'
                 ? 'bg-white text-neutral-900 border-liberty shadow-sm'
                 : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
@@ -105,7 +105,7 @@ export default function LegalTermsModal({
           </button>
           <button
             onClick={() => handleTabChange('privacidade')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 ${
               activeTab === 'privacidade'
                 ? 'bg-white text-neutral-900 border-liberty shadow-sm'
                 : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
@@ -243,7 +243,7 @@ export default function LegalTermsModal({
         </p>
         <button
           onClick={onClose}
-          className="px-5 py-2 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer shadow-sm"
+          className="px-5 py-2 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-ui cursor-pointer shadow-sm"
         >
           Compreendi
         </button>

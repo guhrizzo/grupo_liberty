@@ -82,7 +82,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
         type="button"
         onClick={() => openLightbox(activeIndex)}
         aria-label={`Ampliar foto ${activeIndex + 1} de ${fotos.length}`}
-        className="relative aspect-16/9 w-full rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 cursor-zoom-in group hover:border-liberty transition-all duration-300"
+        className="relative aspect-16/9 w-full rounded-xl overflow-hidden border border-neutral-200 bg-neutral-50 cursor-zoom-in group hover:border-liberty transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       >
         <Image
           src={fotos[activeIndex]}
@@ -112,7 +112,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
               aria-selected={index === activeIndex}
               aria-label={`Miniatura ${index + 1}`}
               onClick={() => setActiveIndex(index)}
-              className={`relative aspect-16/10 rounded-lg overflow-hidden bg-neutral-50 transition-all duration-200 cursor-pointer ${
+              className={`relative aspect-16/10 rounded-lg overflow-hidden bg-neutral-50 transition-[border-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${
                 index === activeIndex
                   ? 'border-2 border-liberty shadow-sm'
                   : 'border border-neutral-200 hover:border-neutral-300'
@@ -142,7 +142,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
             onClick={closeLightbox}
             aria-label="Fechar galeria (Esc)"
             autoFocus
-            className="absolute top-6 right-6 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all cursor-pointer border border-white/10"
+            className="absolute top-6 right-6 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border border-white/10"
           >
             <IconX size={20} stroke={2.5} />
           </button>
@@ -152,7 +152,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
               type="button"
               onClick={prevImage}
               aria-label="Foto anterior (seta esquerda)"
-              className="absolute left-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-all cursor-pointer hidden sm:flex items-center justify-center border border-white/10"
+              className="absolute left-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-[background-color,color,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hidden sm:flex items-center justify-center border border-white/10 hover:scale-105"
             >
               <IconChevronLeft size={24} stroke={2.5} />
             </button>
@@ -173,7 +173,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
               type="button"
               onClick={nextImage}
               aria-label="Próxima foto (seta direita)"
-              className="absolute right-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-all cursor-pointer hidden sm:flex items-center justify-center border border-white/10"
+              className="absolute right-6 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-3.5 rounded-full transition-[background-color,color,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hidden sm:flex items-center justify-center border border-white/10 hover:scale-105"
             >
               <IconChevronRight size={24} stroke={2.5} />
             </button>

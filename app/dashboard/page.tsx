@@ -89,7 +89,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-white to-liberty/5 p-6 shadow-xs">
+      <div className="rounded-xl border border-neutral-200 bg-linear-to-br from-white to-liberty/5 p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty-deep">
@@ -119,10 +119,10 @@ export default async function DashboardPage() {
             <Link
               key={m.href}
               href={m.href}
-              className="group rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:border-liberty/40 hover:shadow-lg hover:shadow-liberty/5 transition-all hover:-translate-y-0.5"
+              className="group rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:border-liberty/40 hover:shadow-lg hover:shadow-liberty/5 hover:-translate-y-1 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
             >
               <div>
-                <div className="h-11 w-11 rounded-lg bg-liberty/10 text-liberty-deep flex items-center justify-center mb-4 group-hover:bg-liberty group-hover:text-white transition-colors">
+                <div className="h-11 w-11 rounded-lg bg-liberty/10 text-liberty-deep flex items-center justify-center mb-4 group-hover:bg-liberty group-hover:text-white transition-[background-color,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
                   <m.icon size={22} stroke={1.75} />
                 </div>
                 <h4 className="text-lg font-bold text-neutral-900">{m.titulo}</h4>
@@ -132,7 +132,7 @@ export default async function DashboardPage() {
                 <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
                   {m.badge}
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-liberty-deep group-hover:gap-2 transition-all">
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-liberty-deep group-hover:gap-2 transition-[gap,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
                   Acessar
                   <IconArrowRight size={14} stroke={2.5} />
                 </span>

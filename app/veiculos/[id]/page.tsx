@@ -155,7 +155,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
               url={`/veiculos/${veiculo.id}`}
               title={`${veiculo.marca} ${veiculo.modelo} ${veiculo.ano}`}
               text={`${veiculo.marca} ${veiculo.modelo} ${veiculo.ano} na Liberty Car`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 bg-white px-3.5 py-2 text-xs font-bold transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 bg-white px-3.5 py-2 text-xs font-bold transition-[color,border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
             />
           </div>
 

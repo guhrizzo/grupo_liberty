@@ -73,7 +73,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           }}
           className={cn(
             // base
-            'w-full rounded-xl border text-sm transition-all duration-200 ease-out py-2.5',
+            'w-full rounded-xl border text-sm transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5',
             'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo',
             'focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15',
             'disabled:opacity-60 disabled:cursor-not-allowed',

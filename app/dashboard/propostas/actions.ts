@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { sendPropostaStatusEmail } from '@/utils/email/send-proposta-email'
 
 export interface Proposta {
   id: string
@@ -137,6 +138,59 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
     })
 
     revalidatePath('/dashboard/propostas')
+
+    // Disparar e-mail de notificação para aceito ou recusado (não bloqueia o retorno)
+    if (newStatus === 'aceito' || newStatus === 'recusado') {
+      try {
+        const propostaDoc = await adminDb.collection('propostas').doc(id).get()
+        const proposta = propostaDoc.data()
+
+        if (proposta) {
+          // Resolver nome e e-mail do cliente
+          let clienteNome = proposta.nome || 'Cliente'
+          let clienteEmail = proposta.email || ''
+
+          if (proposta.user_id && !clienteEmail) {
+            try {
+              const authUser = await adminAuth.getUser(proposta.user_id)
+              clienteEmail = authUser.email || ''
+              clienteNome = proposta.nome || authUser.displayName || 'Cliente'
+            } catch {
+              // Usuário não encontrado no Auth, continua com dados da proposta
+            }
+          }
+
+          // Resolver dados do veículo
+          let veiculoMarca = 'Veículo'
+          let veiculoModelo = ''
+          if (proposta.veiculo_id) {
+            try {
+              const veiculoDoc = await adminDb.collection('veiculos').doc(proposta.veiculo_id).get()
+              const veiculo = veiculoDoc.data()
+              if (veiculo) {
+                veiculoMarca = veiculo.marca || 'Veículo'
+                veiculoModelo = veiculo.modelo || ''
+              }
+            } catch {
+              // Veículo removido ou não encontrado
+            }
+          }
+
+          await sendPropostaStatusEmail({
+            clienteNome,
+            clienteEmail,
+            veiculoMarca,
+            veiculoModelo,
+            valorOfertado: proposta.valor ?? null,
+            status: newStatus,
+          })
+        }
+      } catch (emailErr) {
+        // Erros de e-mail não devem bloquear a atualização do status
+        console.error('[Email] Falha ao enviar notificação de proposta:', emailErr)
+      }
+    }
+
     return { success: 'Status da proposta atualizado com sucesso!' }
   } catch (err: any) {
     return { error: err.message || 'Erro de autorização.' }

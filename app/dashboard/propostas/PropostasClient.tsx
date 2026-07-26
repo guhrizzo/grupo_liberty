@@ -133,7 +133,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+              className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-[background-color,color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${
                 filterStatus === status
                   ? 'bg-neutral-950 text-white shadow-xs'
                   : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50'
@@ -201,7 +201,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                           href={waLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 shadow-sm transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 shadow-sm transition-[background-color,box-shadow,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
                         >
                           <IconBrandWhatsapp size={16} />
                           WhatsApp
@@ -283,7 +283,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                       disabled={p.status !== 'aceito' || downloadingId === p.id}
                       onClick={() => handleDownloadPDF(p.id)}
                       title={p.status !== 'aceito' ? 'Disponível apenas para propostas aceitas' : 'Baixar PDF da proposta'}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border text-xs font-bold px-4 py-2 transition-colors ${
+                      className={`inline-flex items-center gap-1.5 rounded-lg border text-xs font-bold px-4 py-2 transition-ui ${
                         p.status === 'aceito'
                           ? 'border-neutral-300 hover:bg-neutral-100 text-neutral-700 cursor-pointer'
                           : 'border-neutral-200 text-neutral-400 cursor-not-allowed opacity-60'
@@ -299,14 +299,14 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                         <button
                           disabled={loadingId === p.id}
                           onClick={() => handleStatusChange(p.id, 'recusado')}
-                          className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-colors cursor-pointer disabled:opacity-50"
+                          className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-ui cursor-pointer disabled:opacity-50"
                         >
                           Recusar Proposta
                         </button>
                         <button
                           disabled={loadingId === p.id}
                           onClick={() => handleStatusChange(p.id, 'aceito')}
-                          className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-xs cursor-pointer disabled:opacity-50"
                         >
                           Aceitar Proposta
                         </button>
@@ -318,7 +318,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                       <button
                         disabled={deletingId === p.id}
                         onClick={() => setConfirmDeleteId(p.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-colors cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-ui cursor-pointer disabled:opacity-50"
                       >
                         <IconTrash size={13} stroke={2.5} />
                         {deletingId === p.id ? 'Excluindo...' : 'Excluir'}
@@ -345,13 +345,13 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-sm font-semibold py-2.5 transition-colors cursor-pointer"
+                className="flex-1 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 text-sm font-semibold py-2.5 transition-ui cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={() => handleDelete(confirmDeleteId)}
-                className="flex-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold py-2.5 transition-colors cursor-pointer shadow-sm"
+                className="flex-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold py-2.5 transition-ui cursor-pointer shadow-sm"
               >
                 Excluir
               </button>

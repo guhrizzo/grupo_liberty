@@ -145,7 +145,7 @@ export default function LoginForm({
             <button
               type="button"
               onClick={() => setShowResetModal(false)}
-              className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white p-1 rounded-lg transition-ui-fast cursor-pointer"
               aria-label="Fechar"
             >
               <IconX size={18} />

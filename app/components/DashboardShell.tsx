@@ -217,7 +217,7 @@ export default function DashboardShell({
               <button
                 type="button"
                 onClick={toggleCollapse}
-                className="h-9 w-9 rounded-lg grid place-items-center bg-neutral-100 hover:bg-liberty/10 hover:text-liberty-deep text-neutral-600 transition-colors cursor-pointer"
+                className="h-9 w-9 rounded-lg grid place-items-center bg-neutral-100 hover:bg-liberty/10 hover:text-liberty-deep text-neutral-600 transition-ui cursor-pointer"
                 title="Expandir menu lateral"
                 aria-label="Expandir menu lateral"
               >
@@ -244,7 +244,7 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={toggleCollapse}
-              className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors cursor-pointer shrink-0"
+              className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer shrink-0"
               title="Recolher menu lateral"
               aria-label="Recolher menu lateral"
             >
@@ -263,7 +263,7 @@ export default function DashboardShell({
               href="/"
               onClick={() => setOpen(false)}
               title="Ver site"
-              className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${
+              className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-[background-color,color] duration-200 ease-out text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${
                 collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
               }`}
             >
@@ -281,7 +281,7 @@ export default function DashboardShell({
                   onClick={() => setOpen(false)}
                   title={item.label}
                   aria-current={active ? 'page' : undefined}
-                  className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-all ${
+                  className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-200 ease-out ${
                     collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
                   } ${
                     active
@@ -330,7 +330,7 @@ export default function DashboardShell({
           onClick={() => setConfirmLogout(true)}
           disabled={isLoggingOut}
           title={isLoggingOut ? 'Saindo...' : 'Sair da conta'}
-          className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50 ${
+          className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-out cursor-pointer disabled:opacity-50 ${
             collapsed ? 'md:px-0 md:py-2.5' : 'px-3'
           }`}
         >

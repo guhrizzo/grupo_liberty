@@ -188,7 +188,7 @@ function ToastViewport({
             type="button"
             aria-label="Fechar notificação"
             onClick={() => onDismiss(t.id)}
-            className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 transition-colors cursor-pointer"
+            className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 transition-ui-fast cursor-pointer"
           >
             <IconX size={14} />
           </button>

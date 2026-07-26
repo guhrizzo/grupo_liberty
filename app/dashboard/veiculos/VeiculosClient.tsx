@@ -378,7 +378,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               Cadastrar Novo Veículo
             </h2>
 
-            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-8">
+            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-10">
 
               {/* ─── Cliente ────────────────────────────────────────── */}
               {/* 
@@ -478,7 +478,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
 
                 {/* Linha 2: Cor, Quilometragem, Tabela FIPE */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3 mt-6">
                   <Input
                     id="cor"
                     label="Cor"
@@ -512,7 +512,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
 
                 {/* Linha 3: Valor da Venda, Câmbio, Combustível */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3 mt-6">
                   <Input
                     id="preco"
                     label="Valor da venda (R$) *"
@@ -552,7 +552,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
 
                 {/* Linha 4: Placa, Renavam, Unidade */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-4">
+                <div className="grid gap-4 sm:grid-cols-3 mt-6">
                   <Input
                     id="placa"
                     label="Placa"
@@ -702,7 +702,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`relative cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-all ${
+                  className={`relative cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-[background-color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                     isDragging
                       ? 'border-neutral-900 bg-neutral-100'
                       : 'border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50'
@@ -739,7 +739,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         onDragOver={(e) => handlePhotoDragOver(e, index)}
                         onDrop={(e) => handlePhotoDrop(e, index)}
                         onDragEnd={handlePhotoDragEnd}
-                        className={`group relative aspect-square rounded-lg overflow-hidden border-2 bg-neutral-100 transition-all cursor-grab active:cursor-grabbing select-none ${
+                        className={`group relative aspect-square rounded-lg overflow-hidden border-2 bg-neutral-100 transition-[border-color,box-shadow,opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-grab active:cursor-grabbing select-none ${
                           dragOverIndex === index
                             ? 'border-neutral-900 scale-105 shadow-lg'
                             : dragIndexRef.current === index
@@ -791,14 +791,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); resetForm() }}
-                  className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-5 py-2.5 text-sm font-medium transition-colors cursor-pointer"
+                  className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-5 py-2.5 text-sm font-medium transition-ui cursor-pointer"
                 >
                   Cancelar
                 </button>
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+          className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-ui shadow-xs disabled:opacity-50 cursor-pointer"
         >
           {uploadProgress ? 'Enviando fotos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
         </button>
@@ -841,7 +841,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               {veiculos.map((v) => (
                 <div
                   key={v.id}
-                  className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-md transition-shadow"
+                  className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-lg hover:shadow-neutral-900/5 hover:-translate-y-1 hover:border-neutral-300 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-neutral-100">
@@ -911,14 +911,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                           <Link
                             href={`/veiculos/${v.id}`}
                             target="_blank"
-                            className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+                            className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
                           >
                             Link
                           </Link>
                           {currentRole === 'admin' && (
                             <button
                               onClick={() => setDeleteId(v.id)}
-                              className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+                              className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
                             >
                               Remover
                             </button>
@@ -945,7 +945,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               <button
                 onClick={() => setDeleteId(null)}
                 disabled={deleteLoading}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-colors cursor-pointer disabled:opacity-50"
+                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer disabled:opacity-50"
               >
                 Cancelar
               </button>
@@ -956,7 +956,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               })
             }}
             disabled={deleteLoading || deletePending}
-            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition-[background-color,color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-xs disabled:opacity-50 cursor-pointer"
           >
             {deleteLoading || deletePending ? 'Removendo...' : 'Sim, Remover'}
           </button>

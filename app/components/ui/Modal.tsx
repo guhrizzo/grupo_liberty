@@ -150,7 +150,7 @@ export function Modal({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
-                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-colors cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
+                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
               >
                 <IconX size={18} stroke={2} />
               </button>
