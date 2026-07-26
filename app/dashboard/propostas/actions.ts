@@ -128,7 +128,7 @@ export async function getPropostas(): Promise<Proposta[]> {
 /**
  * Atualiza o status de uma proposta.
  */
-export async function updatePropostaStatus(id: string, newStatus: 'pendente' | 'aceito' | 'recusado'): Promise<{ success?: string; error?: string }> {
+export async function updatePropostaStatus(id: string, newStatus: 'pendente' | 'aceito' | 'recusado'): Promise<{ success?: string; error?: string; emailSent?: boolean }> {
   try {
     await assertAuthorized()
 
@@ -140,6 +140,7 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
     revalidatePath('/dashboard/propostas')
 
     // Disparar e-mail de notificação para aceito ou recusado (não bloqueia o retorno)
+    let emailSent = false
     if (newStatus === 'aceito' || newStatus === 'recusado') {
       try {
         const propostaDoc = await adminDb.collection('propostas').doc(id).get()
@@ -176,7 +177,7 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
             }
           }
 
-          await sendPropostaStatusEmail({
+          emailSent = await sendPropostaStatusEmail({
             clienteNome,
             clienteEmail,
             veiculoMarca,
@@ -191,14 +192,14 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
       }
     }
 
-    return { success: 'Status da proposta atualizado com sucesso!' }
+    return { success: 'Status da proposta atualizado com sucesso!', emailSent }
   } catch (err: any) {
     return { error: err.message || 'Erro de autorização.' }
   }
 }
 
 /**
- * Exclui permanentemente uma proposta com status 'recusado'.
+ * Exclui permanentemente uma proposta com status 'aceito' ou 'recusado'.
  */
 export async function deleteProposta(id: string): Promise<{ success?: string; error?: string }> {
   try {
@@ -212,8 +213,8 @@ export async function deleteProposta(id: string): Promise<{ success?: string; er
     }
 
     const data = propostaDoc.data()
-    if (data?.status !== 'recusado') {
-      return { error: 'Apenas propostas recusadas podem ser excluídas.' }
+    if (!data || !['aceito', 'recusado'].includes(data.status)) {
+      return { error: 'Apenas propostas aceitas ou recusadas podem ser excluídas.' }
     }
 
     await propostaRef.delete()

@@ -17,12 +17,13 @@ export interface PropostaEmailPayload {
 /**
  * Envia um e-mail de notificação ao cliente quando o status de uma proposta muda.
  * Inclui CC para a equipe interna.
+ * Retorna true se o e-mail foi enviado com sucesso, false caso contrário.
  * Erros de envio são registrados no console, mas não propagados para não bloquear o fluxo.
  */
-export async function sendPropostaStatusEmail(payload: PropostaEmailPayload): Promise<void> {
+export async function sendPropostaStatusEmail(payload: PropostaEmailPayload): Promise<boolean> {
   if (!RESEND_API_KEY) {
     console.warn('[Resend] RESEND_API_KEY não configurada. E-mail não enviado.')
-    return
+    return false
   }
 
   const { clienteEmail, clienteNome, veiculoMarca, veiculoModelo, valorOfertado, status } = payload
@@ -30,7 +31,7 @@ export async function sendPropostaStatusEmail(payload: PropostaEmailPayload): Pr
   // Não tentar enviar se não há e-mail do cliente
   if (!clienteEmail || clienteEmail === 'Sem e-mail') {
     console.warn(`[Resend] Proposta sem e-mail de cliente. Notificação não enviada.`)
-    return
+    return false
   }
 
   const resend = new Resend(RESEND_API_KEY)
@@ -57,10 +58,13 @@ export async function sendPropostaStatusEmail(payload: PropostaEmailPayload): Pr
 
     if (error) {
       console.error('[Resend] Erro ao enviar e-mail de proposta:', error)
-    } else {
-      console.log(`[Resend] E-mail de proposta "${status}" enviado para ${clienteEmail}`)
+      return false
     }
+
+    console.log(`[Resend] E-mail de proposta "${status}" enviado para ${clienteEmail}`)
+    return true
   } catch (err) {
     console.error('[Resend] Exceção ao enviar e-mail de proposta:', err)
+    return false
   }
 }

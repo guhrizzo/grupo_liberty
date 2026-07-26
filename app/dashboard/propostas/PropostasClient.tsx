@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconNote, IconDownload, IconBrandWhatsapp, IconPhone, IconMail, IconTrash } from '@tabler/icons-react'
+import { IconNote, IconDownload, IconBrandWhatsapp, IconPhone, IconMail, IconTrash, IconFilter, IconX, IconSearch, IconCalendar, IconCar } from '@tabler/icons-react'
 import { updatePropostaStatus, deleteProposta, type Proposta } from './actions'
 import { Breadcrumb, EmptyState, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
@@ -15,7 +15,14 @@ interface PropostasClientProps {
 export default function PropostasClient({ propostas }: PropostasClientProps) {
   const router = useRouter()
   const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'aceito' | 'recusado'>('todos')
+  const [searchNome, setSearchNome] = useState('')
+  const [searchVeiculo, setSearchVeiculo] = useState('')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [loadingPhase, setLoadingPhase] = useState<'saving' | 'email'>('saving')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -23,6 +30,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
 
   const handleStatusChange = async (id: string, newStatus: 'aceito' | 'recusado') => {
     setLoadingId(id)
+    setLoadingPhase('saving')
 
     try {
       const res = await updatePropostaStatus(id, newStatus)
@@ -30,6 +38,9 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
         toast.error(res.error, 'Não foi possível atualizar')
       } else if (res.success) {
         toast.success(res.success, 'Status atualizado')
+        if (res.emailSent) {
+          toast.success('E-mail de notificação enviado ao cliente.', 'E-mail enviado ✉️')
+        }
         router.refresh()
       }
     } catch (err: unknown) {
@@ -37,6 +48,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
       toast.error(message, 'Erro inesperado')
     } finally {
       setLoadingId(null)
+      setLoadingPhase('saving')
     }
   }
 
@@ -84,9 +96,46 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
     }
   }
 
+  const hasActiveFilters = Boolean(searchNome || searchVeiculo || dataInicio || dataFim || filterStatus !== 'todos')
+
+  const handleClearFilters = () => {
+    setFilterStatus('todos')
+    setSearchNome('')
+    setSearchVeiculo('')
+    setDataInicio('')
+    setDataFim('')
+  }
+
   const filteredPropostas = propostas.filter(p => {
-    if (filterStatus === 'todos') return true
-    return p.status === filterStatus
+    // Status
+    if (filterStatus !== 'todos' && p.status !== filterStatus) return false
+
+    // Cliente (Nome)
+    const clienteNome = p.nome || p.user_name || ''
+    if (searchNome && !clienteNome.toLowerCase().includes(searchNome.toLowerCase().trim())) {
+      return false
+    }
+
+    // Veículo (Marca e Modelo)
+    const veiculoTexto = p.veiculos ? `${p.veiculos.marca} ${p.veiculos.modelo}` : ''
+    if (searchVeiculo && !veiculoTexto.toLowerCase().includes(searchVeiculo.toLowerCase().trim())) {
+      return false
+    }
+
+    // Data Início / Fim
+    if (dataInicio || dataFim) {
+      const propDate = new Date(p.created_at)
+      if (dataInicio) {
+        const startDate = new Date(`${dataInicio}T00:00:00`)
+        if (propDate < startDate) return false
+      }
+      if (dataFim) {
+        const endDate = new Date(`${dataFim}T23:59:59`)
+        if (propDate > endDate) return false
+      }
+    }
+
+    return true
   })
 
   const formatDate = (dateStr: string) => {
@@ -127,21 +176,143 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
           </p>
         </div>
 
-        {/* Filtros por Status */}
-        <div className="mb-6 flex flex-wrap gap-2">
-          {(['todos', 'pendente', 'aceito', 'recusado'] as const).map((status) => (
+        {/* Barra superior de Filtros & Status */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Filtros por Status */}
+            <div className="flex flex-wrap gap-2">
+              {(['todos', 'pendente', 'aceito', 'recusado'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-[background-color,color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${
+                    filterStatus === status
+                      ? 'bg-neutral-950 text-white shadow-xs'
+                      : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  {status === 'todos' ? 'Todas' : status}
+                </button>
+              ))}
+            </div>
+
+            {/* Botão de Expandir Painel de Filtros Avançados */}
             <button
-              key={status}
-              onClick={() => setFilterStatus(status)}
-              className={`rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-wider transition-[background-color,color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${
-                filterStatus === status
-                  ? 'bg-neutral-950 text-white shadow-xs'
-                  : 'bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50'
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                filtersOpen || hasActiveFilters
+                  ? 'border-neutral-900 bg-neutral-900 text-white'
+                  : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
               }`}
             >
-              {status === 'todos' ? 'Todas' : status}
+              <IconFilter size={15} />
+              Filtros Avançados
+              {hasActiveFilters && (
+                <span className="ml-1 rounded-full bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
+                  •
+                </span>
+              )}
             </button>
-          ))}
+          </div>
+
+          {/* Painel Expansível de Filtros Avançados */}
+          {filtersOpen && (
+            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4 animate-in fade-in zoom-in-95">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {/* Filtro por Nome do Cliente */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                    Cliente
+                  </label>
+                  <div className="relative">
+                    <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      value={searchNome}
+                      onChange={(e) => setSearchNome(e.target.value)}
+                      placeholder="Nome do cliente..."
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Filtro por Veículo */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                    Veículo
+                  </label>
+                  <div className="relative">
+                    <IconCar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="text"
+                      value={searchVeiculo}
+                      onChange={(e) => setSearchVeiculo(e.target.value)}
+                      placeholder="Marca ou modelo..."
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Data De */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                    Data Inicial
+                  </label>
+                  <div className="relative">
+                    <IconCalendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="date"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Data Até */}
+                <div>
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                    Data Final
+                  </label>
+                  <div className="relative">
+                    <IconCalendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+                    <input
+                      type="date"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Botão de Limpar Filtros se houver algum ativo */}
+              {hasActiveFilters && (
+                <div className="flex justify-end pt-2 border-t border-neutral-100">
+                  <button
+                    onClick={handleClearFilters}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 cursor-pointer"
+                  >
+                    <IconX size={14} />
+                    Limpar todos os filtros
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Contador de Resultados */}
+          <div className="flex items-center justify-between text-xs text-neutral-500 px-1 pt-1">
+            <span>
+              Exibindo <strong className="font-semibold text-neutral-900">{filteredPropostas.length}</strong> de{' '}
+              <strong className="font-semibold text-neutral-900">{propostas.length}</strong> propostas
+            </span>
+            {hasActiveFilters && (
+              <span className="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-semibold">
+                Filtros ativos
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Listagem das Propostas */}
@@ -301,20 +472,36 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                           onClick={() => handleStatusChange(p.id, 'recusado')}
                           className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-ui cursor-pointer disabled:opacity-50"
                         >
-                          Recusar Proposta
+                          {loadingId === p.id ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                              </svg>
+                              {loadingPhase === 'email' ? 'Enviando e-mail...' : 'Salvando...'}
+                            </span>
+                          ) : 'Recusar Proposta'}
                         </button>
                         <button
                           disabled={loadingId === p.id}
                           onClick={() => handleStatusChange(p.id, 'aceito')}
                           className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-xs cursor-pointer disabled:opacity-50"
                         >
-                          Aceitar Proposta
+                          {loadingId === p.id ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                              </svg>
+                              {loadingPhase === 'email' ? 'Enviando e-mail...' : 'Salvando...'}
+                            </span>
+                          ) : 'Aceitar Proposta'}
                         </button>
                       </>
                     )}
 
-                    {/* Excluir — apenas se recusado */}
-                    {p.status === 'recusado' && (
+                    {/* Excluir — se aceito ou recusado */}
+                    {(p.status === 'recusado' || p.status === 'aceito') && (
                       <button
                         disabled={deletingId === p.id}
                         onClick={() => setConfirmDeleteId(p.id)}
