@@ -6,7 +6,7 @@ import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type LocalizacaoVeiculo = 'jau' | 'bauru'
+export type LocalizacaoVeiculo = string
 
 export interface Veiculo {
   id: string
@@ -23,7 +23,8 @@ export interface Veiculo {
   renavam: string | null
   descricao: string | null
   fotos: string[]
-  localizacao: LocalizacaoVeiculo
+  localizacao: string
+  finalidade: 'venda' | 'pessoal'
   cpfCliente: string | null
   telefoneCliente: string | null
   telefoneAcessoria: string | null
@@ -108,6 +109,8 @@ export async function getVehicles(): Promise<Veiculo[]> {
     const vehicles: Veiculo[] = []
     snapshot.forEach((doc: any) => {
       const data = doc.data()
+      const loc = data.localizacao
+      const localizacao = loc === 'jau' ? 'Jaú/SP' : loc === 'bauru' ? 'Bauru/SP' : (loc || 'Jaú/SP')
       vehicles.push({
         id: doc.id,
         marca: data.marca,
@@ -123,7 +126,8 @@ export async function getVehicles(): Promise<Veiculo[]> {
         renavam: data.renavam || null,
         descricao: data.descricao || null,
         fotos: data.fotos || [],
-        localizacao: data.localizacao === 'bauru' ? 'bauru' : 'jau',
+        localizacao,
+        finalidade: data.finalidade === 'pessoal' ? 'pessoal' : 'venda',
         cpfCliente: data.cpfCliente || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
@@ -219,8 +223,10 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const descricao = ((formData.get('descricao') as string) || '').trim() || null
   const fotosJson = formData.get('fotos') as string
   const fotos: string[] = fotosJson ? JSON.parse(fotosJson) : []
-  const localizacaoRaw = formData.get('localizacao') as string
-  const localizacao: LocalizacaoVeiculo = localizacaoRaw === 'bauru' ? 'bauru' : 'jau'
+  const localizacaoRaw = ((formData.get('localizacao') as string) || '').trim()
+  const localizacao = localizacaoRaw === 'bauru' ? 'Bauru/SP' : localizacaoRaw === 'jau' ? 'Jaú/SP' : (localizacaoRaw || 'Jaú/SP')
+  const finalidadeRaw = formData.get('finalidade') as string
+  const finalidade: 'venda' | 'pessoal' = finalidadeRaw === 'pessoal' ? 'pessoal' : 'venda'
 
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
@@ -312,6 +318,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       descricao,
       fotos,
       localizacao,
+      finalidade,
       cpfCliente: cpfCliente || null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,

@@ -11,7 +11,7 @@ export interface Contrato {
   veiculoChassi: string | null
   veiculoCor: string | null
   veiculoQuilometragem: number | null
-  veiculoLocalizacao: 'jau' | 'bauru' | null
+  veiculoLocalizacao: string | null
   clienteNome: string
   clienteCpfCnpj: string
   clienteEndereco: string

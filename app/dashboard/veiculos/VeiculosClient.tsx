@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition } from 'react'
+import { useState, useRef, useCallback, useTransition, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -71,7 +71,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [placa, setPlaca] = useState('')
   const [renavam, setRenavam] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [localizacao, setLocalizacao] = useState<LocalizacaoVeiculo>('jau')
+  const [localizacaoSelect, setLocalizacaoSelect] = useState<'jau' | 'bauru' | 'outro'>('jau')
+  const [outraCidade, setOutraCidade] = useState('')
+  const [finalidade, setFinalidade] = useState<'venda' | 'pessoal'>('venda')
+  const [abaAtiva, setAbaAtiva] = useState<'venda' | 'pessoal'>('venda')
+  const [filtroCidade, setFiltroCidade] = useState<string>('')
+  const [filtroBusca, setFiltroBusca] = useState<string>('')
 
   // Financiamento
   const [banco, setBanco] = useState('')
@@ -79,9 +84,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [valorParcela, setValorParcela] = useState('')
   const [custoAcumulado, setCustoAcumulado] = useState('')
 
-  // Acessória / Contrato
+  // Acessória
   const [telefoneAcessoria, setTelefoneAcessoria] = useState('')
-  const [contrato, setContrato] = useState('')
 
   // Débitos do veículo
   const [debitos, setDebitos] = useState('')
@@ -209,13 +213,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setPlaca('')
     setRenavam('')
     setDescricao('')
-    setLocalizacao('jau')
+    setLocalizacaoSelect('jau')
+    setOutraCidade('')
+    setFinalidade('venda')
     setBanco('')
     setParcelasRestantes('')
     setValorParcela('')
     setCustoAcumulado('')
     setTelefoneAcessoria('')
-    setContrato('')
     setDebitos('')
     setFieldErrors({})
     photos.forEach(p => URL.revokeObjectURL(p.url))
@@ -266,17 +271,18 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('combustivel', combustivel)
       formData.append('placa', placa.toUpperCase().replace(/[^A-Z0-9]/g, ''))
       formData.append('renavam', onlyDigits(renavam))
+      const localizacaoValor = localizacaoSelect === 'outro' ? (outraCidade.trim() || 'Jaú/SP') : (localizacaoSelect === 'bauru' ? 'Bauru/SP' : 'Jaú/SP')
       formData.append('descricao', descricao)
-      formData.append('localizacao', localizacao)
+      formData.append('localizacao', localizacaoValor)
+      formData.append('finalidade', finalidade)
       formData.append('fotos', JSON.stringify(photoUrls))
       // Financiamento
       formData.append('banco', banco)
       formData.append('parcelasRestantes', parcelasRestantes)
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
-      // Acessória / Contrato
+      // Acessória
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
-      formData.append('contrato', contrato)
       // Débitos
       formData.append('debitos', debitos ? String(parseMoney(debitos) || 0) : '')
 
@@ -327,8 +333,31 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
-  const formatKm = (value: number) =>
-    new Intl.NumberFormat('pt-BR').format(value) + ' km'
+  const cidadesDisponiveis = useMemo(() => {
+    const set = new Set<string>()
+    veiculos.forEach((v) => {
+      if (v.localizacao) set.add(v.localizacao)
+    })
+    return Array.from(set)
+  }, [veiculos])
+
+  const totalVenda = useMemo(() => veiculos.filter(v => (v.finalidade || 'venda') === 'venda').length, [veiculos])
+  const totalPessoal = useMemo(() => veiculos.filter(v => v.finalidade === 'pessoal').length, [veiculos])
+
+  const veiculosFiltrados = useMemo(() => {
+    return veiculos.filter((v) => {
+      const vFinalidade = v.finalidade || 'venda'
+      if (vFinalidade !== abaAtiva) return false
+      if (filtroCidade && v.localizacao !== filtroCidade) return false
+      if (!filtroBusca.trim()) return true
+      const q = filtroBusca.toLowerCase()
+      return (
+        v.marca.toLowerCase().includes(q) ||
+        v.modelo.toLowerCase().includes(q) ||
+        (v.placa && v.placa.toLowerCase().includes(q))
+      )
+    })
+  }, [veiculos, abaAtiva, filtroCidade, filtroBusca])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -351,7 +380,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             <Button
               variant={showForm ? 'secondary' : 'liberty'}
               leftIcon={<IconPlus size={16} stroke={2.5} />}
-              onClick={() => { setShowForm(!showForm); setMessage(null) }}
+              onClick={() => {
+                setFinalidade(abaAtiva)
+                setShowForm(!showForm)
+                setMessage(null)
+              }}
             >
               {showForm ? 'Cancelar' : 'Novo Veículo'}
             </Button>
@@ -551,8 +584,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   </Select>
                 </div>
 
-                {/* Linha 4: Placa, Renavam, Unidade */}
-                <div className="grid gap-4 sm:grid-cols-3 mt-6">
+                {/* Linha 4: Placa, Renavam, Unidade, Finalidade */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-6">
                   <Input
                     id="placa"
                     label="Placa"
@@ -574,15 +607,39 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                   <Select
                     id="localizacao"
-                    label="Unidade *"
+                    label="Unidade / Cidade *"
                     required
-                    value={localizacao}
-                    onChange={(e) => setLocalizacao(e.target.value as LocalizacaoVeiculo)}
+                    value={localizacaoSelect}
+                    onChange={(e) => setLocalizacaoSelect(e.target.value as 'jau' | 'bauru' | 'outro')}
                   >
                     <option value="jau">Jaú/SP</option>
                     <option value="bauru">Bauru/SP</option>
+                    <option value="outro">Outra cidade...</option>
+                  </Select>
+                  <Select
+                    id="finalidade"
+                    label="Finalidade *"
+                    required
+                    value={finalidade}
+                    onChange={(e) => setFinalidade(e.target.value as 'venda' | 'pessoal')}
+                  >
+                    <option value="venda">Veículo para Venda</option>
+                    <option value="pessoal">Veículo Pessoal</option>
                   </Select>
                 </div>
+
+                {localizacaoSelect === 'outro' && (
+                  <div className="mt-4 max-w-md">
+                    <Input
+                      id="outraCidade"
+                      label="Nome da Cidade *"
+                      required
+                      value={outraCidade}
+                      onChange={(e) => setOutraCidade(e.target.value)}
+                      placeholder="Ex: São Carlos/SP, Botucatu/SP"
+                    />
+                  </div>
+                )}
 
                 {/* Descrição */}
                 <Textarea
@@ -646,12 +703,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
               </div>
 
-              {/* ─── Acessória / Contrato ───────────────────────────── */}
+              {/* ─── Acessória ──────────────────────────────────────── */}
               <div>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
-                  Acessória / Contrato
+                  Acessória
                 </h3>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4">
                   <Input
                     id="telefoneAcessoria"
                     label="Telefone da acessória"
@@ -662,14 +719,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     inputMode="tel"
                     mask="phone"
                     error={fieldErrors.telefoneAcessoria}
-                  />
-                  <Input
-                    id="contrato"
-                    label="Contrato (nota/link)"
-                    value={contrato}
-                    onChange={(e) => setContrato(e.target.value)}
-                    placeholder="Link ou observação do contrato"
-                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -820,25 +869,92 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           </div>
         )}
 
-        {/* Lista de Veículos */}
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4">
-            Veículos Cadastrados ({veiculos.length})
-          </h3>
+        {/* ─── Abas de Finalidade ─────────────────────────────── */}
+        <div className="border-b border-neutral-200 mb-6">
+          <nav className="-mb-px flex gap-0">
+            <button
+              type="button"
+              onClick={() => { setAbaAtiva('venda'); setFiltroBusca(''); setFiltroCidade('') }}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors duration-200 cursor-pointer ${
+                abaAtiva === 'venda'
+                  ? 'border-neutral-950 text-neutral-950'
+                  : 'border-transparent text-neutral-400 hover:text-neutral-700 hover:border-neutral-300'
+              }`}
+            >
+              <span>Para Venda</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                abaAtiva === 'venda' ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-500'
+              }`}>
+                {totalVenda}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAbaAtiva('pessoal'); setFiltroBusca(''); setFiltroCidade('') }}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors duration-200 cursor-pointer ${
+                abaAtiva === 'pessoal'
+                  ? 'border-purple-600 text-purple-700'
+                  : 'border-transparent text-neutral-400 hover:text-neutral-700 hover:border-neutral-300'
+              }`}
+            >
+              <span>Pessoal</span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                abaAtiva === 'pessoal' ? 'bg-purple-600 text-white' : 'bg-neutral-100 text-neutral-500'
+              }`}>
+                {totalPessoal}
+              </span>
+            </button>
+          </nav>
+        </div>
 
-          {veiculos.length === 0 ? (
+        {/* Lista de Veículos */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
+              {abaAtiva === 'venda' ? 'Veículos para Venda' : 'Veículos Pessoais'} ({veiculosFiltrados.length})
+            </h3>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <Input
+                placeholder="Buscar por marca, modelo ou placa..."
+                value={filtroBusca}
+                onChange={(e) => setFiltroBusca(e.target.value)}
+                containerClassName="w-full sm:w-64"
+              />
+              <Select
+                value={filtroCidade}
+                onChange={(e) => setFiltroCidade(e.target.value)}
+                containerClassName="w-full sm:w-44"
+              >
+                <option value="">Todas as cidades</option>
+                {cidadesDisponiveis.map((cidade) => (
+                  <option key={cidade} value={cidade}>
+                    {cidade}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          {veiculosFiltrados.length === 0 ? (
             <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center">
               <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center">
                 <IconCar size={24} stroke={1.5} className="text-neutral-400" />
               </div>
-              <p className="text-sm font-medium text-neutral-500">Nenhum veículo cadastrado ainda</p>
+              <p className="text-sm font-medium text-neutral-500">
+                {veiculos.length === 0
+                  ? 'Nenhum veículo cadastrado ainda'
+                  : 'Nenhum veículo encontrado com os filtros atuais'}
+              </p>
               <p className="text-xs text-neutral-400 mt-1">
-                {currentRole === 'admin' ? 'Clique em "Novo Veículo" para começar.' : 'Aguarde um administrador cadastrar veículos.'}
+                {currentRole === 'admin'
+                  ? 'Clique em "Novo Veículo" para começar ou ajuste a busca.'
+                  : 'Aguarde um administrador cadastrar veículos.'}
               </p>
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {veiculos.map((v) => (
+              {veiculosFiltrados.map((v) => (
                 <div
                   key={v.id}
                   className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-lg hover:shadow-neutral-900/5 hover:-translate-y-1 hover:border-neutral-300 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
@@ -891,6 +1007,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     </div>
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
+                      {v.finalidade === 'pessoal' ? (
+                        <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          Pessoal
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          Para Venda
+                        </span>
+                      )}
                       <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
                         {v.cambio}
                       </span>
@@ -898,7 +1023,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         {v.combustivel}
                       </span>
                       <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                        {v.localizacao === 'bauru' ? 'Bauru/SP' : 'Jaú/SP'}
+                        {v.localizacao || 'Jaú/SP'}
                       </span>
                     </div>
 

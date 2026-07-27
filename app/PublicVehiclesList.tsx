@@ -202,7 +202,12 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                   {v.localizacao && (
                     <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-liberty/10 backdrop-blur-sm text-liberty-deep text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-liberty/20">
                       <IconMapPin size={11} stroke={2.5} />
-                      {v.localizacao === 'bauru' ? 'Bauru/SP' : 'Jaú/SP'}
+                      {v.localizacao}
+                    </span>
+                  )}
+                  {v.finalidade === 'pessoal' && (
+                    <span className="absolute top-3 right-16 inline-flex items-center gap-1.5 rounded-md bg-purple-100/90 backdrop-blur-sm text-purple-900 text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-purple-300">
+                      Pessoal
                     </span>
                   )}
                   {v.fotos && v.fotos.length > 1 && (
