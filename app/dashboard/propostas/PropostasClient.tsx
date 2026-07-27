@@ -159,6 +159,8 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
     return `https://wa.me/${phoneWithCountry}?text=${text}`
   }
 
+  const pendentesCount = propostas.filter((p) => p.status === 'pendente').length
+
   return (
     <div className="space-y-6">
       <div>
@@ -168,8 +170,13 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
               { label: 'Propostas' },
             ]}
           />
-          <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950">
+          <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 flex items-center gap-3">
             Gerenciar Propostas
+            {pendentesCount > 0 && (
+              <span className="inline-flex items-center justify-center rounded-full bg-red-500 px-3 py-1 text-[13px] font-bold text-white shadow-sm">
+                {pendentesCount} {pendentesCount === 1 ? 'nova' : 'novas'}
+              </span>
+            )}
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
             Gerencie o interesse e as propostas de compra enviadas por visitantes e clientes.

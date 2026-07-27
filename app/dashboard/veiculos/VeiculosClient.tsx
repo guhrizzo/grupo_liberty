@@ -20,6 +20,7 @@ import { formatCurrency, formatKm } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits } from '@/utils/masks'
 import {
   createVehicle,
+  updateVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
   type Veiculo,
@@ -35,8 +36,9 @@ interface VeiculosClientProps {
 }
 
 interface PhotoPreview {
-  file: File
+  file?: File
   url: string
+  isExisting?: boolean
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -48,6 +50,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<VeiculoFieldErrors>({})
@@ -89,6 +92,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Débitos do veículo
   const [debitos, setDebitos] = useState('')
+  const [sellerName, setSellerName] = useState('')
+  const [sellerCpf, setSellerCpf] = useState('')
+  const [sellerBirthDate, setSellerBirthDate] = useState('')
+  const [sellerCity, setSellerCity] = useState('')
+  const [isVehicleInSellersName, setIsVehicleInSellersName] = useState<'yes' | 'no' | ''>('')
+  const [registeredOwnerName, setRegisteredOwnerName] = useState('')
 
   // Fotos
   const [photos, setPhotos] = useState<PhotoPreview[]>([])
@@ -123,7 +132,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const removePhoto = (index: number) => {
     setPhotos(prev => {
       const copy = [...prev]
-      URL.revokeObjectURL(copy[index].url)
+      if (!copy[index].isExisting) {
+        URL.revokeObjectURL(copy[index].url)
+      }
       copy.splice(index, 1)
       return copy
     })
@@ -197,6 +208,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // ─── Form Submit ─────────────────────────────────────────────────────────
 
   const resetForm = () => {
+    setEditingId(null)
     setNomeCliente('')
     setCpfCliente('')
     setEnderecoCliente('')
@@ -222,10 +234,68 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCustoAcumulado('')
     setTelefoneAcessoria('')
     setDebitos('')
+    setSellerName('')
+    setSellerCpf('')
+    setSellerBirthDate('')
+    setSellerCity('')
+    setIsVehicleInSellersName('')
+    setRegisteredOwnerName('')
     setFieldErrors({})
-    photos.forEach(p => URL.revokeObjectURL(p.url))
+    photos.forEach(p => {
+      if (!p.isExisting) URL.revokeObjectURL(p.url)
+    })
     setPhotos([])
   }
+
+  const handleEdit = useCallback((veiculo: Veiculo) => {
+    setEditingId(veiculo.id)
+    setShowForm(true)
+    setMessage(null)
+    setFieldErrors({})
+
+    setCpfCliente(veiculo.cpfCliente || '')
+    setTelefoneCliente(veiculo.telefoneCliente || '')
+    setMarca(veiculo.marca)
+    setModelo(veiculo.modelo)
+    setAno(String(veiculo.ano))
+    setCor(veiculo.cor || '')
+    setQuilometragem(veiculo.quilometragem !== null ? String(veiculo.quilometragem) : '')
+    setPreco(veiculo.preco ? formatCurrency(veiculo.preco).replace('R$', '').trim() : '')
+    setTabelaFipe(veiculo.tabelaFipe ? formatCurrency(veiculo.tabelaFipe).replace('R$', '').trim() : '')
+    setCambio(veiculo.cambio || 'manual')
+    setCombustivel(veiculo.combustivel || 'flex')
+    setPlaca(veiculo.placa || '')
+    setRenavam(veiculo.renavam || '')
+    setDescricao(veiculo.descricao || '')
+    
+    if (veiculo.localizacao === 'Jaú/SP') setLocalizacaoSelect('jau')
+    else if (veiculo.localizacao === 'Bauru/SP') setLocalizacaoSelect('bauru')
+    else {
+      setLocalizacaoSelect('outro')
+      setOutraCidade(veiculo.localizacao)
+    }
+
+    setFinalidade(veiculo.finalidade || 'venda')
+    setParcelasRestantes(veiculo.parcelasRestantes !== null ? String(veiculo.parcelasRestantes) : '')
+    setValorParcela(veiculo.valorParcela ? formatCurrency(veiculo.valorParcela).replace('R$', '').trim() : '')
+    setCustoAcumulado(veiculo.custoAcumulado ? formatCurrency(veiculo.custoAcumulado).replace('R$', '').trim() : '')
+    setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
+    setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
+    setSellerName(veiculo.sellerName || '')
+    setSellerCpf(veiculo.sellerCpf || '')
+    setSellerBirthDate(veiculo.sellerBirthDate || '')
+    setSellerCity(veiculo.sellerCity || '')
+    setIsVehicleInSellersName(veiculo.isVehicleInSellersName !== undefined && veiculo.isVehicleInSellersName !== null ? (veiculo.isVehicleInSellersName ? 'yes' : 'no') : '')
+    setRegisteredOwnerName(veiculo.registeredOwnerName || '')
+
+    const loadedPhotos = (veiculo.fotos || []).map(url => ({
+      url,
+      isExisting: true
+    }))
+    setPhotos(loadedPhotos)
+
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -234,12 +304,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setFieldErrors({})
 
     try {
-      // 1. Upload das fotos
+      // 1. Upload das fotos NOVAS
+      const newPhotos = photos.filter(p => !p.isExisting)
       let photoUrls: string[] = []
-      if (photos.length > 0) {
+
+      if (newPhotos.length > 0) {
         setUploadProgress(true)
         const photoFormData = new FormData()
-        photos.forEach(p => photoFormData.append('photos', p.file))
+        newPhotos.forEach(p => photoFormData.append('photos', p.file!))
 
         const uploadResult = await uploadVehiclePhotos(photoFormData)
         setUploadProgress(false)
@@ -275,7 +347,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('descricao', descricao)
       formData.append('localizacao', localizacaoValor)
       formData.append('finalidade', finalidade)
-      formData.append('fotos', JSON.stringify(photoUrls))
+
+      let newPhotoIndex = 0
+      const fotosFinalStr = JSON.stringify(photos.map(p => {
+        if (p.isExisting) return p.url
+        return photoUrls[newPhotoIndex++]
+      }))
+      formData.append('fotos', fotosFinalStr)
+
       // Financiamento
       formData.append('banco', banco)
       formData.append('parcelasRestantes', parcelasRestantes)
@@ -285,8 +364,21 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       // Débitos
       formData.append('debitos', debitos ? String(parseMoney(debitos) || 0) : '')
+      formData.append('sellerName', sellerName)
+      formData.append('sellerCpf', sellerCpf)
+      formData.append('sellerBirthDate', sellerBirthDate)
+      formData.append('sellerCity', sellerCity)
+      if (isVehicleInSellersName) {
+        formData.append('isVehicleInSellersName', isVehicleInSellersName === 'yes' ? 'true' : 'false')
+      }
+      formData.append('registeredOwnerName', registeredOwnerName)
 
-      const result = await createVehicle(formData)
+      let result
+      if (editingId) {
+        result = await updateVehicle(editingId, formData)
+      } else {
+        result = await createVehicle(formData)
+      }
 
       if (result.error) {
         if (result.fieldErrors) {
@@ -294,7 +386,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         }
         setMessage({ type: 'error', text: result.error })
       } else {
-        setMessage({ type: 'success', text: result.success || 'Veículo cadastrado!' })
+        setMessage({ type: 'success', text: result.success || (editingId ? 'Veículo atualizado!' : 'Veículo cadastrado!') })
         resetForm()
         setShowForm(false)
         router.refresh()
@@ -379,11 +471,16 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           {currentRole === 'admin' && (
             <Button
               variant={showForm ? 'secondary' : 'liberty'}
-              leftIcon={<IconPlus size={16} stroke={2.5} />}
+              leftIcon={!showForm ? <IconPlus size={16} stroke={2.5} /> : undefined}
               onClick={() => {
-                setFinalidade(abaAtiva)
-                setShowForm(!showForm)
-                setMessage(null)
+                if (showForm) {
+                  resetForm()
+                  setShowForm(false)
+                } else {
+                  setFinalidade(abaAtiva)
+                  setShowForm(true)
+                  setMessage(null)
+                }
               }}
             >
               {showForm ? 'Cancelar' : 'Novo Veículo'}
@@ -404,11 +501,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           </div>
         )}
 
-        {/* Formulário de Cadastro */}
+        {/* Formulário de Cadastro / Edição */}
         {showForm && currentRole === 'admin' && (
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs mb-8">
             <h2 className="text-lg font-semibold text-neutral-900 mb-6">
-              Cadastrar Novo Veículo
+              {editingId ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}
             </h2>
 
             <form onSubmit={handleSubmit} autoComplete="off" className="space-y-10">
@@ -739,6 +836,94 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 />
               </div>
 
+              {/* ─── Dados do Vendedor (apenas para venda) ──────────── */}
+              {finalidade === 'venda' && (
+                <div>
+                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+                    Dados do Vendedor
+                  </h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      id="sellerName"
+                      label="Nome do vendedor"
+                      value={sellerName}
+                      onChange={(e) => setSellerName(e.target.value)}
+                      placeholder="Nome completo"
+                      autoComplete="off"
+                    />
+                    <Input
+                      id="sellerCpf"
+                      label="CPF do vendedor"
+                      value={sellerCpf}
+                      onChange={(e) => setSellerCpf(maskCPFCNPJ(e.target.value))}
+                      placeholder="000.000.000-00"
+                      autoComplete="off"
+                      inputMode="numeric"
+                    />
+                    <Input
+                      id="sellerBirthDate"
+                      label="Data de nascimento"
+                      value={sellerBirthDate}
+                      onChange={(e) => setSellerBirthDate(e.target.value)}
+                      type="date"
+                      autoComplete="off"
+                    />
+                    <Input
+                      id="sellerCity"
+                      label="Cidade"
+                      value={sellerCity}
+                      onChange={(e) => setSellerCity(e.target.value)}
+                      placeholder="Ex: Jaú/SP"
+                      autoComplete="off"
+                    />
+                  </div>
+
+                  {/* Veículo no nome do vendedor? */}
+                  <div className="mt-4">
+                    <p className="block text-xs font-semibold text-neutral-700 mb-2">
+                      O veículo está no nome do vendedor?
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setIsVehicleInSellersName('yes')}
+                        className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-[background-color,border-color,color] duration-200 cursor-pointer ${
+                          isVehicleInSellersName === 'yes'
+                            ? 'border-liberty bg-liberty/10 text-liberty-deep'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsVehicleInSellersName('no')}
+                        className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-[background-color,border-color,color] duration-200 cursor-pointer ${
+                          isVehicleInSellersName === 'no'
+                            ? 'border-red-400 bg-red-50 text-red-600'
+                            : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300'
+                        }`}
+                      >
+                        Não
+                      </button>
+                    </div>
+
+                    {isVehicleInSellersName === 'no' && (
+                      <div className="mt-3">
+                        <Input
+                          id="registeredOwnerName"
+                          label="Nome de quem está registrado o veículo"
+                          value={registeredOwnerName}
+                          onChange={(e) => setRegisteredOwnerName(e.target.value)}
+                          placeholder="Nome completo do proprietário registrado"
+                          autoComplete="off"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* ─── Upload de Fotos ────────────────────────────────── */}
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2">
@@ -1041,12 +1226,20 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                             Link
                           </Link>
                           {currentRole === 'admin' && (
-                            <button
-                              onClick={() => setDeleteId(v.id)}
-                              className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
-                            >
-                              Remover
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleEdit(v)}
+                                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => setDeleteId(v.id)}
+                                className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+                              >
+                                Remover
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>

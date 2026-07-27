@@ -31,6 +31,19 @@ export default async function DashboardLayout({
 
   if (!user) redirect('/login')
 
+  let propostasPendentesCount = 0
+  if (['admin', 'vendedor'].includes(role || '')) {
+    try {
+      const snap = await adminDb
+        .collection('propostas')
+        .where('status', '==', 'pendente')
+        .get()
+      propostasPendentesCount = snap.size
+    } catch (e) {
+      console.error('[DashboardLayout] Erro ao buscar propostas pendentes:', e)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50 flex">
       <DashboardShell
@@ -38,6 +51,7 @@ export default async function DashboardLayout({
         role={role}
         displayName={displayName}
         logoutAction={logout}
+        propostasPendentesCount={propostasPendentesCount}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
         <div className="mx-auto max-w-7xl">{children}</div>

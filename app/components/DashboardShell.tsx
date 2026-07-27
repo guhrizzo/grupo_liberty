@@ -15,7 +15,7 @@ import {
   IconReceipt,
   IconSearch,
   IconMenu2,
-  IconBolt,
+
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
@@ -140,6 +140,7 @@ interface DashboardShellProps {
   role: string | null
   displayName: string | null
   logoutAction: () => Promise<void>
+  propostasPendentesCount?: number
 }
 
 export default function DashboardShell({
@@ -147,6 +148,7 @@ export default function DashboardShell({
   role,
   displayName,
   logoutAction,
+  propostasPendentesCount = 0,
 }: DashboardShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -227,7 +229,7 @@ export default function DashboardShell({
             {/* Mobile (exibe o logo completo se o drawer estiver aberto) */}
             <div className="flex md:hidden items-center gap-2.5 min-w-0">
               <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
-                <IconBolt size={20} stroke={2.2} />
+                <IconCar size={20} stroke={2.2} />
               </div>
               <div className="flex flex-col leading-none min-w-0">
                 <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
@@ -257,7 +259,7 @@ export default function DashboardShell({
           <>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
-                <IconBolt size={20} stroke={2.2} />
+                <IconCar size={20} stroke={2.2} />
               </div>
               <div className="flex flex-col leading-none min-w-0">
                 <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
@@ -301,6 +303,8 @@ export default function DashboardShell({
 
           {allowedItems.map((item) => {
             const active = isActive(item.href)
+            const count = item.href === '/dashboard/propostas' ? propostasPendentesCount : 0
+
             return (
               <li key={item.href}>
                 <Link
@@ -323,7 +327,18 @@ export default function DashboardShell({
                     />
                   )}
                   <NavIcon name={item.icon} />
-                  <span className={collapsed ? 'md:hidden truncate' : 'truncate'}>{item.label}</span>
+                  <span className={`flex-1 ${collapsed ? 'md:hidden truncate' : 'truncate'}`}>{item.label}</span>
+                  {count > 0 && (
+                    <span
+                      className={`flex items-center justify-center rounded-full bg-red-500 text-white font-bold ${
+                        collapsed
+                          ? 'md:absolute md:top-1.5 md:right-1.5 md:h-2 md:w-2 md:text-[0px] h-5 min-w-[20px] text-[10px] px-1'
+                          : 'h-5 min-w-[20px] text-[10px] px-1'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
                 </Link>
               </li>
             )

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { IconBolt, IconArrowRight, IconUser } from '@tabler/icons-react'
+import { IconCar, IconArrowRight, IconUser } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import PublicVehiclesList from './PublicVehiclesList'
@@ -25,7 +25,8 @@ export default async function HomePage() {
       // Ignorar erro e continuar como deslogado
     }
   }
-  const veiculos = await getVehicles()
+  const todosVeiculos = await getVehicles()
+  const veiculos = todosVeiculos.filter(v => (v.finalidade || 'venda') === 'venda')
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -35,7 +36,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-7xl flex items-center justify-between px-4 py-3 md:px-8">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="relative h-9 w-9 rounded-lg grid place-items-center liberty-glow bg-liberty/10">
-              <IconBolt size={20} className="text-liberty" stroke={2.2} />
+              <IconCar size={20} className="text-liberty" stroke={2.2} />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-lg font-black tracking-tighter text-neutral-900">
@@ -149,7 +150,7 @@ export default async function HomePage() {
           <div>
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg grid place-items-center bg-liberty/10 liberty-glow">
-                <IconBolt size={18} className="text-liberty" stroke={2.2} />
+                <IconCar size={18} className="text-liberty" stroke={2.2} />
               </div>
               <span className="text-base font-black tracking-tighter text-neutral-900">
                 LIBERTY<span className="text-liberty">CAR</span>

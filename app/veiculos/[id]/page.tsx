@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { IconBolt, IconArrowRight, IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconMessage2, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
+import { IconCar, IconArrowRight, IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconMessage2, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
 import { adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
@@ -79,6 +79,10 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   const showInternalInfo =
     !!user && ['admin', 'vendedor', 'advogado', 'suporte'].includes(user.role ?? '')
 
+  if (veiculo.finalidade === 'pessoal' && !showInternalInfo) {
+    notFound()
+  }
+
   // Permissão específica para gerenciar contratos anexados.
   const canManage = canManageContratos(session)
   // Combina contratos anexados manualmente + contratos gerados via
@@ -105,7 +109,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
         <div className="mx-auto max-w-7xl flex items-center justify-between px-4 py-3 md:px-8">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 liberty-glow">
-              <IconBolt size={20} className="text-liberty" stroke={2.2} />
+              <IconCar size={20} className="text-liberty" stroke={2.2} />
             </div>
             <div className="flex flex-col leading-none">
               <span className="text-lg font-black tracking-tighter text-neutral-900">

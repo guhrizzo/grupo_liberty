@@ -301,64 +301,52 @@ export default function PlacaFipeLookup({
           <form onSubmit={handleSearchManualReal} className="mt-6 space-y-4">
             <div className="grid gap-4 sm:grid-cols-3">
               {/* Seletor Marca */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">
-                  Marca {loadingMarcas && <IconLoader2 size={12} className="inline animate-spin text-neutral-400 ml-1" />}
-                </label>
-                <select
-                  value={selectedMarca}
-                  onChange={(e) => handleMarcaChange(e.target.value)}
-                  disabled={loadingMarcas}
-                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-900 focus:border-neutral-950 focus:bg-white focus:outline-none"
-                >
-                  <option value="">Selecione a marca...</option>
-                  {marcas.map((m) => (
-                    <option key={m.codigo} value={m.codigo}>
-                      {m.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                id="selectMarca"
+                label={`Marca ${loadingMarcas ? ' (Carregando...)' : ''}`}
+                value={selectedMarca}
+                onChange={(e) => handleMarcaChange(e.target.value)}
+                disabled={loadingMarcas}
+              >
+                <option value="">Selecione a marca...</option>
+                {marcas.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.nome}
+                  </option>
+                ))}
+              </Select>
 
               {/* Seletor Modelo */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">
-                  Modelo {loadingModelos && <IconLoader2 size={12} className="inline animate-spin text-neutral-400 ml-1" />}
-                </label>
-                <select
-                  value={selectedModelo}
-                  onChange={(e) => handleModeloChange(e.target.value)}
-                  disabled={!selectedMarca || loadingModelos}
-                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-900 focus:border-neutral-950 focus:bg-white focus:outline-none disabled:opacity-50"
-                >
-                  <option value="">Selecione o modelo...</option>
-                  {modelos.map((m) => (
-                    <option key={m.codigo} value={m.codigo}>
-                      {m.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                id="selectModelo"
+                label={`Modelo ${loadingModelos ? ' (Carregando...)' : ''}`}
+                value={selectedModelo}
+                onChange={(e) => handleModeloChange(e.target.value)}
+                disabled={!selectedMarca || loadingModelos}
+              >
+                <option value="">Selecione o modelo...</option>
+                {modelos.map((m) => (
+                  <option key={m.codigo} value={m.codigo}>
+                    {m.nome}
+                  </option>
+                ))}
+              </Select>
 
               {/* Seletor Ano */}
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1">
-                  Ano Modelo {loadingAnos && <IconLoader2 size={12} className="inline animate-spin text-neutral-400 ml-1" />}
-                </label>
-                <select
-                  value={selectedAno}
-                  onChange={(e) => setSelectedAno(e.target.value)}
-                  disabled={!selectedModelo || loadingAnos}
-                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-xs text-neutral-900 focus:border-neutral-950 focus:bg-white focus:outline-none disabled:opacity-50"
-                >
-                  <option value="">Selecione o ano...</option>
-                  {anos.map((a) => (
-                    <option key={a.codigo} value={a.codigo}>
-                      {a.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <Select
+                id="selectAno"
+                label={`Ano Modelo ${loadingAnos ? ' (Carregando...)' : ''}`}
+                value={selectedAno}
+                onChange={(e) => setSelectedAno(e.target.value)}
+                disabled={!selectedModelo || loadingAnos}
+              >
+                <option value="">Selecione o ano...</option>
+                {anos.map((a) => (
+                  <option key={a.codigo} value={a.codigo}>
+                    {a.nome}
+                  </option>
+                ))}
+              </Select>
             </div>
 
             <div className="flex justify-end">

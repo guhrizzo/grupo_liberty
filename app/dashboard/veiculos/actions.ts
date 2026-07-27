@@ -32,6 +32,13 @@ export interface Veiculo {
   custoAcumulado: number | null
   debitos: number | null
   parcelasRestantes: number | null
+  // Dados do vendedor
+  sellerName: string | null
+  sellerCpf: string | null
+  sellerBirthDate: string | null
+  sellerCity: string | null
+  isVehicleInSellersName: boolean | null
+  registeredOwnerName: string | null
   created_at: string
   updated_at: string
   created_by: string | null
@@ -135,6 +142,12 @@ export async function getVehicles(): Promise<Veiculo[]> {
         custoAcumulado: data.custoAcumulado ?? null,
         debitos: data.debitos ?? null,
         parcelasRestantes: data.parcelasRestantes ?? null,
+        sellerName: data.sellerName || null,
+        sellerCpf: data.sellerCpf || null,
+        sellerBirthDate: data.sellerBirthDate || null,
+        sellerCity: data.sellerCity || null,
+        isVehicleInSellersName: data.isVehicleInSellersName ?? null,
+        registeredOwnerName: data.registeredOwnerName || null,
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -240,6 +253,14 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const debitos = debitosRaw ? parseFloat(debitosRaw) : null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  // Dados do vendedor
+  const sellerName = ((formData.get('sellerName') as string) || '').trim() || null
+  const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
+  const sellerBirthDate = ((formData.get('sellerBirthDate') as string) || '').trim() || null
+  const sellerCity = ((formData.get('sellerCity') as string) || '').trim() || null
+  const isVehicleInSellersNameRaw = formData.get('isVehicleInSellersName') as string | null
+  const isVehicleInSellersName = isVehicleInSellersNameRaw === 'true' ? true : isVehicleInSellersNameRaw === 'false' ? false : null
+  const registeredOwnerName = ((formData.get('registeredOwnerName') as string) || '').trim() || null
 
   // Validações por campo.
   const fieldErrors: VeiculoFieldErrors = {}
@@ -326,6 +347,12 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       custoAcumulado,
       debitos,
       parcelasRestantes,
+      sellerName,
+      sellerCpf,
+      sellerBirthDate,
+      sellerCity,
+      isVehicleInSellersName,
+      registeredOwnerName,
       created_by: user.uid,
       created_at: now,
       updated_at: now,
@@ -416,3 +443,167 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
     return { error: `Erro ao deletar veículo: ${error.message}` }
   }
 }
+
+/**
+ * Atualiza um veículo existente no banco de dados.
+ */
+export async function updateVehicle(id: string, formData: FormData): Promise<VeiculoResponse> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  // Extrair campos
+  const marca = ((formData.get('marca') as string) || '').trim()
+  const modelo = ((formData.get('modelo') as string) || '').trim()
+  const anoRaw = (formData.get('ano') as string) || ''
+  const ano = parseInt(anoRaw, 10)
+  const cor = ((formData.get('cor') as string) || '').trim() || null
+  const quilometragemRaw = (formData.get('quilometragem') as string) || ''
+  const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
+  const precoRaw = (formData.get('preco') as string) || ''
+  const preco = parseFloat(precoRaw)
+  const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
+  const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
+  const cambio = (formData.get('cambio') as string) || 'manual'
+  const combustivel = (formData.get('combustivel') as string) || 'flex'
+  const placa = ((formData.get('placa') as string) || '').trim().toUpperCase() || null
+  const renavam = ((formData.get('renavam') as string) || '').trim() || null
+  const descricao = ((formData.get('descricao') as string) || '').trim() || null
+  const fotosJson = formData.get('fotos') as string
+  const fotosFinal: string[] = fotosJson ? JSON.parse(fotosJson) : []
+  const localizacaoRaw = ((formData.get('localizacao') as string) || '').trim()
+  const localizacao = localizacaoRaw === 'bauru' ? 'Bauru/SP' : localizacaoRaw === 'jau' ? 'Jaú/SP' : (localizacaoRaw || 'Jaú/SP')
+  const finalidadeRaw = formData.get('finalidade') as string
+  const finalidade: 'venda' | 'pessoal' = finalidadeRaw === 'pessoal' ? 'pessoal' : 'venda'
+
+  // Campos opcionais de cliente / financiamento
+  const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
+  const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
+  const telefoneAcessoria = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  const valorParcelaRaw = (formData.get('valorParcela') as string) || ''
+  const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
+  const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
+  const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const debitosRaw = (formData.get('debitos') as string) || ''
+  const debitos = debitosRaw ? parseFloat(debitosRaw) : null
+  const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
+  const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  // Dados do vendedor
+  const sellerName = ((formData.get('sellerName') as string) || '').trim() || null
+  const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
+  const sellerBirthDate = ((formData.get('sellerBirthDate') as string) || '').trim() || null
+  const sellerCity = ((formData.get('sellerCity') as string) || '').trim() || null
+  const isVehicleInSellersNameRaw = formData.get('isVehicleInSellersName') as string | null
+  const isVehicleInSellersName = isVehicleInSellersNameRaw === 'true' ? true : isVehicleInSellersNameRaw === 'false' ? false : null
+  const registeredOwnerName = ((formData.get('registeredOwnerName') as string) || '').trim() || null
+
+  // Validações
+  const fieldErrors: VeiculoFieldErrors = {}
+  if (!marca) fieldErrors.marca = 'Informe a marca.'
+  if (!modelo) fieldErrors.modelo = 'Informe o modelo.'
+
+  if (!anoRaw) {
+    fieldErrors.ano = 'Informe o ano.'
+  } else if (Number.isNaN(ano) || ano < 1900 || ano > new Date().getFullYear() + 1) {
+    fieldErrors.ano = `Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}.`
+  }
+
+  if (!precoRaw) {
+    fieldErrors.preco = 'Informe o valor da venda.'
+  } else if (Number.isNaN(preco) || preco <= 0) {
+    fieldErrors.preco = 'Valor da venda inválido.'
+  }
+
+  if (quilometragem !== null && (Number.isNaN(quilometragem) || quilometragem < 0)) {
+    fieldErrors.quilometragem = 'Quilometragem inválida.'
+  }
+
+  if (placa && !/^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/.test(placa)) {
+    fieldErrors.placa = 'Placa inválida.'
+  }
+
+  if (renavam && !/^\d{9,11}$/.test(renavam.replace(/\D/g, ''))) {
+    fieldErrors.renavam = 'Renavam inválido.'
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { error: 'Verifique os campos destacados.', fieldErrors }
+  }
+
+  try {
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+    
+    if (!doc.exists) {
+      return { error: 'Veículo não encontrado.' }
+    }
+
+    const veiculoAntigo = doc.data()
+    const bucket = adminStorage.bucket()
+
+    // Apagar fotos removidas do Storage
+    if (veiculoAntigo?.fotos?.length) {
+      for (const url of veiculoAntigo.fotos) {
+        if (!fotosFinal.includes(url)) {
+          const parts = url.split('storage.googleapis.com/')
+          if (parts[1]) {
+            const subParts = parts[1].split('/')
+            subParts.shift()
+            const filePath = subParts.join('/')
+            try {
+              await bucket.file(filePath).delete()
+            } catch (err) {
+              console.error(`Erro ao deletar arquivo removido ${filePath}:`, err)
+            }
+          }
+        }
+      }
+    }
+
+    const now = new Date().toISOString()
+    const atualizacao = {
+      marca,
+      modelo,
+      ano,
+      cor,
+      quilometragem,
+      preco,
+      tabelaFipe,
+      cambio,
+      combustivel,
+      placa,
+      renavam,
+      descricao,
+      fotos: fotosFinal,
+      localizacao,
+      finalidade,
+      cpfCliente: cpfCliente || null,
+      telefoneCliente: telefoneCliente || null,
+      telefoneAcessoria: telefoneAcessoria || null,
+      valorParcela,
+      custoAcumulado,
+      debitos,
+      parcelasRestantes,
+      sellerName,
+      sellerCpf,
+      sellerBirthDate,
+      sellerCity,
+      isVehicleInSellersName,
+      registeredOwnerName,
+      updated_at: now,
+    }
+
+    await docRef.update(atualizacao)
+
+    revalidatePath('/dashboard/veiculos')
+    return {
+      success: 'Veículo atualizado com sucesso!',
+      veiculo: { id, ...veiculoAntigo, ...atualizacao } as Veiculo
+    }
+  } catch (error: any) {
+    return { error: `Erro ao atualizar veículo: ${error.message}` }
+  }
+}
+

@@ -1,5 +1,5 @@
 import LoginForm from './LoginForm'
-import { IconBolt } from '@tabler/icons-react'
+import { IconCar } from '@tabler/icons-react'
 import Link from 'next/link'
 
 export default async function LoginPage({
@@ -17,7 +17,7 @@ export default async function LoginPage({
       <div className="relative w-full max-w-md">
         <Link href="/" className="flex items-center justify-center gap-2.5 mb-8">
           <div className="h-11 w-11 rounded-lg grid place-items-center bg-liberty/10 liberty-glow">
-            <IconBolt size={24} className="text-liberty" stroke={2.2} />
+            <IconCar size={24} className="text-liberty" stroke={2.2} />
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-2xl font-black tracking-tighter text-neutral-900">
