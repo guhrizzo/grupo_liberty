@@ -59,19 +59,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Fallback demonstrativo estruturado quando a chave PLACA_FIPE_API_KEY ainda não foi adicionada no .env.local
-  return NextResponse.json({
-    placa,
-    marca: 'VEÍCULO',
-    modelo: `CONSULTADO (${placa})`,
-    anoFabricacao: '2023',
-    anoModelo: '2023',
-    cor: 'Cinza',
-    combustivel: 'Flex',
-    municipio: 'São Paulo',
-    uf: 'SP',
-    valorFipe: 92500,
-    codigoFipe: '001234-5',
-    referenciaFipe: 'Julho de 2026 (Demonstração)',
-  })
+  // Chave de API não configurada
+  return NextResponse.json(
+    { error: 'api_key_missing', message: 'Aguardando chave de API' },
+    { status: 503 }
+  )
 }

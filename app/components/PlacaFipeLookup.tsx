@@ -53,7 +53,7 @@ interface FipeValorResponse {
 }
 
 type Mode = 'placa' | 'manual'
-type Status = 'idle' | 'loading' | 'success' | 'error'
+type Status = 'idle' | 'loading' | 'success' | 'error' | 'no_api_key'
 
 const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
 const FIPE_BASE_URL = 'https://parallelum.com.br/fipe/api/v1/carros'
@@ -201,6 +201,10 @@ export default function PlacaFipeLookup({
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
+          if (errData.error === 'api_key_missing') {
+            setStatus('no_api_key')
+            return
+          }
           throw new Error(
             errData.error || 'Não encontramos registro para a placa informada.'
           )
@@ -360,6 +364,17 @@ export default function PlacaFipeLookup({
               </Button>
             </div>
           </form>
+        )}
+
+        {/* Aguardando chave de API */}
+        {status === 'no_api_key' && (
+          <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-center gap-3 text-amber-800 text-sm">
+            <span className="shrink-0 text-xl">🔑</span>
+            <div>
+              <p className="font-bold">Aguardando chave de API</p>
+              <p className="text-xs mt-0.5 text-amber-700">Configure a variável <code className="bg-amber-100 px-1 rounded">PLACA_FIPE_API_KEY</code> no <code className="bg-amber-100 px-1 rounded">.env.local</code> para ativar a consulta por placa.</p>
+            </div>
+          </div>
         )}
 
         {/* Estado de Erro */}
