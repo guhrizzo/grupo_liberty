@@ -7,6 +7,8 @@ import {
   IconMail,
   IconScale,
   IconTool,
+  IconFileText,
+  IconCurrencyDollar,
   IconArrowRight,
   type Icon,
 } from '@tabler/icons-react'
@@ -49,6 +51,22 @@ const MODULES: ModuleCard[] = [
     icon: IconMail,
     badge: 'Vendas',
     allowed: ['admin', 'vendedor'],
+  },
+  {
+    href: '/dashboard/contratos',
+    titulo: 'Gerenciar Contratos',
+    descricao: 'Emissão e acompanhamento de contratos de compra e venda de veículos.',
+    icon: IconFileText,
+    badge: 'Vendas',
+    allowed: ['admin', 'advogado', 'vendedor'],
+  },
+  {
+    href: '/dashboard/financeiro',
+    titulo: 'Gestão Financeira',
+    descricao: 'Acompanhe faturamento, comissões, recebíveis e balanço financeiro das negociações.',
+    icon: IconCurrencyDollar,
+    badge: 'Financeiro',
+    allowed: ['admin', 'vendedor', 'advogado'],
   },
   {
     href: '/dashboard/juridico',

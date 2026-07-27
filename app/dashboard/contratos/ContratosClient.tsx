@@ -8,15 +8,22 @@ import {
   IconTrash,
   IconFileText,
   IconBriefcase,
+  IconUpload,
+  IconFiles,
+  IconEye,
 } from '@tabler/icons-react'
 import type { Contrato, ContratoInput } from './types'
 import { criarContrato } from './actions'
-import { removerContratoVeiculoAction } from '@/app/veiculos/[id]/actions'
+import {
+  anexarContratoVeiculoAction,
+  removerContratoVeiculoAction,
+} from '@/app/veiculos/[id]/actions'
 import {
   Button,
   Input,
   Textarea,
   Select,
+  Modal,
   Table,
   THead,
   TBody,
@@ -41,6 +48,17 @@ interface VeiculoOption {
   preco: number
 }
 
+interface VeiculoAgrupado {
+  veiculoId: string
+  veiculoResumo: string
+  veiculoMarca: string
+  veiculoModelo: string
+  veiculoAno: number | null
+  veiculoPlaca: string | null
+  contratos: Contrato[]
+  ultimaData: string
+}
+
 interface ContratosClientProps {
   initialContratos: Contrato[]
   veiculos: VeiculoOption[]
@@ -63,10 +81,86 @@ export default function ContratosClient({
   const debouncedSearch = useDebounce(search, 250)
 
   const [selectedVeiculoId, setSelectedVeiculoId] = useState('')
+  const [verContratosVeiculoId, setVerContratosVeiculoId] = useState<string | null>(null)
   const [valor, setValor] = useState('')
   const [clienteCpfCnpj, setClienteCpfCnpj] = useState('')
   const [clienteTelefone, setClienteTelefone] = useState('')
+
+  const [anexarModalOpen, setAnexarModalOpen] = useState(false)
+  const [isUploading, startUpload] = useTransition()
   const toast = useToast()
+
+  function handleAnexarSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const form = e.currentTarget
+    const formData = new FormData(form)
+
+    if (!selectedVeiculoId) {
+      toast.error('Selecione um veículo.')
+      return
+    }
+    formData.set('veiculoId', selectedVeiculoId)
+
+    const file = formData.get('pdf') as File | null
+    if (!file || file.size === 0) {
+      toast.error('Selecione um arquivo PDF.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Arquivo excede o limite de 10MB.')
+      return
+    }
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      toast.error('Apenas arquivos PDF são permitidos.')
+      return
+    }
+
+    startUpload(async () => {
+      const res = await anexarContratoVeiculoAction(formData)
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+      if (res.contrato) {
+        toast.success('Contrato anexado ao veículo com sucesso!')
+        const v = veiculos.find((x) => x.id === selectedVeiculoId)
+        const novoContrato: Contrato = {
+          id: res.contrato.id,
+          veiculoId: res.contrato.veiculoId,
+          veiculoResumo: v ? `${v.marca} ${v.modelo} (${v.ano ?? 'N/A'})` : res.contrato.fileName,
+          veiculoMarca: v?.marca ?? '',
+          veiculoModelo: v?.modelo ?? '',
+          veiculoAno: v?.ano ?? null,
+          veiculoPlaca: v?.placa ?? null,
+          veiculoChassi: null,
+          veiculoCor: null,
+          veiculoQuilometragem: null,
+          veiculoLocalizacao: null,
+          clienteNome: res.contrato.descricao || res.contrato.fileName,
+          clienteCpfCnpj: '',
+          clienteEndereco: '',
+          clienteEmail: res.contrato.uploadedByEmail,
+          clienteTelefone: null,
+          valor: 0,
+          formaPagamento: '',
+          dataEmissao: res.contrato.uploadedAt.slice(0, 10),
+          clausulasExtras: res.contrato.descricao ?? '',
+          observacoesInternas: '',
+          status: 'ativo',
+          storagePath: res.contrato.storagePath,
+          criadoPorUid: res.contrato.uploadedByUid,
+          criadoPorEmail: res.contrato.uploadedByEmail,
+          criadoEm: res.contrato.uploadedAt,
+          atualizadoEm: res.contrato.uploadedAt,
+        }
+        setContratos((prev) => [novoContrato, ...prev])
+        setAnexarModalOpen(false)
+        setSelectedVeiculoId('')
+        form.reset()
+      }
+    })
+  }
 
   function handleVeiculoChange(id: string) {
     setSelectedVeiculoId(id)
@@ -120,8 +214,6 @@ export default function ContratosClient({
       return
     }
     startTransition(async () => {
-      // A página lista contratos de `veiculo_contratos`, então a exclusão
-      // precisa passar o veiculoId para a action correta.
       const formData = new FormData()
       formData.set('veiculoId', target.veiculoId)
       formData.set('contratoId', target.id)
@@ -136,26 +228,63 @@ export default function ContratosClient({
     })
   }
 
-  const filtered = useMemo(() => {
-    const term = debouncedSearch.toLowerCase()
-    return contratos.filter((c) => {
-      if (veiculoFiltro && c.veiculoId !== veiculoFiltro) return false
-      if (!term) return true
-      return (
-        c.clienteNome.toLowerCase().includes(term) ||
-        c.clienteCpfCnpj.toLowerCase().includes(term) ||
-        c.veiculoResumo.toLowerCase().includes(term) ||
-        c.id.toLowerCase().includes(term)
-      )
-    })
-  }, [contratos, debouncedSearch, veiculoFiltro])
+  // Agrupa contratos por veículo
+  const veiculosAgrupados = useMemo(() => {
+    const map = new Map<string, VeiculoAgrupado>()
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    for (const c of contratos) {
+      if (!map.has(c.veiculoId)) {
+        map.set(c.veiculoId, {
+          veiculoId: c.veiculoId,
+          veiculoResumo: c.veiculoResumo,
+          veiculoMarca: c.veiculoMarca,
+          veiculoModelo: c.veiculoModelo,
+          veiculoAno: c.veiculoAno,
+          veiculoPlaca: c.veiculoPlaca,
+          contratos: [],
+          ultimaData: c.criadoEm || c.dataEmissao || '',
+        })
+      }
+      const item = map.get(c.veiculoId)!
+      item.contratos.push(c)
+      if ((c.criadoEm || c.dataEmissao) > item.ultimaData) {
+        item.ultimaData = c.criadoEm || c.dataEmissao
+      }
+    }
+
+    return Array.from(map.values())
+  }, [contratos])
+
+  // Filtra veículos agrupados por busca e por veículo selecionado
+  const filteredAgrupados = useMemo(() => {
+    const term = debouncedSearch.toLowerCase()
+    return veiculosAgrupados.filter((group) => {
+      if (veiculoFiltro && group.veiculoId !== veiculoFiltro) return false
+      if (!term) return true
+
+      const matchesVehicle = group.veiculoResumo.toLowerCase().includes(term)
+      const matchesContract = group.contratos.some(
+        (c) =>
+          c.clienteNome.toLowerCase().includes(term) ||
+          c.id.toLowerCase().includes(term) ||
+          (c.clausulasExtras && c.clausulasExtras.toLowerCase().includes(term)) ||
+          (c.criadoPorEmail && c.criadoPorEmail.toLowerCase().includes(term))
+      )
+      return matchesVehicle || matchesContract
+    })
+  }, [veiculosAgrupados, debouncedSearch, veiculoFiltro])
+
+  const activeGroup = useMemo(() => {
+    if (!verContratosVeiculoId) return null
+    return veiculosAgrupados.find((g) => g.veiculoId === verContratosVeiculoId) || null
+  }, [veiculosAgrupados, verContratosVeiculoId])
+
+  const totalPages = Math.max(1, Math.ceil(filteredAgrupados.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
   const start = (safePage - 1) * PAGE_SIZE
-  const visible = filtered.slice(start, start + PAGE_SIZE)
-  const fromItem = filtered.length === 0 ? 0 : start + 1
-  const toItem = Math.min(start + PAGE_SIZE, filtered.length)
+  const visible = filteredAgrupados.slice(start, start + PAGE_SIZE)
+  const fromItem = filteredAgrupados.length === 0 ? 0 : start + 1
+  const toItem = Math.min(start + PAGE_SIZE, filteredAgrupados.length)
 
   return (
     <div className="space-y-6">
@@ -163,17 +292,27 @@ export default function ContratosClient({
         items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Contratos' }]}
       />
 
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Gestão de Contratos</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Visualize e faça o download dos contratos anexados aos veículos.
+            Visualize, faça o download e adicione novos contratos aos veículos da frota.
           </p>
         </div>
+
+        <Button
+          variant="liberty"
+          leftIcon={<IconUpload size={16} stroke={2.5} />}
+          onClick={() => {
+            setSelectedVeiculoId('')
+            setAnexarModalOpen(true)
+          }}
+        >
+          Anexar Contrato
+        </Button>
       </div>
 
-      {/* Formulário de geração de contrato DESATIVADO temporariamente.
-          A página /dashboard/contratos é apenas visualização. */}
+      {/* Formulário de geração de contrato DESATIVADO temporariamente */}
       {false && showForm && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
           <h2 className="text-lg font-semibold text-neutral-900 mb-5 flex items-center gap-2">
@@ -295,7 +434,7 @@ export default function ContratosClient({
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
         <Input
-          placeholder="Buscar por cliente, e-mail ou veículo..."
+          placeholder="Buscar por veículo, contrato ou observação..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value)
@@ -311,28 +450,28 @@ export default function ContratosClient({
           }}
           containerClassName="w-full sm:max-w-xs"
         >
-          <option value="">Todos os veículos</option>
-          {veiculos.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.marca} {v.modelo} ({v.ano ?? 'N/A'})
+          <option value="">Todos os veículos com contrato</option>
+          {veiculosAgrupados.map((g) => (
+            <option key={g.veiculoId} value={g.veiculoId}>
+              {g.veiculoResumo} ({g.contratos.length})
             </option>
           ))}
         </Select>
         <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap ml-auto">
-          {filtered.length === 0
-            ? '0 contratos'
-            : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
+          {filteredAgrupados.length === 0
+            ? '0 veículos'
+            : `Mostrando ${fromItem}–${toItem} de ${filteredAgrupados.length} veículos`}
         </div>
       </div>
 
       {visible.length === 0 ? (
         <EmptyState
           icon={<IconFileText size={24} />}
-          title={search ? 'Nenhum contrato encontrado' : 'Nenhum contrato cadastrado'}
+          title={search ? 'Nenhum veículo encontrado' : 'Nenhum contrato cadastrado'}
           description={
             search
-              ? 'Tente ajustar a busca para localizar contratos.'
-              : 'Comece gerando o primeiro contrato de venda.'
+              ? 'Tente ajustar a busca para localizar veículos ou contratos.'
+              : 'Clique em "Anexar Contrato" para adicionar o primeiro contrato a um veículo.'
           }
         />
       ) : (
@@ -340,51 +479,61 @@ export default function ContratosClient({
           <Table>
             <THead>
               <tr>
-                <TH>Usuário</TH>
                 <TH>Veículo</TH>
-                <TH>Data de Emissão</TH>
+                <TH>Qtd. Contratos</TH>
+                <TH>Última Emissão</TH>
                 <TH align="right">Ações</TH>
               </tr>
             </THead>
             <TBody>
-              {visible.map((c) => (
-                <TR key={c.id}>
+              {visible.map((group) => (
+                <TR key={group.veiculoId}>
                   <TD>
-                    <div className="font-semibold text-neutral-900">{c.clienteNome}</div>
-                    {c.clienteEmail && (
-                      <div className="text-xs text-neutral-500">{c.clienteEmail}</div>
-                    )}
-                  </TD>
-                  <TD>
-                    <Link
-                      href={`/veiculos/${c.veiculoId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-neutral-800 hover:text-liberty-deep hover:underline transition-colors"
-                    >
-                      {c.veiculoResumo}
-                    </Link>
-                  </TD>
-                  <TD className="text-xs">{formatDate(c.criadoEm)}</TD>
-                  <TD align="right">
-                    <div className="inline-flex gap-2">
-                      <a
-                        href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
+                    <div className="flex flex-col">
+                      <Link
+                        href={`/veiculos/${group.veiculoId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"
+                        className="font-semibold text-neutral-900 hover:text-liberty-deep hover:underline transition-colors"
                       >
-                        <IconFileDownload size={14} />
-                        Ver PDF
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDelete(c)}
-                        aria-label={`Excluir contrato de ${c.clienteNome}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
+                        {group.veiculoResumo}
+                      </Link>
+                      {group.veiculoPlaca && (
+                        <span className="text-xs text-neutral-500 font-mono">
+                          Placa: {group.veiculoPlaca}
+                        </span>
+                      )}
+                    </div>
+                  </TD>
+                  <TD>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-800 border border-neutral-200">
+                      <IconFiles size={13} className="text-neutral-500" />
+                      {group.contratos.length}{' '}
+                      {group.contratos.length === 1 ? 'contrato' : 'contratos'}
+                    </span>
+                  </TD>
+                  <TD className="text-xs text-neutral-600">{formatDate(group.ultimaData)}</TD>
+                  <TD align="right">
+                    <div className="inline-flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leftIcon={<IconEye size={15} />}
+                        onClick={() => setVerContratosVeiculoId(group.veiculoId)}
                       >
-                        <IconTrash size={14} />
-                      </button>
+                        Ver Contratos
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        leftIcon={<IconPlus size={15} />}
+                        onClick={() => {
+                          setSelectedVeiculoId(group.veiculoId)
+                          setAnexarModalOpen(true)
+                        }}
+                      >
+                        Adicionar
+                      </Button>
                     </div>
                   </TD>
                 </TR>
@@ -420,6 +569,168 @@ export default function ContratosClient({
         </div>
       )}
 
+      {/* Modal Ver Contratos do Veículo */}
+      <Modal
+        open={!!activeGroup}
+        onClose={() => setVerContratosVeiculoId(null)}
+        title={`Contratos do Veículo`}
+        description={activeGroup ? activeGroup.veiculoResumo : ''}
+        size="lg"
+      >
+        {activeGroup && (
+          <div className="space-y-4 mt-2">
+            <div className="flex items-center justify-between bg-neutral-50 p-3 rounded-lg border border-neutral-200">
+              <div className="text-xs text-neutral-600">
+                Total de <strong className="text-neutral-900">{activeGroup.contratos.length}</strong>{' '}
+                {activeGroup.contratos.length === 1 ? 'contrato anexado' : 'contratos anexados'}
+              </div>
+              <Button
+                size="sm"
+                variant="liberty"
+                leftIcon={<IconPlus size={15} />}
+                onClick={() => {
+                  setSelectedVeiculoId(activeGroup.veiculoId)
+                  setAnexarModalOpen(true)
+                }}
+              >
+                Anexar Novo Contrato
+              </Button>
+            </div>
+
+            <div className="border border-neutral-200 rounded-lg overflow-hidden">
+              <Table>
+                <THead>
+                  <tr>
+                    <TH>Descrição / Documento</TH>
+                    <TH>Data</TH>
+                    <TH align="right">Ações</TH>
+                  </tr>
+                </THead>
+                <TBody>
+                  {activeGroup.contratos.map((c) => (
+                    <TR key={c.id}>
+                      <TD>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-neutral-900">
+                            {c.clienteNome || 'Contrato sem nome'}
+                          </span>
+                          {c.clausulasExtras && (
+                            <span className="text-xs text-neutral-500 line-clamp-1">
+                              {c.clausulasExtras}
+                            </span>
+                          )}
+                          {c.criadoPorEmail && (
+                            <span className="text-[11px] text-neutral-400">
+                              Enviado por: {c.criadoPorEmail}
+                            </span>
+                          )}
+                        </div>
+                      </TD>
+                      <TD className="text-xs text-neutral-600 whitespace-nowrap">
+                        {formatDate(c.criadoEm || c.dataEmissao)}
+                      </TD>
+                      <TD align="right" className="whitespace-nowrap">
+                        <div className="inline-flex gap-2">
+                          <a
+                            href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 hover:bg-neutral-100 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors cursor-pointer"
+                          >
+                            <IconFileDownload size={14} />
+                            Ver PDF
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDelete(c)}
+                            aria-label={`Excluir contrato`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </div>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button variant="secondary" onClick={() => setVerContratosVeiculoId(null)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal de Anexar Contrato */}
+      <Modal
+        open={anexarModalOpen}
+        onClose={() => !isUploading && setAnexarModalOpen(false)}
+        title="Anexar Contrato ao Veículo"
+        description="Selecione o veículo comercializado e envie o arquivo PDF do contrato (compra/venda, aditivo ou termo)."
+        size="md"
+      >
+        <form onSubmit={handleAnexarSubmit} className="mt-2 space-y-4">
+          <Select
+            label="Veículo *"
+            required
+            value={selectedVeiculoId}
+            onChange={(e) => setSelectedVeiculoId(e.target.value)}
+            disabled={isUploading}
+          >
+            <option value="" disabled>
+              Selecione o veículo
+            </option>
+            {veiculos.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.marca} {v.modelo} ({v.ano ?? 'N/A'}) {v.placa ? `- Placa ${v.placa}` : ''}
+              </option>
+            ))}
+          </Select>
+
+          <Input
+            label="Arquivo PDF do Contrato *"
+            name="pdf"
+            type="file"
+            accept="application/pdf"
+            required
+            hint="Permitidos apenas arquivos .pdf (máx. 10MB)"
+            disabled={isUploading}
+          />
+
+          <Textarea
+            label="Descrição / Observação (opcional)"
+            name="descricao"
+            rows={3}
+            placeholder="Ex.: Contrato de compra e venda assinado em 26/07/2026, Aditivo de garantia..."
+            disabled={isUploading}
+          />
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setAnexarModalOpen(false)}
+              disabled={isUploading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="liberty"
+              loading={isUploading}
+              loadingLabel="Enviando..."
+              leftIcon={<IconUpload size={16} stroke={2.5} />}
+            >
+              Anexar Contrato
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       <ConfirmDialog
         open={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
@@ -428,9 +739,8 @@ export default function ContratosClient({
         description={
           confirmDelete ? (
             <>
-              Tem certeza que deseja excluir o contrato do cliente{' '}
-              <strong>{confirmDelete.clienteNome}</strong>? Esta ação removerá também o PDF
-              gravado.
+              Tem certeza que deseja excluir este contrato ({confirmDelete.clienteNome})? Esta
+              ação removerá também o PDF gravado.
             </>
           ) : null
         }
@@ -441,3 +751,4 @@ export default function ContratosClient({
     </div>
   )
 }
+

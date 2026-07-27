@@ -11,6 +11,7 @@ import {
   IconTool,
   IconUsers,
   IconFileText,
+  IconCurrencyDollar,
   IconMenu2,
   IconBolt,
   IconLogout,
@@ -24,7 +25,7 @@ import { ConfirmDialog, useToast } from './ui'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'wrench' | 'users'
+  icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users'
   roles: string[]
 }
 
@@ -48,16 +49,22 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'vendedor'],
   },
   {
-    href: '/dashboard/juridico',
-    label: 'Jurídico',
-    icon: 'scales',
-    roles: ['admin', 'advogado'],
-  },
-  {
     href: '/dashboard/contratos',
     label: 'Contratos',
     icon: 'file-text',
     roles: ['admin', 'advogado', 'vendedor'],
+  },
+  {
+    href: '/dashboard/financeiro',
+    label: 'Financeiro',
+    icon: 'finance',
+    roles: ['admin', 'vendedor', 'advogado'],
+  },
+  {
+    href: '/dashboard/juridico',
+    label: 'Jurídico',
+    icon: 'scales',
+    roles: ['admin', 'advogado'],
   },
   {
     href: '/dashboard/manutencao',
@@ -86,6 +93,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconScale className={cls} stroke={2} />
     case 'file-text':
       return <IconFileText className={cls} stroke={2} />
+    case 'finance':
+      return <IconCurrencyDollar className={cls} stroke={2} />
     case 'wrench':
       return <IconTool className={cls} stroke={2} />
     case 'users':
