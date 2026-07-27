@@ -27,57 +27,10 @@ type Transacao = {
   status: 'concluido' | 'pendente'
 }
 
-const DEMO_TRANSACOES: Transacao[] = [
-  {
-    id: '1',
-    descricao: 'Venda — Toyota Corolla XEi 2.0',
-    categoria: 'Venda de Veículo',
-    tipo: 'receita',
-    valor: 118000,
-    data: '2026-07-25',
-    status: 'concluido',
-  },
-  {
-    id: '2',
-    descricao: 'Comissão Vendedor — Honda Civic Touring',
-    categoria: 'Comissão',
-    tipo: 'despesa',
-    valor: 3500,
-    data: '2026-07-24',
-    status: 'concluido',
-  },
-  {
-    id: '3',
-    descricao: 'Revisão Geral e Polimento — Jeep Compass',
-    categoria: 'Manutenção',
-    tipo: 'despesa',
-    valor: 1850,
-    data: '2026-07-22',
-    status: 'concluido',
-  },
-  {
-    id: '4',
-    descricao: 'Taxas de Transferência e Emplacamento',
-    categoria: 'Documentação',
-    tipo: 'despesa',
-    valor: 920,
-    data: '2026-07-20',
-    status: 'pendente',
-  },
-  {
-    id: '5',
-    descricao: 'Venda — Jeep Compass Longitude',
-    categoria: 'Venda de Veículo',
-    tipo: 'receita',
-    valor: 145000,
-    data: '2026-07-18',
-    status: 'concluido',
-  },
-]
 
 export default function FinanceiroClient() {
   const toast = useToast()
-  const [transacoes, setTransacoes] = useState<Transacao[]>(DEMO_TRANSACOES)
+  const [transacoes, setTransacoes] = useState<Transacao[]>([])
   const [filterTipo, setFilterTipo] = useState<'todos' | 'receita' | 'despesa'>('todos')
   const [isModalOpen, setIsModalOpen] = useState(false)
 
