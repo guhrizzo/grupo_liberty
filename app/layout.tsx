@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import RouteLoadingBar from "./components/RouteLoadingBar";
 import { ToastProvider } from "./components/ui";
+import PublicLayoutWrapper from "./components/PublicLayoutWrapper";
 import "./globals.css";
 
 const inter = Inter({
@@ -34,7 +35,9 @@ export default function RootLayout({
 
       <body className="min-h-full flex flex-col">
         <RouteLoadingBar />
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
+        </ToastProvider>
       </body>
     </html>
   );
