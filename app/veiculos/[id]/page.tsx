@@ -206,6 +206,9 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   )}
                   <Spec icon={<IconManualGearbox size={16} />} label="Câmbio" value={String(veiculo.cambio).toUpperCase()} />
                   <Spec icon={<IconGasStation size={16} />} label="Combustível" value={String(veiculo.combustivel).toUpperCase()} />
+                  {veiculo.tabelaFipe ? (
+                    <Spec icon={<IconCash size={16} />} label="Tabela FIPE" value={formatCurrency(veiculo.tabelaFipe)} />
+                  ) : null}
                 </div>
 
                 {veiculo.descricao && (

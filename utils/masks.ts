@@ -37,23 +37,23 @@ export function maskPhone(raw: string): string {
     .replace(/(\d{5})(\d)/, '$1-$2')
 }
 
-/** Placa Mercosul (ABC1D23) ou antiga (ABC-1234). */
 export function maskPlate(raw: string): string {
   const cleaned = raw
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
     .slice(0, 7)
-  // Se os 4º caractere é dígito, presumimos formato antigo.
-  if (cleaned.length >= 4 && /\d/.test(cleaned[3])) {
-    return cleaned.replace(/^([A-Z]{3})(\d{1,4})(\d{0,2}).*/, (_, a, b, c) =>
-      c ? `${a}-${b}${c}` : `${a}-${b}`
-    )
+
+  // Se o 5º caractere (índice 4) for uma letra, tratamos como Mercosul (ex: ABC1D23)
+  if (cleaned.length >= 5 && /[A-Z]/.test(cleaned[4])) {
+    return cleaned
   }
-  // Mercosul: AAA9A99
-  return cleaned.replace(
-    /^([A-Z]{3})(\d)([A-Z])(\d{0,2}).*/,
-    (_, a, b, c, d) => `${a}${b}${c}${d}`
-  )
+
+  // Se o 4º caractere (índice 3) for dígito e o 5º não for letra, formatamos com hífen (ex: ABC-1234)
+  if (cleaned.length >= 4 && /\d/.test(cleaned[3])) {
+    return cleaned.replace(/^([A-Z]{3})(\d{1,4})/, '$1-$2')
+  }
+
+  return cleaned
 }
 
 /** Renavam: 11 dígitos, exibe como 000000000-00. */

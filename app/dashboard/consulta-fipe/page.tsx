@@ -6,13 +6,21 @@ import { Breadcrumb } from '@/app/components/ui'
 
 export const dynamic = 'force-dynamic'
 
+const ROLES_PERMITIDOS = ['admin', 'vendedor']
+
 export default async function ConsultaFipePage() {
   const cookieStore = await cookies()
   const session = cookieStore.get('session')?.value
   if (!session) redirect('/login')
 
   try {
-    await adminAuth.verifySessionCookie(session, true)
+    const decoded = await adminAuth.verifySessionCookie(session, true)
+    const userRecord = await adminAuth.getUser(decoded.uid)
+    const role = (userRecord.customClaims as any)?.role ?? ''
+
+    if (!ROLES_PERMITIDOS.includes(role)) {
+      redirect('/dashboard?error=acesso_negado')
+    }
   } catch {
     redirect('/login')
   }
@@ -30,7 +38,8 @@ export default async function ConsultaFipePage() {
           Consulta de Veículo por Placa
         </h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Consulte os dados do veículo e a avaliação da Tabela FIPE utilizando a placa.
+          Consulte dados do veículo e a avaliação da Tabela FIPE utilizando a placa. Via{' '}
+          <span className="font-semibold text-neutral-700">Sistema Puxa Placa</span>.
         </p>
       </div>
 

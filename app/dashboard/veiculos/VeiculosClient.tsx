@@ -99,6 +99,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [isVehicleInSellersName, setIsVehicleInSellersName] = useState<'yes' | 'no' | ''>('')
   const [registeredOwnerName, setRegisteredOwnerName] = useState('')
 
+
+
   // Fotos
   const [photos, setPhotos] = useState<PhotoPreview[]>([])
   const [uploadProgress, setUploadProgress] = useState(false)
@@ -563,6 +565,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
               </div>
               */}
+
+
 
               {/* ─── Veículo ────────────────────────────────────────── */}
               <div>
