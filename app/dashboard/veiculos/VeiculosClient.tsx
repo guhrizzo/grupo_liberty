@@ -23,6 +23,7 @@ import {
   updateVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
+  toggleVehicleFinalidade,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
@@ -68,7 +69,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [cor, setCor] = useState('')
   const [quilometragem, setQuilometragem] = useState('')
   const [preco, setPreco] = useState('')
-  const [precoOriginal, setPrecoOriginal] = useState('')
+  const [precoComDesconto, setPrecoComDesconto] = useState('')
   const [tabelaFipe, setTabelaFipe] = useState('')
   const [cambio, setCambio] = useState('manual')
   const [combustivel, setCombustivel] = useState('flex')
@@ -114,6 +115,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
+
+  // Toggle finalidade
+  const [toggleTarget, setToggleTarget] = useState<Veiculo | null>(null)
+  const [toggleLoading, setToggleLoading] = useState(false)
 
   const MAX_PHOTOS = 10
 
@@ -221,8 +226,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setAno('')
     setCor('')
     setQuilometragem('')
-    setPreco('')
-    setPrecoOriginal('')
+    setPrecoComDesconto('')
     setTabelaFipe('')
     setCambio('manual')
     setCombustivel('flex')
@@ -265,7 +269,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCor(veiculo.cor || '')
     setQuilometragem(veiculo.quilometragem !== null ? String(veiculo.quilometragem) : '')
     setPreco(veiculo.preco ? formatCurrency(veiculo.preco).replace('R$', '').trim() : '')
-    setPrecoOriginal(veiculo.precoOriginal ? formatCurrency(veiculo.precoOriginal).replace('R$', '').trim() : '')
+    setPrecoComDesconto(veiculo.precoComDesconto ? formatCurrency(veiculo.precoComDesconto).replace('R$', '').trim() : '')
     setTabelaFipe(veiculo.tabelaFipe ? formatCurrency(veiculo.tabelaFipe).replace('R$', '').trim() : '')
     setCambio(veiculo.cambio || 'manual')
     setCombustivel(veiculo.combustivel || 'flex')
@@ -343,7 +347,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('cor', cor)
       formData.append('quilometragem', quilometragem)
       formData.append('preco', preco ? String(parseMoney(preco) || 0) : '')
-      formData.append('precoOriginal', precoOriginal ? String(parseMoney(precoOriginal) || 0) : '')
+      formData.append('precoComDesconto', precoComDesconto ? String(parseMoney(precoComDesconto) || 0) : '')
       formData.append('tabelaFipe', tabelaFipe ? String(parseMoney(tabelaFipe) || '') : '')
       formData.append('cambio', cambio)
       formData.append('combustivel', combustivel)
@@ -423,6 +427,36 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     } finally {
       setDeleteId(null)
       setDeleteLoading(false)
+    }
+  }
+
+  // ─── Toggle finalidade ───────────────────────────────────────────────────
+
+  const handleConfirmToggle = async () => {
+    if (!toggleTarget) return
+    const target = toggleTarget
+    const next: 'venda' | 'pessoal' =
+      target.finalidade === 'venda' ? 'pessoal' : 'venda'
+    setToggleLoading(true)
+    try {
+      const result = await toggleVehicleFinalidade(target.id, next)
+      if (result.error) {
+        setMessage({ type: 'error', text: result.error })
+      } else {
+        setMessage({
+          type: 'success',
+          text: result.success || 'Finalidade atualizada.',
+        })
+        router.refresh()
+      }
+    } catch (err: any) {
+      setMessage({
+        type: 'error',
+        text: err.message || 'Erro ao atualizar finalidade.',
+      })
+    } finally {
+      setToggleTarget(null)
+      setToggleLoading(false)
     }
   }
 
@@ -691,19 +725,19 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   </Select>
                 </div>
 
-                {/* Linha 3.5: Preço original (De) — apenas para veículos de venda */}
+                {/* Linha 3.5: Preço com desconto (Para) — apenas para veículos de venda */}
                 {finalidade === 'venda' && (
                   <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-6">
                     <Input
-                      id="precoOriginal"
-                      label="Preço original (De) — opcional"
+                      id="precoComDesconto"
+                      label="Preço com desconto — opcional"
                       type="text"
                       inputMode="decimal"
-                      value={precoOriginal}
-                      onChange={(e) => setPrecoOriginal(maskMoney(e.target.value))}
+                      value={precoComDesconto}
+                      onChange={(e) => setPrecoComDesconto(maskMoney(e.target.value))}
                       placeholder="R$ 0,00"
                       leftIcon={<IconCash size={14} />}
-                      error={fieldErrors.precoOriginal}
+                      error={fieldErrors.precoComDesconto}
                     />
                     <p className="self-center text-xs text-neutral-500 leading-snug">
                       Preencha para exibir o preço antigo riscado e o percentual de desconto
@@ -752,7 +786,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     onChange={(e) => {
                       const next = e.target.value as 'venda' | 'pessoal'
                       setFinalidade(next)
-                      if (next === 'pessoal') setPrecoOriginal('')
+                      if (next === 'pessoal') setPrecoComDesconto('')
                     }}
                   >
                     <option value="venda">Veículo para Venda</option>
@@ -1194,6 +1228,37 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       <IconCar size={40} stroke={1.5} className="text-neutral-300" />
                     </div>
                     )}
+                    {currentRole === 'admin' && (
+                      <div className="absolute top-2 left-2 inline-flex items-center rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-sm border border-white/40">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={v.finalidade === 'venda'}
+                          aria-label={`Alterar finalidade do veículo ${v.marca} ${v.modelo}. Atual: ${
+                            v.finalidade === 'venda' ? 'Para Venda' : 'Pessoal'
+                          }.`}
+                          onClick={() => setToggleTarget(v)}
+                          className={[
+                            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full',
+                            'transition-colors duration-200 ease-out',
+                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                            v.finalidade === 'venda' ? 'bg-emerald-500' : 'bg-neutral-300',
+                          ].join(' ')}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={[
+                              'inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0',
+                              'transition-transform duration-200 ease-out',
+                              v.finalidade === 'venda' ? 'translate-x-4' : 'translate-x-0.5',
+                            ].join(' ')}
+                          />
+                          <span className="sr-only">
+                            {v.finalidade === 'venda' ? 'Venda' : 'Pessoal'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                     {v.fotos?.length > 1 && (
                       <span className="absolute top-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-bold px-2 py-0.5">
                         +{v.fotos.length - 1} fotos
@@ -1317,6 +1382,30 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={toggleTarget !== null}
+        onClose={() => { if (!toggleLoading) setToggleTarget(null) }}
+        onConfirm={handleConfirmToggle}
+        loading={toggleLoading}
+        tone="primary"
+        title={
+          toggleTarget?.finalidade === 'venda'
+            ? 'Mover para Pessoal?'
+            : 'Mover para Venda?'
+        }
+        description={
+          toggleTarget?.finalidade === 'venda'
+            ? 'Tem certeza que deseja mover este veículo para Pessoal? O preço com desconto será removido.'
+            : 'Tem certeza que deseja mover este veículo para Venda?'
+        }
+        confirmLabel={
+          toggleTarget?.finalidade === 'venda'
+            ? 'Sim, mover para Pessoal'
+            : 'Sim, mover para Venda'
+        }
+        cancelLabel="Cancelar"
+      />
     </div>
   )
 } 

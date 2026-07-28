@@ -75,9 +75,9 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
   }
 
   const isEmDesconto = (v: Veiculo) =>
-    v.preco != null && v.precoOriginal != null && v.precoOriginal > v.preco
+    v.preco != null && v.precoComDesconto != null && v.precoComDesconto < v.preco
   const descontoPercent = (v: Veiculo) =>
-    Math.round((1 - (v.preco as number) / (v.precoOriginal as number)) * 100)
+    Math.round((1 - (v.precoComDesconto as number) / (v.preco as number)) * 100)
 
   if (totalCount === 0) {
     return (
@@ -275,10 +275,10 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     {em ? (
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <p className="text-sm font-semibold text-neutral-400 line-through">
-                          {formatCurrency(v.precoOriginal)}
+                          {formatCurrency(v.preco)}
                         </p>
                         <p className="text-lg font-black text-liberty truncate">
-                          {formatCurrency(v.preco)}
+                          {formatCurrency(v.precoComDesconto)}
                         </p>
                       </div>
                     ) : (
@@ -302,7 +302,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       title={`${v.marca} ${v.modelo} ${v.ano}`}
                       text={
                         em
-                          ? `${v.marca} ${v.modelo} ${v.ano} de ${formatCurrency(v.precoOriginal)} por ${formatCurrency(v.preco)}`
+                          ? `${v.marca} ${v.modelo} ${v.ano} de ${formatCurrency(v.preco)} por ${formatCurrency(v.precoComDesconto)}`
                           : `${v.marca} ${v.modelo} ${v.ano} por ${formatCurrency(v.preco)}`
                       }
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-[color,border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer bg-white w-full sm:w-auto"

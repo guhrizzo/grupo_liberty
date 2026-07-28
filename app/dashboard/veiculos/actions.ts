@@ -16,7 +16,7 @@ export interface Veiculo {
   cor: string | null
   quilometragem: number | null
   preco: number | null
-  precoOriginal: number | null
+  precoComDesconto: number | null
   tabelaFipe: number | null
   cambio: string
   combustivel: string
@@ -50,7 +50,7 @@ export type VeiculoFieldErrors = {
   modelo?: string
   ano?: string
   preco?: string
-  precoOriginal?: string
+  precoComDesconto?: string
   tabelaFipe?: string
   placa?: string
   renavam?: string
@@ -128,7 +128,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         cor: data.cor || null,
         quilometragem: data.quilometragem || null,
         preco: data.preco ?? null,
-        precoOriginal: data.precoOriginal ?? null,
+        precoComDesconto: data.precoComDesconto ?? null,
         tabelaFipe: data.tabelaFipe ?? null,
         cambio: data.cambio,
         combustivel: data.combustivel,
@@ -230,8 +230,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
   const precoRaw = (formData.get('preco') as string) || ''
   const preco = parseFloat(precoRaw)
-  const precoOriginalRaw = (formData.get('precoOriginal') as string) || ''
-  const precoOriginal = precoOriginalRaw ? parseFloat(precoOriginalRaw) : null
+  const precoComDescontoRaw = (formData.get('precoComDesconto') as string) || ''
+  const precoComDescontoParsed = precoComDescontoRaw ? parseFloat(precoComDescontoRaw) : null
   const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
   const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
   const cambio = (formData.get('cambio') as string) || 'manual'
@@ -286,15 +286,15 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     fieldErrors.preco = 'Valor da venda inválido.'
   }
 
-  if (precoOriginalRaw) {
+  if (precoComDescontoRaw) {
     if (finalidade !== 'venda') {
-      fieldErrors.precoOriginal = 'Desconto disponível apenas para veículos à venda.'
-    } else if (precoOriginal === null || Number.isNaN(precoOriginal) || precoOriginal <= 0) {
-      fieldErrors.precoOriginal = 'Preço original inválido.'
+      fieldErrors.precoComDesconto = 'Desconto disponível apenas para veículos à venda.'
+    } else if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
+      fieldErrors.precoComDesconto = 'Preço com desconto inválido.'
     } else if (preco == null || Number.isNaN(preco)) {
-      fieldErrors.precoOriginal = 'Informe o valor da venda para definir um desconto.'
-    } else if (precoOriginal < preco) {
-      fieldErrors.precoOriginal = 'O preço original deve ser maior ou igual ao valor de venda.'
+      fieldErrors.precoComDesconto = 'Informe o valor de venda para definir um desconto.'
+    } else if (precoComDescontoParsed >= preco) {
+      fieldErrors.precoComDesconto = 'O preço com desconto deve ser menor que o valor de venda.'
     }
   }
 
@@ -353,7 +353,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       cor,
       quilometragem,
       preco: precoFinal,
-      precoOriginal: precoOriginalRaw ? precoOriginal : null,
+      precoComDesconto: precoComDescontoRaw ? precoComDescontoParsed : null,
       tabelaFipe,
       cambio,
       combustivel,
@@ -468,6 +468,57 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
 }
 
 /**
+ * Alterna a finalidade de um veículo entre 'venda' e 'pessoal'.
+ * Ao mover para 'pessoal', descarta qualquer 'precoComDesconto' (desconto
+ * da vitrine) para evitar lixo. Ao mover para 'venda', não toca em
+ * 'precoComDesconto' (que deve estar null).
+ */
+export async function toggleVehicleFinalidade(
+  id: string,
+  finalidade: 'venda' | 'pessoal',
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  if (!id || !['venda', 'pessoal'].includes(finalidade)) {
+    return { error: 'Parâmetros inválidos.' }
+  }
+
+  try {
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) {
+      return { error: 'Veículo não encontrado.' }
+    }
+
+    const now = new Date().toISOString()
+
+    const update: Record<string, unknown> = {
+      finalidade,
+      updated_at: now,
+    }
+    if (finalidade === 'pessoal') {
+      update.precoComDesconto = null
+    }
+
+    await docRef.update(update)
+
+    revalidatePath('/dashboard/veiculos')
+    return {
+      success:
+        finalidade === 'venda'
+          ? 'Veículo movido para Venda.'
+          : 'Veículo movido para Pessoal.',
+    }
+  } catch (error: any) {
+    return { error: `Erro ao atualizar finalidade: ${error.message}` }
+  }
+}
+
+/**
  * Atualiza um veículo existente no banco de dados.
  */
 export async function updateVehicle(id: string, formData: FormData): Promise<VeiculoResponse> {
@@ -487,8 +538,8 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
   const precoRaw = (formData.get('preco') as string) || ''
   const preco = parseFloat(precoRaw)
-  const precoOriginalRaw = (formData.get('precoOriginal') as string) || ''
-  const precoOriginal = precoOriginalRaw ? parseFloat(precoOriginalRaw) : null
+  const precoComDescontoRaw = (formData.get('precoComDesconto') as string) || ''
+  const precoComDescontoParsed = precoComDescontoRaw ? parseFloat(precoComDescontoRaw) : null
   const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
   const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
   const cambio = (formData.get('cambio') as string) || 'manual'
@@ -543,15 +594,15 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     fieldErrors.preco = 'Valor da venda inválido.'
   }
 
-  if (precoOriginalRaw) {
+  if (precoComDescontoRaw) {
     if (finalidade !== 'venda') {
-      fieldErrors.precoOriginal = 'Desconto disponível apenas para veículos à venda.'
-    } else if (precoOriginal === null || Number.isNaN(precoOriginal) || precoOriginal <= 0) {
-      fieldErrors.precoOriginal = 'Preço original inválido.'
+      fieldErrors.precoComDesconto = 'Desconto disponível apenas para veículos à venda.'
+    } else if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
+      fieldErrors.precoComDesconto = 'Preço com desconto inválido.'
     } else if (preco == null || Number.isNaN(preco)) {
-      fieldErrors.precoOriginal = 'Informe o valor da venda para definir um desconto.'
-    } else if (precoOriginal < preco) {
-      fieldErrors.precoOriginal = 'O preço original deve ser maior ou igual ao valor de venda.'
+      fieldErrors.precoComDesconto = 'Informe o valor de venda para definir um desconto.'
+    } else if (precoComDescontoParsed >= preco) {
+      fieldErrors.precoComDesconto = 'O preço com desconto deve ser menor que o valor de venda.'
     }
   }
 
@@ -612,7 +663,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       cor,
       quilometragem,
       preco: precoFinal,
-      precoOriginal: precoOriginalRaw ? precoOriginal : null,
+      precoComDesconto: precoComDescontoRaw ? precoComDescontoParsed : null,
       tabelaFipe,
       cambio,
       combustivel,
