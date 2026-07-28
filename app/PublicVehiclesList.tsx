@@ -74,6 +74,11 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
   }
 
+  const isEmDesconto = (v: Veiculo) =>
+    v.preco != null && v.precoOriginal != null && v.precoOriginal > v.preco
+  const descontoPercent = (v: Veiculo) =>
+    Math.round((1 - (v.preco as number) / (v.precoOriginal as number)) * 100)
+
   if (totalCount === 0) {
     return (
       <EmptyState
@@ -174,7 +179,10 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
         />
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredAndSorted.map((v, idx) => (
+          {filteredAndSorted.map((v, idx) => {
+            const em = isEmDesconto(v)
+            const pct = em ? descontoPercent(v) : 0
+            return (
             <div
               key={v.id}
               style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
@@ -212,8 +220,13 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       Pessoal
                     </span>
                   )}
+                  {em && (
+                    <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-md bg-emerald-500/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-emerald-600 shadow-sm">
+                      −{pct}%
+                    </span>
+                  )}
                   {v.fotos && v.fotos.length > 1 && (
-                    <span className="absolute top-3 right-3 rounded-md bg-white/90 backdrop-blur-sm text-neutral-700 text-[10px] font-bold px-2 py-1 border border-neutral-200">
+                    <span className={`absolute top-3 ${em ? 'right-24' : 'right-3'} rounded-md bg-white/90 backdrop-blur-sm text-neutral-700 text-[10px] font-bold px-2 py-1 border border-neutral-200`}>
                       +{v.fotos.length - 1} fotos
                     </span>
                   )}
@@ -259,10 +272,27 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                   {/* Preço em linha própria, sempre visível */}
                   <div className="min-w-0">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Preço</p>
-                    <p className="text-lg font-black text-neutral-900 truncate">
-                      {formatCurrency(v.preco)}
-                    </p>
+                    {em ? (
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-neutral-400 line-through">
+                          {formatCurrency(v.precoOriginal)}
+                        </p>
+                        <p className="text-lg font-black text-liberty truncate">
+                          {formatCurrency(v.preco)}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-lg font-black text-neutral-900 truncate">
+                        {formatCurrency(v.preco)}
+                      </p>
+                    )}
                   </div>
+
+                  {v.tabelaFipe != null && v.tabelaFipe > 0 && (
+                    <p className="text-[10px] font-semibold text-neutral-500">
+                      Tabela FIPE: <span className="text-neutral-700">{formatCurrency(v.tabelaFipe)}</span>
+                    </p>
+                  )}
 
                   {/* Ações interativas: acima do Link do card (z-10).
                       Empilhadas no mobile, em linha no desktop. */}
@@ -270,7 +300,11 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     <ShareButton
                       url={`/veiculos/${v.id}`}
                       title={`${v.marca} ${v.modelo} ${v.ano}`}
-                      text={`${v.marca} ${v.modelo} ${v.ano} por ${formatCurrency(v.preco)}`}
+                      text={
+                        em
+                          ? `${v.marca} ${v.modelo} ${v.ano} de ${formatCurrency(v.precoOriginal)} por ${formatCurrency(v.preco)}`
+                          : `${v.marca} ${v.modelo} ${v.ano} por ${formatCurrency(v.preco)}`
+                      }
                       className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-neutral-200 hover:border-liberty hover:text-liberty text-neutral-700 px-3 py-2 text-xs font-bold transition-[color,border-color,background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer bg-white w-full sm:w-auto"
                     />
                     <Link href={`/veiculos/${v.id}`} className="w-full sm:w-auto">
@@ -287,7 +321,8 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

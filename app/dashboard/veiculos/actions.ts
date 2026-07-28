@@ -16,6 +16,7 @@ export interface Veiculo {
   cor: string | null
   quilometragem: number | null
   preco: number | null
+  precoOriginal: number | null
   tabelaFipe: number | null
   cambio: string
   combustivel: string
@@ -49,6 +50,7 @@ export type VeiculoFieldErrors = {
   modelo?: string
   ano?: string
   preco?: string
+  precoOriginal?: string
   tabelaFipe?: string
   placa?: string
   renavam?: string
@@ -126,6 +128,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         cor: data.cor || null,
         quilometragem: data.quilometragem || null,
         preco: data.preco ?? null,
+        precoOriginal: data.precoOriginal ?? null,
         tabelaFipe: data.tabelaFipe ?? null,
         cambio: data.cambio,
         combustivel: data.combustivel,
@@ -227,6 +230,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
   const precoRaw = (formData.get('preco') as string) || ''
   const preco = parseFloat(precoRaw)
+  const precoOriginalRaw = (formData.get('precoOriginal') as string) || ''
+  const precoOriginal = precoOriginalRaw ? parseFloat(precoOriginalRaw) : null
   const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
   const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
   const cambio = (formData.get('cambio') as string) || 'manual'
@@ -279,6 +284,18 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     }
   } else if (Number.isNaN(preco) || preco <= 0) {
     fieldErrors.preco = 'Valor da venda inválido.'
+  }
+
+  if (precoOriginalRaw) {
+    if (finalidade !== 'venda') {
+      fieldErrors.precoOriginal = 'Desconto disponível apenas para veículos à venda.'
+    } else if (precoOriginal === null || Number.isNaN(precoOriginal) || precoOriginal <= 0) {
+      fieldErrors.precoOriginal = 'Preço original inválido.'
+    } else if (preco == null || Number.isNaN(preco)) {
+      fieldErrors.precoOriginal = 'Informe o valor da venda para definir um desconto.'
+    } else if (precoOriginal < preco) {
+      fieldErrors.precoOriginal = 'O preço original deve ser maior ou igual ao valor de venda.'
+    }
   }
 
   if (quilometragem !== null && (Number.isNaN(quilometragem) || quilometragem < 0)) {
@@ -336,6 +353,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       cor,
       quilometragem,
       preco: precoFinal,
+      precoOriginal: precoOriginalRaw ? precoOriginal : null,
       tabelaFipe,
       cambio,
       combustivel,
@@ -469,6 +487,8 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const quilometragem = quilometragemRaw ? parseInt(quilometragemRaw, 10) : null
   const precoRaw = (formData.get('preco') as string) || ''
   const preco = parseFloat(precoRaw)
+  const precoOriginalRaw = (formData.get('precoOriginal') as string) || ''
+  const precoOriginal = precoOriginalRaw ? parseFloat(precoOriginalRaw) : null
   const tabelaFipeRaw = (formData.get('tabelaFipe') as string) || ''
   const tabelaFipe = tabelaFipeRaw ? parseFloat(tabelaFipeRaw) : null
   const cambio = (formData.get('cambio') as string) || 'manual'
@@ -521,6 +541,18 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     }
   } else if (Number.isNaN(preco) || preco <= 0) {
     fieldErrors.preco = 'Valor da venda inválido.'
+  }
+
+  if (precoOriginalRaw) {
+    if (finalidade !== 'venda') {
+      fieldErrors.precoOriginal = 'Desconto disponível apenas para veículos à venda.'
+    } else if (precoOriginal === null || Number.isNaN(precoOriginal) || precoOriginal <= 0) {
+      fieldErrors.precoOriginal = 'Preço original inválido.'
+    } else if (preco == null || Number.isNaN(preco)) {
+      fieldErrors.precoOriginal = 'Informe o valor da venda para definir um desconto.'
+    } else if (precoOriginal < preco) {
+      fieldErrors.precoOriginal = 'O preço original deve ser maior ou igual ao valor de venda.'
+    }
   }
 
   if (quilometragem !== null && (Number.isNaN(quilometragem) || quilometragem < 0)) {
@@ -580,6 +612,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       cor,
       quilometragem,
       preco: precoFinal,
+      precoOriginal: precoOriginalRaw ? precoOriginal : null,
       tabelaFipe,
       cambio,
       combustivel,

@@ -68,6 +68,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [cor, setCor] = useState('')
   const [quilometragem, setQuilometragem] = useState('')
   const [preco, setPreco] = useState('')
+  const [precoOriginal, setPrecoOriginal] = useState('')
   const [tabelaFipe, setTabelaFipe] = useState('')
   const [cambio, setCambio] = useState('manual')
   const [combustivel, setCombustivel] = useState('flex')
@@ -221,6 +222,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCor('')
     setQuilometragem('')
     setPreco('')
+    setPrecoOriginal('')
     setTabelaFipe('')
     setCambio('manual')
     setCombustivel('flex')
@@ -263,6 +265,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCor(veiculo.cor || '')
     setQuilometragem(veiculo.quilometragem !== null ? String(veiculo.quilometragem) : '')
     setPreco(veiculo.preco ? formatCurrency(veiculo.preco).replace('R$', '').trim() : '')
+    setPrecoOriginal(veiculo.precoOriginal ? formatCurrency(veiculo.precoOriginal).replace('R$', '').trim() : '')
     setTabelaFipe(veiculo.tabelaFipe ? formatCurrency(veiculo.tabelaFipe).replace('R$', '').trim() : '')
     setCambio(veiculo.cambio || 'manual')
     setCombustivel(veiculo.combustivel || 'flex')
@@ -340,6 +343,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('cor', cor)
       formData.append('quilometragem', quilometragem)
       formData.append('preco', preco ? String(parseMoney(preco) || 0) : '')
+      formData.append('precoOriginal', precoOriginal ? String(parseMoney(precoOriginal) || 0) : '')
       formData.append('tabelaFipe', tabelaFipe ? String(parseMoney(tabelaFipe) || '') : '')
       formData.append('cambio', cambio)
       formData.append('combustivel', combustivel)
@@ -687,6 +691,27 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   </Select>
                 </div>
 
+                {/* Linha 3.5: Preço original (De) — apenas para veículos de venda */}
+                {finalidade === 'venda' && (
+                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-6">
+                    <Input
+                      id="precoOriginal"
+                      label="Preço original (De) — opcional"
+                      type="text"
+                      inputMode="decimal"
+                      value={precoOriginal}
+                      onChange={(e) => setPrecoOriginal(maskMoney(e.target.value))}
+                      placeholder="R$ 0,00"
+                      leftIcon={<IconCash size={14} />}
+                      error={fieldErrors.precoOriginal}
+                    />
+                    <p className="self-center text-xs text-neutral-500 leading-snug">
+                      Preencha para exibir o preço antigo riscado e o percentual de desconto
+                      na vitrine pública. Deixe vazio para não destacar.
+                    </p>
+                  </div>
+                )}
+
                 {/* Linha 4: Placa, Renavam, Unidade, Finalidade */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-6">
                   <Input
@@ -724,7 +749,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     label="Finalidade *"
                     required
                     value={finalidade}
-                    onChange={(e) => setFinalidade(e.target.value as 'venda' | 'pessoal')}
+                    onChange={(e) => {
+                      const next = e.target.value as 'venda' | 'pessoal'
+                      setFinalidade(next)
+                      if (next === 'pessoal') setPrecoOriginal('')
+                    }}
                   >
                     <option value="venda">Veículo para Venda</option>
                     <option value="pessoal">Veículo Pessoal</option>

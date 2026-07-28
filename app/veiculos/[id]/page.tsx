@@ -28,14 +28,24 @@ export async function generateMetadata(
       modelo?: string
       ano?: number
       preco?: number
+      precoOriginal?: number | null
       fotos?: string[]
       quilometragem?: number | null
       cambio?: string
       combustivel?: string
     }
     const titulo = [v.marca, v.modelo, v.ano].filter(Boolean).join(' ')
-    const description = v.preco
-      ? `${titulo} por ${formatCurrency(v.preco)}. ${v.quilometragem ? v.quilometragem.toLocaleString('pt-BR') + ' km' : ''} ${v.cambio?.toUpperCase() ?? ''} ${v.combustivel?.toUpperCase() ?? ''}`.trim()
+    const emDesconto =
+      typeof v.preco === 'number' &&
+      typeof v.precoOriginal === 'number' &&
+      v.precoOriginal > v.preco
+    const priceLine = emDesconto
+      ? `de ${formatCurrency(v.precoOriginal as number)} por ${formatCurrency(v.preco as number)}`
+      : v.preco
+        ? `por ${formatCurrency(v.preco)}`
+        : ''
+    const description = priceLine
+      ? `${titulo} ${priceLine}. ${v.quilometragem ? v.quilometragem.toLocaleString('pt-BR') + ' km' : ''} ${v.cambio?.toUpperCase() ?? ''} ${v.combustivel?.toUpperCase() ?? ''}`.trim()
       : `${titulo} disponível na Liberty Car.`
     const ogImages = v.fotos && v.fotos.length > 0 ? [{ url: v.fotos[0] }] : undefined
     return {
@@ -187,10 +197,33 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500">Preço à vista</p>
-                    <p className="text-3xl font-black text-liberty">
-                      {formatCurrency(veiculo.preco)}
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500">
+                      {veiculo.precoOriginal != null && veiculo.preco != null && veiculo.precoOriginal > veiculo.preco
+                        ? 'Preço promocional'
+                        : 'Preço à vista'}
                     </p>
+                    {veiculo.precoOriginal != null && veiculo.preco != null && veiculo.precoOriginal > veiculo.preco ? (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <p className="text-sm font-semibold text-neutral-400 line-through">
+                          {formatCurrency(veiculo.precoOriginal)}
+                        </p>
+                        <p className="text-3xl font-black text-liberty">
+                          {formatCurrency(veiculo.preco)}
+                        </p>
+                        <span className="mt-1 inline-flex items-center rounded-md bg-emerald-500/95 text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 border border-emerald-600">
+                          −{Math.round((1 - (veiculo.preco as number) / (veiculo.precoOriginal as number)) * 100)}%
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-3xl font-black text-liberty">
+                        {formatCurrency(veiculo.preco)}
+                      </p>
+                    )}
+                    {veiculo.tabelaFipe != null && veiculo.tabelaFipe > 0 && (
+                      <p className="mt-2 text-[11px] font-semibold text-neutral-500">
+                        Tabela FIPE: <span className="text-neutral-700">{formatCurrency(veiculo.tabelaFipe)}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
