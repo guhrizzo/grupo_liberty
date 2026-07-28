@@ -23,7 +23,6 @@ import {
   updateVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
-  toggleVehicleFinalidade,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
@@ -115,10 +114,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
-
-  // Toggle finalidade
-  const [toggleTarget, setToggleTarget] = useState<Veiculo | null>(null)
-  const [toggleLoading, setToggleLoading] = useState(false)
 
   const MAX_PHOTOS = 10
 
@@ -430,36 +425,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     }
   }
 
-  // ─── Toggle finalidade ───────────────────────────────────────────────────
-
-  const handleConfirmToggle = async () => {
-    if (!toggleTarget) return
-    const target = toggleTarget
-    const next: 'venda' | 'pessoal' =
-      target.finalidade === 'venda' ? 'pessoal' : 'venda'
-    setToggleLoading(true)
-    try {
-      const result = await toggleVehicleFinalidade(target.id, next)
-      if (result.error) {
-        setMessage({ type: 'error', text: result.error })
-      } else {
-        setMessage({
-          type: 'success',
-          text: result.success || 'Finalidade atualizada.',
-        })
-        router.refresh()
-      }
-    } catch (err: any) {
-      setMessage({
-        type: 'error',
-        text: err.message || 'Erro ao atualizar finalidade.',
-      })
-    } finally {
-      setToggleTarget(null)
-      setToggleLoading(false)
-    }
-  }
-
   // ─── Helpers de formatação ───────────────────────────────────────────────
 
   const formatCurrency = (value: number | null | undefined) => {
@@ -685,6 +650,47 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                 </div>
 
+                {/* Finalidade — switch acima do Valor da Venda */}
+                <div className="mt-6 flex items-center gap-3">
+                  <span className="text-sm font-medium text-neutral-700">Finalidade</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={finalidade === 'venda'}
+                    aria-label={`Finalidade do veículo. Atual: ${finalidade === 'venda' ? 'Para Venda' : 'Pessoal'}.`}
+                    onClick={() => {
+                      const next = finalidade === 'venda' ? 'pessoal' : 'venda'
+                      setFinalidade(next)
+                      if (next === 'pessoal') setPrecoComDesconto('')
+                    }}
+                    className={[
+                      'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
+                      'transition-colors duration-200 ease-out',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                      finalidade === 'venda' ? 'bg-emerald-500' : 'bg-neutral-300',
+                    ].join(' ')}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={[
+                        'inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0',
+                        'transition-transform duration-200 ease-out',
+                        finalidade === 'venda' ? 'translate-x-5' : 'translate-x-0.5',
+                      ].join(' ')}
+                    />
+                  </button>
+                  <span
+                    className={[
+                      'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border',
+                      finalidade === 'venda'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-purple-100 text-purple-800 border-purple-200',
+                    ].join(' ')}
+                  >
+                    {finalidade === 'venda' ? 'Para Venda' : 'Pessoal'}
+                  </span>
+                </div>
+
                 {/* Linha 3: Valor da Venda, Câmbio, Combustível */}
                 <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3 mt-6">
                   <Input
@@ -777,20 +783,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     <option value="jau">Jaú/SP</option>
                     <option value="bauru">Bauru/SP</option>
                     <option value="outro">Outra cidade...</option>
-                  </Select>
-                  <Select
-                    id="finalidade"
-                    label="Finalidade *"
-                    required
-                    value={finalidade}
-                    onChange={(e) => {
-                      const next = e.target.value as 'venda' | 'pessoal'
-                      setFinalidade(next)
-                      if (next === 'pessoal') setPrecoComDesconto('')
-                    }}
-                  >
-                    <option value="venda">Veículo para Venda</option>
-                    <option value="pessoal">Veículo Pessoal</option>
                   </Select>
                 </div>
 
@@ -1228,37 +1220,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       <IconCar size={40} stroke={1.5} className="text-neutral-300" />
                     </div>
                     )}
-                    {currentRole === 'admin' && (
-                      <div className="absolute top-2 left-2 inline-flex items-center rounded-full bg-white/95 backdrop-blur-sm p-1 shadow-sm border border-white/40">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={v.finalidade === 'venda'}
-                          aria-label={`Alterar finalidade do veículo ${v.marca} ${v.modelo}. Atual: ${
-                            v.finalidade === 'venda' ? 'Para Venda' : 'Pessoal'
-                          }.`}
-                          onClick={() => setToggleTarget(v)}
-                          className={[
-                            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full',
-                            'transition-colors duration-200 ease-out',
-                            'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
-                            v.finalidade === 'venda' ? 'bg-emerald-500' : 'bg-neutral-300',
-                          ].join(' ')}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={[
-                              'inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0',
-                              'transition-transform duration-200 ease-out',
-                              v.finalidade === 'venda' ? 'translate-x-4' : 'translate-x-0.5',
-                            ].join(' ')}
-                          />
-                          <span className="sr-only">
-                            {v.finalidade === 'venda' ? 'Venda' : 'Pessoal'}
-                          </span>
-                        </button>
-                      </div>
-                    )}
                     {v.fotos?.length > 1 && (
                       <span className="absolute top-2 right-2 rounded-full bg-black/60 text-white text-[10px] font-bold px-2 py-0.5">
                         +{v.fotos.length - 1} fotos
@@ -1383,29 +1344,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         </div>
       )}
 
-      <ConfirmDialog
-        open={toggleTarget !== null}
-        onClose={() => { if (!toggleLoading) setToggleTarget(null) }}
-        onConfirm={handleConfirmToggle}
-        loading={toggleLoading}
-        tone="primary"
-        title={
-          toggleTarget?.finalidade === 'venda'
-            ? 'Mover para Pessoal?'
-            : 'Mover para Venda?'
-        }
-        description={
-          toggleTarget?.finalidade === 'venda'
-            ? 'Tem certeza que deseja mover este veículo para Pessoal? O preço com desconto será removido.'
-            : 'Tem certeza que deseja mover este veículo para Venda?'
-        }
-        confirmLabel={
-          toggleTarget?.finalidade === 'venda'
-            ? 'Sim, mover para Pessoal'
-            : 'Sim, mover para Venda'
-        }
-        cancelLabel="Cancelar"
-      />
     </div>
   )
-} 
+}
