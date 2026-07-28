@@ -43,6 +43,33 @@ interface PhotoPreview {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+/**
+ * Botão "X" discreto dentro do input (mobile-friendly). Aparece só quando há valor.
+ * Usa `rightAdornment` do <Input />, que já reserva `pr-12` no campo.
+ */
+function ClearMoneyButton({
+  value,
+  onClear,
+  label,
+}: {
+  value: string
+  onClear: () => void
+  label: string
+}) {
+  if (!value) return null
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      aria-label={`Limpar ${label}`}
+      title="Limpar"
+      className="flex h-9 w-9 min-w-[36px] items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 active:bg-neutral-200 transition-colors cursor-pointer"
+    >
+      <IconX size={14} stroke={2.5} />
+    </button>
+  )
+}
+
 export default function VeiculosClient({ currentUser, veiculos }: VeiculosClientProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -647,6 +674,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     placeholder="R$ 0,00"
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.tabelaFipe}
+                    rightAdornment={
+                      tabelaFipe ? (
+                        <ClearMoneyButton
+                          value={tabelaFipe}
+                          onClear={() => setTabelaFipe('')}
+                          label="Tabela FIPE"
+                        />
+                      ) : undefined
+                    }
                   />
                 </div>
 
@@ -704,6 +740,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     placeholder={finalidade === 'pessoal' ? 'Opcional' : 'R$ 0,00'}
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.preco}
+                    rightAdornment={
+                      preco ? (
+                        <ClearMoneyButton
+                          value={preco}
+                          onClear={() => setPreco('')}
+                          label="Valor da venda"
+                        />
+                      ) : undefined
+                    }
                   />
                   <Select
                     id="cambio"
@@ -744,6 +789,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       placeholder="R$ 0,00"
                       leftIcon={<IconCash size={14} />}
                       error={fieldErrors.precoComDesconto}
+                      rightAdornment={
+                        precoComDesconto ? (
+                          <ClearMoneyButton
+                            value={precoComDesconto}
+                            onClear={() => setPrecoComDesconto('')}
+                            label="Preço com desconto"
+                          />
+                        ) : undefined
+                      }
                     />
                     <p className="self-center text-xs text-neutral-500 leading-snug">
                       Preencha para exibir o preço antigo riscado e o percentual de desconto
@@ -846,6 +900,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     placeholder="R$ 0,00"
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.valorParcela}
+                    rightAdornment={
+                      valorParcela ? (
+                        <ClearMoneyButton
+                          value={valorParcela}
+                          onClear={() => setValorParcela('')}
+                          label="Valor da parcela"
+                        />
+                      ) : undefined
+                    }
                   />
                   <Input
                     id="custoAcumulado"
@@ -857,6 +920,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     placeholder="R$ 0,00"
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.custoAcumulado}
+                    rightAdornment={
+                      custoAcumulado ? (
+                        <ClearMoneyButton
+                          value={custoAcumulado}
+                          onClear={() => setCustoAcumulado('')}
+                          label="Custo acumulado"
+                        />
+                      ) : undefined
+                    }
                   />
                 </div>
               </div>
@@ -1273,16 +1345,16 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       </span>
                     </div>
 
-                      <div className="mt-3 flex items-center justify-between">
+                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-lg font-bold text-neutral-950">
                           {formatCurrency(v.preco)}
                         </p>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
                           <Link
                             href={`/veiculos/${v.id}`}
                             target="_blank"
-                            className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+                            className="w-full text-center rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer sm:w-auto"
                           >
                             Link
                           </Link>
@@ -1290,13 +1362,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                             <>
                               <button
                                 onClick={() => handleEdit(v)}
-                                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+                                className="w-full rounded-lg border border-neutral-200 hover:bg-neutral-100 text-neutral-600 px-3 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer sm:w-auto"
                               >
                                 Editar
                               </button>
                               <button
                                 onClick={() => setDeleteId(v.id)}
-                                className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-1.5 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+                                className="w-full rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer sm:w-auto"
                               >
                                 Remover
                               </button>
