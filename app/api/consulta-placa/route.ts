@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const decoded = await adminAuth.verifySessionCookie(sessionCookie, true)
-    const userRecord = await adminAuth.getUser(decoded.uid)
-    const role = (userRecord.customClaims as any)?.role ?? ''
+    const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+    const role = profileDoc.data()?.role ?? ''
 
     if (!ROLES_PERMITIDOS.includes(role)) {
       return NextResponse.json(

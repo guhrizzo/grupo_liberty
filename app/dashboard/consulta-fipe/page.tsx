@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth } from '@/utils/firebase/admin'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import PlacaFipeLookup from '@/app/components/PlacaFipeLookup'
 import { Breadcrumb } from '@/app/components/ui'
 
@@ -13,16 +13,22 @@ export default async function ConsultaFipePage() {
   const session = cookieStore.get('session')?.value
   if (!session) redirect('/login')
 
+  let isAllowed = false
+
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
-    const userRecord = await adminAuth.getUser(decoded.uid)
-    const role = (userRecord.customClaims as any)?.role ?? ''
+    const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+    const role = profileDoc.data()?.role || ''
 
-    if (!ROLES_PERMITIDOS.includes(role)) {
-      redirect('/dashboard?error=acesso_negado')
+    if (ROLES_PERMITIDOS.includes(role)) {
+      isAllowed = true
     }
   } catch {
     redirect('/login')
+  }
+
+  if (!isAllowed) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   return (
