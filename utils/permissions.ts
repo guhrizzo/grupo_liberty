@@ -10,7 +10,15 @@ export interface SessionUser {
 }
 
 export interface UserPermissions {
+  veiculos?: boolean
+  consulta_fipe?: boolean
+  propostas?: boolean
   contratos?: boolean
+  financeiro?: boolean
+  cobrancas?: boolean
+  juridico?: boolean
+  manutencao?: boolean
+  usuarios?: boolean
 }
 
 export const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin'] as const
@@ -96,4 +104,24 @@ export async function assertPodeGerarPropostaPDF(): Promise<SessionUser> {
   }
 
   return user
+}
+
+/**
+ * Verifica se o usuário logado tem acesso a uma página/aba específica do dashboard.
+ */
+export function hasPageAccess(
+  user: SessionUser | null | undefined,
+  permissionKey: keyof UserPermissions,
+  defaultRoles: readonly string[] | string[]
+): boolean {
+  if (!user || !user.role) return false
+  if (user.role === 'admin') return true
+
+  // Se a permissão está explicitamente definida no perfil do usuário, ela prevalece
+  if (user.permissions && user.permissions[permissionKey] !== undefined) {
+    return user.permissions[permissionKey] === true
+  }
+
+  // Fallback baseado nos cargos permitidos por padrão
+  return defaultRoles.includes(user.role)
 }

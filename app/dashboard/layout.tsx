@@ -16,11 +16,13 @@ export default async function DashboardLayout({
   let user: { uid: string; email: string | null | undefined } | null = null
   let role: string | null = null
   let displayName: string | null = null
+  let permissions: Record<string, boolean> = {}
 
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
     role = profileDoc.data()?.role || null
+    permissions = profileDoc.data()?.permissions || {}
     displayName = ((decoded as unknown) as { name?: string; displayName?: string }).name
       || ((decoded as unknown) as { name?: string; displayName?: string }).displayName
       || null
@@ -52,6 +54,7 @@ export default async function DashboardLayout({
         displayName={displayName}
         logoutAction={logout}
         propostasPendentesCount={propostasPendentesCount}
+        permissions={permissions}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
         <div className="mx-auto max-w-7xl">{children}</div>

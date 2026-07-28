@@ -1,4 +1,4 @@
-import { getSessionUser } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { redirect } from 'next/navigation'
 import ContratosClient from './ContratosClient'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
@@ -11,6 +11,10 @@ export default async function ContratosPage() {
 
   if (!session) {
     redirect('/login')
+  }
+
+  if (!hasPageAccess(session, 'contratos', ['admin', 'advogado', 'vendedor'])) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   // Lista veículos para o filtro de busca

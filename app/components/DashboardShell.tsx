@@ -29,6 +29,7 @@ type NavItem = {
   label: string
   icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search'
   roles: string[]
+  permissionKey?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -43,54 +44,63 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Veículos',
     icon: 'car',
     roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+    permissionKey: 'veiculos',
   },
   {
     href: '/dashboard/consulta-fipe',
     label: 'Consulta FIPE',
     icon: 'search',
     roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+    permissionKey: 'consulta_fipe',
   },
   {
     href: '/dashboard/propostas',
     label: 'Propostas',
     icon: 'mail',
     roles: ['admin', 'vendedor'],
+    permissionKey: 'propostas',
   },
   {
     href: '/dashboard/contratos',
     label: 'Contratos',
     icon: 'file-text',
     roles: ['admin', 'advogado', 'vendedor'],
+    permissionKey: 'contratos',
   },
   {
     href: '/dashboard/financeiro',
     label: 'Financeiro',
     icon: 'finance',
     roles: ['admin', 'vendedor', 'advogado'],
+    permissionKey: 'financeiro',
   },
   {
     href: '/dashboard/cobrancas',
     label: 'Cobranças',
     icon: 'receipt',
     roles: ['admin', 'vendedor'],
+    permissionKey: 'cobrancas',
   },
   {
     href: '/dashboard/juridico',
     label: 'Jurídico',
     icon: 'scales',
     roles: ['admin', 'advogado'],
+    permissionKey: 'juridico',
   },
   {
     href: '/dashboard/manutencao',
     label: 'Manutenção',
     icon: 'wrench',
     roles: ['admin', 'vendedor', 'suporte'],
+    permissionKey: 'manutencao',
   },
   {
     href: '/dashboard/usuarios',
     label: 'Usuários',
     icon: 'users',
     roles: ['admin'],
+    permissionKey: 'usuarios',
   },
 ]
 
@@ -141,6 +151,7 @@ interface DashboardShellProps {
   displayName: string | null
   logoutAction: () => Promise<void>
   propostasPendentesCount?: number
+  permissions?: Record<string, boolean>
 }
 
 export default function DashboardShell({
@@ -149,6 +160,7 @@ export default function DashboardShell({
   displayName,
   logoutAction,
   propostasPendentesCount = 0,
+  permissions = {},
 }: DashboardShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -174,7 +186,16 @@ export default function DashboardShell({
     })
   }
 
-  const allowedItems = NAV_ITEMS.filter((item) => !role || item.roles.includes(role))
+  const allowedItems = NAV_ITEMS.filter((item) => {
+    if (!role) return false
+    if (role === 'admin') return true
+
+    if (item.permissionKey && permissions[item.permissionKey] !== undefined) {
+      return permissions[item.permissionKey] === true
+    }
+
+    return item.roles.includes(role)
+  })
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname?.startsWith(href)

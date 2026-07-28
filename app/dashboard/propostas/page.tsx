@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getPropostas } from './actions'
 import PropostasClient from './PropostasClient'
 
@@ -10,25 +9,11 @@ export const metadata = {
 }
 
 export default async function PropostasDashboardPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) {
-    redirect('/login')
-  }
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  let user: any = null
-  let role = null
-
-  try {
-    user = await adminAuth.verifySessionCookie(session, true)
-    const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-    role = profileDoc.data()?.role || null
-  } catch (error) {
-    redirect('/login')
-  }
-
-  if (!role || !['admin', 'vendedor'].includes(role)) {
-    redirect('/dashboard')
+  if (!hasPageAccess(user, 'propostas', ['admin', 'vendedor'])) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   const propostas = await getPropostas()

@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getVehicles } from './actions'
 import VeiculosClient from './VeiculosClient'
 
@@ -10,34 +9,20 @@ export const metadata = {
 }
 
 export default async function VeiculosPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) {
-    redirect('/login')
-  }
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  let user: any = null
-
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    let role: string | undefined = (decoded as any).role
-    if (!role && (decoded as any).admin === true) role = 'admin'
-
-    if (!role) {
-      const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
-      role = profileDoc.data()?.role
-    }
-
-    user = {
-      id: decoded.uid,
-      email: decoded.email,
-      role,
-    }
-  } catch (error) {
-    redirect('/login')
+  if (!hasPageAccess(user, 'veiculos', ['admin', 'vendedor', 'advogado', 'suporte'])) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   const veiculos = await getVehicles()
 
-  return <VeiculosClient currentUser={user} veiculos={veiculos} />
+  const clientUser = {
+    id: user.uid,
+    email: user.email,
+    role: user.role,
+  }
+
+  return <VeiculosClient currentUser={clientUser} veiculos={veiculos} />
 }

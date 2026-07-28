@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { IconUserPlus, IconTrash, IconUsers } from '@tabler/icons-react'
+import { IconUserPlus, IconTrash, IconUsers, IconKey, IconX, IconShield } from '@tabler/icons-react'
 import { createUserAction, getAllUsersAction, updateUserRoleAction, deleteUserAction, updateUserPermissionsAction } from './actions'
 import {
   Button,
@@ -25,6 +25,21 @@ interface UserManagementClientProps {
   currentUser: any
   currentUserRole: string | null
 }
+
+// Definição de todas as abas configuráveis
+const PERMISSION_TABS = [
+  { key: 'veiculos',      label: 'Veículos',       defaultRoles: ['admin', 'vendedor', 'suporte'] },
+  { key: 'consulta_fipe', label: 'Consulta FIPE',  defaultRoles: ['admin', 'vendedor'] },
+  { key: 'propostas',     label: 'Propostas',      defaultRoles: ['admin', 'vendedor'] },
+  { key: 'contratos',     label: 'Contratos',      defaultRoles: ['admin', 'advogado'] },
+  { key: 'financeiro',    label: 'Financeiro',     defaultRoles: ['admin', 'vendedor', 'advogado'] },
+  { key: 'cobrancas',     label: 'Cobranças',      defaultRoles: ['admin', 'vendedor'] },
+  { key: 'juridico',      label: 'Jurídico',       defaultRoles: ['admin', 'advogado'] },
+  { key: 'manutencao',    label: 'Manutenção',     defaultRoles: ['admin', 'vendedor', 'suporte'] },
+  { key: 'usuarios',      label: 'Usuários',       defaultRoles: ['admin'] },
+] as const
+
+type PermKey = typeof PERMISSION_TABS[number]['key']
 
 export default function UserManagementClient({ currentUser, currentUserRole }: UserManagementClientProps) {
   const [loading, setLoading] = useState(false)
@@ -60,8 +75,62 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   const [userToUpdateRole, setUserToUpdateRole] = useState<any | null>(null)
   const [pendingRole, setPendingRole] = useState<string>('')
 
-  const [pendingPermissions, setPendingPermissions] = useState<{ contratos: boolean }>({ contratos: false })
-  const [userToUpdatePerms, setUserToUpdatePerms] = useState<any | null>(null)
+  // Estado do modal de permissões
+  const [permModalUser, setPermModalUser] = useState<any | null>(null)
+  const [permState, setPermState] = useState<Partial<Record<PermKey, boolean>>>({})
+  const [savingPerms, setSavingPerms] = useState(false)
+
+  const handleOpenPermModal = (u: any) => {
+    setPermModalUser(u)
+    setPermState(u.permissions ?? {})
+  }
+
+  const handleClosePermModal = () => {
+    setPermModalUser(null)
+    setPermState({})
+  }
+
+  const handleTogglePerm = (key: PermKey) => {
+    setPermState((prev) => {
+      const currentValue = prev[key]
+      if (currentValue === undefined) {
+        // undefined = padrão pelo cargo → ao clicar, define explicitamente como true
+        return { ...prev, [key]: true }
+      }
+      if (currentValue === true) {
+        return { ...prev, [key]: false }
+      }
+      // false → remove a definição explícita (volta ao padrão do cargo)
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  const handleSavePerms = async () => {
+    if (!permModalUser) return
+    setSavingPerms(true)
+    try {
+      // Manda apenas as chaves definidas explicitamente
+      const toSave: Record<string, boolean> = {}
+      for (const [k, v] of Object.entries(permState)) {
+        if (v !== undefined) toSave[k] = v as boolean
+      }
+      const result = await updateUserPermissionsAction(permModalUser.id, toSave)
+      if (result.error) {
+        toast.error(result.error, 'Erro ao salvar')
+      } else {
+        toast.success(result.success || 'Permissões salvas!', 'Permissões atualizadas')
+        const updated = await getAllUsersAction()
+        setAllUsers(updated)
+        handleClosePermModal()
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro inesperado.', 'Erro')
+    } finally {
+      setSavingPerms(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -171,6 +240,20 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   const visibleUsers = filteredUsers.slice(start, start + PAGE_SIZE)
   const fromItem = filteredUsers.length === 0 ? 0 : start + 1
   const toItem = Math.min(start + PAGE_SIZE, filteredUsers.length)
+
+  // Helper para calcular estado visual de cada permissão no modal
+  const getPermStatus = (key: PermKey): 'on' | 'off' | 'default' => {
+    const val = permState[key]
+    if (val === true) return 'on'
+    if (val === false) return 'off'
+    return 'default'
+  }
+
+  const getRoleDefaultLabel = (key: PermKey): string => {
+    const tab = PERMISSION_TABS.find(t => t.key === key)
+    if (!tab || !permModalUser?.role) return 'padrão'
+    return tab.defaultRoles.includes(permModalUser.role as any) ? 'padrão: ✓' : 'padrão: ✗'
+  }
 
   return (
     <div className="space-y-6">
@@ -367,16 +450,31 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               {formatDate(u.created_at)}
                             </TD>
                             <TD align="right">
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleDeleteClick(u)}
-                                disabled={isSelf || currentRole !== 'admin' || loading}
-                                leftIcon={<IconTrash size={12} />}
-                                className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
-                              >
-                                Excluir
-                              </Button>
+                              <div className="flex items-center justify-end gap-2">
+                                {/* Botão de Permissões */}
+                                {currentRole === 'admin' && !isSelf && (
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleOpenPermModal(u)}
+                                    disabled={loading}
+                                    leftIcon={<IconKey size={12} />}
+                                    className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50"
+                                  >
+                                    Permissões
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => handleDeleteClick(u)}
+                                  disabled={isSelf || currentRole !== 'admin' || loading}
+                                  leftIcon={<IconTrash size={12} />}
+                                  className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
+                                >
+                                  Excluir
+                                </Button>
+                              </div>
                             </TD>
                           </TR>
                         )
@@ -416,6 +514,118 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             </div>
           </div>
         </div>
+
+      {/* Modal de Permissões */}
+      {permModalUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) handleClosePermModal() }}
+        >
+          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
+                  <IconShield size={18} className="text-indigo-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500">Permissões de acesso</p>
+                  <p className="font-semibold text-neutral-900 leading-tight">
+                    {permModalUser.name || permModalUser.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleClosePermModal}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors"
+                aria-label="Fechar"
+              >
+                <IconX size={16} />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="px-6 py-5">
+              <p className="mb-1 text-xs text-neutral-500">
+                Cargo atual: <span className="font-medium text-neutral-700 uppercase">{permModalUser.role || '—'}</span>
+              </p>
+              <p className="mb-4 text-xs text-neutral-400">
+                Permissões explícitas substituem o acesso padrão do cargo. Remova a definição explícita para usar o padrão do cargo.
+              </p>
+
+              <div className="space-y-2">
+                {PERMISSION_TABS.map((tab) => {
+                  const status = getPermStatus(tab.key)
+                  const defaultLabel = getRoleDefaultLabel(tab.key)
+                  return (
+                    <div
+                      key={tab.key}
+                      className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50 px-4 py-3 hover:border-indigo-100 hover:bg-indigo-50/30 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-neutral-800">{tab.label}</p>
+                        {status === 'default' && (
+                          <p className="text-xs text-neutral-400">{defaultLabel}</p>
+                        )}
+                        {status === 'on' && (
+                          <p className="text-xs text-indigo-500">Liberado explicitamente</p>
+                        )}
+                        {status === 'off' && (
+                          <p className="text-xs text-rose-500">Bloqueado explicitamente</p>
+                        )}
+                      </div>
+
+                      {/* Toggle triplo: padrão → on → off → padrão */}
+                      <button
+                        onClick={() => handleTogglePerm(tab.key)}
+                        className={[
+                          'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none',
+                          status === 'on'
+                            ? 'border-indigo-600 bg-indigo-600'
+                            : status === 'off'
+                              ? 'border-rose-400 bg-rose-400'
+                              : 'border-neutral-300 bg-neutral-200',
+                        ].join(' ')}
+                        role="switch"
+                        aria-checked={status === 'on'}
+                      >
+                        <span
+                          className={[
+                            'pointer-events-none inline-block h-4 w-4 translate-y-[1px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200',
+                            status === 'on' ? 'translate-x-[22px]' : status === 'off' ? 'translate-x-[1px]' : 'translate-x-[1px]',
+                          ].join(' ')}
+                        />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 px-3 py-2">
+                <p className="text-xs text-amber-700">
+                  <strong>Legenda:</strong> Cinza = padrão do cargo · Azul = liberado · Vermelho = bloqueado
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
+              <Button variant="secondary" onClick={handleClosePermModal} disabled={savingPerms}>
+                Cancelar
+              </Button>
+              <Button
+                variant="liberty"
+                onClick={handleSavePerms}
+                loading={savingPerms}
+                loadingLabel="Salvando..."
+                leftIcon={<IconShield size={14} />}
+              >
+                Salvar Permissões
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={!!userToUpdateRole}

@@ -1,32 +1,19 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import UserManagementClient from './UserManagementClient'
 
 export default async function UsuariosPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) redirect('/login')
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  let user: any = null
-  let role = null
-
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    user = {
-      id: decoded.uid,
-      email: decoded.email,
-    }
-    const profileDoc = await adminDb.collection('profiles').doc(user.id).get()
-    role = profileDoc.data()?.role || null
-  } catch (error) {
-    redirect('/login')
+  if (!hasPageAccess(user, 'usuarios', ['admin'])) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   return (
     <UserManagementClient
-      currentUser={user}
-      currentUserRole={role}
+      currentUser={{ id: user.uid, email: user.email }}
+      currentUserRole={user.role}
     />
   )
 }

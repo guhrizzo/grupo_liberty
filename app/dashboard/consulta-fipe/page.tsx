@@ -1,33 +1,15 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import PlacaFipeLookup from '@/app/components/PlacaFipeLookup'
 import { Breadcrumb } from '@/app/components/ui'
 
 export const dynamic = 'force-dynamic'
 
-const ROLES_PERMITIDOS = ['admin', 'vendedor']
-
 export default async function ConsultaFipePage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) redirect('/login')
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  let isAllowed = false
-
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
-    const role = profileDoc.data()?.role || ''
-
-    if (ROLES_PERMITIDOS.includes(role)) {
-      isAllowed = true
-    }
-  } catch {
-    redirect('/login')
-  }
-
-  if (!isAllowed) {
+  if (!hasPageAccess(user, 'consulta_fipe', ['admin', 'vendedor', 'advogado', 'suporte'])) {
     redirect('/dashboard?error=acesso_negado')
   }
 

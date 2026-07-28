@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import FinanceiroClient from './FinanceiroClient'
 
 export const metadata = {
@@ -9,21 +8,11 @@ export const metadata = {
 }
 
 export default async function FinanceiroPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) redirect('/login')
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
 
-  let role: string | null = null
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
-    role = profileDoc.data()?.role || null
-  } catch {
-    redirect('/login')
-  }
-
-  if (!role || !['admin', 'vendedor', 'advogado'].includes(role)) {
-    redirect('/dashboard')
+  if (!hasPageAccess(user, 'financeiro', ['admin', 'vendedor', 'advogado'])) {
+    redirect('/dashboard?error=acesso_negado')
   }
 
   return <FinanceiroClient />
