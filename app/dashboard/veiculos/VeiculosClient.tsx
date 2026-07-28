@@ -339,7 +339,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('ano', ano)
       formData.append('cor', cor)
       formData.append('quilometragem', quilometragem)
-      formData.append('preco', String(parseMoney(preco) || 0))
+      formData.append('preco', preco ? String(parseMoney(preco) || 0) : '')
       formData.append('tabelaFipe', tabelaFipe ? String(parseMoney(tabelaFipe) || '') : '')
       formData.append('cambio', cambio)
       formData.append('combustivel', combustivel)
@@ -424,8 +424,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // ─── Helpers de formatação ───────────────────────────────────────────────
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value == null || Number.isNaN(value)) return '—'
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  }
 
   const cidadesDisponiveis = useMemo(() => {
     const set = new Set<string>()
@@ -649,13 +651,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3 mt-6">
                   <Input
                     id="preco"
-                    label="Valor da venda (R$) *"
+                    label={`Valor da venda (R$)${finalidade === 'venda' ? ' *' : ''}`}
                     type="text"
                     inputMode="decimal"
-                    required
+                    required={finalidade === 'venda'}
                     value={preco}
                     onChange={(e) => setPreco(maskMoney(e.target.value))}
-                    placeholder="R$ 0,00"
+                    placeholder={finalidade === 'pessoal' ? 'Opcional' : 'R$ 0,00'}
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.preco}
                   />

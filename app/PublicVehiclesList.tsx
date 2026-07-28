@@ -53,9 +53,9 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
       result = result.filter(v => v.cambio.toLowerCase() === cambio.toLowerCase())
     }
     if (sortBy === 'preco-cresc') {
-      result.sort((a, b) => a.preco - b.preco)
+      result.sort((a, b) => (a.preco ?? 0) - (b.preco ?? 0))
     } else if (sortBy === 'preco-decresc') {
-      result.sort((a, b) => b.preco - a.preco)
+      result.sort((a, b) => (b.preco ?? 0) - (a.preco ?? 0))
     } else if (sortBy === 'ano-novo') {
       result.sort((a, b) => b.ano - a.ano)
     } else {
@@ -69,8 +69,10 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
   const hasFilters =
     debouncedSearch.trim() !== '' || selectedBrand !== 'Todas' || cambio !== 'Todos'
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value == null || Number.isNaN(value)) return '—'
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  }
 
   if (totalCount === 0) {
     return (

@@ -45,7 +45,7 @@ interface VeiculoOption {
   modelo: string
   ano: number | null
   placa: string
-  preco: number
+  preco: number | null
 }
 
 interface VeiculoAgrupado {
@@ -165,7 +165,7 @@ export default function ContratosClient({
   function handleVeiculoChange(id: string) {
     setSelectedVeiculoId(id)
     const v = veiculos.find((x) => x.id === id)
-    if (v && v.preco > 0) {
+    if (v && v.preco && v.preco > 0) {
       setValor(maskMoney(v.preco.toString()))
     }
   }

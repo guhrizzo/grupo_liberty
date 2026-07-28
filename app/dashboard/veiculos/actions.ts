@@ -15,7 +15,7 @@ export interface Veiculo {
   ano: number
   cor: string | null
   quilometragem: number | null
-  preco: number
+  preco: number | null
   tabelaFipe: number | null
   cambio: string
   combustivel: string
@@ -125,7 +125,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         ano: data.ano,
         cor: data.cor || null,
         quilometragem: data.quilometragem || null,
-        preco: data.preco,
+        preco: data.preco ?? null,
         tabelaFipe: data.tabelaFipe ?? null,
         cambio: data.cambio,
         combustivel: data.combustivel,
@@ -274,7 +274,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   }
 
   if (!precoRaw) {
-    fieldErrors.preco = 'Informe o valor da venda.'
+    if (finalidade === 'venda') {
+      fieldErrors.preco = 'Informe o valor da venda.'
+    }
   } else if (Number.isNaN(preco) || preco <= 0) {
     fieldErrors.preco = 'Valor da venda inválido.'
   }
@@ -320,6 +322,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
+  // Para veículos pessoais sem preço informado, armazena como null.
+  const precoFinal: number | null = precoRaw ? preco : null
+
   try {
     const docRef = adminDb.collection('veiculos').doc()
     const now = new Date().toISOString()
@@ -330,7 +335,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       ano,
       cor,
       quilometragem,
-      preco,
+      preco: precoFinal,
       tabelaFipe,
       cambio,
       combustivel,
@@ -511,7 +516,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   }
 
   if (!precoRaw) {
-    fieldErrors.preco = 'Informe o valor da venda.'
+    if (finalidade === 'venda') {
+      fieldErrors.preco = 'Informe o valor da venda.'
+    }
   } else if (Number.isNaN(preco) || preco <= 0) {
     fieldErrors.preco = 'Valor da venda inválido.'
   }
@@ -532,10 +539,13 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
+  // Para veículos pessoais sem preço informado, armazena como null.
+  const precoFinal: number | null = precoRaw ? preco : null
+
   try {
     const docRef = adminDb.collection('veiculos').doc(id)
     const doc = await docRef.get()
-    
+
     if (!doc.exists) {
       return { error: 'Veículo não encontrado.' }
     }
@@ -569,7 +579,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       ano,
       cor,
       quilometragem,
-      preco,
+      preco: precoFinal,
       tabelaFipe,
       cambio,
       combustivel,
