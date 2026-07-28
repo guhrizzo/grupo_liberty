@@ -840,8 +840,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 />
               </div>
 
-              {/* ─── Dados do Vendedor (apenas para venda) ──────────── */}
-              {finalidade === 'venda' && (
+              {/* ─── Dados do Vendedor (apenas para veículos pessoais) ──────────── */}
+              {finalidade === 'pessoal' && (
                 <div>
                   <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                     Dados do Vendedor
