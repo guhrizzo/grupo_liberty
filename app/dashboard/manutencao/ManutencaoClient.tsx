@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   IconPlus,
   IconTool,
@@ -30,24 +31,12 @@ import {
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatCurrency, formatDate } from '@/utils/format'
-import { maskMoney, parseMoney } from '@/utils/masks'
+import { maskMoney } from '@/utils/masks'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
+import { createManutencao, updateManutencao, deleteManutencao } from './actions'
+import type { Manutencao, ManutencaoStatus } from './types'
 
-type Status = 'agendada' | 'em_execucao' | 'concluida' | 'cancelada'
-
-interface Manutencao {
-  id: string
-  veiculoId: string
-  veiculoLabel: string
-  tipo: string
-  descricao: string
-  oficina: string
-  responsavel: string
-  custo: number
-  dataAgendada: string
-  dataConclusao: string
-  status: Status
-}
+type Status = ManutencaoStatus
 
 const STATUS_LABELS: Record<Status, string> = {
   agendada: 'Agendada',
@@ -73,20 +62,16 @@ const TIPOS = [
   'Outro',
 ]
 
-const initialData: Manutencao[] = []
-
 const PAGE_SIZE = 12
-
-function genId() {
-  return 'm-' + Math.random().toString(36).slice(2, 9)
-}
 
 interface Props {
   veiculos: { id: string; marca: string; modelo: string; ano: number; placa: string | null }[]
+  initialManutencoes: Manutencao[]
 }
 
-export default function ManutencaoClient({ veiculos }: Props) {
-  const [items, setItems] = useState<Manutencao[]>(initialData)
+export default function ManutencaoClient({ veiculos, initialManutencoes }: Props) {
+  const router = useRouter()
+  const [items, setItems] = useState<Manutencao[]>(initialManutencoes)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Manutencao | null>(null)
   const [search, setSearch] = useState('')
@@ -94,6 +79,7 @@ export default function ManutencaoClient({ veiculos }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<Manutencao | null>(null)
   const [page, setPage] = useState(1)
   const [custo, setCusto] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
 
@@ -115,64 +101,83 @@ export default function ManutencaoClient({ veiculos }: Props) {
     setCusto('')
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
+    if (submitting) return
+    setSubmitting(true)
+
+    const formEl = e.currentTarget
+    const form = new FormData(formEl)
     const veiculoId = (form.get('veiculoId') as string) || ''
-    const veiculoLabel =
-      veiculoId
-        ? (() => {
-            const v = veiculos.find((x) => x.id === veiculoId)
-            return v ? `${v.marca} ${v.modelo} ${v.ano}${v.placa ? ' • ' + v.placa : ''}` : ''
-          })()
-        : ((form.get('veiculoLabel') as string) || '').trim()
+    const veiculoLabelFromSelect = veiculoId
+      ? (() => {
+          const v = veiculos.find((x) => x.id === veiculoId)
+          return v ? `${v.marca} ${v.modelo} ${v.ano}${v.placa ? ' • ' + v.placa : ''}` : ''
+        })()
+      : ''
+    if (veiculoLabelFromSelect) {
+      form.set('veiculoLabel', veiculoLabelFromSelect)
+    }
+
+    // Sanity check client-side antes de ir ao servidor — UX mais rápida.
     const tipo = (form.get('tipo') as string)?.trim()
-    const descricao = (form.get('descricao') as string)?.trim()
     const oficina = (form.get('oficina') as string)?.trim()
     const responsavel = (form.get('responsavel') as string)?.trim()
-    const custoNumber = parseMoney(custo) || 0
-    const dataAgendada = (form.get('dataAgendada') as string) || ''
-    const dataConclusao = (form.get('dataConclusao') as string) || ''
-    const status = (form.get('status') as Status) || 'agendada'
+    const veiculoLabel = ((form.get('veiculoLabel') as string) || '').trim()
+    const dataAgendada = ((form.get('dataAgendada') as string) || '').trim()
 
     if (!veiculoLabel || !tipo || !oficina || !responsavel || !dataAgendada) {
       toast.error('Preencha os campos obrigatórios.')
+      setSubmitting(false)
       return
     }
 
-    if (editing) {
-      setItems((prev) =>
-        prev.map((m) =>
-          m.id === editing.id
-            ? { ...m, veiculoId, veiculoLabel, tipo, descricao, oficina, responsavel, custo: custoNumber, dataAgendada, dataConclusao, status }
-            : m,
-        ),
-      )
-      toast.success('Manutenção atualizada.')
-    } else {
-      const novo: Manutencao = {
-        id: genId(),
-        veiculoId,
-        veiculoLabel,
-        tipo,
-        descricao,
-        oficina,
-        responsavel,
-        custo: custoNumber,
-        dataAgendada,
-        dataConclusao,
-        status,
+    try {
+      const result = editing
+        ? await updateManutencao(editing.id, form)
+        : await createManutencao(form)
+
+      if (result.error) {
+        toast.error(result.error)
+        return
       }
-      setItems((prev) => [novo, ...prev])
-      toast.success('Manutenção cadastrada.')
+
+      toast.success(result.success || (editing ? 'Manutenção atualizada.' : 'Manutenção cadastrada.'))
+      router.refresh()
+      closeForm()
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro inesperado.')
+    } finally {
+      setSubmitting(false)
     }
-    closeForm()
   }
 
-  function handleDelete(m: Manutencao) {
-    setItems((prev) => prev.filter((x) => x.id !== m.id))
-    toast.success('Manutenção removida.')
+  async function handleDelete(m: Manutencao) {
+    if (submitting) return
+    setSubmitting(true)
+    const target = m
     setConfirmDelete(null)
+
+    // Optimistic update — remove já do estado local para feedback imediato;
+    // se o servidor falhar, restaura via router.refresh().
+    setItems((prev) => prev.filter((x) => x.id !== target.id))
+
+    try {
+      const result = await deleteManutencao(target.id)
+      if (result.error) {
+        toast.error(result.error)
+        // restaura
+        router.refresh()
+      } else {
+        toast.success(result.success || 'Manutenção removida.')
+        router.refresh()
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao remover.')
+      router.refresh()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -372,7 +377,7 @@ export default function ManutencaoClient({ veiculos }: Props) {
               label="Data conclusão"
               name="dataConclusao"
               type="date"
-              defaultValue={editing?.dataConclusao}
+              defaultValue={editing?.dataConclusao ?? ''}
               leftIcon={<IconCalendar size={14} />}
             />
 
@@ -380,7 +385,7 @@ export default function ManutencaoClient({ veiculos }: Props) {
               label="Descrição"
               name="descricao"
               rows={3}
-              defaultValue={editing?.descricao}
+              defaultValue={editing?.descricao ?? ''}
               placeholder="Serviços a serem executados..."
               containerClassName="sm:col-span-2"
             />
@@ -389,8 +394,12 @@ export default function ManutencaoClient({ veiculos }: Props) {
               <Button type="button" variant="secondary" onClick={closeForm}>
                 Cancelar
               </Button>
-              <Button type="submit" variant="liberty">
-                {editing ? 'Salvar Alterações' : 'Cadastrar'}
+              <Button type="submit" variant="liberty" disabled={submitting}>
+                {submitting
+                  ? 'Salvando...'
+                  : editing
+                    ? 'Salvar Alterações'
+                    : 'Cadastrar'}
               </Button>
             </div>
           </form>

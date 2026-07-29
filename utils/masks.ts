@@ -80,6 +80,22 @@ export function parseMoney(formatted: string): number {
   return Number.isFinite(n) ? n : 0
 }
 
+/**
+ * Formata um número (ou string numérica) em string de moeda pronta para o input
+ * monetário. Diferente de `maskMoney`, esta função recebe um VALOR e produz a
+ * representação pt-BR — útil para popular inputs ao editar.
+ *
+ * @example moneyFromNumber(122)   // "R$ 122,00"
+ * @example moneyFromNumber(1.5)   // "R$ 1,50"
+ * @example moneyFromNumber(0)     // ""
+ */
+export function moneyFromNumber(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return ''
+  const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'))
+  if (!Number.isFinite(n) || n <= 0) return ''
+  return maskMoney(String(n).replace('.', ','))
+}
+
 /** Tabela de máscaras. */
 export const MASKS = {
   cpfCnpj: maskCPFCNPJ,

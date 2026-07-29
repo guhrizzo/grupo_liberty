@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { getManutencoes } from './actions'
 import ManutencaoClient from './ManutencaoClient'
 
 export const metadata = {
@@ -16,7 +17,15 @@ export default async function ManutencaoPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const veiculos = await getVehicles()
+  const [veiculos, initialManutencoes] = await Promise.all([
+    getVehicles(),
+    getManutencoes(),
+  ])
 
-  return <ManutencaoClient veiculos={veiculos} />
+  return (
+    <ManutencaoClient
+      veiculos={veiculos}
+      initialManutencoes={initialManutencoes}
+    />
+  )
 }

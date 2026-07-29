@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getTransacoes } from './actions'
 import FinanceiroClient from './FinanceiroClient'
 
 export const metadata = {
@@ -15,5 +16,7 @@ export default async function FinanceiroPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  return <FinanceiroClient />
+  const initialTransacoes = await getTransacoes()
+
+  return <FinanceiroClient initialTransacoes={initialTransacoes} />
 }

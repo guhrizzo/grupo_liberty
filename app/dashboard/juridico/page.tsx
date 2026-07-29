@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getProcessos } from './actions'
 import JuridicoClient from './JuridicoClient'
 
 export const metadata = {
@@ -15,5 +16,12 @@ export default async function JuridicoPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  return <JuridicoClient currentRole={user.role ?? ''} />
+  const initialProcessos = await getProcessos()
+
+  return (
+    <JuridicoClient
+      currentRole={user.role ?? ''}
+      initialProcessos={initialProcessos}
+    />
+  )
 }

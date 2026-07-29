@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   IconPlus,
   IconScale,
@@ -29,21 +30,10 @@ import {
 import { useDebounce } from '@/utils/useDebounce'
 import { formatDate } from '@/utils/format'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
+import { createProcesso, updateProcesso, deleteProcesso } from './actions'
+import type { Processo, ProcessoStatus } from './types'
 
-type Status = 'em_andamento' | 'concluido' | 'pendente' | 'arquivado'
-
-interface Processo {
-  id: string
-  titulo: string
-  cliente: string
-  tipo: string
-  numero: string
-  status: Status
-  responsavel: string
-  prazo: string
-  observacoes: string
-  createdAt: string
-}
+type Status = ProcessoStatus
 
 const STATUS_LABELS: Record<Status, string> = {
   em_andamento: 'Em andamento',
@@ -68,23 +58,25 @@ const TIPOS = [
   'Outro',
 ]
 
-const initialData: Processo[] = []
-
 const PAGE_SIZE = 12
 
-function genId() {
-  return 'p-' + Math.random().toString(36).slice(2, 9)
-}
-
-export default function JuridicoClient({ currentRole }: { currentRole: string }) {
+export default function JuridicoClient({
+  currentRole,
+  initialProcessos,
+}: {
+  currentRole: string
+  initialProcessos: Processo[]
+}) {
+  const router = useRouter()
   const isAdmin = currentRole === 'admin'
-  const [processos, setProcessos] = useState<Processo[]>(initialData)
+  const [processos, setProcessos] = useState<Processo[]>(initialProcessos)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Processo | null>(null)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
   const [confirmDelete, setConfirmDelete] = useState<Processo | null>(null)
   const [page, setPage] = useState(1)
+  const [submitting, setSubmitting] = useState(false)
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
 
@@ -103,55 +95,66 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
     setEditing(null)
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (submitting) return
+    setSubmitting(true)
+
     const form = new FormData(e.currentTarget)
     const titulo = (form.get('titulo') as string)?.trim()
     const cliente = (form.get('cliente') as string)?.trim()
     const tipo = (form.get('tipo') as string)?.trim()
-    const numero = (form.get('numero') as string)?.trim()
-    const status = (form.get('status') as Status) || 'em_andamento'
     const responsavel = (form.get('responsavel') as string)?.trim()
-    const prazo = (form.get('prazo') as string) || ''
-    const observacoes = (form.get('observacoes') as string) || ''
 
     if (!titulo || !cliente || !tipo || !responsavel) {
       toast.error('Preencha os campos obrigatórios.')
+      setSubmitting(false)
       return
     }
 
-    if (editing) {
-      setProcessos((prev) =>
-        prev.map((p) =>
-          p.id === editing.id
-            ? { ...p, titulo, cliente, tipo, numero, status, responsavel, prazo, observacoes }
-            : p,
-        ),
-      )
-      toast.success('Processo atualizado com sucesso.')
-    } else {
-      const novo: Processo = {
-        id: genId(),
-        titulo,
-        cliente,
-        tipo,
-        numero,
-        status,
-        responsavel,
-        prazo,
-        observacoes,
-        createdAt: new Date().toISOString().slice(0, 10),
+    try {
+      const result = editing
+        ? await updateProcesso(editing.id, form)
+        : await createProcesso(form)
+
+      if (result.error) {
+        toast.error(result.error)
+        return
       }
-      setProcessos((prev) => [novo, ...prev])
-      toast.success('Processo cadastrado com sucesso.')
+
+      toast.success(result.success || (editing ? 'Processo atualizado.' : 'Processo cadastrado.'))
+      router.refresh()
+      closeForm()
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro inesperado.')
+    } finally {
+      setSubmitting(false)
     }
-    closeForm()
   }
 
-  function handleDelete(p: Processo) {
-    setProcessos((prev) => prev.filter((x) => x.id !== p.id))
-    toast.success('Processo removido.')
+  async function handleDelete(p: Processo) {
+    if (submitting) return
+    setSubmitting(true)
+    const target = p
     setConfirmDelete(null)
+
+    setProcessos((prev) => prev.filter((x) => x.id !== target.id))
+
+    try {
+      const result = await deleteProcesso(target.id)
+      if (result.error) {
+        toast.error(result.error)
+        router.refresh()
+      } else {
+        toast.success(result.success || 'Processo removido.')
+        router.refresh()
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao remover.')
+      router.refresh()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const filtered = useMemo(() => {
@@ -162,7 +165,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
         !term ||
         p.titulo.toLowerCase().includes(term) ||
         p.cliente.toLowerCase().includes(term) ||
-        p.numero.toLowerCase().includes(term) ||
+        (p.numero || '').toLowerCase().includes(term) ||
         p.responsavel.toLowerCase().includes(term)
       return matchesStatus && matchesSearch
     })
@@ -273,7 +276,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
             <Input
               label="Número do processo"
               name="numero"
-              defaultValue={editing?.numero}
+              defaultValue={editing?.numero ?? ''}
               placeholder="0000000-00.0000"
             />
 
@@ -301,7 +304,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
               label="Prazo"
               name="prazo"
               type="date"
-              defaultValue={editing?.prazo}
+              defaultValue={editing?.prazo ?? ''}
               leftIcon={<IconCalendar size={14} />}
             />
 
@@ -309,7 +312,7 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
               label="Observações"
               name="observacoes"
               rows={3}
-              defaultValue={editing?.observacoes}
+              defaultValue={editing?.observacoes ?? ''}
               placeholder="Anotações internas, próximos passos..."
               containerClassName="sm:col-span-2"
             />
@@ -318,8 +321,12 @@ export default function JuridicoClient({ currentRole }: { currentRole: string })
               <Button type="button" variant="secondary" onClick={closeForm}>
                 Cancelar
               </Button>
-              <Button type="submit" variant="liberty">
-                {editing ? 'Salvar Alterações' : 'Cadastrar'}
+              <Button type="submit" variant="liberty" disabled={submitting}>
+                {submitting
+                  ? 'Salvando...'
+                  : editing
+                    ? 'Salvar Alterações'
+                    : 'Cadastrar'}
               </Button>
             </div>
           </form>
