@@ -16,7 +16,9 @@ import {
   IconX,
   IconInfoCircle,
 } from '@tabler/icons-react'
+import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/utils/cn'
+import { motionEasing } from './motion-presets'
 
 export type ToastTone = 'success' | 'error' | 'info' | 'warning'
 
@@ -167,33 +169,39 @@ function ToastViewport({
       aria-live="polite"
       className="fixed top-4 right-4 z-[200] flex w-full max-w-sm flex-col gap-2 pointer-events-none"
     >
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          role="status"
-          className={cn(
-            'pointer-events-auto flex items-start gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md animate-slide-in-right',
-            tones[t.type].ring,
-            tones[t.type].bg,
-          )}
-        >
-          <div className="mt-0.5 shrink-0">{tones[t.type].icon}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-neutral-900 neon-theme:text-white">{t.title}</p>
-            {t.description && (
-              <p className="mt-0.5 text-xs text-neutral-700 neon-theme:text-text-md">{t.description}</p>
+      <AnimatePresence initial={false}>
+        {toasts.map((t) => (
+          <motion.div
+            key={t.id}
+            layout
+            role="status"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0, transition: { duration: 0.25, ease: motionEasing } }}
+            exit={{ opacity: 0, x: 20, transition: { duration: 0.2, ease: motionEasing } }}
+            className={cn(
+              'pointer-events-auto flex items-start gap-3 rounded-xl border p-3.5 shadow-lg backdrop-blur-md',
+              tones[t.type].ring,
+              tones[t.type].bg,
             )}
-          </div>
-          <button
-            type="button"
-            aria-label="Fechar notificação"
-            onClick={() => onDismiss(t.id)}
-            className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 transition-ui-fast cursor-pointer"
           >
-            <IconX size={14} />
-          </button>
-        </div>
-      ))}
+            <div className="mt-0.5 shrink-0">{tones[t.type].icon}</div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-neutral-900 neon-theme:text-white">{t.title}</p>
+              {t.description && (
+                <p className="mt-0.5 text-xs text-neutral-700 neon-theme:text-text-md">{t.description}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Fechar notificação"
+              onClick={() => onDismiss(t.id)}
+              className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 transition-ui-fast cursor-pointer"
+            >
+              <IconX size={14} />
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   )
 }

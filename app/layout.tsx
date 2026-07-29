@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import RouteLoadingBar from "./components/RouteLoadingBar";
+import MotionProvider from "./components/MotionProvider";
 import { ToastProvider } from "./components/ui";
 import PublicLayoutWrapper from "./components/PublicLayoutWrapper";
 import "./globals.css";
@@ -35,9 +36,11 @@ export default function RootLayout({
 
       <body className="min-h-full flex flex-col">
         <RouteLoadingBar />
-        <ToastProvider>
-          <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
-        </ToastProvider>
+        <MotionProvider>
+          <ToastProvider>
+            <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
+          </ToastProvider>
+        </MotionProvider>
       </body>
     </html>
   );

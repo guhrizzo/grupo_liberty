@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, ReactNode, useId } from 'react'
 import { createPortal } from 'react-dom'
+import { AnimatePresence, motion } from 'motion/react'
 import { IconX } from '@tabler/icons-react'
 import { cn } from '@/utils/cn'
+import { motionEasing } from './motion-presets'
 
 export interface ModalProps {
   open: boolean
@@ -104,62 +106,73 @@ export function Modal({
     }
   }, [open, onClose])
 
-  if (!open) return null
   if (typeof document === 'undefined') return null
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm p-4 animate-fade-in"
-      onMouseDown={(e) => {
-        // fecha só se o clique começou no backdrop
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
-        aria-describedby={description ? descId : undefined}
-        tabIndex={-1}
-        className={cn(
-          'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl animate-zoom-in-95 neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)]',
-          sizeMap[size],
-          className,
-        )}
-      >
-        {(title || !hideClose) && (
-          <div className="flex items-start justify-between gap-4 mb-2">
-            <div className="flex-1 min-w-0">
-              {title && (
-                <h2
-                  id={titleId}
-                  className="text-lg font-bold text-neutral-950 neon-theme:text-white"
-                >
-                  {title}
-                </h2>
-              )}
-              {description && (
-                <p id={descId} className="mt-1 text-sm text-neutral-600 neon-theme:text-text-md">
-                  {description}
-                </p>
-              )}
-            </div>
-            {!hideClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Fechar"
-                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
-              >
-                <IconX size={18} stroke={2} />
-              </button>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          key="modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1, transition: { duration: 0.2, ease: motionEasing } }}
+          exit={{ opacity: 0, transition: { duration: 0.15, ease: motionEasing } }}
+          onMouseDown={(e) => {
+            // fecha só se o clique começou no backdrop
+            if (e.target === e.currentTarget) onClose()
+          }}
+        >
+          <motion.div
+            key="modal-dialog"
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={title ? titleId : undefined}
+            aria-describedby={description ? descId : undefined}
+            tabIndex={-1}
+            className={cn(
+              'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)]',
+              sizeMap[size],
+              className,
             )}
-          </div>
-        )}
-        <div>{children}</div>
-      </div>
-    </div>,
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0, transition: { duration: 0.2, ease: motionEasing } }}
+            exit={{ opacity: 0, scale: 0.97, y: 4, transition: { duration: 0.15, ease: motionEasing } }}
+          >
+            {(title || !hideClose) && (
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex-1 min-w-0">
+                  {title && (
+                    <h2
+                      id={titleId}
+                      className="text-lg font-bold text-neutral-950 neon-theme:text-white"
+                    >
+                      {title}
+                    </h2>
+                  )}
+                  {description && (
+                    <p id={descId} className="mt-1 text-sm text-neutral-600 neon-theme:text-text-md">
+                      {description}
+                    </p>
+                  )}
+                </div>
+                {!hideClose && (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Fechar"
+                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
+                  >
+                    <IconX size={18} stroke={2} />
+                  </button>
+                )}
+              </div>
+            )}
+            <div>{children}</div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>,
     document.body,
   )
 }

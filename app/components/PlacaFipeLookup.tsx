@@ -23,7 +23,7 @@ import {
   IconClock,
   IconDatabase,
 } from '@tabler/icons-react'
-import { Button, Select } from '@/app/components/ui'
+import { Button, Select, ZoomIn } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { maskPlate } from '@/utils/masks'
 
@@ -410,7 +410,7 @@ export default function PlacaFipeLookup({
 
       {/* ─── Resultado ─────────────────────────────────────────────────── */}
       {status === 'success' && result && (
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs space-y-6 animate-in fade-in zoom-in-95 duration-300">
+        <ZoomIn className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs space-y-6">
 
           {/* Cabeçalho */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-neutral-100 pb-4">
@@ -581,7 +581,7 @@ export default function PlacaFipeLookup({
               </Link>
             </div>
           </div>
-        </div>
+        </ZoomIn>
       )}
     </div>
   )

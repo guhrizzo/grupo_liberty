@@ -159,12 +159,14 @@
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* Respeita preferências de acessibilidade: desativa animações decorativas. */
+/* Respeita preferências de acessibilidade: desativa apenas animações
+   decorativas (keyframes/loops). Não toca em transitions de hover/focus
+   para não endurecer microinterações (o `MotionConfig` global já lida
+   com animações JS). */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
 }

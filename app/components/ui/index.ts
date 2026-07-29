@@ -37,3 +37,18 @@ export type { ToastInput, ToastTone } from './Toast'
 
 export { Breadcrumb } from './Breadcrumb'
 export type { BreadcrumbItem } from './Breadcrumb'
+
+export {
+  FadeIn,
+  ZoomIn,
+  FadeUp,
+  SlideInRight,
+  fadeInVariants,
+  zoomInVariants,
+  fadeUpVariants,
+  slideInRightVariants,
+  slideInLeftVariants,
+  motionStaggerContainer,
+  motionStaggerItem,
+  motionEasing,
+} from './motion-presets'

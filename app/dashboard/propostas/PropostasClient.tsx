@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconNote, IconDownload, IconBrandWhatsapp, IconPhone, IconMail, IconTrash, IconFilter, IconX, IconSearch, IconCalendar, IconCar } from '@tabler/icons-react'
+import { IconNote, IconDownload, IconBrandWhatsapp, IconPhone, IconMail, IconTrash, IconFilter, IconX, IconSearch, IconCalendar, IconCar, IconFileText } from '@tabler/icons-react'
 import { updatePropostaStatus, deleteProposta, type Proposta } from './actions'
-import { Breadcrumb, EmptyState, useToast } from '@/app/components/ui'
+import { Breadcrumb, EmptyState, useToast, ZoomIn } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 
 interface PropostasClientProps {
@@ -204,27 +204,36 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
             </div>
 
             {/* Botão de Expandir Painel de Filtros Avançados */}
-            <button
-              onClick={() => setFiltersOpen(!filtersOpen)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                filtersOpen || hasActiveFilters
-                  ? 'border-neutral-900 bg-neutral-900 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-              }`}
-            >
-              <IconFilter size={15} />
-              Filtros Avançados
-              {hasActiveFilters && (
-                <span className="ml-1 rounded-full bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
-                  •
-                </span>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                  filtersOpen || hasActiveFilters
+                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                    : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                <IconFilter size={15} />
+                Filtros Avançados
+                {hasActiveFilters && (
+                  <span className="ml-1 rounded-full bg-emerald-500 text-white text-[10px] px-1.5 py-0.2 font-bold">
+                    •
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-lg bg-liberty text-white px-4 py-2 text-xs font-bold shadow-sm transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
+              >
+                <IconFileText size={15} />
+                Gerador de proposta
+              </button>
+            </div>
           </div>
 
           {/* Painel Expansível de Filtros Avançados */}
           {filtersOpen && (
-            <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4 animate-in fade-in zoom-in-95">
+            <ZoomIn className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {/* Filtro por Nome do Cliente */}
                 <div>
@@ -305,7 +314,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                   </button>
                 </div>
               )}
-            </div>
+            </ZoomIn>
           )}
 
           {/* Contador de Resultados */}
@@ -528,7 +537,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
       {/* Modal de confirmação de exclusão */}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 p-8 max-w-sm w-full mx-4 animate-in fade-in zoom-in-95">
+          <ZoomIn className="bg-white rounded-2xl shadow-2xl border border-neutral-200 p-8 max-w-sm w-full mx-4">
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-rose-50 border border-rose-100 mx-auto mb-4">
               <IconTrash size={22} className="text-rose-600" stroke={2} />
             </div>
@@ -550,7 +559,7 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                 Excluir
               </button>
             </div>
-          </div>
+          </ZoomIn>
         </div>
       )}
     </div>

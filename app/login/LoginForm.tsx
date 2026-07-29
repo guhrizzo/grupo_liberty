@@ -11,7 +11,7 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import LoadingBar from '../components/LoadingBar'
-import { Button, Input, useToast } from '../components/ui'
+import { Button, Input, useToast, ZoomIn } from '../components/ui'
 import { login, requestPasswordReset } from './actions'
 
 const initialState: { error?: string } = {}
@@ -141,7 +141,7 @@ export default function LoginForm({
       {/* Modal de Recuperação de Senha */}
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in-95">
+          <ZoomIn className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
             <button
               type="button"
               onClick={() => setShowResetModal(false)}
@@ -207,7 +207,7 @@ export default function LoginForm({
                 </Button>
               </div>
             </form>
-          </div>
+          </ZoomIn>
         </div>
       )}
     </>
