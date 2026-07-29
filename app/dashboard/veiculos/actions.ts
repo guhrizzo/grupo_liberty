@@ -33,6 +33,17 @@ export interface Veiculo {
   custoAcumulado: number | null
   debitos: number | null
   parcelasRestantes: number | null
+  // Financiamento — projeção de quitação
+  /** Banco do financiamento (texto livre). Mantido por compat com cadastros antigos. */
+  banco: string | null
+  /** Código curto do banco (santander/bradesco/itau/bv/caixa/c6/outro). Opcional. */
+  bancoCodigo: string | null
+  /** Taxa de juros em % (não fração). */
+  taxaJuros: number | null
+  /** Em qual periodicidade a taxaJuros foi informada. */
+  taxaPeriodicidade: 'mensal' | 'anual' | null
+  /** Valor de entrada (R$). */
+  valorEntrada: number | null
   // Dados do vendedor
   sellerName: string | null
   sellerCpf: string | null
@@ -62,6 +73,8 @@ export type VeiculoFieldErrors = {
   custoAcumulado?: string
   debitos?: string
   parcelasRestantes?: string
+  taxaJuros?: string
+  valorEntrada?: string
 }
 
 export type VeiculoResponse = {
@@ -145,6 +158,14 @@ export async function getVehicles(): Promise<Veiculo[]> {
         custoAcumulado: data.custoAcumulado ?? null,
         debitos: data.debitos ?? null,
         parcelasRestantes: data.parcelasRestantes ?? null,
+        banco: data.banco || null,
+        bancoCodigo: data.bancoCodigo || null,
+        taxaJuros: data.taxaJuros ?? null,
+        taxaPeriodicidade:
+          data.taxaPeriodicidade === 'anual' || data.taxaPeriodicidade === 'mensal'
+            ? data.taxaPeriodicidade
+            : null,
+        valorEntrada: data.valorEntrada ?? null,
         sellerName: data.sellerName || null,
         sellerCpf: data.sellerCpf || null,
         sellerBirthDate: data.sellerBirthDate || null,
@@ -258,6 +279,22 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const debitos = debitosRaw ? parseFloat(debitosRaw) : null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  // Financiamento — projeção de quitação
+  const bancoRaw = ((formData.get('banco') as string) || '').trim()
+  const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
+  const bancoCodigo = bancoCodigoRaw || null
+  const banco = bancoRaw || null
+  const taxaJurosRaw = (formData.get('taxaJuros') as string) || ''
+  const taxaJuros = taxaJurosRaw ? parseFloat(taxaJurosRaw.replace(',', '.')) : null
+  const taxaPeriodicidadeRaw = ((formData.get('taxaPeriodicidade') as string) || '').trim()
+  const taxaPeriodicidade: 'mensal' | 'anual' | null =
+    taxaPeriodicidadeRaw === 'anual'
+      ? 'anual'
+      : taxaPeriodicidadeRaw === 'mensal'
+        ? 'mensal'
+        : null
+  const valorEntradaRaw = (formData.get('valorEntrada') as string) || ''
+  const valorEntrada = valorEntradaRaw ? parseFloat(valorEntradaRaw) : null
   // Dados do vendedor
   const sellerName = ((formData.get('sellerName') as string) || '').trim() || null
   const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
@@ -335,6 +372,13 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     fieldErrors.parcelasRestantes = 'Parcelas inválidas.'
   }
 
+  if (taxaJuros !== null && (Number.isNaN(taxaJuros) || taxaJuros < 0 || taxaJuros > 50)) {
+    fieldErrors.taxaJuros = 'Taxa de juros inválida (0 a 50%).'
+  }
+  if (valorEntrada !== null && (Number.isNaN(valorEntrada) || valorEntrada < 0)) {
+    fieldErrors.valorEntrada = 'Entrada inválida.'
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
@@ -370,6 +414,11 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       custoAcumulado,
       debitos,
       parcelasRestantes,
+      banco,
+      bancoCodigo,
+      taxaJuros,
+      taxaPeriodicidade,
+      valorEntrada,
       sellerName,
       sellerCpf,
       sellerBirthDate,
@@ -566,6 +615,22 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const debitos = debitosRaw ? parseFloat(debitosRaw) : null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  // Financiamento — projeção de quitação
+  const bancoRaw = ((formData.get('banco') as string) || '').trim()
+  const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
+  const bancoCodigo = bancoCodigoRaw || null
+  const banco = bancoRaw || null
+  const taxaJurosRaw = (formData.get('taxaJuros') as string) || ''
+  const taxaJuros = taxaJurosRaw ? parseFloat(taxaJurosRaw.replace(',', '.')) : null
+  const taxaPeriodicidadeRaw = ((formData.get('taxaPeriodicidade') as string) || '').trim()
+  const taxaPeriodicidade: 'mensal' | 'anual' | null =
+    taxaPeriodicidadeRaw === 'anual'
+      ? 'anual'
+      : taxaPeriodicidadeRaw === 'mensal'
+        ? 'mensal'
+        : null
+  const valorEntradaRaw = (formData.get('valorEntrada') as string) || ''
+  const valorEntrada = valorEntradaRaw ? parseFloat(valorEntradaRaw) : null
   // Dados do vendedor
   const sellerName = ((formData.get('sellerName') as string) || '').trim() || null
   const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
@@ -680,6 +745,11 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       custoAcumulado,
       debitos,
       parcelasRestantes,
+      banco,
+      bancoCodigo,
+      taxaJuros,
+      taxaPeriodicidade,
+      valorEntrada,
       sellerName,
       sellerCpf,
       sellerBirthDate,

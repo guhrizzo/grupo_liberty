@@ -18,6 +18,8 @@ import {
 } from '../../components/ui'
 import { formatCurrency, formatKm } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits } from '@/utils/masks'
+import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
+import ProjecaoQuitacao from '../../components/ProjecaoQuitacao'
 import {
   createVehicle,
   updateVehicle,
@@ -111,6 +113,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Financiamento
   const [banco, setBanco] = useState('')
+  const [bancoCodigo, setBancoCodigo] = useState<'' | 'santander' | 'bradesco' | 'itau' | 'bv' | 'caixa' | 'c6' | 'outro'>('')
+  const [taxaJuros, setTaxaJuros] = useState('')
+  const [taxaPeriodicidade, setTaxaPeriodicidade] = useState<'mensal' | 'anual'>('mensal')
+  const [valorEntrada, setValorEntrada] = useState('')
   const [parcelasRestantes, setParcelasRestantes] = useState('')
   const [valorParcela, setValorParcela] = useState('')
   const [custoAcumulado, setCustoAcumulado] = useState('')
@@ -259,6 +265,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setOutraCidade('')
     setFinalidade('venda')
     setBanco('')
+    setBancoCodigo('')
+    setTaxaJuros('')
+    setTaxaPeriodicidade('mensal')
+    setValorEntrada('')
     setParcelasRestantes('')
     setValorParcela('')
     setCustoAcumulado('')
@@ -307,6 +317,24 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     }
 
     setFinalidade(veiculo.finalidade || 'venda')
+    setBanco(veiculo.banco || '')
+    const codigosValidos = ['santander', 'bradesco', 'itau', 'bv', 'caixa', 'c6', 'outro']
+    const codigo: '' | 'santander' | 'bradesco' | 'itau' | 'bv' | 'caixa' | 'c6' | 'outro' =
+      veiculo.bancoCodigo && codigosValidos.includes(veiculo.bancoCodigo)
+        ? (veiculo.bancoCodigo as typeof codigo)
+        : ''
+    setBancoCodigo(codigo)
+    setTaxaJuros(
+      veiculo.taxaJuros !== null && veiculo.taxaJuros !== undefined
+        ? String(veiculo.taxaJuros)
+        : '',
+    )
+    setTaxaPeriodicidade(veiculo.taxaPeriodicidade === 'anual' ? 'anual' : 'mensal')
+    setValorEntrada(
+      veiculo.valorEntrada !== null && veiculo.valorEntrada !== undefined
+        ? String(veiculo.valorEntrada)
+        : '',
+    )
     setParcelasRestantes(veiculo.parcelasRestantes !== null ? String(veiculo.parcelasRestantes) : '')
     setValorParcela(veiculo.valorParcela ? formatCurrency(veiculo.valorParcela).replace('R$', '').trim() : '')
     setCustoAcumulado(veiculo.custoAcumulado ? formatCurrency(veiculo.custoAcumulado).replace('R$', '').trim() : '')
@@ -389,6 +417,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
       // Financiamento
       formData.append('banco', banco)
+      formData.append('bancoCodigo', bancoCodigo)
+      formData.append('taxaJuros', taxaJuros)
+      formData.append('taxaPeriodicidade', taxaPeriodicidade)
+      formData.append('valorEntrada', valorEntrada ? String(parseMoney(valorEntrada) || 0) : '')
       formData.append('parcelasRestantes', parcelasRestantes)
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
@@ -870,29 +902,154 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Financiamento
                 </h3>
+
+                {/* Banco */}
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Input
-                    id="banco"
+                  <Select
+                    id="bancoCodigo"
                     label="Banco"
-                    value={banco}
-                    onChange={(e) => setBanco(e.target.value)}
-                    placeholder="Ex: Santander"
-                    autoComplete="off"
-                  />
-                  <Input
-                    id="parcelasRestantes"
-                    label="Parcelas restantes"
-                    type="number"
-                    min="0"
-                    value={parcelasRestantes}
-                    onChange={(e) => setParcelasRestantes(e.target.value)}
-                    placeholder="Ex: 24"
-                    inputMode="numeric"
-                    error={fieldErrors.parcelasRestantes}
-                  />
+                    value={bancoCodigo}
+                    onChange={(e) => {
+                      const v = e.target.value as typeof bancoCodigo
+                      setBancoCodigo(v)
+                      // Pré-preenche taxa sugerida se houver e o usuário ainda não mexeu
+                      const taxa = TAXAS_SUGERIDAS[v as keyof typeof TAXAS_SUGERIDAS]
+                      if (taxa && !taxaJuros) {
+                        setTaxaJuros(String(taxa).replace('.', ','))
+                      }
+                      if (v !== 'outro') {
+                        const labels: Record<string, string> = {
+                          santander: 'Santander',
+                          bradesco: 'Bradesco',
+                          itau: 'Itaú',
+                          bv: 'BV',
+                          caixa: 'Caixa',
+                          c6: 'C6',
+                        }
+                        setBanco(labels[v as keyof typeof labels] || '')
+                      } else {
+                        setBanco('')
+                      }
+                    }}
+                  >
+                    <option value="">Selecione…</option>
+                    <option value="santander">Santander</option>
+                    <option value="bradesco">Bradesco</option>
+                    <option value="itau">Itaú</option>
+                    <option value="bv">BV Financeira</option>
+                    <option value="caixa">Caixa Econômica</option>
+                    <option value="c6">C6 Bank</option>
+                    <option value="outro">Outro</option>
+                  </Select>
+
+                  {bancoCodigo === 'outro' && (
+                    <Input
+                      id="banco"
+                      label="Nome do banco"
+                      value={banco}
+                      onChange={(e) => setBanco(e.target.value)}
+                      placeholder="Ex: Banco Pan"
+                      autoComplete="off"
+                    />
+                  )}
+
+                  <div className="grid gap-4 sm:grid-cols-2 sm:col-span-2 lg:grid-cols-3">
+                    {/* Taxa + toggle mensal/anual */}
+                    <div>
+                      <label
+                        htmlFor="taxaJuros"
+                        className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5"
+                      >
+                        Taxa de juros
+                      </label>
+                      <Input
+                        id="taxaJuros"
+                        type="text"
+                        inputMode="decimal"
+                        value={taxaJuros}
+                        onChange={(e) => setTaxaJuros(e.target.value)}
+                        placeholder={taxaPeriodicidade === 'anual' ? 'Ex: 24' : 'Ex: 1,99'}
+                        leftIcon={<span className="text-[10px] font-bold text-neutral-500">%</span>}
+                        error={fieldErrors.taxaJuros}
+                      />
+                      <div className="mt-2 flex items-center gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (taxaPeriodicidade === 'anual' && taxaJuros) {
+                              const m = taxaAnualParaMensal(parseFloat(taxaJuros.replace(',', '.'))) * 100
+                              setTaxaJuros(m ? m.toFixed(2).replace('.', ',') : '')
+                            }
+                            setTaxaPeriodicidade('mensal')
+                          }}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                            taxaPeriodicidade === 'mensal'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'text-neutral-500 hover:bg-neutral-100'
+                          }`}
+                        >
+                          a.m.
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (taxaPeriodicidade === 'mensal' && taxaJuros) {
+                              const a = taxaMensalParaAnual(parseFloat(taxaJuros.replace(',', '.')))
+                              setTaxaJuros(a ? a.toFixed(2).replace('.', ',') : '')
+                            }
+                            setTaxaPeriodicidade('anual')
+                          }}
+                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                            taxaPeriodicidade === 'anual'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'text-neutral-500 hover:bg-neutral-100'
+                          }`}
+                        >
+                          a.a.
+                        </button>
+                      </div>
+                    </div>
+
+                    <Input
+                      id="valorEntrada"
+                      label="Entrada (R$)"
+                      type="text"
+                      inputMode="decimal"
+                      value={valorEntrada}
+                      onChange={(e) => setValorEntrada(maskMoney(e.target.value))}
+                      placeholder="R$ 0,00"
+                      leftIcon={<IconCash size={14} />}
+                      error={fieldErrors.valorEntrada}
+                      rightAdornment={
+                        valorEntrada ? (
+                          <ClearMoneyButton
+                            value={valorEntrada}
+                            onClear={() => setValorEntrada('')}
+                            label="Entrada"
+                          />
+                        ) : undefined
+                      }
+                    />
+
+                    <Input
+                      id="parcelasRestantes"
+                      label="Parcelas restantes"
+                      type="number"
+                      min="0"
+                      value={parcelasRestantes}
+                      onChange={(e) => setParcelasRestantes(e.target.value)}
+                      placeholder="Ex: 24"
+                      inputMode="numeric"
+                      error={fieldErrors.parcelasRestantes}
+                    />
+                  </div>
+                </div>
+
+                {/* Valor da parcela + custo acumulado (legados) */}
+                <div className="grid gap-4 sm:grid-cols-2 mt-4">
                   <Input
                     id="valorParcela"
-                    label="Valor da parcela (R$)"
+                    label="Valor da parcela atual (R$)"
                     type="text"
                     inputMode="decimal"
                     value={valorParcela}
@@ -929,6 +1086,17 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         />
                       ) : undefined
                     }
+                  />
+                </div>
+
+                {/* Projeção de quitação ao vivo */}
+                <div className="mt-4">
+                  <ProjecaoQuitacao
+                    valorVeiculo={parseMoney(preco)}
+                    entrada={parseMoney(valorEntrada)}
+                    taxaPercent={parseFloat((taxaJuros || '0').replace(',', '.')) || 0}
+                    taxaPeriodicidade={taxaPeriodicidade}
+                    prazoMeses={parseInt(parcelasRestantes || '0', 10)}
                   />
                 </div>
               </div>
