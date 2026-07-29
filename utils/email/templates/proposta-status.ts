@@ -167,7 +167,7 @@ export function renderPropostaStatusEmail(data: PropostaEmailData): string {
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
                 <tr>
                   <td style="background-color:#09090b;border-radius:10px;padding:14px 32px;">
-                    <a href="https://www.grupolibertycar.com.br/veiculos" style="color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.5px;">
+                    <a href="https://www.grupolibertycar.com.br/" style="color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;letter-spacing:0.5px;">
                       Ver catálogo de veículos →
                     </a>
                   </td>
