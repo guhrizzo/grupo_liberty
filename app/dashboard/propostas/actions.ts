@@ -4,8 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { sendPropostaStatusEmail } from '@/utils/email/send-proposta-email'
-import { decrypt } from '@/utils/crypto'
-import { maskCPFCNPJ } from '@/utils/masks'
+import { decrypt, encrypt } from '@/utils/crypto'
+import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
+import { validarCPF } from '@/utils/validadorCpf'
 
 export interface Proposta {
   id: string
@@ -286,5 +287,138 @@ export async function updatePropostaComercial(
     return { success: 'Proposta atualizada com sucesso.' }
   } catch (err: any) {
     return { error: err.message || 'Erro ao atualizar proposta.' }
+  }
+}
+
+/**
+ * Lista os veículos disponíveis para vincular a uma proposta.
+ * Retorna apenas dados básicos (id, marca, modelo, preco).
+ */
+export interface VeiculoResumo {
+  id: string
+  marca: string
+  modelo: string
+  preco: number | null
+  ano?: number | null
+  foto?: string | null
+}
+
+export async function listVeiculosForProposta(): Promise<VeiculoResumo[]> {
+  try {
+    await assertAuthorized()
+
+    const snapshot = await adminDb
+      .collection('veiculos')
+      .orderBy('created_at', 'desc')
+      .get()
+
+    const result: VeiculoResumo[] = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      const fotos = Array.isArray(data.fotos) ? (data.fotos as string[]) : []
+      result.push({
+        id: doc.id,
+        marca: data.marca ?? '',
+        modelo: data.modelo ?? '',
+        preco: typeof data.preco === 'number' ? data.preco : null,
+        ano: data.ano ?? null,
+        foto: fotos[0] ?? null,
+      })
+    })
+    return result
+  } catch (err) {
+    console.error('Erro ao listar veículos para proposta:', err)
+    return []
+  }
+}
+
+export interface CreatePropostaInput {
+  veiculo_id: string
+  nome: string
+  cpf: string
+  telefone: string
+  email: string
+  valor: number | null
+  mensagem: string
+  status?: 'pendente' | 'aceito' | 'recusado'
+}
+
+/**
+ * Cria uma nova proposta manualmente pelo dashboard.
+ * Usado pelo botão "Cadastrar nova proposta" no Gerador.
+ */
+export async function createProposta(
+  input: CreatePropostaInput,
+): Promise<{ success?: string; error?: string; id?: string }> {
+  try {
+    await assertAuthorized()
+
+    const veiculo_id = String(input.veiculo_id ?? '').trim()
+    const nome = String(input.nome ?? '').trim()
+    const cpfDigits = onlyDigits(String(input.cpf ?? ''))
+    const telefone = String(input.telefone ?? '').trim()
+    const email = String(input.email ?? '').trim()
+    const mensagem = String(input.mensagem ?? '').trim()
+    const status =
+      input.status && ['pendente', 'aceito', 'recusado'].includes(input.status)
+        ? input.status
+        : 'pendente'
+
+    if (!veiculo_id) return { error: 'Selecione um veículo.' }
+    if (!nome || nome.length < 2) return { error: 'Informe o nome completo do cliente.' }
+    if (!cpfDigits || !validarCPF(cpfDigits)) {
+      return { error: 'O CPF informado é inválido.' }
+    }
+    if (!telefone || telefone.length < 8) {
+      return { error: 'Informe um telefone/WhatsApp de contato válido.' }
+    }
+    if (!email || !email.includes('@')) {
+      return { error: 'Informe um endereço de e-mail válido.' }
+    }
+    if (!mensagem) {
+      return { error: 'A mensagem de interesse é obrigatória.' }
+    }
+
+    const valor =
+      input.valor === null || input.valor === undefined
+        ? null
+        : Number(input.valor)
+
+    if (valor !== null && (!Number.isFinite(valor) || valor <= 0)) {
+      return { error: 'Valor da proposta inválido.' }
+    }
+
+    // Verifica se o veículo existe
+    const veiculoDoc = await adminDb.collection('veiculos').doc(veiculo_id).get()
+    if (!veiculoDoc.exists) {
+      return { error: 'Veículo não encontrado.' }
+    }
+
+    const cpfCriptografado = encrypt(cpfDigits)
+
+    const docRef = adminDb.collection('propostas').doc()
+    await docRef.set({
+      veiculo_id,
+      user_id: null,
+      nome,
+      cpf: cpfCriptografado,
+      telefone,
+      email,
+      valor,
+      mensagem,
+      status,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      origem: 'manual',
+    })
+
+    revalidatePath('/dashboard/propostas')
+    revalidatePath('/dashboard/propostas/gerador')
+
+    return { success: 'Proposta cadastrada com sucesso!', id: docRef.id }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao cadastrar proposta.'
+    console.error('Erro ao cadastrar proposta:', err)
+    return { error: message }
   }
 }

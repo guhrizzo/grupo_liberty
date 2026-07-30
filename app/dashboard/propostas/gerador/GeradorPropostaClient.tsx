@@ -17,10 +17,20 @@ import {
   IconAlertCircle,
   IconArrowLeft,
   IconFolderOpen,
+  IconPlus,
 } from '@tabler/icons-react'
-import { Breadcrumb, useToast, Input, Textarea, ConfirmDialog } from '@/app/components/ui'
+import {
+  Breadcrumb,
+  useToast,
+  Input,
+  Textarea,
+  ConfirmDialog,
+} from '@/app/components/ui'
 import { formatCurrency, formatDateTime } from '@/utils/format'
-import { moneyFromNumber, parseMoney } from '@/utils/masks'
+import {
+  moneyFromNumber,
+  parseMoney,
+} from '@/utils/masks'
 import type { Proposta } from '../actions'
 
 interface GeradorPropostaClientProps {
@@ -68,7 +78,7 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
-  
+
   // Estado para controle do modal profissional de permissão de pasta
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -392,14 +402,23 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
             autorização. O status da proposta <strong className="font-semibold text-neutral-700">não será alterado</strong>.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push('/dashboard/propostas')}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
-        >
-          <IconArrowLeft size={14} stroke={2.5} />
-          Voltar
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/dashboard/propostas/nova"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-liberty px-4 py-2 text-xs font-bold text-white shadow-xs transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep"
+          >
+            <IconPlus size={14} stroke={2.5} />
+            Cadastrar nova proposta
+          </Link>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/propostas')}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+          >
+            <IconArrowLeft size={14} stroke={2.5} />
+            Voltar
+          </button>
+        </div>
       </div>
 
       {/* Grid 2 colunas */}
