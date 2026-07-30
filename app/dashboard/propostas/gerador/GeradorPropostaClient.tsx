@@ -16,8 +16,9 @@ import {
   IconCalendar,
   IconAlertCircle,
   IconArrowLeft,
+  IconFolderOpen,
 } from '@tabler/icons-react'
-import { Breadcrumb, useToast, Input, Textarea } from '@/app/components/ui'
+import { Breadcrumb, useToast, Input, Textarea, ConfirmDialog } from '@/app/components/ui'
 import { formatCurrency, formatDateTime } from '@/utils/format'
 import { moneyFromNumber, parseMoney } from '@/utils/masks'
 import type { Proposta } from '../actions'
@@ -67,6 +68,10 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  
+  // Estado para controle do modal profissional de permissão de pasta
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingId, setPendingId] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -99,6 +104,38 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
 
   const formRef = useRef<HTMLDivElement>(null)
 
+  // Estado do diretório selecionado para salvar o PDF
+  const [dirHandle, setDirHandle] = useState<any>(null)
+  const [dirName, setDirName] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('liberty_pdf_dir_name')
+    }
+    return null
+  })
+
+  const handleEscolherPasta = async () => {
+    try {
+      if (!('showDirectoryPicker' in window)) {
+        toast.info(
+          'Seu navegador não oferece suporte à escolha de pastas nativa. O PDF será baixado na sua pasta de Downloads padrão.',
+          'Recurso Indisponível'
+        )
+        return
+      }
+      const handle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite',
+      })
+      setDirHandle(handle)
+      setDirName(handle.name)
+      localStorage.setItem('liberty_pdf_dir_name', handle.name)
+      toast.success(`Pasta "${handle.name}" selecionada com sucesso!`, 'Pronto')
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        toast.error('Ocorreu um erro ao selecionar a pasta.', 'Falha')
+      }
+    }
+  }
+
   const handleGerarPDF = async (id: string) => {
     setLoadingId(id)
     try {
@@ -108,9 +145,13 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
       const condicoesInput = formRef.current?.querySelector<HTMLTextAreaElement>(
         'textarea[name="condicoes"]',
       )
+      const nomeInput = formRef.current?.querySelector<HTMLInputElement>(
+        'input[name="nome_arquivo"]',
+      )
 
       const comercialRaw = comercialInput?.value ?? ''
       const condicoesRaw = condicoesInput?.value ?? ''
+      let nomeRaw = nomeInput?.value?.trim() ?? ''
 
       const params = new URLSearchParams()
       const comercialNum = parseMoney(comercialRaw)
@@ -130,10 +171,57 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
         return
       }
       const blob = await res.blob()
+
+      // Higienização simples do nome do arquivo
+      if (!nomeRaw) {
+        nomeRaw = `autorizacao-proposta-${id}`
+      }
+      if (!nomeRaw.toLowerCase().endsWith('.pdf')) {
+        nomeRaw = `${nomeRaw}.pdf`
+      }
+      const fileName = nomeRaw.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+
+      // Se temos o suporte e o handle da pasta, salva diretamente lá
+      if ('showDirectoryPicker' in window && (dirHandle || dirName)) {
+        try {
+          let activeHandle = dirHandle
+          if (!activeHandle) {
+            // Se o handle não está ativo nesta sessão, abrimos o ConfirmDialog profissional
+            setPendingId(id)
+            setConfirmOpen(true)
+            setLoadingId(null)
+            return
+          }
+
+          // Verificar permissões
+          const options = { mode: 'readwrite' as const }
+          if ((await activeHandle.queryPermission(options)) !== 'granted') {
+            if ((await activeHandle.requestPermission(options)) !== 'granted') {
+              throw new Error('Permissão negada pelo usuário')
+            }
+          }
+
+          const fileHandle = await activeHandle.getFileHandle(fileName, { create: true })
+          const writable = await fileHandle.createWritable()
+          await writable.write(blob)
+          await writable.close()
+          toast.success(`PDF salvo diretamente em: ${activeHandle.name}/${fileName}`, 'Salvo com sucesso!')
+          return
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            setLoadingId(null)
+            return
+          }
+          console.error('Falha ao gravar arquivo via File System Access:', err)
+          toast.info('Falha ao gravar na pasta escolhida. Iniciando download padrão...', 'Download alternativo')
+        }
+      }
+
+      // Fallback: download padrão do navegador
       const dlUrl = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = dlUrl
-      a.download = `autorizacao-proposta-${id}.pdf`
+      a.download = fileName
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -143,6 +231,136 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
       toast.error('Erro de conexão ao gerar o PDF.', 'Falha no download')
     } finally {
       setLoadingId(null)
+    }
+  }
+
+  const handleConfirmarReautorizacao = async () => {
+    if (!pendingId) return
+    const id = pendingId
+    setConfirmOpen(false)
+    setPendingId(null)
+    setLoadingId(id)
+    try {
+      toast.info('Selecione novamente a pasta para conceder a permissão de gravação nesta sessão.', 'Ação Necessária')
+      const activeHandle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite',
+      })
+      setDirHandle(activeHandle)
+      setDirName(activeHandle.name)
+      localStorage.setItem('liberty_pdf_dir_name', activeHandle.name)
+
+      // Reprocessa a geração com o novo handle
+      // Buscar inputs
+      const comercialInput = formRef.current?.querySelector<HTMLInputElement>(
+        'input[name="proposta_comercial"]',
+      )
+      const condicoesInput = formRef.current?.querySelector<HTMLTextAreaElement>(
+        'textarea[name="condicoes"]',
+      )
+      const nomeInput = formRef.current?.querySelector<HTMLInputElement>(
+        'input[name="nome_arquivo"]',
+      )
+
+      const comercialRaw = comercialInput?.value ?? ''
+      const condicoesRaw = condicoesInput?.value ?? ''
+      let nomeRaw = nomeInput?.value?.trim() ?? ''
+
+      const params = new URLSearchParams()
+      const comercialNum = parseMoney(comercialRaw)
+      if (comercialRaw.trim() && comercialNum > 0) {
+        params.set('proposta_comercial', comercialNum.toString())
+      }
+      if (condicoesRaw.trim()) {
+        params.set('condicoes', condicoesRaw.trim())
+      }
+      const qs = params.toString()
+      const url = `/api/propostas/${id}/pdf-autorizacao${qs ? `?${qs}` : ''}`
+
+      const res = await fetch(url)
+      if (!res.ok) {
+        const errorText = await res.text()
+        toast.error(errorText || 'Erro ao gerar PDF.', 'Falha no download')
+        return
+      }
+      const blob = await res.blob()
+      
+      if (!nomeRaw) {
+        nomeRaw = `autorizacao-proposta-${id}`
+      }
+      if (!nomeRaw.toLowerCase().endsWith('.pdf')) {
+        nomeRaw = `${nomeRaw}.pdf`
+      }
+      const fileName = nomeRaw.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+
+      const fileHandle = await activeHandle.getFileHandle(fileName, { create: true })
+      const writable = await fileHandle.createWritable()
+      await writable.write(blob)
+      await writable.close()
+      toast.success(`PDF salvo diretamente em: ${activeHandle.name}/${fileName}`, 'Salvo com sucesso!')
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        toast.info('Gravação cancelada. Iniciando download padrão...', 'Download alternativo')
+        // Tenta fazer o download clássico em caso de recusa
+        handleDownloadFallback(id)
+      } else {
+        console.error('Falha ao gravar arquivo via File System Access:', err)
+        toast.info('Falha ao gravar na pasta escolhida. Iniciando download padrão...', 'Download alternativo')
+        handleDownloadFallback(id)
+      }
+    } finally {
+      setLoadingId(null)
+    }
+  }
+
+  const handleDownloadFallback = async (id: string) => {
+    try {
+      const comercialInput = formRef.current?.querySelector<HTMLInputElement>(
+        'input[name="proposta_comercial"]',
+      )
+      const condicoesInput = formRef.current?.querySelector<HTMLTextAreaElement>(
+        'textarea[name="condicoes"]',
+      )
+      const nomeInput = formRef.current?.querySelector<HTMLInputElement>(
+        'input[name="nome_arquivo"]',
+      )
+      const comercialRaw = comercialInput?.value ?? ''
+      const condicoesRaw = condicoesInput?.value ?? ''
+      let nomeRaw = nomeInput?.value?.trim() ?? ''
+
+      const params = new URLSearchParams()
+      const comercialNum = parseMoney(comercialRaw)
+      if (comercialRaw.trim() && comercialNum > 0) {
+        params.set('proposta_comercial', comercialNum.toString())
+      }
+      if (condicoesRaw.trim()) {
+        params.set('condicoes', condicoesRaw.trim())
+      }
+      const qs = params.toString()
+      const url = `/api/propostas/${id}/pdf-autorizacao${qs ? `?${qs}` : ''}`
+
+      const res = await fetch(url)
+      if (!res.ok) return
+      const blob = await res.blob()
+      const dlUrl = URL.createObjectURL(blob)
+      
+      if (!nomeRaw) {
+        nomeRaw = `autorizacao-proposta-${id}`
+      }
+      if (!nomeRaw.toLowerCase().endsWith('.pdf')) {
+        nomeRaw = `${nomeRaw}.pdf`
+      }
+      const fileName = nomeRaw.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+
+      const a = document.createElement('a')
+      a.href = dlUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(dlUrl)
+      toast.success('PDF de autorização baixado.', 'Pronto!')
+    } catch (e) {
+      console.error(e)
     }
   }
 
@@ -365,6 +583,13 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
                     <IconFileText size={12} /> Configuração do PDF
                   </span>
                   <Input
+                    name="nome_arquivo"
+                    label="Nome do Arquivo PDF"
+                    defaultValue={`autorizacao-proposta-${selected.id.slice(0, 8).toUpperCase()}`}
+                    placeholder="Nome do arquivo"
+                    hint="Nome que o arquivo PDF terá ao ser gravado na pasta ou baixado."
+                  />
+                  <Input
                     name="proposta_comercial"
                     label="Proposta Comercial (R$)"
                     mask="money"
@@ -390,40 +615,83 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
               </div>
 
               {/* Footer do detalhe */}
-              <div className="flex items-center justify-end gap-2 border-t border-neutral-100 bg-neutral-50/40 px-5 py-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(null)}
-                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
-                >
-                  Limpar seleção
-                </button>
-                <button
-                  type="button"
-                  disabled={loadingId === selected.id}
-                  onClick={() => handleGerarPDF(selected.id)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-liberty px-4 py-2 text-xs font-bold text-white shadow-xs transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loadingId === selected.id ? (
-                    <>
-                      <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                      Gerando...
-                    </>
-                  ) : (
-                    <>
-                      <IconDownload size={14} stroke={2.5} />
-                      Gerar PDF de Autorização
-                    </>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/40 px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleEscolherPasta}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                  >
+                    <IconFolderOpen size={14} className="text-neutral-500" />
+                    {dirName ? 'Alterar pasta' : 'Escolher pasta'}
+                  </button>
+                  {dirName && (
+                    <span className="text-[11px] text-neutral-500 font-medium truncate max-w-[150px]" title={dirName}>
+                      Salvar em: <strong className="text-neutral-700">{dirName}</strong>
+                    </span>
                   )}
-                </button>
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedId(null)}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                  >
+                    Limpar seleção
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loadingId === selected.id}
+                    onClick={() => handleGerarPDF(selected.id)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-liberty px-4 py-2 text-xs font-bold text-white shadow-xs transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingId === selected.id ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <IconDownload size={14} stroke={2.5} />
+                        Gerar PDF de Autorização
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </>
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false)
+          if (pendingId) {
+            handleDownloadFallback(pendingId)
+            setPendingId(null)
+          }
+        }}
+        onConfirm={handleConfirmarReautorizacao}
+        title="Confirmar Pasta de Destino"
+        description={
+          <p>
+            Por motivos de segurança do navegador, precisamos que você reconfirme a pasta de
+            destino <strong className="text-neutral-900 font-semibold">"{dirName}"</strong> para salvar o PDF diretamente.
+            <br />
+            <br />
+            Se desejar baixar na pasta padrão de downloads do seu navegador, clique em Cancelar.
+          </p>
+        }
+        confirmLabel="Confirmar Pasta"
+        cancelLabel="Baixar Normal"
+        tone="primary"
+      />
     </div>
   )
 }
