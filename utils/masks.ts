@@ -93,7 +93,10 @@ export function moneyFromNumber(value: number | string | null | undefined): stri
   if (value === null || value === undefined || value === '') return ''
   const n = typeof value === 'number' ? value : Number(String(value).replace(',', '.'))
   if (!Number.isFinite(n) || n <= 0) return ''
-  return maskMoney(String(n).replace('.', ','))
+  // maskMoney espera string de dígitos em centavos (últimos 2 = centavos).
+  // Multiplicamos por 100, arredondamos e passamos como string de dígitos puros.
+  const centavos = Math.round(n * 100)
+  return maskMoney(String(centavos))
 }
 
 /** Tabela de máscaras. */

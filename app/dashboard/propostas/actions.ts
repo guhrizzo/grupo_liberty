@@ -13,6 +13,8 @@ export interface Proposta {
   telefone?: string
   email?: string
   valor: number | null
+  proposta_comercial?: number | null
+  condicoes?: string | null
   mensagem: string
   status: 'pendente' | 'aceito' | 'recusado'
   created_at: string
@@ -110,6 +112,8 @@ export async function getPropostas(): Promise<Proposta[]> {
         telefone: clienteTelefone,
         email: clienteEmail,
         valor: p.valor,
+        proposta_comercial: p.proposta_comercial ?? null,
+        condicoes: p.condicoes ?? null,
         mensagem: p.mensagem,
         status: p.status,
         created_at: p.created_at,
@@ -223,5 +227,52 @@ export async function deleteProposta(id: string): Promise<{ success?: string; er
     return { success: 'Proposta excluída com sucesso.' }
   } catch (err: any) {
     return { error: err.message || 'Erro ao excluir proposta.' }
+  }
+}
+
+/**
+ * Atualiza a "Proposta Comercial" e/ou "Condições" de uma proposta sem
+ * alterar seu status. Usado pelo modal "Gerador de proposta" quando o
+ * vendedor quer gravar os ajustes antes (ou sem) gerar o PDF.
+ */
+export async function updatePropostaComercial(
+  id: string,
+  propostaComercial: number | null,
+  condicoes: string | null,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+
+    if (!id) {
+      return { error: 'ID da proposta inválido.' }
+    }
+
+    const propostaRef = adminDb.collection('propostas').doc(id)
+    const propostaDoc = await propostaRef.get()
+    if (!propostaDoc.exists) {
+      return { error: 'Proposta não encontrada.' }
+    }
+
+    const update: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    }
+
+    if (propostaComercial !== null) {
+      if (typeof propostaComercial !== 'number' || Number.isNaN(propostaComercial) || propostaComercial < 0) {
+        return { error: 'Proposta comercial inválida.' }
+      }
+      update.proposta_comercial = propostaComercial
+    }
+
+    if (condicoes !== null) {
+      update.condicoes = String(condicoes)
+    }
+
+    await propostaRef.update(update)
+    revalidatePath('/dashboard/propostas')
+
+    return { success: 'Proposta atualizada com sucesso.' }
+  } catch (err: any) {
+    return { error: err.message || 'Erro ao atualizar proposta.' }
   }
 }
