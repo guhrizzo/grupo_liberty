@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { assertPodeGerarContratos } from '@/utils/permissions'
+import { validarCPF } from '@/utils/validadorCpf'
+import { encrypt } from '@/utils/crypto'
 
 async function getSessionUser() {
   const cookieStore = await cookies()
@@ -23,6 +25,7 @@ export async function enviarPropostaAction(formData: FormData) {
 
   const veiculoId = (formData.get('veiculo_id') as string)?.trim()
   const nome = (formData.get('nome') as string)?.trim()
+  const cpf = (formData.get('cpf') as string)?.trim()
   const telefone = (formData.get('telefone') as string)?.trim()
   const email = (formData.get('email') as string)?.trim()
   const valorStr = (formData.get('valor') as string)?.trim()
@@ -34,6 +37,10 @@ export async function enviarPropostaAction(formData: FormData) {
 
   if (!nome || nome.length < 2) {
     return { error: 'Informe seu nome completo.' }
+  }
+
+  if (!cpf || !validarCPF(cpf)) {
+    return { error: 'O CPF informado é inválido ou mal formatado.' }
   }
 
   if (!telefone || telefone.length < 8) {
@@ -54,12 +61,16 @@ export async function enviarPropostaAction(formData: FormData) {
     return { error: 'Valor da proposta inválido.' }
   }
 
+  // Criptografar CPF para salvar de forma segura no Firestore
+  const cpfCriptografado = encrypt(cpf.replace(/\D/g, ''))
+
   try {
     const docRef = adminDb.collection('propostas').doc()
     await docRef.set({
       veiculo_id: veiculoId,
       user_id: user ? user.uid : null,
       nome,
+      cpf: cpfCriptografado,
       telefone,
       email,
       valor,

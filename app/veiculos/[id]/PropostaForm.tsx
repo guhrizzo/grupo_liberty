@@ -11,7 +11,8 @@ import {
 } from '@tabler/icons-react'
 import { enviarPropostaAction } from './actions'
 import { Button, Input, Textarea, useToast } from '../../components/ui'
-import { maskMoney, parseMoney, maskPhone } from '@/utils/masks'
+import { maskMoney, parseMoney, maskPhone, maskCPFCNPJ } from '@/utils/masks'
+import { validarCPF } from '@/utils/validadorCpf'
 
 interface PropostaFormProps {
   veiculoId: string
@@ -25,6 +26,7 @@ export default function PropostaForm({
   userEmail = '',
 }: PropostaFormProps) {
   const [nome, setNome] = useState('')
+  const [cpf, setCpf] = useState('')
   const [telefone, setTelefone] = useState('')
   const [email, setEmail] = useState(userEmail)
   const [valor, setValor] = useState('')
@@ -37,6 +39,11 @@ export default function PropostaForm({
 
     if (!nome.trim() || nome.trim().length < 2) {
       toast.error('Informe seu nome completo.')
+      return
+    }
+
+    if (!cpf.trim() || !validarCPF(cpf)) {
+      toast.error('Informe um CPF válido para elaboração do contrato.')
       return
     }
 
@@ -66,6 +73,7 @@ export default function PropostaForm({
     const formData = new FormData()
     formData.append('veiculo_id', veiculoId)
     formData.append('nome', nome.trim())
+    formData.append('cpf', cpf.replace(/\D/g, ''))
     formData.append('telefone', telefone.trim())
     formData.append('email', email.trim())
     formData.append('valor', String(valorNumerico))
@@ -78,6 +86,7 @@ export default function PropostaForm({
       } else if (res.success) {
         toast.success(res.success, 'Proposta enviada!')
         setNome('')
+        setCpf('')
         setTelefone('')
         if (!userEmail) setEmail('')
         setValor('')
@@ -114,6 +123,19 @@ export default function PropostaForm({
             onChange={(e) => setNome(e.target.value)}
             placeholder="Ex: João da Silva"
             leftIcon={<IconUser size={14} />}
+          />
+
+          <Input
+            id="cpfCliente"
+            label="Seu CPF *"
+            type="text"
+            required
+            value={cpf}
+            onChange={(e) => setCpf(maskCPFCNPJ(e.target.value))}
+            placeholder="000.000.000-00"
+            leftIcon={
+              <span className="text-[10px] font-bold text-neutral-400">CPF</span>
+            }
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

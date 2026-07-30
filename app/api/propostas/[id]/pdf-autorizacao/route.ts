@@ -7,6 +7,8 @@ import { assertPodeGerarPropostaPDF } from '@/utils/permissions'
 import PropostaAutorizacaoDocument, {
   type PropostaAutorizacaoDocumentProps,
 } from '@/app/dashboard/propostas/pdf/PropostaAutorizacaoDocument'
+import { decrypt } from '@/utils/crypto'
+import { maskCPFCNPJ } from '@/utils/masks'
 
 /**
  * GET /api/propostas/[id]/pdf-autorizacao
@@ -61,6 +63,7 @@ export async function GET(
     condicoes?: string | null
     mensagem: string
     nome?: string
+    cpf?: string
     email?: string
     telefone?: string
     observacoes_internas?: string
@@ -154,7 +157,15 @@ export async function GET(
   let clienteNome = proposta.nome || 'Cliente'
   let clienteEmail = proposta.email || 'N/A'
   let clienteTelefone: string | null = proposta.telefone ?? null
-  const clienteCpf: string | null = null
+  
+  // Descriptografar CPF se ele existir no Firestore
+  let clienteCpf: string | null = null
+  if (proposta.cpf) {
+    const rawCpf = decrypt(proposta.cpf)
+    if (rawCpf) {
+      clienteCpf = maskCPFCNPJ(rawCpf)
+    }
+  }
 
   if (proposta.user_id) {
     try {

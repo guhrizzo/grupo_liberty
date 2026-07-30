@@ -4,12 +4,15 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { sendPropostaStatusEmail } from '@/utils/email/send-proposta-email'
+import { decrypt } from '@/utils/crypto'
+import { maskCPFCNPJ } from '@/utils/masks'
 
 export interface Proposta {
   id: string
   veiculo_id: string
   user_id: string | null
   nome?: string
+  cpf?: string
   telefone?: string
   email?: string
   valor: number | null
@@ -104,11 +107,20 @@ export async function getPropostas(): Promise<Proposta[]> {
       const clienteEmail = p.email || authUser?.email || 'Sem e-mail'
       const clienteTelefone = p.telefone || 'Sem telefone'
 
+      let decryptedCpf = ''
+      if (p.cpf) {
+        const raw = decrypt(p.cpf)
+        if (raw) {
+          decryptedCpf = maskCPFCNPJ(raw)
+        }
+      }
+
       return {
         id: p.id,
         veiculo_id: p.veiculo_id,
         user_id: p.user_id ?? null,
         nome: clienteNome,
+        cpf: decryptedCpf || undefined,
         telefone: clienteTelefone,
         email: clienteEmail,
         valor: p.valor,

@@ -511,6 +511,12 @@ export default function GeradorPropostaClient({ propostas }: GeradorPropostaClie
                           {clienteTelefone}
                         </div>
                       )}
+                      {selected.cpf && (
+                        <div className="inline-flex items-center gap-1.5 text-neutral-700">
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400">CPF:</span>
+                          <span className="font-semibold">{selected.cpf}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <StatusBadge status={selected.status} />
