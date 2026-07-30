@@ -351,7 +351,7 @@ export default function DashboardShell({
                   <span className={`flex-1 ${collapsed ? 'md:hidden truncate' : 'truncate'}`}>{item.label}</span>
                   {count > 0 && (
                     <span
-                      className={`flex items-center justify-center rounded-full bg-emerald-500 text-white font-bold ring-2 ring-white ${
+                      className={`flex items-center justify-center rounded-full bg-emerald-500 text-white font-bold ${
                         collapsed
                           ? 'md:absolute md:top-1.5 md:right-1.5 md:h-2 md:w-2 md:text-[0px] h-5 min-w-[20px] text-[10px] px-1'
                           : 'h-5 min-w-[20px] text-[10px] px-1'
