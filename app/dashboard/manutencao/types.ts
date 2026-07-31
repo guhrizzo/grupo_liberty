@@ -11,6 +11,11 @@ export const MANUTENCAO_STATUS: ManutencaoStatus[] = [
   'cancelada',
 ]
 
+export interface PecaConserto {
+  nome: string
+  valor: number
+}
+
 export interface Manutencao {
   id: string
   veiculoId: string
@@ -23,6 +28,7 @@ export interface Manutencao {
   dataAgendada: string
   dataConclusao: string | null
   status: ManutencaoStatus
+  pecasConserto?: PecaConserto[] | null
   created_at: string
   updated_at: string
   created_by: string | null

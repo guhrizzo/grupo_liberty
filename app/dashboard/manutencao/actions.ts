@@ -54,6 +54,34 @@ function parseCusto(value: unknown): number {
   return reais + cents / 100
 }
 
+function parsePecasConserto(value: unknown): Manutencao['pecasConserto'] {
+  if (!value) return null
+  let raw: unknown = value
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (!Array.isArray(raw)) return null
+  const items: { nome: string; valor: number }[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const obj = item as Record<string, unknown>
+    const nome = String(obj.nome ?? '').trim()
+    const valorNum =
+      typeof obj.valor === 'number'
+        ? obj.valor
+        : obj.valor != null
+          ? Number(obj.valor)
+          : 0
+    if (!nome) continue
+    items.push({ nome, valor: Number.isFinite(valorNum) ? valorNum : 0 })
+  }
+  return items.length > 0 ? items : null
+}
+
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
 /**
@@ -81,6 +109,7 @@ export async function getManutencoes(): Promise<Manutencao[]> {
         dataAgendada: data.dataAgendada || '',
         dataConclusao: data.dataConclusao || null,
         status: (data.status as ManutencaoStatus) || 'agendada',
+        pecasConserto: parsePecasConserto(data.pecasConserto),
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -122,6 +151,7 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
       ? statusRaw
       : 'agendada'
   ) as ManutencaoStatus
+  const pecasConserto = parsePecasConserto(formData.get('pecasConserto'))
 
   const fieldErrors: ManutencaoFieldErrors = {}
   if (!veiculoLabel && !veiculoId) {
@@ -151,6 +181,7 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
       dataAgendada,
       dataConclusao,
       status,
+      pecasConserto,
       created_by: user.uid,
       created_at: now,
       updated_at: now,
@@ -199,6 +230,7 @@ export async function updateManutencao(
       ? statusRaw
       : 'agendada'
   ) as ManutencaoStatus
+  const pecasConserto = parsePecasConserto(formData.get('pecasConserto'))
 
   const fieldErrors: ManutencaoFieldErrors = {}
   if (!veiculoLabel && !veiculoId) {
@@ -230,6 +262,7 @@ export async function updateManutencao(
       dataAgendada,
       dataConclusao,
       status,
+      pecasConserto,
       updated_at: now,
     }
 
@@ -269,5 +302,60 @@ export async function deleteManutencao(
     return { success: 'Manutenção removida com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao remover manutenção: ${error.message}` }
+  }
+}
+
+/**
+ * Lista todas as manutenções vinculadas a um conjunto de veículos.
+ * Usado para mostrar manutenções recentes nas propostas.
+ */
+export async function getManutencoesPorVeiculos(
+  veiculoIds: string[],
+): Promise<Manutencao[]> {
+  if (!veiculoIds || veiculoIds.length === 0) return []
+  try {
+    await assertAdmin()
+  } catch {
+    // falha silenciosa — propostas devem funcionar mesmo se a lista falhar
+    return []
+  }
+  try {
+    const items: Manutencao[] = []
+    // Firestore 'in' aceita até 30 valores por consulta — chunking de segurança.
+    const chunks: string[][] = []
+    for (let i = 0; i < veiculoIds.length; i += 30) {
+      chunks.push(veiculoIds.slice(i, i + 30))
+    }
+    for (const chunk of chunks) {
+      const snap = await adminDb
+        .collection('manutencoes')
+        .where('veiculoId', 'in', chunk)
+        .orderBy('dataAgendada', 'desc')
+        .get()
+      snap.forEach((doc: any) => {
+        const data = doc.data()
+        items.push({
+          id: doc.id,
+          veiculoId: data.veiculoId || '',
+          veiculoLabel: data.veiculoLabel || '',
+          tipo: data.tipo || '',
+          descricao: data.descricao || null,
+          oficina: data.oficina || '',
+          responsavel: data.responsavel || '',
+          custo: data.custo ?? 0,
+          dataAgendada: data.dataAgendada || '',
+          dataConclusao: data.dataConclusao || null,
+          status: (data.status as ManutencaoStatus) || 'agendada',
+          pecasConserto: parsePecasConserto(data.pecasConserto),
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          created_by: data.created_by || null,
+        })
+      })
+    }
+    return items
+  } catch (err) {
+    console.error('Erro ao buscar manutenções por veículo:', err)
+    return []
   }
 }

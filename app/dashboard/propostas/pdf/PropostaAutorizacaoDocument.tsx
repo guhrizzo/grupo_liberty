@@ -391,6 +391,7 @@ export interface PropostaAutorizacaoDocumentProps {
   multas?: number | null
   pecasReparo?: string | null
   valorPecasReparo?: number | null
+  pecasConserto?: Array<{ nome: string; valor: number }> | null
   banco?: string | null
   // Proposta
   propostaComercial?: number | null
@@ -422,6 +423,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
     multas = 0,
     pecasReparo,
     valorPecasReparo = 0,
+    pecasConserto,
     propostaComercial,
     valorOfertado = 0,
     criadoEm,
@@ -445,6 +447,21 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
   const totEncargos = ipvaVal + licVal + multasVal
 
   const reparoVal = Number(valorPecasReparo) || 0
+
+  // Lista prioriza o array estruturado. Fallback: string única legada.
+  const pecasConsertoList = Array.isArray(pecasConserto) && pecasConserto.length > 0
+    ? pecasConserto
+    : null
+  const pecasConsertoTextoFallback =
+    !pecasConsertoList && pecasReparo && pecasReparo.trim() ? pecasReparo : null
+  const totalPecasConserto =
+    pecasConsertoList && pecasConsertoList.length > 0
+      ? pecasConsertoList.reduce((acc, p) => acc + (Number(p.valor) || 0), 0)
+      : reparoVal
+  const temPecasConserto =
+    (pecasConsertoList != null && pecasConsertoList.length > 0) ||
+    Boolean(pecasConsertoTextoFallback) ||
+    reparoVal > 0
   const prejuizoTotal = totEncargos + reparoVal + calcSaldoDevedor
 
   const propostaValorFinal = propostaComercial ?? valorOfertado ?? 0
@@ -453,7 +470,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
   const dataContrato = formatDateBR(criadoEm)
 
   const temPendencias = ipvaVal > 0 || licVal > 0 || multasVal > 0
-  const temReparos = reparoVal > 0
+  const temReparos = temPecasConserto
 
   const condicoesArray =
     condicoes && condicoes.trim()
@@ -595,14 +612,34 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
               {temReparos && (
                 <>
                   <View style={styles.pathLine} />
-                  <Text style={styles.sndTitle}>Reparo em Peças</Text>
+                  <Text style={styles.sndTitle}>Peças para Conserto</Text>
                   <View style={styles.pathLineShort} />
-                  <View style={styles.dadosRow}>
-                    <Text style={styles.dadosLabel}>
-                      Peças que precisam de reparo : {pecasReparo || 'N/A'} :
-                    </Text>
-                    <Text style={styles.dadosValueRed}>{formatBRL(reparoVal)}</Text>
-                  </View>
+                  {pecasConsertoList && pecasConsertoList.length > 0 ? (
+                    <>
+                      {pecasConsertoList.map((p, idx) => (
+                        <View key={idx} style={styles.dadosRow}>
+                          <Text style={styles.dadosLabel}>{p.nome}</Text>
+                          <Text style={styles.dadosValueRed}>
+                            {formatBRL(Number(p.valor) || 0)}
+                          </Text>
+                        </View>
+                      ))}
+                      <View style={styles.dadosRow}>
+                        <Text style={styles.dadosLabelRed}>Total de peças</Text>
+                        <Text style={styles.dadosValueRed}>{formatBRL(totalPecasConserto)}</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <View style={styles.dadosRow}>
+                      <Text style={styles.dadosLabel}>
+                        Peças que precisam de reparo:{' '}
+                        {pecasConsertoTextoFallback || 'N/A'}
+                      </Text>
+                      <Text style={styles.dadosValueRed}>
+                        {formatBRL(totalPecasConserto)}
+                      </Text>
+                    </View>
+                  )}
                 </>
               )}
             </View>

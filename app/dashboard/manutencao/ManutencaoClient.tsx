@@ -148,6 +148,15 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         'descricao',
         descricaoExistente ? `${descricaoExistente}\n\n${bloco}` : bloco,
       )
+      // Envia também como JSON estruturado para a coluna `pecasConserto`
+      form.set(
+        'pecasConserto',
+        JSON.stringify(
+          pecasState.map((p) => ({ nome: p.peca, valor: p.valor })),
+        ),
+      )
+    } else {
+      form.set('pecasConserto', '')
     }
 
     // Sanity check client-side antes de ir ao servidor — UX mais rápida.

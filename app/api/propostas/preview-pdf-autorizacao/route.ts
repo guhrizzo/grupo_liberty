@@ -10,6 +10,39 @@ import PropostaAutorizacaoDocument, {
 } from '@/app/dashboard/propostas/pdf/PropostaAutorizacaoDocument'
 import { maskCPFCNPJ } from '@/utils/masks'
 
+interface PecaConserto {
+  nome: string
+  valor: number
+}
+
+function parsePecasManuais(value: unknown): PecaConserto[] {
+  if (!value) return []
+  let raw: unknown = value
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return []
+    }
+  }
+  if (!Array.isArray(raw)) return []
+  const out: PecaConserto[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const obj = item as Record<string, unknown>
+    const nome = String(obj.nome ?? '').trim()
+    const valorNum =
+      typeof obj.valor === 'number'
+        ? obj.valor
+        : obj.valor != null
+          ? Number(obj.valor)
+          : 0
+    if (!nome) continue
+    out.push({ nome, valor: Number.isFinite(valorNum) ? valorNum : 0 })
+  }
+  return out
+}
+
 /**
  * POST /api/propostas/preview-pdf-autorizacao
  *
@@ -53,6 +86,9 @@ export async function POST(req: NextRequest) {
       : body.valor != null
         ? Number(body.valor)
         : null
+
+  // Peças informadas manualmente no formulário (opcional).
+  const pecasConsertoManual = parsePecasManuais(body.pecasConserto)
 
   if (!veiculo_id) {
     return NextResponse.json({ error: 'veiculo_id é obrigatório.' }, { status: 400 })
@@ -131,6 +167,57 @@ export async function POST(req: NextRequest) {
       ? valorParcela * parcelasAtrasadas
       : null
 
+  // Coletar peças para conserto das manutenções do veículo (somente concluídas/em execução).
+  const pecasConserto: PecaConserto[] = []
+  if (veiculo_id) {
+    try {
+      const snap = await adminDb
+        .collection('manutencoes')
+        .where('veiculoId', '==', veiculo_id)
+        .get()
+      const vistos = new Set<string>()
+      snap.forEach((doc) => {
+        const data = doc.data() as {
+          pecasConserto?: unknown
+          descricao?: string | null
+          status?: string
+        }
+        // Ignora manutenções canceladas
+        if (data.status === 'cancelada') return
+        if (Array.isArray(data.pecasConserto)) {
+          for (const item of data.pecasConserto) {
+            if (!item || typeof item !== 'object') continue
+            const obj = item as Record<string, unknown>
+            const nome = String(obj.nome ?? '').trim()
+            const valorNum =
+              typeof obj.valor === 'number'
+                ? obj.valor
+                : obj.valor != null
+                  ? Number(obj.valor)
+                  : 0
+            if (!nome) continue
+            const key = `${nome}`.toLowerCase()
+            if (vistos.has(key)) continue
+            vistos.add(key)
+            pecasConserto.push({
+              nome,
+              valor: Number.isFinite(valorNum) ? valorNum : 0,
+            })
+          }
+        }
+      })
+    } catch (err) {
+      console.error('Falha ao buscar peças das manutenções:', err)
+    }
+  }
+  // Adiciona peças manuais (submetidas no formulário de nova proposta).
+  for (const p of pecasConsertoManual) {
+    const key = p.nome.toLowerCase()
+    if (!pecasConserto.some((x) => x.nome.toLowerCase() === key)) {
+      pecasConserto.push(p)
+    }
+  }
+
   const rascunhoId = `PREVIEW-${Date.now().toString(36).toUpperCase()}`
 
   const docProps: PropostaAutorizacaoDocumentProps = {
@@ -157,6 +244,7 @@ export async function POST(req: NextRequest) {
     valorOfertado: valorNum,
     mensagem,
     statusProposta: status,
+    pecasConserto,
     criadoEm: new Date().toISOString(),
     observacoesInternas: null,
     condicoes: null,

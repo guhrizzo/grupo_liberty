@@ -190,6 +190,46 @@ export async function GET(
     proposta.proposta_comercial ??
     null
 
+  // Coletar peças para conserto das manutenções vinculadas ao veículo.
+  const pecasConserto: { nome: string; valor: number }[] = []
+  try {
+    const snap = await adminDb
+      .collection('manutencoes')
+      .where('veiculoId', '==', proposta.veiculo_id)
+      .get()
+    const vistos = new Set<string>()
+    snap.forEach((doc) => {
+      const data = doc.data() as {
+        pecasConserto?: unknown
+        status?: string
+      }
+      if (data.status === 'cancelada') return
+      if (Array.isArray(data.pecasConserto)) {
+        for (const item of data.pecasConserto) {
+          if (!item || typeof item !== 'object') continue
+          const obj = item as Record<string, unknown>
+          const nome = String(obj.nome ?? '').trim()
+          const valorNum =
+            typeof obj.valor === 'number'
+              ? obj.valor
+              : obj.valor != null
+                ? Number(obj.valor)
+                : 0
+          if (!nome) continue
+          const key = nome.toLowerCase()
+          if (vistos.has(key)) continue
+          vistos.add(key)
+          pecasConserto.push({
+            nome,
+            valor: Number.isFinite(valorNum) ? valorNum : 0,
+          })
+        }
+      }
+    })
+  } catch (err) {
+    console.error('[pdf-autorizacao] Falha ao buscar peças das manutenções:', err)
+  }
+
   // 7. Gerar o PDF
   const docProps: PropostaAutorizacaoDocumentProps = {
     id,
@@ -218,6 +258,7 @@ export async function GET(
     criadoEm: proposta.created_at,
     observacoesInternas: proposta.observacoes_internas ?? null,
     condicoes: condicoesRaw ?? proposta.condicoes ?? null,
+    pecasConserto,
   }
 
   // O cast resolve a divergência de tipos entre createElement (tipa pelos props

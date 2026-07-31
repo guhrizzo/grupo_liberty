@@ -1,18 +1,52 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconNote, IconDownload, IconBrandWhatsapp, IconPhone, IconMail, IconTrash, IconFilter, IconX, IconSearch, IconCalendar, IconCar, IconFileText } from '@tabler/icons-react'
+import {
+  IconNote,
+  IconDownload,
+  IconBrandWhatsapp,
+  IconPhone,
+  IconMail,
+  IconTrash,
+  IconFilter,
+  IconX,
+  IconSearch,
+  IconCalendar,
+  IconCar,
+  IconFileText,
+  IconTool,
+  IconPlus,
+  IconCash,
+  IconBuildingWarehouse,
+  IconArrowUpRight,
+} from '@tabler/icons-react'
 import { updatePropostaStatus, deleteProposta, type Proposta } from './actions'
 import { Breadcrumb, EmptyState, useToast, ZoomIn } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
+import type { Manutencao } from '../manutencao/types'
 
 interface PropostasClientProps {
   propostas: Proposta[]
+  manutencoes: Manutencao[]
 }
 
-export default function PropostasClient({ propostas }: PropostasClientProps) {
+const MANUTENCAO_STATUS_LABEL: Record<Manutencao['status'], string> = {
+  agendada: 'Agendada',
+  em_execucao: 'Em execução',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada',
+}
+
+const MANUTENCAO_STATUS_TONE: Record<Manutencao['status'], string> = {
+  agendada: 'bg-amber-50 text-amber-800 border-amber-200',
+  em_execucao: 'bg-sky-50 text-sky-800 border-sky-200',
+  concluida: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  cancelada: 'bg-neutral-100 text-neutral-600 border-neutral-200',
+}
+
+export default function PropostasClient({ propostas, manutencoes }: PropostasClientProps) {
   const router = useRouter()
   const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'aceito' | 'recusado'>('todos')
   const [searchNome, setSearchNome] = useState('')
@@ -160,6 +194,17 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
   }
 
   const pendentesCount = propostas.filter((p) => p.status === 'pendente').length
+
+  const manutencoesPorVeiculo = useMemo(() => {
+    const map = new Map<string, Manutencao[]>()
+    for (const m of manutencoes) {
+      if (!m.veiculoId) continue
+      const arr = map.get(m.veiculoId) ?? []
+      arr.push(m)
+      map.set(m.veiculoId, arr)
+    }
+    return map
+  }, [manutencoes])
 
   return (
     <div className="space-y-6">
@@ -463,6 +508,96 @@ export default function PropostasClient({ propostas }: PropostasClientProps) {
                       </p>
                     </div>
                   </div>
+
+                  {/* Manutenções do veículo */}
+                  {(() => {
+                    const lista = manutencoesPorVeiculo.get(p.veiculo_id) ?? []
+                    const visiveis = lista.slice(0, 3)
+                    const restantes = lista.length - visiveis.length
+                    return (
+                      <div className="mt-6 rounded-xl border border-neutral-100 bg-neutral-50/40 p-4">
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                          <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest inline-flex items-center gap-1.5">
+                            <IconTool size={12} />
+                            Manutenções do veículo
+                          </span>
+                          <Link
+                            href={`/dashboard/manutencao?veiculoId=${p.veiculo_id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-liberty/10 text-liberty-deep px-3 py-1.5 text-[11px] font-bold border border-liberty/20 hover:bg-liberty hover:text-white transition-[background-color,color] duration-300 cursor-pointer"
+                          >
+                            <IconPlus size={12} stroke={2.5} />
+                            Adicionar manutenção
+                          </Link>
+                        </div>
+
+                        {lista.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-400 border border-neutral-200">
+                              <IconTool size={16} stroke={1.5} />
+                            </div>
+                            <p className="text-xs text-neutral-600">
+                              Nenhuma manutenção registrada para este veículo.
+                            </p>
+                          </div>
+                        ) : (
+                          <ul className="space-y-2">
+                            {visiveis.map((m) => (
+                              <li
+                                key={m.id}
+                                className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3"
+                              >
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-liberty/10 text-liberty">
+                                  <IconTool size={16} stroke={2} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-neutral-900 truncate">
+                                    {m.tipo}
+                                  </p>
+                                  <p className="mt-0.5 text-[11px] text-neutral-500 inline-flex items-center gap-2 flex-wrap">
+                                    <span className="inline-flex items-center gap-1">
+                                      <IconBuildingWarehouse size={11} />
+                                      {m.oficina}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <IconCalendar size={11} />
+                                      {m.dataAgendada
+                                        ? new Date(m.dataAgendada).toLocaleDateString('pt-BR')
+                                        : '—'}
+                                    </span>
+                                    {m.custo > 0 && (
+                                      <span className="inline-flex items-center gap-1 font-semibold text-neutral-700">
+                                        <IconCash size={11} />
+                                        {formatCurrency(m.custo)}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                                <span
+                                  className={
+                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider border ' +
+                                    MANUTENCAO_STATUS_TONE[m.status]
+                                  }
+                                >
+                                  {MANUTENCAO_STATUS_LABEL[m.status]}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {lista.length > visiveis.length && (
+                          <div className="mt-3 flex justify-end">
+                            <Link
+                              href="/dashboard/manutencao"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-liberty-deep hover:underline"
+                            >
+                              Ver mais {restantes} {restantes === 1 ? 'manutenção' : 'manutenções'}
+                              <IconArrowUpRight size={12} stroke={2.5} />
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
 
                   {/* Ações */}
                   <div className="mt-6 pt-4 border-t border-neutral-100 flex flex-wrap justify-end gap-3">

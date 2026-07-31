@@ -19,6 +19,9 @@ import {
   IconShieldCheck,
   IconArrowRight,
   IconSparkles,
+  IconTool,
+  IconTrash,
+  IconPlus,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -88,6 +91,9 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     return null
   })
   const [fileName, setFileName] = useState('')
+  const [pecasConserto, setPecasConserto] = useState<
+    Array<{ nome: string; valor: string }>
+  >([])
 
   const [formData, setFormData] = useState<FormData>({
     veiculo_id: '',
@@ -172,6 +178,14 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
 
   const buildPayload = () => {
     const valorNumerico = formData.valor.trim() ? parseMoney(formData.valor) : null
+    const pecasPayload = pecasConserto
+      .map((p) => {
+        const nome = p.nome.trim()
+        const valorNum = p.valor.trim() ? parseMoney(p.valor) : 0
+        if (!nome) return null
+        return { nome, valor: valorNum }
+      })
+      .filter((p): p is { nome: string; valor: number } => p !== null)
     return {
       veiculo_id: formData.veiculo_id,
       nome: formData.nome.trim(),
@@ -181,6 +195,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
       valor: valorNumerico && valorNumerico > 0 ? valorNumerico : null,
       mensagem: formData.mensagem.trim(),
       status: 'pendente' as const,
+      pecasConserto: pecasPayload,
     }
   }
 
@@ -583,6 +598,101 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                 error={formErrors.mensagem}
                 required
               />
+            </section>
+
+            <div className="h-px bg-neutral-100" />
+
+            <section className="space-y-3">
+              <header className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 inline-flex items-center gap-2">
+                  <IconTool size={12} />
+                  Peças para conserto (opcional)
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPecasConserto((prev) => [...prev, { nome: '', valor: '' }])
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
+                >
+                  <IconPlus size={12} stroke={2.5} />
+                  Adicionar peça
+                </button>
+              </header>
+
+              {pecasConserto.length === 0 ? (
+                <p className="text-xs text-neutral-500">
+                  Caso não exista manutenção registrada com peças, você pode
+                  listar manualmente as peças que precisarão de conserto.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {pecasConserto.map((p, idx) => (
+                    <li
+                      key={idx}
+                      className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 sm:flex-row sm:items-center"
+                    >
+                      <div className="relative flex-1">
+                        <span
+                          aria-hidden
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                        >
+                          <IconTool size={13} />
+                        </span>
+                        <input
+                          type="text"
+                          value={p.nome}
+                          onChange={(e) =>
+                            setPecasConserto((prev) =>
+                              prev.map((x, i) =>
+                                i === idx ? { ...x, nome: e.target.value } : x,
+                              ),
+                            )
+                          }
+                          placeholder="Nome da peça"
+                          className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div className="relative w-full sm:w-40">
+                        <span
+                          aria-hidden
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                        >
+                          <IconCoin size={13} />
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={p.valor}
+                          onChange={(e) =>
+                            setPecasConserto((prev) =>
+                              prev.map((x, i) =>
+                                i === idx
+                                  ? { ...x, valor: maskMoney(e.target.value) }
+                                  : x,
+                              ),
+                            )
+                          }
+                          placeholder="0,00"
+                          className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPecasConserto((prev) =>
+                            prev.filter((_, i) => i !== idx),
+                          )
+                        }
+                        aria-label="Remover peça"
+                        className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
+                      >
+                        <IconTrash size={13} stroke={2.5} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
           </div>
 

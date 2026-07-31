@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getPropostas } from './actions'
+import { getManutencoesPorVeiculos } from '../manutencao/actions'
 import PropostasClient from './PropostasClient'
 
 export const metadata = {
@@ -17,6 +18,8 @@ export default async function PropostasDashboardPage() {
   }
 
   const propostas = await getPropostas()
+  const veiculoIds = Array.from(new Set(propostas.map((p) => p.veiculo_id).filter(Boolean)))
+  const manutencoes = await getManutencoesPorVeiculos(veiculoIds)
 
-  return <PropostasClient propostas={propostas} />
+  return <PropostasClient propostas={propostas} manutencoes={manutencoes} />
 }
