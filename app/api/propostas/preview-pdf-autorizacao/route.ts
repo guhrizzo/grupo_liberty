@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
   let custoAcumulado: number | null = null
   let parcelasAtrasadas: number | null = null
   let banco: string | null = null
+  let debitosItensPdf: Array<{ chave: string; label: string; valor: number }> = []
 
   try {
     const veiculoDoc = await adminDb.collection('veiculos').doc(veiculo_id).get()
@@ -123,6 +124,7 @@ export async function POST(req: NextRequest) {
         valorParcela?: number | null
         custoAcumulado?: number | null
         debitos?: number | null
+        debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
         parcelasRestantes?: number | null
         banco?: string | null
       }
@@ -137,6 +139,15 @@ export async function POST(req: NextRequest) {
       dividaTotal = v.debitos ?? null
       banco = v.banco ?? null
       parcelasAtrasadas = v.parcelasRestantes ?? null
+      if (Array.isArray(v.debitosItens) && v.debitosItens.length > 0) {
+        debitosItensPdf = v.debitosItens
+          .filter((d) => Number(d.valor) > 0)
+          .map((d) => ({
+            chave: String(d.chave),
+            label: d.label ? String(d.label) : String(d.chave),
+            valor: Number(d.valor) || 0,
+          }))
+      }
     }
   } catch {
     // segue com defaults
@@ -240,6 +251,7 @@ export async function POST(req: NextRequest) {
     dividaTotal,
     custoAcumulado,
     banco,
+    debitosItens: debitosItensPdf,
     propostaComercial: valorNum,
     valorOfertado: valorNum,
     mensagem,

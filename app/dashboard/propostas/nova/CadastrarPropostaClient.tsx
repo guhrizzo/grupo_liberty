@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -92,8 +92,15 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
   })
   const [fileName, setFileName] = useState('')
   const [pecasConserto, setPecasConserto] = useState<
-    Array<{ nome: string; valor: string }>
+    Array<{ nome: string; valor: string; origem: 'manutencao' | 'manual' }>
   >([])
+  const [loadingPecas, setLoadingPecas] = useState(false)
+  const [pecasOrigemPuxada, setPecasOrigemPuxada] = useState(false)
+
+  const pecasDaManutencao = useMemo(
+    () => pecasConserto.filter((p) => p.origem === 'manutencao'),
+    [pecasConserto],
+  )
 
   const [formData, setFormData] = useState<FormData>({
     veiculo_id: '',
@@ -281,6 +288,46 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     setFormData((prev) => ({ ...prev, [key]: value }))
     if (formErrors[key]) setFormErrors((prev) => ({ ...prev, [key]: undefined }))
   }
+
+  const carregarPecasDoVeiculo = useCallback(async (veiculoId: string) => {
+    if (!veiculoId) return
+    setLoadingPecas(true)
+    try {
+      const res = await fetch(`/api/veiculos/${veiculoId}/pecas-conserto`)
+      if (!res.ok) {
+        setPecasConserto([])
+        setPecasOrigemPuxada(false)
+        return
+      }
+      const data = (await res.json()) as { pecas?: Array<{ nome: string; valor: number }> }
+      const pecas = Array.isArray(data.pecas) ? data.pecas : []
+      // Substitui apenas as peças vindas da manutenção, preservando as manuais.
+      setPecasConserto((prev) => {
+        const manuais = prev.filter((p) => p.origem === 'manual')
+        const auto = pecas.map((p) => ({
+          nome: p.nome,
+          valor: p.valor > 0
+            ? p.valor.toFixed(2).replace('.', ',')
+            : '',
+          origem: 'manutencao' as const,
+        }))
+        return [...auto, ...manuais]
+      })
+      setPecasOrigemPuxada(pecas.length > 0)
+    } catch {
+      // silencioso — falhas de rede não devem travar a tela
+    } finally {
+      setLoadingPecas(false)
+    }
+  }, [])
+
+  const handleVeiculoSelecionado = useCallback(
+    (id: string) => {
+      setField('veiculo_id', id)
+      carregarPecasDoVeiculo(id)
+    },
+    [carregarPecasDoVeiculo, setField],
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -603,94 +650,234 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
             <div className="h-px bg-neutral-100" />
 
             <section className="space-y-3">
-              <header className="flex items-center justify-between gap-2">
+              <header className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 inline-flex items-center gap-2">
                   <IconTool size={12} />
-                  Peças para conserto (opcional)
+                  Peças para conserto
                 </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPecasConserto((prev) => [...prev, { nome: '', valor: '' }])
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
-                >
-                  <IconPlus size={12} stroke={2.5} />
-                  Adicionar peça
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {pecasOrigemPuxada && pecasDaManutencao.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPecasConserto((prev) =>
+                          prev.filter((p) => p.origem === 'manual'),
+                        )
+                        setPecasOrigemPuxada(false)
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50 transition-ui cursor-pointer"
+                    >
+                      <IconX size={12} stroke={2.5} />
+                      Descartar peças da manutenção
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPecasConserto((prev) => [
+                        ...prev,
+                        { nome: '', valor: '', origem: 'manual' },
+                      ])
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
+                  >
+                    <IconPlus size={12} stroke={2.5} />
+                    Adicionar peça
+                  </button>
+                </div>
               </header>
 
-              {pecasConserto.length === 0 ? (
+              {loadingPecas ? (
+                <div className="flex items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 px-3 py-3 text-xs text-neutral-500">
+                  <svg
+                    className="animate-spin h-3 w-3"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
+                  </svg>
+                  Carregando peças de manutenção do veículo…
+                </div>
+              ) : pecasOrigemPuxada && pecasDaManutencao.length > 0 ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-emerald-700 inline-flex items-center gap-1.5">
+                      <IconTool size={11} />
+                      {pecasDaManutencao.length}{' '}
+                      {pecasDaManutencao.length === 1
+                        ? 'peça puxada da manutenção'
+                        : 'peças puxadas da manutenção'}
+                    </span>
+                  </div>
+                  <ul className="space-y-2">
+                    {pecasDaManutencao.map((p, idx) => {
+                      const realIdx = pecasConserto.findIndex(
+                        (x) => x === p,
+                      )
+                      return (
+                        <li
+                          key={`auto-${idx}`}
+                          className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-white p-3 sm:flex-row sm:items-center"
+                        >
+                          <div className="relative flex-1">
+                            <span
+                              aria-hidden
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                            >
+                              <IconTool size={13} />
+                            </span>
+                            <input
+                              type="text"
+                              value={p.nome}
+                              onChange={(e) =>
+                                setPecasConserto((prev) =>
+                                  prev.map((x, i) =>
+                                    i === realIdx
+                                      ? { ...x, nome: e.target.value }
+                                      : x,
+                                  ),
+                                )
+                              }
+                              placeholder="Nome da peça"
+                              className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                            />
+                          </div>
+                          <div className="relative w-full sm:w-40">
+                            <span
+                              aria-hidden
+                              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                            >
+                              <IconCoin size={13} />
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={p.valor}
+                              onChange={(e) =>
+                                setPecasConserto((prev) =>
+                                  prev.map((x, i) =>
+                                    i === realIdx
+                                      ? {
+                                          ...x,
+                                          valor: maskMoney(e.target.value),
+                                        }
+                                      : x,
+                                  ),
+                                )
+                              }
+                              placeholder="0,00"
+                              className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPecasConserto((prev) =>
+                                prev.filter((_, i) => i !== realIdx),
+                              )
+                            }
+                            aria-label="Remover peça"
+                            className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
+                          >
+                            <IconTrash size={13} stroke={2.5} />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {pecasDaManutencao.length === 0 && null}
+                </div>
+              ) : pecasConserto.length === 0 ? (
                 <p className="text-xs text-neutral-500">
-                  Caso não exista manutenção registrada com peças, você pode
-                  listar manualmente as peças que precisarão de conserto.
+                  Nenhuma peça vinculada a este veículo nas manutenções. Você
+                  pode listar manualmente as peças que precisarão de conserto.
                 </p>
-              ) : (
+              ) : null}
+
+              {pecasConserto.filter((p) => p.origem === 'manual').length > 0 && (
                 <ul className="space-y-2">
-                  {pecasConserto.map((p, idx) => (
-                    <li
-                      key={idx}
-                      className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 sm:flex-row sm:items-center"
-                    >
-                      <div className="relative flex-1">
-                        <span
-                          aria-hidden
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                        >
-                          <IconTool size={13} />
-                        </span>
-                        <input
-                          type="text"
-                          value={p.nome}
-                          onChange={(e) =>
-                            setPecasConserto((prev) =>
-                              prev.map((x, i) =>
-                                i === idx ? { ...x, nome: e.target.value } : x,
-                              ),
-                            )
-                          }
-                          placeholder="Nome da peça"
-                          className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                        />
-                      </div>
-                      <div className="relative w-full sm:w-40">
-                        <span
-                          aria-hidden
-                          className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                        >
-                          <IconCoin size={13} />
-                        </span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={p.valor}
-                          onChange={(e) =>
-                            setPecasConserto((prev) =>
-                              prev.map((x, i) =>
-                                i === idx
-                                  ? { ...x, valor: maskMoney(e.target.value) }
-                                  : x,
-                              ),
-                            )
-                          }
-                          placeholder="0,00"
-                          className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPecasConserto((prev) =>
-                            prev.filter((_, i) => i !== idx),
-                          )
-                        }
-                        aria-label="Remover peça"
-                        className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
+                  {pecasConserto
+                    .map((p, idx) => ({ p, idx }))
+                    .filter(({ p }) => p.origem === 'manual')
+                    .map(({ p, idx }) => (
+                      <li
+                        key={`manual-${idx}`}
+                        className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 sm:flex-row sm:items-center"
                       >
-                        <IconTrash size={13} stroke={2.5} />
-                      </button>
-                    </li>
-                  ))}
+                        <div className="relative flex-1">
+                          <span
+                            aria-hidden
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                          >
+                            <IconTool size={13} />
+                          </span>
+                          <input
+                            type="text"
+                            value={p.nome}
+                            onChange={(e) =>
+                              setPecasConserto((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx
+                                    ? { ...x, nome: e.target.value }
+                                    : x,
+                                ),
+                              )
+                            }
+                            placeholder="Nome da peça"
+                            className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                          />
+                        </div>
+                        <div className="relative w-full sm:w-40">
+                          <span
+                            aria-hidden
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                          >
+                            <IconCoin size={13} />
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={p.valor}
+                            onChange={(e) =>
+                              setPecasConserto((prev) =>
+                                prev.map((x, i) =>
+                                  i === idx
+                                    ? { ...x, valor: maskMoney(e.target.value) }
+                                    : x,
+                                ),
+                              )
+                            }
+                            placeholder="0,00"
+                            className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPecasConserto((prev) =>
+                              prev.filter((_, i) => i !== idx),
+                            )
+                          }
+                          aria-label="Remover peça"
+                          className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
+                        >
+                          <IconTrash size={13} stroke={2.5} />
+                        </button>
+                      </li>
+                    ))}
                 </ul>
               )}
             </section>
@@ -807,7 +994,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
         onClose={() => setPickerOpen(false)}
         veiculos={veiculos}
         value={formData.veiculo_id || null}
-        onSelect={(id) => setField('veiculo_id', id)}
+        onSelect={handleVeiculoSelecionado}
       />
 
       {confirmOpen && typeof document !== 'undefined' && createPortal(

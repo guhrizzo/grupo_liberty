@@ -389,6 +389,8 @@ export interface PropostaAutorizacaoDocumentProps {
   ipvaAtrasado?: number | null
   licenciamento?: number | null
   multas?: number | null
+  /** Lista detalhada de débitos (substitui ipva/licenciamento/multas quando presente). */
+  debitosItens?: Array<{ chave: string; label: string; valor: number }> | null
   pecasReparo?: string | null
   valorPecasReparo?: number | null
   pecasConserto?: Array<{ nome: string; valor: number }> | null
@@ -421,6 +423,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
     ipvaAtrasado = 0,
     licenciamento = 0,
     multas = 0,
+    debitosItens,
     pecasReparo,
     valorPecasReparo = 0,
     pecasConserto,
@@ -444,7 +447,19 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
   const ipvaVal = Number(ipvaAtrasado) || 0
   const licVal = Number(licenciamento) || 0
   const multasVal = Number(multas) || 0
-  const totEncargos = ipvaVal + licVal + multasVal
+
+  // Lista unificada de débitos. Prioriza o array estruturado.
+  // Mantém fallback dos 3 campos legados (ipvaAtrasado/licenciamento/multas).
+  const debitosLista: Array<{ chave: string; label: string; valor: number }> =
+    Array.isArray(debitosItens) && debitosItens.length > 0
+      ? debitosItens.filter((d) => Number(d.valor) > 0)
+      : [
+          { chave: 'ipva', label: 'IPVA atrasado', valor: ipvaVal },
+          { chave: 'licenciamento', label: 'Licenciamento', valor: licVal },
+          { chave: 'multas', label: 'Multas', valor: multasVal },
+        ].filter((d) => Number(d.valor) > 0)
+
+  const totEncargos = debitosLista.reduce((acc, d) => acc + (Number(d.valor) || 0), 0)
 
   const reparoVal = Number(valorPecasReparo) || 0
 
@@ -469,7 +484,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
   const numContrato = `#${id.slice(0, 8).toUpperCase()}`
   const dataContrato = formatDateBR(criadoEm)
 
-  const temPendencias = ipvaVal > 0 || licVal > 0 || multasVal > 0
+  const temPendencias = totEncargos > 0
   const temReparos = temPecasConserto
 
   const condicoesArray =
@@ -580,29 +595,19 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
               {temPendencias && (
                 <>
                   <View style={styles.pathLine} />
-                  <Text style={styles.sndTitle}>Pendências Adicionais</Text>
+                  <Text style={styles.sndTitle}>Pendências / Débitos</Text>
                   <View style={styles.pathLineShort} />
-                  {ipvaVal > 0 && (
-                    <View style={styles.dadosRow}>
-                      <Text style={styles.dadosLabel}>IPVA atrasado:</Text>
-                      <Text style={styles.dadosValue}>{formatBRL(ipvaVal)}</Text>
+                  {debitosLista.map((d) => (
+                    <View key={d.chave} style={styles.dadosRow}>
+                      <Text style={styles.dadosLabel}>{d.label}:</Text>
+                      <Text style={styles.dadosValue}>
+                        {formatBRL(Number(d.valor) || 0)}
+                      </Text>
                     </View>
-                  )}
-                  {licVal > 0 && (
-                    <View style={styles.dadosRow}>
-                      <Text style={styles.dadosLabel}>Licenciamento:</Text>
-                      <Text style={styles.dadosValue}>{formatBRL(licVal)}</Text>
-                    </View>
-                  )}
-                  {multasVal > 0 && (
-                    <View style={styles.dadosRow}>
-                      <Text style={styles.dadosLabel}>Multas:</Text>
-                      <Text style={styles.dadosValue}>{formatBRL(multasVal)}</Text>
-                    </View>
-                  )}
+                  ))}
                   <View style={styles.dadosRow}>
                     <Text style={styles.dadosLabelRed}>
-                      Total de encargos administrativos:
+                      Total de débitos:
                     </Text>
                     <Text style={styles.dadosValueRed}>{formatBRL(totEncargos)}</Text>
                   </View>

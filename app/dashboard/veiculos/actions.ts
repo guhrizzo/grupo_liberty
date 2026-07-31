@@ -8,6 +8,46 @@ import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 
 export type LocalizacaoVeiculo = string
 
+interface DebitoItemPersistido {
+  chave: string
+  valor: number
+  label?: string
+}
+
+function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
+  if (!value) return []
+  let raw: unknown = value
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return []
+    }
+  }
+  if (!Array.isArray(raw)) return []
+  const out: DebitoItemPersistido[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const obj = item as Record<string, unknown>
+    const chave = String(obj.chave ?? '').trim()
+    const valorNum =
+      typeof obj.valor === 'number'
+        ? obj.valor
+        : obj.valor != null
+          ? Number(obj.valor)
+          : 0
+    if (!chave) continue
+    out.push({
+      chave,
+      valor: Number.isFinite(valorNum) && valorNum > 0 ? valorNum : 0,
+      label: obj.label ? String(obj.label) : undefined,
+    })
+  }
+  return out
+}
+
+export type DebitoItem = DebitoItemPersistido
+
 export interface Veiculo {
   id: string
   marca: string
@@ -32,12 +72,20 @@ export interface Veiculo {
   valorParcela: number | null
   custoAcumulado: number | null
   debitos: number | null
+  /** Débitos detalhados por categoria. Calcula o total que aparece em `debitos`. */
+  debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
   parcelasRestantes: number | null
   // Financiamento — projeção de quitação
   /** Banco do financiamento (texto livre). Mantido por compat com cadastros antigos. */
   banco: string | null
   /** Código curto do banco (santander/bradesco/itau/bv/caixa/c6/outro). Opcional. */
   bancoCodigo: string | null
+  /** Percentual de quitação do banco (0-100). Vem da tabela de bancos. */
+  quitacaoPercent: number | null
+  /** Percentual de desconto do banco (0-100). Vem da tabela de bancos. */
+  descontoPercent: number | null
+  /** Lista de CNPJs do banco (copiada da tabela; user pode complementar). */
+  bancoCnpjs: string[]
   /** Taxa de juros em % (não fração). */
   taxaJuros: number | null
   /** Em qual periodicidade a taxaJuros foi informada. */
@@ -157,9 +205,21 @@ export async function getVehicles(): Promise<Veiculo[]> {
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         debitos: data.debitos ?? null,
+        debitosItens: Array.isArray(data.debitosItens)
+          ? (data.debitosItens as Array<{
+              chave: string
+              valor: number
+              label?: string
+            }>)
+          : null,
         parcelasRestantes: data.parcelasRestantes ?? null,
         banco: data.banco || null,
         bancoCodigo: data.bancoCodigo || null,
+        quitacaoPercent:
+          typeof data.quitacaoPercent === 'number' ? data.quitacaoPercent : null,
+        descontoPercent:
+          typeof data.descontoPercent === 'number' ? data.descontoPercent : null,
+        bancoCnpjs: Array.isArray(data.bancoCnpjs) ? (data.bancoCnpjs as string[]) : [],
         taxaJuros: data.taxaJuros ?? null,
         taxaPeriodicidade:
           data.taxaPeriodicidade === 'anual' || data.taxaPeriodicidade === 'mensal'
@@ -275,8 +335,16 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const debitosItens = parseDebitosItens(formData.get('debitosItens'))
+  const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
-  const debitos = debitosRaw ? parseFloat(debitosRaw) : null
+  const debitosManual = debitosRaw ? parseFloat(debitosRaw) : null
+  const debitos =
+    debitosItens.length > 0
+      ? debitosCalculado
+      : debitosManual !== null
+        ? debitosManual
+        : null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -284,6 +352,17 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
   const bancoCodigo = bancoCodigoRaw || null
   const banco = bancoRaw || null
+  const quitacaoPercentRaw = ((formData.get('quitacaoPercent') as string) || '').trim().replace(',', '.')
+  const quitacaoPercent = quitacaoPercentRaw ? parseFloat(quitacaoPercentRaw) : null
+  const descontoPercentRaw = ((formData.get('descontoPercent') as string) || '').trim().replace(',', '.')
+  const descontoPercent = descontoPercentRaw ? parseFloat(descontoPercentRaw) : null
+  const bancoCnpjsRaw = ((formData.get('bancoCnpjs') as string) || '').trim()
+  const bancoCnpjs = bancoCnpjsRaw
+    ? bancoCnpjsRaw
+        .split(/[\n,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
   const taxaJurosRaw = (formData.get('taxaJuros') as string) || ''
   const taxaJuros = taxaJurosRaw ? parseFloat(taxaJurosRaw.replace(',', '.')) : null
   const taxaPeriodicidadeRaw = ((formData.get('taxaPeriodicidade') as string) || '').trim()
@@ -413,9 +492,13 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       valorParcela,
       custoAcumulado,
       debitos,
+      debitosItens,
       parcelasRestantes,
       banco,
       bancoCodigo,
+      quitacaoPercent,
+      descontoPercent,
+      bancoCnpjs,
       taxaJuros,
       taxaPeriodicidade,
       valorEntrada,
@@ -611,8 +694,16 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const debitosItens = parseDebitosItens(formData.get('debitosItens'))
+  const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
-  const debitos = debitosRaw ? parseFloat(debitosRaw) : null
+  const debitosManual = debitosRaw ? parseFloat(debitosRaw) : null
+  const debitos =
+    debitosItens.length > 0
+      ? debitosCalculado
+      : debitosManual !== null
+        ? debitosManual
+        : null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -620,6 +711,17 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
   const bancoCodigo = bancoCodigoRaw || null
   const banco = bancoRaw || null
+  const quitacaoPercentRaw = ((formData.get('quitacaoPercent') as string) || '').trim().replace(',', '.')
+  const quitacaoPercent = quitacaoPercentRaw ? parseFloat(quitacaoPercentRaw) : null
+  const descontoPercentRaw = ((formData.get('descontoPercent') as string) || '').trim().replace(',', '.')
+  const descontoPercent = descontoPercentRaw ? parseFloat(descontoPercentRaw) : null
+  const bancoCnpjsRaw = ((formData.get('bancoCnpjs') as string) || '').trim()
+  const bancoCnpjs = bancoCnpjsRaw
+    ? bancoCnpjsRaw
+        .split(/[\n,;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
   const taxaJurosRaw = (formData.get('taxaJuros') as string) || ''
   const taxaJuros = taxaJurosRaw ? parseFloat(taxaJurosRaw.replace(',', '.')) : null
   const taxaPeriodicidadeRaw = ((formData.get('taxaPeriodicidade') as string) || '').trim()
@@ -744,9 +846,13 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       valorParcela,
       custoAcumulado,
       debitos,
+      debitosItens,
       parcelasRestantes,
       banco,
       bancoCodigo,
+      quitacaoPercent,
+      descontoPercent,
+      bancoCnpjs,
       taxaJuros,
       taxaPeriodicidade,
       valorEntrada,

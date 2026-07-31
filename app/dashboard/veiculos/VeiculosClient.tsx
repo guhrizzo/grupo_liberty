@@ -19,6 +19,12 @@ import {
 import { formatCurrency, formatKm } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits } from '@/utils/masks'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
+import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
+import {
+  DEBITOS,
+  getDebitoDefinicao,
+  type DebitoItemDefinicao,
+} from '@/constants/debitos'
 import ProjecaoQuitacao from '../../components/ProjecaoQuitacao'
 import {
   createVehicle,
@@ -113,7 +119,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Financiamento
   const [banco, setBanco] = useState('')
-  const [bancoCodigo, setBancoCodigo] = useState<'' | 'santander' | 'bradesco' | 'itau' | 'bv' | 'caixa' | 'c6' | 'outro'>('')
+  const [bancoCodigo, setBancoCodigo] = useState<string>('')
+  const [quitacaoPercent, setQuitacaoPercent] = useState('')
+  const [descontoPercent, setDescontoPercent] = useState('')
+  const [bancoCnpjs, setBancoCnpjs] = useState('')
   const [taxaJuros, setTaxaJuros] = useState('')
   const [taxaPeriodicidade, setTaxaPeriodicidade] = useState<'mensal' | 'anual'>('mensal')
   const [valorEntrada, setValorEntrada] = useState('')
@@ -126,6 +135,30 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Débitos do veículo
   const [debitos, setDebitos] = useState('')
+  const [debitosItensSelecionados, setDebitosItensSelecionados] = useState<string[]>([])
+  const [debitosValores, setDebitosValores] = useState<Record<string, string>>({})
+  const debitosTotalCalculado = debitosItensSelecionados.reduce((acc, k) => {
+    const raw = debitosValores[k] || ''
+    if (!raw) return acc
+    const num = parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0
+    return acc + (Number.isFinite(num) && num > 0 ? num : 0)
+  }, 0)
+  const toggleDebito = (chave: string, on: boolean) => {
+    setDebitosItensSelecionados((prev) => {
+      if (on) return Array.from(new Set([...prev, chave]))
+      return prev.filter((c) => c !== chave)
+    })
+    if (!on) {
+      setDebitosValores((prev) => {
+        const next = { ...prev }
+        delete next[chave]
+        return next
+      })
+    }
+  }
+  const setDebitoValor = (chave: string, raw: string) => {
+    setDebitosValores((prev) => ({ ...prev, [chave]: raw }))
+  }
   const [sellerName, setSellerName] = useState('')
   const [sellerCpf, setSellerCpf] = useState('')
   const [sellerBirthDate, setSellerBirthDate] = useState('')
@@ -274,6 +307,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCustoAcumulado('')
     setTelefoneAcessoria('')
     setDebitos('')
+    setDebitosItensSelecionados([])
+    setDebitosValores({})
     setSellerName('')
     setSellerCpf('')
     setSellerBirthDate('')
@@ -318,12 +353,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
     setFinalidade(veiculo.finalidade || 'venda')
     setBanco(veiculo.banco || '')
-    const codigosValidos = ['santander', 'bradesco', 'itau', 'bv', 'caixa', 'c6', 'outro']
-    const codigo: '' | 'santander' | 'bradesco' | 'itau' | 'bv' | 'caixa' | 'c6' | 'outro' =
-      veiculo.bancoCodigo && codigosValidos.includes(veiculo.bancoCodigo)
-        ? (veiculo.bancoCodigo as typeof codigo)
-        : ''
-    setBancoCodigo(codigo)
+    setBancoCodigo(veiculo.bancoCodigo || '')
+    setQuitacaoPercent(
+      veiculo.quitacaoPercent != null ? String(veiculo.quitacaoPercent) : '',
+    )
+    setDescontoPercent(
+      veiculo.descontoPercent != null ? String(veiculo.descontoPercent) : '',
+    )
+    setBancoCnpjs(Array.isArray(veiculo.bancoCnpjs) ? veiculo.bancoCnpjs.join('\n') : '')
     setTaxaJuros(
       veiculo.taxaJuros !== null && veiculo.taxaJuros !== undefined
         ? String(veiculo.taxaJuros)
@@ -340,6 +377,20 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCustoAcumulado(veiculo.custoAcumulado ? formatCurrency(veiculo.custoAcumulado).replace('R$', '').trim() : '')
     setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
     setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
+    if (Array.isArray(veiculo.debitosItens) && veiculo.debitosItens.length > 0) {
+      setDebitosItensSelecionados(veiculo.debitosItens.map((i) => i.chave))
+      const valores: Record<string, string> = {}
+      for (const item of veiculo.debitosItens) {
+        const num = Number(item.valor) || 0
+        if (num > 0) {
+          valores[item.chave] = num.toFixed(2).replace('.', ',')
+        }
+      }
+      setDebitosValores(valores)
+    } else {
+      setDebitosItensSelecionados([])
+      setDebitosValores({})
+    }
     setSellerName(veiculo.sellerName || '')
     setSellerCpf(veiculo.sellerCpf || '')
     setSellerBirthDate(veiculo.sellerBirthDate || '')
@@ -418,6 +469,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       // Financiamento
       formData.append('banco', banco)
       formData.append('bancoCodigo', bancoCodigo)
+      formData.append('quitacaoPercent', quitacaoPercent)
+      formData.append('descontoPercent', descontoPercent)
+      formData.append('bancoCnpjs', bancoCnpjs)
       formData.append('taxaJuros', taxaJuros)
       formData.append('taxaPeriodicidade', taxaPeriodicidade)
       formData.append('valorEntrada', valorEntrada ? String(parseMoney(valorEntrada) || 0) : '')
@@ -428,6 +482,21 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       // Débitos
       formData.append('debitos', debitos ? String(parseMoney(debitos) || 0) : '')
+      if (debitosItensSelecionados.length > 0) {
+        const itens = debitosItensSelecionados.map((chave) => {
+          const def = getDebitoDefinicao(chave)
+          const raw = debitosValores[chave] || ''
+          const num = raw ? parseFloat(raw.replace(/\./g, '').replace(',', '.')) || 0 : 0
+          return {
+            chave,
+            valor: num,
+            label: def?.label ?? chave,
+          }
+        })
+        formData.append('debitosItens', JSON.stringify(itens))
+      } else {
+        formData.append('debitosItens', '')
+      }
       formData.append('sellerName', sellerName)
       formData.append('sellerCpf', sellerCpf)
       formData.append('sellerBirthDate', sellerBirthDate)
@@ -910,35 +979,42 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     label="Banco"
                     value={bancoCodigo}
                     onChange={(e) => {
-                      const v = e.target.value as typeof bancoCodigo
+                      const v = e.target.value
                       setBancoCodigo(v)
                       // Pré-preenche taxa sugerida se houver e o usuário ainda não mexeu
                       const taxa = TAXAS_SUGERIDAS[v as keyof typeof TAXAS_SUGERIDAS]
                       if (taxa && !taxaJuros) {
                         setTaxaJuros(String(taxa).replace('.', ','))
                       }
-                      if (v !== 'outro') {
-                        const labels: Record<string, string> = {
-                          santander: 'Santander',
-                          bradesco: 'Bradesco',
-                          itau: 'Itaú',
-                          bv: 'BV',
-                          caixa: 'Caixa',
-                          c6: 'C6',
-                        }
-                        setBanco(labels[v as keyof typeof labels] || '')
-                      } else {
+                      // Auto-preenche dados da tabela de bancos.
+                      const info = getBancoByCodigo(v)
+                      if (info) {
+                        setBanco(info.nome)
+                        setQuitacaoPercent(
+                          info.quitacaoPercent != null
+                            ? String(info.quitacaoPercent)
+                            : '',
+                        )
+                        setDescontoPercent(
+                          info.descontoPercent != null
+                            ? String(info.descontoPercent)
+                            : '',
+                        )
+                        setBancoCnpjs(info.cnpjs.join('\n'))
+                      } else if (v === 'outro' || v === '') {
                         setBanco('')
+                        setQuitacaoPercent('')
+                        setDescontoPercent('')
+                        setBancoCnpjs('')
                       }
                     }}
                   >
                     <option value="">Selecione…</option>
-                    <option value="santander">Santander</option>
-                    <option value="bradesco">Bradesco</option>
-                    <option value="itau">Itaú</option>
-                    <option value="bv">BV Financeira</option>
-                    <option value="caixa">Caixa Econômica</option>
-                    <option value="c6">C6 Bank</option>
+                    {BANCOS.map((b) => (
+                      <option key={b.codigo} value={b.codigo}>
+                        {bancoOptionLabel(b)}
+                      </option>
+                    ))}
                     <option value="outro">Outro</option>
                   </Select>
 
@@ -951,6 +1027,52 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       placeholder="Ex: Banco Pan"
                       autoComplete="off"
                     />
+                  )}
+
+                  {bancoCodigo && bancoCodigo !== 'outro' && bancoCodigo !== '' && (
+                    <div className="sm:col-span-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      <Input
+                        id="quitacaoPercent"
+                        label="% Quitação"
+                        type="text"
+                        inputMode="decimal"
+                        value={quitacaoPercent}
+                        onChange={(e) => setQuitacaoPercent(e.target.value)}
+                        placeholder="Ex: 70"
+                        leftIcon={<span className="text-[10px] font-bold text-neutral-500">%</span>}
+                        hint="Pré-preenchido pela tabela do banco."
+                      />
+                      <Input
+                        id="descontoPercent"
+                        label="% Desconto"
+                        type="text"
+                        inputMode="decimal"
+                        value={descontoPercent}
+                        onChange={(e) => setDescontoPercent(e.target.value)}
+                        placeholder="Ex: 80"
+                        leftIcon={<span className="text-[10px] font-bold text-neutral-500">%</span>}
+                        hint="Pré-preenchido pela tabela do banco."
+                      />
+                      <div className="sm:col-span-2 lg:col-span-1">
+                        <label
+                          htmlFor="bancoCnpjs"
+                          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5"
+                        >
+                          CNPJs do banco
+                        </label>
+                        <textarea
+                          id="bancoCnpjs"
+                          value={bancoCnpjs}
+                          onChange={(e) => setBancoCnpjs(e.target.value)}
+                          rows={2}
+                          placeholder="00.000.000/0001-00"
+                          className="w-full rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15 px-3.5 py-2.5 text-xs text-neutral-900 placeholder:text-neutral-400 transition-colors"
+                        />
+                        <p className="mt-1.5 text-xs text-neutral-500">
+                          Um por linha. Pré-preenchido; ajuste se necessário.
+                        </p>
+                      </div>
+                    </div>
                   )}
 
                   <div className="grid gap-4 sm:grid-cols-2 sm:col-span-2 lg:grid-cols-3">
@@ -1123,18 +1245,92 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
               {/* ─── Débitos do Veículo ─────────────────────────────── */}
               <div>
-                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
-                  Débitos do Veículo
-                </h3>
-                <Textarea
-                  id="debitos"
-                  label="Débitos"
-                  rows={3}
-                  value={debitos}
-                  onChange={(e) => setDebitos(e.target.value)}
-                  placeholder="IPVA, multas, etc."
-                  error={fieldErrors.debitos}
-                />
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
+                    Débitos do Veículo
+                  </h3>
+                  {debitosItensSelecionados.length > 0 && (
+                    <span className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-800">
+                      Total: {formatCurrency(debitosTotalCalculado)}
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-2">
+                  {DEBITOS.map((d) => {
+                    const ativo = debitosItensSelecionados.includes(d.chave)
+                    const valor = debitosValores[d.chave] || ''
+                    return (
+                      <li
+                        key={d.chave}
+                        className={
+                          'flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center ' +
+                          (ativo
+                            ? 'border-amber-300 bg-amber-50/40'
+                            : 'border-neutral-200 bg-white')
+                        }
+                      >
+                        <label className="flex flex-1 items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={ativo}
+                            onChange={(e) =>
+                              toggleDebito(d.chave, e.target.checked)
+                            }
+                            className="h-4 w-4 shrink-0 rounded border-neutral-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-neutral-900">
+                              {d.label}
+                            </p>
+                            {d.descricao && (
+                              <p className="text-[10px] text-neutral-500">
+                                {d.descricao}
+                              </p>
+                            )}
+                          </div>
+                        </label>
+                        <div className="relative w-full sm:w-40">
+                          <span
+                            aria-hidden
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-xs font-bold"
+                          >
+                            R$
+                          </span>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={valor}
+                            disabled={!ativo}
+                            onChange={(e) =>
+                              setDebitoValor(d.chave, maskMoney(e.target.value))
+                            }
+                            placeholder="0,00"
+                            className={
+                              'w-full rounded-lg border py-1.5 pl-9 pr-2 text-xs font-semibold transition-colors focus:outline-none ' +
+                              (ativo
+                                ? 'border-neutral-200 bg-white text-neutral-900 focus:border-liberty focus:ring-2 focus:ring-liberty/15'
+                                : 'border-neutral-200 bg-neutral-50 text-neutral-400 cursor-not-allowed')
+                            }
+                          />
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                {/* Campo legado (caso o usuário queira digitar valor total manual) — escondido por padrão,
+                    mas mantido para compatibilidade caso não haja itens marcados. */}
+                {debitosItensSelecionados.length === 0 && (
+                  <Textarea
+                    id="debitos"
+                    label="Débitos (texto livre)"
+                    rows={3}
+                    value={debitos}
+                    onChange={(e) => setDebitos(e.target.value)}
+                    placeholder="Descreva manualmente os débitos do veículo."
+                    error={fieldErrors.debitos}
+                    containerClassName="mt-3"
+                  />
+                )}
               </div>
 
               {/* ─── Dados do Vendedor (apenas para veículos pessoais) ──────────── */}

@@ -4,6 +4,7 @@ import { useState, useTransition, useMemo } from 'react'
 import {
   IconPlus,
   IconReceipt,
+  IconHome,
   IconCheck,
   IconX,
   IconChevronDown,
@@ -47,13 +48,22 @@ function mesLabel(anoMes: string): string {
 }
 
 function badgeTipo(tipo: TipoCobranca) {
-  return tipo === 'aluguel' ? (
-    <span className="rounded-full bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-      Aluguel
-    </span>
-  ) : (
-    <span className="rounded-full bg-violet-100 text-violet-800 border border-violet-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-      Promissória
+  const isAluguel = tipo === 'aluguel'
+  return (
+    <span
+      className={
+        'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ' +
+        (isAluguel
+          ? 'bg-liberty/10 text-liberty-deep border border-liberty/30'
+          : 'bg-liberty text-white border border-liberty-deep shadow-sm')
+      }
+    >
+      {isAluguel ? (
+        <IconHome size={11} stroke={2.5} />
+      ) : (
+        <IconReceipt size={11} stroke={2.5} />
+      )}
+      {isAluguel ? 'Aluguel' : 'Promissória'}
     </span>
   )
 }
@@ -518,22 +528,29 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                   Tipo de Cobrança *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  {(['promissoria', 'aluguel'] as TipoCobranca[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTipo(t)}
-                      className={`rounded-xl border-2 py-3 text-sm font-bold transition-all cursor-pointer ${
-                        tipo === t
-                          ? t === 'aluguel'
-                            ? 'border-blue-600 bg-blue-50 text-blue-700'
-                            : 'border-violet-600 bg-violet-50 text-violet-700'
-                          : 'border-neutral-200 text-neutral-500 hover:border-neutral-300'
-                      }`}
-                    >
-                      {t === 'aluguel' ? '🏠 Aluguel (Semanal)' : '📄 Promissória (Mensal)'}
-                    </button>
-                  ))}
+                  {(['promissoria', 'aluguel'] as TipoCobranca[]).map((t) => {
+                    const isAluguel = t === 'aluguel'
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTipo(t)}
+                        className={
+                          'inline-flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all cursor-pointer ' +
+                          (tipo === t
+                            ? 'border-liberty bg-liberty text-white shadow-sm'
+                            : 'border-neutral-200 text-neutral-500 hover:border-liberty/40 hover:text-liberty-deep bg-white')
+                        }
+                      >
+                        {isAluguel ? (
+                          <IconHome size={16} stroke={2.5} />
+                        ) : (
+                          <IconReceipt size={16} stroke={2.5} />
+                        )}
+                        {isAluguel ? 'Aluguel (Semanal)' : 'Promissória (Mensal)'}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

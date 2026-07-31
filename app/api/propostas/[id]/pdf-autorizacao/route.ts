@@ -230,6 +230,28 @@ export async function GET(
     console.error('[pdf-autorizacao] Falha ao buscar peças das manutenções:', err)
   }
 
+  // Coletar débitos detalhados do veículo.
+  let debitosItensPdf: Array<{ chave: string; label: string; valor: number }> = []
+  try {
+    const vehDoc = await adminDb.collection('veiculos').doc(proposta.veiculo_id).get()
+    if (vehDoc.exists) {
+      const v = vehDoc.data() as {
+        debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
+      }
+      if (Array.isArray(v.debitosItens) && v.debitosItens.length > 0) {
+        debitosItensPdf = v.debitosItens
+          .filter((d) => Number(d.valor) > 0)
+          .map((d) => ({
+            chave: String(d.chave),
+            label: d.label ? String(d.label) : String(d.chave),
+            valor: Number(d.valor) || 0,
+          }))
+      }
+    }
+  } catch (err) {
+    console.error('[pdf-autorizacao] Falha ao buscar débitos do veículo:', err)
+  }
+
   // 7. Gerar o PDF
   const docProps: PropostaAutorizacaoDocumentProps = {
     id,
@@ -251,6 +273,7 @@ export async function GET(
     dividaTotal,
     custoAcumulado,
     banco,
+    debitosItens: debitosItensPdf,
     propostaComercial: propostaComercialFinal,
     valorOfertado: proposta.valor,
     mensagem: proposta.mensagem,
