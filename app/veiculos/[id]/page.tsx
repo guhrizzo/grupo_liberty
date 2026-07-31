@@ -176,17 +176,17 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
           <div className="grid gap-8 lg:grid-cols-3 items-start">
 
             <div className="lg:col-span-2 space-y-6">
-              <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <GalleryViewer fotos={veiculo.fotos} alt={`${veiculo.marca} ${veiculo.modelo}`} />
               </div>
 
-              <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
                 <div className="border-b border-neutral-200 pb-5 mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty">
                       {veiculo.marca}
                     </span>
-                    <h1 className="text-3xl md:text-4xl font-black text-neutral-900 tracking-tight mt-1">
+                    <h1 className="text-3xl md:text-4xl font-black text-neutral-900 tracking-tight mt-1 break-words">
                       {veiculo.modelo}
                     </h1>
                     {veiculo.localizacao && (
@@ -196,8 +196,8 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                       </span>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500">
+                  <div className="shrink-0 text-right max-w-full">
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500 whitespace-nowrap">
                       {veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
                         ? 'Preço promocional'
                         : 'Preço à vista'}
@@ -207,7 +207,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                         <p className="text-sm font-semibold text-neutral-400 line-through">
                           {formatCurrency(veiculo.preco)}
                         </p>
-                        <p className="text-3xl font-black text-liberty">
+                        <p className="text-3xl font-black text-liberty whitespace-nowrap">
                           {formatCurrency(veiculo.precoComDesconto)}
                         </p>
                         <span className="mt-1 inline-flex items-center rounded-md bg-emerald-500/95 text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 border border-emerald-600">
@@ -215,12 +215,12 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                         </span>
                       </div>
                     ) : (
-                      <p className="text-3xl font-black text-liberty">
+                      <p className="text-3xl font-black text-liberty whitespace-nowrap">
                         {formatCurrency(veiculo.preco)}
                       </p>
                     )}
                     {veiculo.tabelaFipe != null && veiculo.tabelaFipe > 0 && (
-                      <p className="mt-2 text-[11px] font-semibold text-neutral-500">
+                      <p className="mt-2 text-[11px] font-semibold text-neutral-500 whitespace-nowrap">
                         Tabela FIPE: <span className="text-neutral-700">{formatCurrency(veiculo.tabelaFipe)}</span>
                       </p>
                     )}

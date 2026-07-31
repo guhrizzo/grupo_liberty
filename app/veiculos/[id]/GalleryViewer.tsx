@@ -158,7 +158,7 @@ export default function GalleryViewer({ fotos, alt }: GalleryViewerProps) {
             </button>
           )}
 
-          <div className="relative w-full max-w-5xl aspect-16/10 max-h-[80vh] flex items-center justify-center">
+          <div className="relative w-full max-w-5xl aspect-16/10 max-h-[80vh] flex items-center justify-center overflow-hidden">
             <Image
               src={fotos[lightboxIndex]}
               alt={`${alt} - Foto ${lightboxIndex + 1}`}
