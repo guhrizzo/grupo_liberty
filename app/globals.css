@@ -181,6 +181,15 @@ html, body {
   color: #0a0a0a;
 }
 
+/* Esconde a barra de scroll mantendo o scroll programático (abas, listas). */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* =========================================================
    Mobile: bloqueia o gesto de pull-to-refresh do navegador
    (Chrome/Edge/Safari iOS) que esticava o body e fazia o

@@ -51,34 +51,37 @@ export default function LegalTermsModal({
       className="max-w-3xl overflow-hidden p-0 rounded-2xl bg-white border border-neutral-200 shadow-2xl"
     >
       {/* Header com gradiente e abas */}
-      <div className="relative border-b border-neutral-200 bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-800 text-white p-6 pb-0">
-        <div className="flex items-center justify-between pb-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-liberty/20 text-liberty border border-liberty/30 grid place-items-center">
+      <div className="relative border-b border-neutral-200 bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-800 text-white p-4 md:p-6 pb-0">
+        <div className="flex items-start justify-between gap-3 pb-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-liberty/20 text-liberty border border-liberty/30 grid place-items-center">
               {activeTab === 'termos' ? (
                 <IconScale size={22} stroke={2} />
               ) : (
                 <IconShieldCheck size={22} stroke={2} />
               )}
             </div>
-            <div>
-              <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
-                Liberty<span className="text-liberty">Car</span> — Central de Transparência
+            <div className="min-w-0">
+              <h2 className="text-base md:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                Liberty<span className="text-liberty">Car</span>
+                <span className="hidden sm:inline">— Central de Transparência</span>
               </h2>
-              <p className="text-xs text-neutral-400">
+              <p className="text-[11px] md:text-xs text-neutral-400 truncate">
                 Termos legais, garantias e política de privacidade conforme a LGPD
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCopyLink}
               title="Copiar link do site"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-ui cursor-pointer"
+              aria-label="Copiar link do site"
+              className="inline-flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 rounded-lg text-[11px] md:text-xs font-semibold bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white transition-ui cursor-pointer"
             >
               {copied ? <IconCheck size={14} className="text-emerald-400" /> : <IconCopy size={14} />}
-              {copied ? 'Copiado!' : 'Compartilhar'}
+              <span className="hidden sm:inline">{copied ? 'Copiado!' : 'Compartilhar'}</span>
+              <span className="sm:hidden">{copied ? 'Ok' : 'Link'}</span>
             </button>
             <button
               onClick={onClose}
@@ -91,34 +94,37 @@ export default function LegalTermsModal({
         </div>
 
         {/* Abas */}
-        <div className="flex gap-2 pt-2">
-          <button
-            onClick={() => handleTabChange('termos')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 ${
-              activeTab === 'termos'
-                ? 'bg-white text-neutral-900 border-liberty shadow-sm'
-                : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
-            }`}
-          >
-            <IconFileText size={16} className={activeTab === 'termos' ? 'text-liberty' : ''} />
-            Termos de Uso
-          </button>
-          <button
-            onClick={() => handleTabChange('privacidade')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 ${
-              activeTab === 'privacidade'
-                ? 'bg-white text-neutral-900 border-liberty shadow-sm'
-                : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
-            }`}
-          >
-            <IconLock size={16} className={activeTab === 'privacidade' ? 'text-liberty' : ''} />
-            Política de Privacidade (LGPD)
-          </button>
+        <div className="-mx-4 md:-mx-6 px-4 md:px-6 pt-2 overflow-x-auto scrollbar-none">
+          <div className="flex gap-1.5 md:gap-2 min-w-max">
+            <button
+              onClick={() => handleTabChange('termos')}
+              className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 text-[11px] md:text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 whitespace-nowrap ${
+                activeTab === 'termos'
+                  ? 'bg-white text-neutral-900 border-liberty shadow-sm'
+                  : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
+              }`}
+            >
+              <IconFileText size={16} className={activeTab === 'termos' ? 'text-liberty' : ''} />
+              Termos de Uso
+            </button>
+            <button
+              onClick={() => handleTabChange('privacidade')}
+              className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 text-[11px] md:text-xs font-extrabold rounded-t-xl transition-[color,background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer border-b-2 whitespace-nowrap ${
+                activeTab === 'privacidade'
+                  ? 'bg-white text-neutral-900 border-liberty shadow-sm'
+                  : 'text-neutral-400 hover:text-white border-transparent hover:bg-white/5'
+              }`}
+            >
+              <IconLock size={16} className={activeTab === 'privacidade' ? 'text-liberty' : ''} />
+              <span className="sm:hidden">Privacidade</span>
+              <span className="hidden sm:inline">Política de Privacidade (LGPD)</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Conteúdo rolável */}
-      <div className="p-6 md:p-8 max-h-[60vh] overflow-y-auto space-y-6 text-sm text-neutral-700 leading-relaxed">
+      <div className="p-4 sm:p-6 md:p-8 max-h-[70vh] md:max-h-[60vh] overflow-y-auto space-y-5 md:space-y-6 text-sm text-neutral-700 leading-relaxed">
         {activeTab === 'termos' ? (
           <>
             <div className="p-4 rounded-xl bg-liberty/5 border border-liberty/20 text-neutral-800 text-xs flex items-start gap-3">
@@ -237,13 +243,13 @@ export default function LegalTermsModal({
       </div>
 
       {/* Footer do Modal */}
-      <div className="p-4 bg-neutral-50 border-t border-neutral-200 flex items-center justify-between">
-        <p className="text-[11px] text-neutral-500">
+      <div className="p-4 bg-neutral-50 border-t border-neutral-200 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[11px] text-neutral-500 text-center sm:text-left">
           Última atualização: Julho de 2026 — Liberty Car
         </p>
         <button
           onClick={onClose}
-          className="px-5 py-2 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-ui cursor-pointer shadow-sm"
+          className="w-full sm:w-auto px-5 py-2.5 sm:py-2 rounded-xl text-xs font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-ui cursor-pointer shadow-sm"
         >
           Compreendi
         </button>
