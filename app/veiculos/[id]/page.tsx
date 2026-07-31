@@ -112,7 +112,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
     : []
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex-1 overflow-x-clip flex flex-col">
 
       {/* Topbar */}
       <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-neutral-200">
@@ -144,7 +144,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-8 md:px-8">
+      <main className="flex-1 overflow-x-clip px-4 py-8 md:px-8">
         <div className="mx-auto max-w-7xl">
 
           {/* Breadcrumb + Share */}

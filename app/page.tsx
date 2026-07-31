@@ -72,13 +72,13 @@ export default async function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 px-4 py-10 md:px-8 md:py-16">
+      <main className="flex-1 overflow-x-clip px-4 py-10 md:px-8 md:py-16">
         <div className="mx-auto max-w-7xl space-y-12 md:space-y-16">
 
           {/* Hero Section */}
           <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-linear-to-br from-liberty/8 via-white to-white shadow-lg shadow-liberty/5">
-            <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-liberty/10 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
+            <div className="absolute -top-16 -right-16 sm:-top-24 sm:-right-24 h-40 w-40 sm:h-72 sm:w-72 rounded-full bg-liberty/10 blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -left-16 sm:-bottom-24 sm:-left-24 h-40 w-40 sm:h-72 sm:w-72 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
 
             <div className="relative px-6 py-14 md:px-16 md:py-20 text-center max-w-3xl mx-auto space-y-5">
               <span className="inline-flex items-center gap-2 rounded-full border border-liberty/30 bg-liberty/5 px-3.5 py-1 text-xs font-extrabold uppercase tracking-[0.25em] text-liberty-deep animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]">

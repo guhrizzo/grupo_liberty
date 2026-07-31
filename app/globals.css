@@ -195,24 +195,27 @@ html, body {
    (Chrome/Edge/Safari iOS) que esticava o body e fazia o
    <header class="sticky … w-full"> deixar de cobrir 100%
    da largura após o usuário soltar.
+
+   Importante: usamos `overflow-x: clip` e NÃO `hidden`.
+   Por padrão do CSS, quando você define `overflow-x: hidden`
+   + `overflow-y: auto` (ou qualquer valor não-visible no outro
+   eixo), o navegador força `overflow-y: auto` no hidden side
+   e isso pode vazar scroll horizontal em Android/Chrome.
+   `overflow-x: clip` não tem esse efeito colateral e mantém
+   o scroll vertical normal.
    ========================================================= */
 
 html {
-  /* Trava a largura do documento para nunca esticar além da viewport. */
   width: 100%;
   max-width: 100vw;
   overflow-x: clip;
-  /* Bloqueia overscroll horizontal/vertical no root (puxar do topo da página). */
   overscroll-behavior-y: contain;
 }
 
 body {
-  /* Reforça a largura da navbar/header fixos no mobile. */
   width: 100%;
   max-width: 100vw;
   overflow-x: clip;
-  /* Permite scroll vertical dentro de containers, mas bloqueia
-     o pull-to-refresh quando o body inteiro for o scroll root. */
   overscroll-behavior-y: contain;
 }
 
