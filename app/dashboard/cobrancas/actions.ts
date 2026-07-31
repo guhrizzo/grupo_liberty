@@ -6,7 +6,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export type TipoCobranca = 'aluguel' | 'promissoria'
+export type TipoCobranca = 'aluguel' | 'promissoria' | 'quinzenal'
 export type StatusParcela = 'pendente' | 'pago' | 'atrasado'
 
 export interface Parcela {
@@ -26,6 +26,7 @@ export interface Cobranca {
   veiculoId: string
   veiculoResumo: string
   valorTotal: number
+  valorEntrada: number | null
   numeroParcelas: number
   diaVencimento: number
   tipo: TipoCobranca
@@ -50,6 +51,12 @@ function addMonths(date: Date, months: number): Date {
 function addWeeks(date: Date, weeks: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + weeks * 7)
+  return d
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
   return d
 }
 
@@ -103,6 +110,10 @@ export async function getCobrancas(): Promise<Cobranca[]> {
       veiculoId: data.veiculoId,
       veiculoResumo: data.veiculoResumo,
       valorTotal: data.valorTotal,
+      valorEntrada:
+        typeof data.valorEntrada === 'number' && data.valorEntrada > 0
+          ? data.valorEntrada
+          : null,
       numeroParcelas: data.numeroParcelas,
       diaVencimento: data.diaVencimento,
       tipo: data.tipo,
@@ -133,14 +144,20 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     const diaVencimento = parseInt(formData.get('diaVencimento') as string || '1', 10)
     const tipo = (formData.get('tipo') as string || 'promissoria') as TipoCobranca
     const primeiraParcela = (formData.get('primeiraParcela') as string || '').trim()
+    const valorEntradaRaw = parseFloat(formData.get('valorEntrada') as string || '0')
+    const valorEntrada =
+      !isNaN(valorEntradaRaw) && valorEntradaRaw > 0 ? valorEntradaRaw : 0
 
     if (!clienteNome) return { error: 'Informe o nome do cliente.' }
     if (!veiculoId) return { error: 'Selecione um veículo.' }
     if (isNaN(valorTotal) || valorTotal <= 0) return { error: 'Valor total inválido.' }
+    if (valorEntrada >= valorTotal)
+      return { error: 'O valor de entrada deve ser menor que o valor total.' }
     if (isNaN(numeroParcelas) || numeroParcelas < 1 || numeroParcelas > 120) return { error: 'Número de parcelas inválido (1–120).' }
     if (!primeiraParcela) return { error: 'Informe a data da primeira parcela.' }
 
-    const valorParcela = Math.round((valorTotal / numeroParcelas) * 100) / 100
+    const saldo = valorTotal - valorEntrada
+    const valorParcela = Math.round((saldo / numeroParcelas) * 100) / 100
 
     // Criar documento da cobrança
     const cobrancaRef = await adminDb.collection('cobrancas').add({
@@ -148,6 +165,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       veiculoId,
       veiculoResumo,
       valorTotal,
+      valorEntrada: valorEntrada > 0 ? valorEntrada : null,
       numeroParcelas,
       diaVencimento,
       tipo,
@@ -165,6 +183,9 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       if (tipo === 'aluguel') {
         // Semanal: +7 dias por parcela
         dataVencimento = toDateString(addWeeks(baseDate, i))
+      } else if (tipo === 'quinzenal') {
+        // Quinzenal: +15 dias por parcela
+        dataVencimento = toDateString(addDays(baseDate, i * 15))
       } else {
         // Mensal: mesmo dia do mês, avança meses
         const d = addMonths(baseDate, i)

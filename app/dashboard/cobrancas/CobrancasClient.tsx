@@ -15,6 +15,8 @@ import {
   IconCurrencyDollar,
   IconCircleCheck,
   IconCircleX,
+  IconCar,
+  IconCalendar,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -30,6 +32,7 @@ import type { Cobranca, Parcela, TipoCobranca } from './actions'
 import { criarCobranca, toggleParcela, deletarCobranca } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
+import { VeiculoPicker } from './VeiculoPicker'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,13 @@ function mesLabel(anoMes: string): string {
 }
 
 function badgeTipo(tipo: TipoCobranca) {
+  if (tipo === 'quinzenal')
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-liberty/10 text-liberty-deep border border-liberty/30">
+        <IconCalendar size={11} stroke={2.5} />
+        Quinzenal
+      </span>
+    )
   const isAluguel = tipo === 'aluguel'
   return (
     <span
@@ -66,6 +76,24 @@ function badgeTipo(tipo: TipoCobranca) {
       {isAluguel ? 'Aluguel' : 'Promissória'}
     </span>
   )
+}
+
+function labelParcelas(tipo: TipoCobranca): string {
+  if (tipo === 'aluguel') return 'Nº de Semanas *'
+  if (tipo === 'quinzenal') return 'Nº de Parcelas Quinzenais *'
+  return 'Nº de Parcelas *'
+}
+
+function labelPrimeiraParcela(tipo: TipoCobranca): string {
+  if (tipo === 'aluguel') return 'Data da 1ª Semana *'
+  if (tipo === 'quinzenal') return 'Data da 1ª Parcela Quinzenal *'
+  return 'Data da 1ª Parcela *'
+}
+
+function periodicidadeLabel(tipo: TipoCobranca): string {
+  if (tipo === 'aluguel') return '(semanais)'
+  if (tipo === 'quinzenal') return '(quinzenais)'
+  return '(mensais)'
 }
 
 function StatusBadge({ status }: { status: Parcela['status'] }) {
@@ -103,12 +131,16 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [clienteNome, setClienteNome] = useState('')
   const [veiculoId, setVeiculoId] = useState('')
   const [valorTotal, setValorTotal] = useState('')
+  const [valorEntrada, setValorEntrada] = useState('')
   const [numeroParcelas, setNumeroParcelas] = useState('1')
   const [diaVencimento, setDiaVencimento] = useState('1')
   const [tipo, setTipo] = useState<TipoCobranca>('promissoria')
   const [primeiraParcela, setPrimeiraParcela] = useState(() => {
     return new Date().toISOString().split('T')[0]
   })
+
+  // Veículo picker
+  const [showVeiculoPicker, setShowVeiculoPicker] = useState(false)
 
   // Painel expandido de parcelas
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -162,6 +194,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
     setClienteNome('')
     setVeiculoId('')
     setValorTotal('')
+    setValorEntrada('')
     setNumeroParcelas('1')
     setDiaVencimento('1')
     setTipo('promissoria')
@@ -182,6 +215,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       fd.append('veiculoId', veiculoId)
       fd.append('veiculoResumo', veiculoResumo)
       fd.append('valorTotal', String(parseMoney(valorTotal) || 0))
+      fd.append('valorEntrada', String(parseMoney(valorEntrada) || 0))
       fd.append('numeroParcelas', numeroParcelas)
       fd.append('diaVencimento', diaVencimento)
       fd.append('tipo', tipo)
@@ -346,6 +380,14 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
 
                     {/* Progresso */}
                     <div className="mt-4 space-y-2">
+                      {c.valorEntrada && c.valorEntrada > 0 && (
+                        <div className="flex items-center gap-2 text-[11px]">
+                          <span className="inline-flex items-center rounded-full bg-liberty/10 text-liberty-deep border border-liberty/30 px-2 py-0.5 font-bold uppercase tracking-wider">
+                            Entrada
+                          </span>
+                          <span className="font-bold text-neutral-900">{formatCurrency(c.valorEntrada)}</span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-neutral-600">
                           Pago: <span className="text-emerald-700 font-bold">{formatCurrency(totalPago)}</span>{' '}
@@ -527,30 +569,27 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
                   Tipo de Cobrança *
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(['promissoria', 'aluguel'] as TipoCobranca[]).map((t) => {
-                    const isAluguel = t === 'aluguel'
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setTipo(t)}
-                        className={
-                          'inline-flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-bold transition-all cursor-pointer ' +
-                          (tipo === t
-                            ? 'border-liberty bg-liberty text-white shadow-sm'
-                            : 'border-neutral-200 text-neutral-500 hover:border-liberty/40 hover:text-liberty-deep bg-white')
-                        }
-                      >
-                        {isAluguel ? (
-                          <IconHome size={16} stroke={2.5} />
-                        ) : (
-                          <IconReceipt size={16} stroke={2.5} />
-                        )}
-                        {isAluguel ? 'Aluguel (Semanal)' : 'Promissória (Mensal)'}
-                      </button>
-                    )
-                  })}
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { value: 'promissoria', label: 'Mensal', icon: IconReceipt },
+                    { value: 'quinzenal', label: 'Quinzenal', icon: IconCalendar },
+                    { value: 'aluguel', label: 'Semanal', icon: IconHome },
+                  ] as { value: TipoCobranca; label: string; icon: React.ComponentType<{ size?: number; stroke?: number }> }[]).map(({ value: t, label, icon: IconTipo }) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTipo(t)}
+                      className={
+                        'inline-flex items-center justify-center gap-1.5 rounded-xl border-2 py-3 text-xs font-bold transition-all cursor-pointer ' +
+                        (tipo === t
+                          ? 'border-liberty bg-liberty text-white shadow-sm'
+                          : 'border-neutral-200 text-neutral-500 hover:border-liberty/40 hover:text-liberty-deep bg-white')
+                      }
+                    >
+                      <IconTipo size={14} stroke={2.5} />
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -567,22 +606,59 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
 
               {/* Veículo */}
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-2">
-                  Veículo *
-                </label>
-                <select
-                  required
-                  value={veiculoId}
-                  onChange={(e) => setVeiculoId(e.target.value)}
-                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 py-2.5 text-sm text-neutral-900 focus:border-neutral-950 focus:bg-white focus:outline-none"
-                >
-                  <option value="">Selecione um veículo...</option>
-                  {veiculos.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.marca} {v.modelo} {v.ano}{v.placa ? ` • ${v.placa}` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                    Veículo *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowVeiculoPicker(true)}
+                    className="text-[11px] font-bold uppercase tracking-wider text-liberty-deep hover:text-liberty transition-colors cursor-pointer"
+                  >
+                    {veiculoId ? 'Trocar' : 'Selecionar'}
+                  </button>
+                </div>
+                {veiculoId ? (() => {
+                  const v = veiculos.find((x) => x.id === veiculoId)
+                  if (!v) return (
+                    <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-xs text-neutral-500">
+                      Veículo não encontrado.
+                    </div>
+                  )
+                  const foto = Array.isArray(v.fotos) && v.fotos.length > 0 ? v.fotos[0] : null
+                  return (
+                    <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white p-3 shadow-xs">
+                      <div className="h-16 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+                        {foto ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={foto} alt={`${v.marca} ${v.modelo}`} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-neutral-400">
+                            <IconCar size={20} stroke={1.5} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-neutral-900">
+                          {v.marca} {v.modelo}
+                        </p>
+                        <p className="mt-0.5 text-[11px] font-semibold text-neutral-500">
+                          {v.ano}{v.placa ? ` • ${v.placa}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })() : (
+                  <button
+                    type="button"
+                    onClick={() => setShowVeiculoPicker(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-3.5 py-6 text-xs font-semibold text-neutral-500 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-colors cursor-pointer"
+                  >
+                    <IconCar size={16} stroke={2} />
+                    Selecionar veículo
+                  </button>
+                )}
+                <input type="hidden" required value={veiculoId} onChange={() => {}} />
               </div>
 
               {/* Valor e parcelas */}
@@ -597,8 +673,19 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                   required
                 />
                 <Input
+                  id="valorEntrada"
+                  label="Entrada (opcional)"
+                  value={valorEntrada}
+                  onChange={(e) => setValorEntrada(maskMoney(e.target.value))}
+                  placeholder="R$ 0,00"
+                  inputMode="numeric"
+                />
+              </div>
+
+              <div>
+                <Input
                   id="numeroParcelas"
-                  label={tipo === 'aluguel' ? 'Nº de Semanas *' : 'Nº de Parcelas *'}
+                  label={labelParcelas(tipo)}
                   type="number"
                   min="1"
                   max="120"
@@ -624,28 +711,46 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 )}
                 <Input
                   id="primeiraParcela"
-                  label="Data da 1ª Parcela *"
+                  label={labelPrimeiraParcela(tipo)}
                   type="date"
                   value={primeiraParcela}
                   onChange={(e) => setPrimeiraParcela(e.target.value)}
-                  containerClassName={tipo === 'aluguel' ? 'col-span-2' : ''}
+                  containerClassName={tipo === 'aluguel' || tipo === 'quinzenal' ? 'col-span-2' : ''}
                   required
                 />
               </div>
 
               {/* Preview do valor da parcela */}
-              {valorTotal && numeroParcelas && (
-                <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-sm">
-                  <p className="text-neutral-500 text-xs font-semibold uppercase tracking-wider mb-1">Prévia</p>
-                  <p className="font-bold text-neutral-900">
-                    {numeroParcelas}× de{' '}
-                    <span className="text-emerald-700">
-                      {formatCurrency((parseMoney(valorTotal) || 0) / Number(numeroParcelas || 1))}
-                    </span>{' '}
-                    {tipo === 'aluguel' ? '(semanais)' : '(mensais)'}
-                  </p>
-                </div>
-              )}
+              {valorTotal && numeroParcelas && (() => {
+                const totalNum = parseMoney(valorTotal) || 0
+                const entradaNum = parseMoney(valorEntrada) || 0
+                const saldo = Math.max(totalNum - entradaNum, 0)
+                const n = Number(numeroParcelas) || 1
+                const valorParcelaCalc = saldo / n
+                const temEntrada = entradaNum > 0
+                return (
+                  <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-sm space-y-1">
+                    <p className="text-neutral-500 text-xs font-semibold uppercase tracking-wider">Prévia</p>
+                    {temEntrada && (
+                      <p className="text-xs text-neutral-600">
+                        Entrada: <span className="font-bold text-neutral-900">{formatCurrency(entradaNum)}</span>
+                        <span className="text-neutral-400"> · Saldo: </span>
+                        <span className="font-bold text-neutral-900">{formatCurrency(saldo)}</span>
+                      </p>
+                    )}
+                    <p className="font-bold text-neutral-900">
+                      {numeroParcelas}× de{' '}
+                      <span className="text-emerald-700">{formatCurrency(valorParcelaCalc)}</span>{' '}
+                      {periodicidadeLabel(tipo)}
+                    </p>
+                    {temEntrada && (
+                      <p className="text-[11px] text-neutral-500">
+                        Total: {formatCurrency(entradaNum + valorParcelaCalc * n)}
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
 
               <div className="flex gap-3 pt-2">
                 <button
@@ -667,6 +772,21 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           </div>
         </div>
       )}
+
+      <VeiculoPicker
+        open={showVeiculoPicker}
+        onClose={() => setShowVeiculoPicker(false)}
+        veiculos={veiculos.map((v) => ({
+          id: v.id,
+          marca: v.marca,
+          modelo: v.modelo,
+          ano: v.ano ?? null,
+          placa: v.placa ?? null,
+          foto: Array.isArray(v.fotos) && v.fotos.length > 0 ? v.fotos[0] : null,
+        }))}
+        value={veiculoId || null}
+        onSelect={setVeiculoId}
+      />
 
       {/* ─── Confirm Delete ──────────────────────────────────────────── */}
       <ConfirmDialog
