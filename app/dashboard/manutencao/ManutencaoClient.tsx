@@ -35,6 +35,10 @@ import { maskMoney } from '@/utils/masks'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
 import { createManutencao, updateManutencao, deleteManutencao } from './actions'
 import type { Manutencao, ManutencaoStatus } from './types'
+import {
+  ConsertoPecasModal,
+  type PecaValor,
+} from './ConsertoPecasModal'
 
 type Status = ManutencaoStatus
 
@@ -59,8 +63,11 @@ const TIPOS = [
   'Troca de pneus',
   'Funilaria e pintura',
   'Diagnóstico eletrônico',
+  'Conserto de peças',
   'Outro',
 ]
+
+const TIPO_CONSERTO_PECAS = 'Conserto de peças'
 
 const PAGE_SIZE = 12
 
@@ -80,18 +87,25 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const [page, setPage] = useState(1)
   const [custo, setCusto] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [pecasModalOpen, setPecasModalOpen] = useState(false)
+  const [pecasState, setPecasState] = useState<PecaValor[]>([])
+  const [tipoSelecionado, setTipoSelecionado] = useState<string>('')
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
 
   function openCreate() {
     setEditing(null)
     setCusto('')
+    setPecasState([])
+    setTipoSelecionado('')
     setShowForm(true)
   }
 
   function openEdit(m: Manutencao) {
     setEditing(m)
     setCusto(m.custo ? maskMoney(m.custo.toString()) : '')
+    setPecasState([])
+    setTipoSelecionado(m.tipo ?? '')
     setShowForm(true)
   }
 
@@ -99,6 +113,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
     setShowForm(false)
     setEditing(null)
     setCusto('')
+    setTipoSelecionado('')
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -117,6 +132,22 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
       : ''
     if (veiculoLabelFromSelect) {
       form.set('veiculoLabel', veiculoLabelFromSelect)
+    }
+
+    // Se o user usou o modal de peças, anexa a lista à descrição antes do submit
+    // (apenas quando ainda não houver descrição manual).
+    if (pecasState.length > 0) {
+      const descricaoExistente = ((form.get('descricao') as string) || '').trim()
+      const linhas = pecasState
+        .map((p) => `- ${p.peca}: ${formatCurrency(p.valor)}`)
+        .join('\n')
+      const bloco = `Conserto de peças:\n${linhas}\nTotal: ${formatCurrency(
+        pecasState.reduce((acc, p) => acc + p.valor, 0),
+      )}`
+      form.set(
+        'descricao',
+        descricaoExistente ? `${descricaoExistente}\n\n${bloco}` : bloco,
+      )
     }
 
     // Sanity check client-side antes de ir ao servidor — UX mais rápida.
@@ -313,16 +344,42 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             </Select>
 
 
-            <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
-              <option value="" disabled>
-                Selecione
-              </option>
-              {TIPOS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
+            <div className="space-y-1.5">
+              <Select
+                label="Tipo *"
+                name="tipo"
+                required
+                defaultValue={editing?.tipo ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setTipoSelecionado(value)
+                  if (value === TIPO_CONSERTO_PECAS) {
+                    setPecasModalOpen(true)
+                  }
+                }}
+              >
+                <option value="" disabled>
+                  Selecione
                 </option>
-              ))}
-            </Select>
+                {TIPOS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </Select>
+              {tipoSelecionado === TIPO_CONSERTO_PECAS && (
+                <button
+                  type="button"
+                  onClick={() => setPecasModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/40 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
+                >
+                  <IconTool size={12} stroke={2.5} />
+                  {pecasState.length > 0
+                    ? `Editar peças (${pecasState.length})`
+                    : 'Selecionar peças'}
+                </button>
+              )}
+            </div>
 
             <Select
               label="Status"
@@ -498,6 +555,17 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
           )}
         </div>
       )}
+
+      <ConsertoPecasModal
+        key={pecasModalOpen ? 'open' : 'closed'}
+        open={pecasModalOpen}
+        onClose={() => setPecasModalOpen(false)}
+        initial={pecasState}
+        onConfirm={(pecas, total) => {
+          setPecasState(pecas)
+          setCusto(maskMoney((total * 100).toString()))
+        }}
+      />
 
       <ConfirmDialog
         open={!!confirmDelete}
