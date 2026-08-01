@@ -38,6 +38,9 @@ export type { ToastInput, ToastTone } from './Toast'
 export { Breadcrumb } from './Breadcrumb'
 export type { BreadcrumbItem } from './Breadcrumb'
 
+export { BancoAutocomplete } from './BancoAutocomplete'
+export type { BancoAutocompleteProps } from './BancoAutocomplete'
+
 export {
   FadeIn,
   ZoomIn,

@@ -44,7 +44,6 @@ const toImageDataUrl = (fileName: string, mime = 'image/png'): string => {
 const FUNDO_1 = toImageDataUrl('fundo-1.png')
 const FUNDO_2 = toImageDataUrl('fundo-2.png')
 const FUNDO_3 = toImageDataUrl('fundo-3.png')
-const FUNDO_4 = toImageDataUrl('fundo-3.png')
 const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-blue.png')
 const CHECK_BLUE = toImageDataUrl('check-blue.png')
 const SETA = toImageDataUrl('seta.png')
@@ -343,84 +342,6 @@ const styles = StyleSheet.create({
     lineHeight: 1.45,
     marginBottom: 6,
   },
-
-  // PAGE 4 — ESCRITA DA PROPOSTA PRÉVIA
-  page4Content: {
-    flex: 1,
-    paddingHorizontal: 25,
-    paddingVertical: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  subcontainer4: {
-    width: '94%',
-    flexGrow: 1,
-    borderRadius: 24,
-    backgroundColor: COLORS.bgContainer,
-    paddingHorizontal: 28,
-    paddingVertical: 22,
-  },
-  previaTitle: {
-    fontSize: 22,
-    fontFamily: INTER_FONT,
-    fontWeight: 600,
-    color: COLORS.textLight,
-    marginTop: 4,
-    marginBottom: 14,
-  },
-  previaText: {
-    fontSize: 12,
-    lineHeight: 1.55,
-    color: COLORS.textMuted,
-    fontFamily: INTER_FONT,
-  },
-  previaSignedRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 28,
-  },
-  previaSignedBlock: {
-    width: '45%',
-  },
-  previaSignedLine: {
-    width: '100%',
-    height: 1,
-    backgroundColor: COLORS.borderLine,
-    marginBottom: 6,
-  },
-  previaSignedLabel: {
-    fontSize: 11,
-    color: COLORS.textSubtle,
-    textAlign: 'center',
-    fontFamily: INTER_FONT,
-  },
-  previaValueBox: {
-    marginTop: 24,
-    marginBottom: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 26, 64, 0.4)',
-    borderStyle: 'solid',
-    backgroundColor: 'rgba(255, 26, 64, 0.08)',
-    alignItems: 'center',
-  },
-  previaValueLabel: {
-    fontSize: 11,
-    fontFamily: INTER_FONT,
-    fontWeight: 600,
-    color: COLORS.redInfo,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  previaValueAmount: {
-    fontSize: 28,
-    fontFamily: INTER_FONT,
-    fontWeight: 700,
-    color: COLORS.redInfo,
-  },
 })
 
 function formatBRL(value: number | null | undefined): string {
@@ -493,8 +414,6 @@ export interface PropostaAutorizacaoDocumentProps {
 
 export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDocumentProps) {
   const {
-    id,
-    numeroContrato,
     clienteNome,
     clienteCpf,
     clienteData,
@@ -517,7 +436,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
     valorPecasReparo = 0,
     pecasConserto,
     propostaComercial,
-    propostaPrevia,
     valorOfertado = 0,
     criadoEm,
     condicoes,
@@ -568,8 +486,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
 
   const propostaValorFinal = propostaComercial ?? valorOfertado ?? 0
 
-  const numContrato =
-    numeroContrato ?? `#${id.slice(0, 8).toUpperCase()}`
   const dataContrato =
     clienteData && clienteData.trim()
       ? formatDateBR(clienteData)
@@ -588,18 +504,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
           'Após o processo finalizado, nenhuma pendência financeira recairá sobre o antigo proprietário.',
           'Um contrato formal será assinado para segurança de ambas as partes.',
         ]
-
-  const previaParagrafos = [
-    'A Liberty Car, pessoa jurídica de direito privado, especializada na aquisição de veículos com pendências financeiras ou administrativas, apresenta esta proposta prévia de aquisição do veículo descrito neste documento ao(à) cliente identificado(a) na capa.',
-    'A presente proposta tem caráter prévio e ilustrativo, sendo definitiva somente após análise documental, vistoria técnica do veículo e assinatura de contrato formal de compra e cessão de direitos entre as partes.',
-    'O(A) cliente declara estar ciente de que o veículo pode apresentar débitos junto ao DETRAN, ao banco financiador ou a outros órgãos, e que tais pendências serão objeto de análise e, quando aplicável, de assunção por parte da Liberty Car nos termos do contrato a ser firmado.',
-    'Quaisquer condições particulares — tais como prazos, valores, forma de pagamento e responsabilidades adicionais — serão descritas de forma detalhada no instrumento contratual definitivo.',
-  ]
-
-  const propostaPreviaValorFinal =
-    propostaPrevia != null && Number.isFinite(propostaPrevia) && propostaPrevia > 0
-      ? propostaPrevia
-      : null
 
   return (
     <Document
@@ -620,7 +524,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
             </View>
             <View style={styles.capaBottomBlock}>
               <View style={styles.dateBlock}>
-                <Text style={styles.dateText}>Contrato: {numContrato}</Text>
                 <Text style={styles.dateText}>Data: {dataContrato}</Text>
               </View>
               <View style={styles.infoRow}>
@@ -631,21 +534,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                 <View style={{ flex: 1 }}>
                   <Text style={styles.infoColLabel}>CPF:</Text>
                   <Text style={styles.infoColValue}>{clienteCpf || 'N/A'}</Text>
-                </View>
-              </View>
-              <View style={styles.infoRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoColLabel}>Veículo:</Text>
-                  <Text style={styles.infoColValue}>
-                    {veiculoMarca} {veiculoModelo}
-                    {veiculoAno ? ` ${veiculoAno}` : ''}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoColLabel}>Placa:</Text>
-                  <Text style={styles.infoColValue}>
-                    {veiculoPlaca ? veiculoPlaca.toUpperCase() : 'N/A'}
-                  </Text>
                 </View>
               </View>
               {LOGO_LIBERTY ? <Image src={LOGO_LIBERTY} style={styles.logoBlue} /> : null}
@@ -827,50 +715,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                     {p}
                   </Text>
                 ))}
-              </View>
-            </View>
-          </View>
-        </ImageBackground>
-      </Page>
-
-      {/* ───── PÁGINA 4 — PROPOSTA PRÉVIA ───── */}
-      <Page size="A4" style={styles.page}>
-        <ImageBackground src={FUNDO_4} style={styles.pageFill}>
-          <View style={styles.page4Content}>
-            <View style={styles.subcontainer4}>
-              <Text style={styles.previaTitle}>Proposta Prévia</Text>
-              <View style={styles.pathLine} />
-
-              {previaParagrafos.map((par, idx) => (
-                <Text key={idx} style={styles.previaText}>
-                  {par}
-                </Text>
-              ))}
-
-              {propostaPreviaValorFinal !== null && (
-                <View style={styles.previaValueBox}>
-                  <Text style={styles.previaValueLabel}>
-                    Valor da Proposta Pr\u00e9via
-                  </Text>
-                  <Text style={styles.previaValueAmount}>
-                    {formatBRL(propostaPreviaValorFinal)}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.previaSignedRow}>
-                <View style={styles.previaSignedBlock}>
-                  <View style={styles.previaSignedLine} />
-                  <Text style={styles.previaSignedLabel}>
-                    Liberty Car — CNPJ
-                  </Text>
-                </View>
-                <View style={styles.previaSignedBlock}>
-                  <View style={styles.previaSignedLine} />
-                  <Text style={styles.previaSignedLabel}>
-                    {clienteNome || 'Cliente'}
-                  </Text>
-                </View>
               </View>
             </View>
           </View>

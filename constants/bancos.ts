@@ -74,6 +74,13 @@ export function getBancoByCodigo(codigo: string | null | undefined): BancoInfo |
   return BANCOS_BY_CODIGO[codigo] ?? null
 }
 
+/** Busca um banco pelo nome exibido (comparação case-insensitive). */
+export function getBancoByNome(nome: string | null | undefined): BancoInfo | null {
+  const alvo = nome?.trim().toLowerCase()
+  if (!alvo) return null
+  return BANCOS.find((b) => b.nome.toLowerCase() === alvo) ?? null
+}
+
 /** Monta a opção de label que vai no dropdown de seleção. */
 export function bancoOptionLabel(info: BancoInfo): string {
   const q = info.quitacaoPercent != null ? `${info.quitacaoPercent}%` : '—'

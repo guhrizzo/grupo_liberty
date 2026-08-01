@@ -29,17 +29,18 @@ import {
   IconReceipt,
   IconAlertTriangle,
   IconCalculator,
-  IconBuildingBank,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
   useToast,
   Input,
   Textarea,
+  BancoAutocomplete,
 } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { parseMoney, onlyDigits, maskPlate } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
+import { getBancoByNome } from '@/constants/bancos'
 import { createProposta, type CreatePropostaInput } from '../actions'
 
 interface CadastrarPropostaClientProps {
@@ -93,12 +94,10 @@ interface FormData {
   // Proposta
   valor_proposta: string
   mensagem: string
-
-  // Proposta prévia (página 4 do PDF)
-  proposta_previa: string
 }
 
 const TODAY_DATE = () => new Date().toISOString().slice(0, 10)
+const generateFileSuffix = () => Date.now().toString(36).toUpperCase()
 
 const maskCpfCnpj = (raw: string) => {
   const d = onlyDigits(raw).slice(0, 11)
@@ -261,8 +260,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
 
     valor_proposta: '',
     mensagem: '',
-
-    proposta_previa: '',
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData | 'pecas', string>>>({})
 
@@ -395,9 +392,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
 
       valor: valorPropostaNum,
       mensagem: formData.mensagem.trim(),
-      proposta_previa: formData.proposta_previa.trim()
-        ? parseMoney(formData.proposta_previa)
-        : null,
+      proposta_previa: propostaPreviaCalc.valor,
     }
   }
 
@@ -465,7 +460,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       const payload = buildPayloadFromForm()
       const finalName = sanitizeFileName(
         fileName,
-        `proposta-${payload.numero_contrato?.replace(/^#/, '') || 'preview'}-${Date.now().toString(36).toUpperCase()}`,
+        `proposta-${payload.numero_contrato?.replace(/^#/, '') || 'preview'}-${generateFileSuffix()}`,
       )
 
       const pdfPayload = buildPdfPayload()
@@ -585,6 +580,46 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     }, 0)
   }, [formData.pecas])
 
+  // Proposta Prévia = (parcelas em aberto × valor da parcela × % quitação do
+  // banco) − metade da FIPE. A % de quitação vem da tabela de bancos, casada
+  // pelo nome digitado no campo "Banco / Financeira".
+  const propostaPreviaParcelasEmAberto = Number(formData.parcelas_atrasadas) || 0
+  const propostaPreviaValorParcela = formData.valor_parcela.trim()
+    ? parseMoney(formData.valor_parcela)
+    : 0
+  const propostaPreviaDividaTotal =
+    propostaPreviaParcelasEmAberto * propostaPreviaValorParcela
+
+  const propostaPreviaBancoInfo = getBancoByNome(formData.banco)
+  const propostaPreviaQuitacaoPercent = propostaPreviaBancoInfo?.quitacaoPercent ?? null
+  const propostaPreviaQuitacaoEstimada =
+    propostaPreviaQuitacaoPercent != null
+      ? propostaPreviaDividaTotal * (propostaPreviaQuitacaoPercent / 100)
+      : null
+
+  const propostaPreviaValorFipe = formData.veiculo_valor_fipe.trim()
+    ? parseMoney(formData.veiculo_valor_fipe)
+    : 0
+
+  const propostaPreviaValorBruto =
+    propostaPreviaQuitacaoEstimada != null
+      ? propostaPreviaQuitacaoEstimada - propostaPreviaValorFipe / 2
+      : null
+  const propostaPreviaValorFinal =
+    propostaPreviaValorBruto != null ? Math.max(0, propostaPreviaValorBruto) : null
+
+  const propostaPreviaCalc = {
+    parcelasEmAberto: propostaPreviaParcelasEmAberto,
+    valorParcela: propostaPreviaValorParcela,
+    dividaTotal: propostaPreviaDividaTotal,
+    bancoInfo: propostaPreviaBancoInfo,
+    quitacaoPercent: propostaPreviaQuitacaoPercent,
+    quitacaoEstimada: propostaPreviaQuitacaoEstimada,
+    valorFipe: propostaPreviaValorFipe,
+    valorBruto: propostaPreviaValorBruto,
+    valor: propostaPreviaValorFinal,
+  }
+
   const completion = useMemo(() => {
     const checks: Record<SectionKey, boolean> = {
       cliente: !!(
@@ -607,12 +642,12 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       ),
       pecas: formData.pecas.some((p) => p.nome.trim()),
       proposta: !!(valorPropostaNum && valorPropostaNum > 0 && formData.mensagem.trim()),
-      previa: formData.proposta_previa.trim() !== '',
+      previa: propostaPreviaCalc.valor != null && propostaPreviaCalc.valor > 0,
     }
     const total = ALL_SECTIONS.length
     const filled = ALL_SECTIONS.filter((k) => checks[k]).length
     return { pct: Math.round((filled / total) * 100), checks }
-  }, [formData, valorPropostaNum])
+  }, [formData, valorPropostaNum, propostaPreviaCalc.valor])
 
   const isOpen = (id: SectionKey) => openSections.has(id)
   const completed = (id: SectionKey) => completion.checks[id]
@@ -947,13 +982,10 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           {isOpen('parcelas') && (
             <SectionBody>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  label="Banco / Financeira"
+                <BancoAutocomplete
                   name="banco"
-                  placeholder="Ex.: Banco Pan"
                   value={formData.banco}
-                  onChange={(e) => setField('banco', e.target.value)}
-                  leftIcon={<IconBuildingBank size={14} />}
+                  onChange={(v) => setField('banco', v)}
                 />
                 <Input
                   label="Valor das parcelas"
@@ -1176,9 +1208,9 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
             icon={IconCoin}
             title="Proposta Prévia"
             subtitle={
-              formData.proposta_previa.trim()
-                ? formatCurrency(parseMoney(formData.proposta_previa))
-                : 'Valor em destaque na página 4 do PDF'
+              propostaPreviaCalc.valor != null
+                ? formatCurrency(propostaPreviaCalc.valor)
+                : 'Calculada automaticamente'
             }
             open={isOpen('previa')}
             onToggle={() => toggleSection('previa')}
@@ -1187,26 +1219,66 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           {isOpen('previa') && (
             <SectionBody last>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Input
-                    label="Valor da Proposta Prévia"
-                    name="proposta_previa"
-                    placeholder="0,00"
-                    value={formData.proposta_previa}
-                    inputMode="numeric"
-                    onChange={(e) => setField('proposta_previa', maskMoney(e.target.value))}
-                    leftIcon={<IconCoin size={14} />}
-                    error={formErrors.proposta_previa}
-                    hint="Opcional. Exibido em destaque na página 4 do PDF, acima das assinaturas."
-                  />
-                  <FormattedMoneyHint value={formData.proposta_previa} />
+                <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3 text-xs text-neutral-700">
+                  <p className="font-bold text-neutral-900">Cálculo automático</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      Dívida em aberto ({propostaPreviaCalc.parcelasEmAberto}× parcela)
+                    </span>
+                    <span className="font-semibold">
+                      {formatCurrency(propostaPreviaCalc.dividaTotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>
+                      % Quitação do banco
+                      {propostaPreviaCalc.bancoInfo ? ` (${propostaPreviaCalc.bancoInfo.nome})` : ''}
+                    </span>
+                    <span className="font-semibold">
+                      {propostaPreviaCalc.quitacaoPercent != null
+                        ? `${propostaPreviaCalc.quitacaoPercent}%`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>Quitação estimada</span>
+                    <span className="font-semibold">
+                      {propostaPreviaCalc.quitacaoEstimada != null
+                        ? formatCurrency(propostaPreviaCalc.quitacaoEstimada)
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span>− 1/2 Valor FIPE</span>
+                    <span className="font-semibold">
+                      {formatCurrency(propostaPreviaCalc.valorFipe / 2)}
+                    </span>
+                  </div>
+                  {!propostaPreviaCalc.bancoInfo && (
+                    <p className="flex items-start gap-1.5 pt-1 text-amber-700">
+                      <IconAlertTriangle size={12} className="mt-0.5 shrink-0" stroke={2.2} />
+                      Selecione um banco da lista no campo &quot;Banco / Financeira&quot; para
+                      calcular a % de quitação.
+                    </p>
+                  )}
+                  {propostaPreviaCalc.valorBruto != null && propostaPreviaCalc.valorBruto < 0 && (
+                    <p className="flex items-start gap-1.5 pt-1 text-rose-700">
+                      <IconAlertTriangle size={12} className="mt-0.5 shrink-0" stroke={2.2} />
+                      Resultado negativo ({formatCurrency(propostaPreviaCalc.valorBruto)}) —
+                      exibindo R$ 0,00.
+                    </p>
+                  )}
                 </div>
-                <div className="rounded-lg border border-liberty/20 bg-liberty/5 p-3 text-xs text-neutral-700">
-                  <p className="font-bold text-liberty-deep">Onde aparece</p>
-                  <p className="mt-1">
-                    O valor da proposta prévia é exibido em destaque (caixa vermelha)
-                    na página 4 do PDF, após a escrita da proposta e antes das
-                    linhas de assinatura.
+                <div className="rounded-lg border border-liberty/20 bg-liberty/5 p-4 text-xs text-neutral-700">
+                  <p className="font-bold text-liberty-deep">Valor da Proposta Prévia</p>
+                  <p className="mt-1 text-2xl font-bold text-liberty-deep">
+                    {propostaPreviaCalc.valor != null
+                      ? formatCurrency(propostaPreviaCalc.valor)
+                      : '—'}
+                  </p>
+                  <p className="mt-2">
+                    Fórmula: dívida em aberto (parcelas em atraso × valor da parcela) × %
+                    quitação do banco, menos metade do valor FIPE do veículo.
                   </p>
                 </div>
               </div>
@@ -1435,8 +1507,8 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                 <SummaryRow
                   label="Valor da proposta prévia"
                   value={
-                    formData.proposta_previa.trim()
-                      ? formatCurrency(parseMoney(formData.proposta_previa))
+                    propostaPreviaCalc.valor != null
+                      ? formatCurrency(propostaPreviaCalc.valor)
                       : null
                   }
                   accent
@@ -1471,7 +1543,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
             className="w-full max-w-md overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
             style={{ maxHeight: 'calc(100vh - 2rem)' }}
           >
-            <div className="relative border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5">
+            <div className="relative border-b border-neutral-100 bg-linear-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5">
               <button
                 type="button"
                 onClick={closeConfirm}
@@ -1525,7 +1597,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   </button>
                   {dirName && (
                     <span
-                      className="max-w-[220px] truncate text-[11px] font-medium text-neutral-500"
+                      className="max-w-55 truncate text-[11px] font-medium text-neutral-500"
                       title={dirName}
                     >
                       Salvar em:{' '}
@@ -1627,7 +1699,7 @@ function SummaryRow({
       </span>
       <span
         className={
-          'break-words text-right text-xs font-semibold ' +
+          'wrap-break-words text-right text-xs font-semibold ' +
           (accent ? 'text-liberty-deep' : 'text-neutral-900')
         }
       >
