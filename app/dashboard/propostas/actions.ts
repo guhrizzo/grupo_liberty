@@ -35,7 +35,7 @@ export interface Proposta {
   status: 'pendente' | 'aceito' | 'recusado'
   created_at: string
 
-  // Veículo (digitado, pois o gerador agora aceita carros fora do estoque)
+  // Veículo (digitado, pois o cadastro aceita carros fora do estoque)
   veiculo_marca?: string | null
   veiculo_modelo?: string | null
   veiculo_ano?: number | null
@@ -379,7 +379,7 @@ export async function listVeiculosForProposta(): Promise<VeiculoResumo[]> {
   }
 }
 
-/** Schema completo para criação manual de uma proposta no Gerador. */
+/** Schema completo para criação manual de uma proposta. */
 export interface CreatePropostaInput {
   // Cliente
   nome: string
@@ -551,7 +551,6 @@ export async function createProposta(
     })
 
     revalidatePath('/dashboard/propostas')
-    revalidatePath('/dashboard/propostas/gerador')
 
     return { success: 'Proposta cadastrada com sucesso!', id: docRef.id }
   } catch (err) {

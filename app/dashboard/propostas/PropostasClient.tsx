@@ -15,7 +15,6 @@ import {
   IconSearch,
   IconCalendar,
   IconCar,
-  IconFileText,
   IconTool,
   IconPlus,
   IconCash,
@@ -268,11 +267,11 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
               </button>
               <button
                 type="button"
-                onClick={() => router.push('/dashboard/propostas/gerador')}
+                onClick={() => router.push('/dashboard/propostas/nova')}
                 className="inline-flex items-center gap-2 rounded-lg bg-liberty text-white px-4 py-2 text-xs font-bold shadow-sm transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep"
               >
-                <IconFileText size={15} />
-                Gerador de proposta
+                <IconPlus size={15} />
+                Nova proposta
               </button>
             </div>
           </div>

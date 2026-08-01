@@ -479,7 +479,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
 
       setConfirmOpen(false)
       setFileName('')
-      router.push('/dashboard/propostas/gerador')
+      router.push('/dashboard/propostas')
       router.refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro inesperado.'
@@ -502,7 +502,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       }
       setConfirmOpen(false)
       setFileName('')
-      router.push('/dashboard/propostas/gerador')
+      router.push('/dashboard/propostas')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro inesperado.'
       toast.error(message, 'Erro')
@@ -668,7 +668,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
             items={[
               { label: 'Dashboard', href: '/dashboard' },
               { label: 'Propostas', href: '/dashboard/propostas' },
-              { label: 'Gerador', href: '/dashboard/propostas/gerador' },
               { label: 'Cadastrar' },
             ]}
           />
@@ -689,12 +688,12 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
             </div>
           </div>
           <Link
-            href="/dashboard/propostas/gerador"
-            aria-label="Voltar para o Gerador"
+            href="/dashboard/propostas"
+            aria-label="Voltar para Propostas"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer md:px-4"
           >
             <IconArrowLeft size={14} stroke={2.5} />
-            <span className="hidden sm:inline">Voltar para o Gerador</span>
+            <span className="hidden sm:inline">Voltar para Propostas</span>
           </Link>
         </div>
 
@@ -1304,7 +1303,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link
-              href="/dashboard/propostas/gerador"
+              href="/dashboard/propostas"
               className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer text-center"
             >
               Cancelar
