@@ -153,7 +153,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     if (isNaN(valorTotal) || valorTotal <= 0) return { error: 'Valor total inválido.' }
     if (valorEntrada >= valorTotal)
       return { error: 'O valor de entrada deve ser menor que o valor total.' }
-    if (isNaN(numeroParcelas) || numeroParcelas < 1 || numeroParcelas > 120) return { error: 'Número de parcelas inválido (1–120).' }
+    if (isNaN(numeroParcelas) || numeroParcelas < 1 || numeroParcelas > 300) return { error: 'Número de parcelas inválido (1–300).' }
     if (!primeiraParcela) return { error: 'Informe a data da primeira parcela.' }
 
     const saldo = valorTotal - valorEntrada
