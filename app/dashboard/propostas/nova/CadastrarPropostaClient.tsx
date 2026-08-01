@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -15,13 +15,21 @@ import {
   IconCheck,
   IconX,
   IconCar,
-  IconNote,
   IconShieldCheck,
   IconArrowRight,
   IconSparkles,
   IconTool,
   IconTrash,
   IconPlus,
+  IconChevronDown,
+  IconChevronUp,
+  IconEye,
+  IconCalendar,
+  IconHash,
+  IconReceipt,
+  IconAlertTriangle,
+  IconCalculator,
+  IconBuildingBank,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -30,25 +38,67 @@ import {
   Textarea,
 } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
-import { parseMoney, onlyDigits } from '@/utils/masks'
+import { parseMoney, onlyDigits, maskPlate } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
-import type { VeiculoResumo } from '../actions'
-import { createProposta } from '../actions'
-import { VeiculoPicker } from './VeiculoPicker'
+import { createProposta, type CreatePropostaInput } from '../actions'
 
 interface CadastrarPropostaClientProps {
-  veiculos: VeiculoResumo[]
+  veiculos?: Array<{ id: string; marca: string; modelo: string; preco: number | null; ano?: number | null; foto?: string | null }>
 }
 
-type FormData = {
-  veiculo_id: string
+type SectionKey = 'cliente' | 'veiculo' | 'pendencias' | 'parcelas' | 'pecas' | 'proposta' | 'previa'
+
+const ALL_SECTIONS: SectionKey[] = [
+  'cliente',
+  'veiculo',
+  'pendencias',
+  'parcelas',
+  'pecas',
+  'proposta',
+  'previa',
+]
+
+interface FormData {
+  // Cliente
   nome: string
   cpf: string
   telefone: string
   email: string
-  valor: string
+  cliente_data: string
+  numero_contrato: string
+
+  // Veículo
+  veiculo_marca: string
+  veiculo_modelo: string
+  veiculo_ano: string
+  veiculo_placa: string
+  veiculo_valor_fipe: string
+  valor_estimado_divida: string
+
+  // Pendências
+  valor_ipva: string
+  valor_licenciamento: string
+  valor_multas: string
+
+  // Parcelas
+  valor_parcela: string
+  parcelas_totais: string
+  parcelas_pagas: string
+  parcelas_atrasadas: string
+  banco: string
+
+  // Peças
+  pecas: Array<{ nome: string; valor: string }>
+
+  // Proposta
+  valor_proposta: string
   mensagem: string
+
+  // Proposta prévia (página 4 do PDF)
+  proposta_previa: string
 }
+
+const TODAY_DATE = () => new Date().toISOString().slice(0, 10)
 
 const maskCpfCnpj = (raw: string) => {
   const d = onlyDigits(raw).slice(0, 11)
@@ -76,12 +126,103 @@ const maskMoney = (raw: string) => {
   return `${intFmt},${dec}`
 }
 
-export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaClientProps) {
+function FormattedMoneyHint({ value }: { value: string }) {
+  const num = value.trim() ? parseMoney(value) : null
+  if (num == null || num <= 0) return null
+  return (
+    <p className="mt-1 text-[11px] font-semibold text-liberty-deep">
+      {formatCurrency(num)}
+    </p>
+  )
+}
+
+function SectionHeader({
+  id,
+  icon: Icon,
+  title,
+  subtitle,
+  open,
+  onToggle,
+  badge,
+}: {
+  id: SectionKey
+  icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>
+  title: string
+  subtitle?: string
+  open: boolean
+  onToggle: () => void
+  badge?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={`section-${id}`}
+      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-50/60 md:px-6 md:py-4 cursor-pointer"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-liberty/10 text-liberty">
+          <Icon size={16} stroke={2} className="text-liberty" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+            Seção
+          </p>
+          <h3 className="mt-0.5 truncate text-sm font-bold text-neutral-950 md:text-base">
+            {title}
+          </h3>
+          {subtitle && !open && (
+            <p className="mt-0.5 truncate text-xs text-neutral-500">{subtitle}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {badge && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+            {badge}
+          </span>
+        )}
+        <IconChevronDown
+          size={18}
+          stroke={2}
+          className={`shrink-0 text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </div>
+    </button>
+  )
+}
+
+function SectionBody({ children, last }: { children: React.ReactNode; last?: boolean }) {
+  return (
+    <div className={`px-4 pb-5 md:px-6 md:pb-6 ${last ? '' : 'border-b border-neutral-100'}`}>
+      {children}
+    </div>
+  )
+}
+
+export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarPropostaClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [creating, setCreating] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
+
+  const [openSections, setOpenSections] = useState<Set<SectionKey>>(
+    () => new Set<SectionKey>(['cliente', 'veiculo']),
+  )
+
+  const toggleSection = useCallback((id: SectionKey) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const openAll = () => setOpenSections(new Set(ALL_SECTIONS))
+  const closeAll = () => setOpenSections(new Set())
 
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
   const [dirName, setDirName] = useState<string | null>(() => {
@@ -91,33 +232,58 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     return null
   })
   const [fileName, setFileName] = useState('')
-  const [pecasConserto, setPecasConserto] = useState<
-    Array<{ nome: string; valor: string; origem: 'manutencao' | 'manual' }>
-  >([])
-  const [loadingPecas, setLoadingPecas] = useState(false)
-  const [pecasOrigemPuxada, setPecasOrigemPuxada] = useState(false)
-
-  const pecasDaManutencao = useMemo(
-    () => pecasConserto.filter((p) => p.origem === 'manutencao'),
-    [pecasConserto],
-  )
-
   const [formData, setFormData] = useState<FormData>({
-    veiculo_id: '',
     nome: '',
     cpf: '',
     telefone: '',
     email: '',
-    valor: '',
+    cliente_data: TODAY_DATE(),
+    numero_contrato: '',
+
+    veiculo_marca: '',
+    veiculo_modelo: '',
+    veiculo_ano: '',
+    veiculo_placa: '',
+    veiculo_valor_fipe: '',
+    valor_estimado_divida: '',
+
+    valor_ipva: '',
+    valor_licenciamento: '',
+    valor_multas: '',
+
+    valor_parcela: '',
+    parcelas_totais: '',
+    parcelas_pagas: '',
+    parcelas_atrasadas: '',
+    banco: '',
+
+    pecas: [],
+
+    valor_proposta: '',
     mensagem: '',
+
+    proposta_previa: '',
   })
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({})
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData | 'pecas', string>>>({})
 
   const closeConfirm = useCallback(() => {
     if (creating) return
     setConfirmOpen(false)
     setFileName('')
   }, [creating])
+
+  const setField = useCallback(
+    <K extends keyof FormData>(key: K, value: FormData[K]) => {
+      setFormData((prev) => ({ ...prev, [key]: value }))
+      setFormErrors((prev) => {
+        if (!prev[key]) return prev
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+    },
+    [],
+  )
 
   const handleEscolherPasta = async () => {
     try {
@@ -183,33 +349,94 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     }
   }
 
-  const buildPayload = () => {
-    const valorNumerico = formData.valor.trim() ? parseMoney(formData.valor) : null
-    const pecasPayload = pecasConserto
-      .map((p) => {
-        const nome = p.nome.trim()
-        const valorNum = p.valor.trim() ? parseMoney(p.valor) : 0
-        if (!nome) return null
-        return { nome, valor: valorNum }
-      })
-      .filter((p): p is { nome: string; valor: number } => p !== null)
+  const buildPayloadFromForm = (): CreatePropostaInput => {
+    const valorPropostaNum =
+      formData.valor_proposta.trim() ? parseMoney(formData.valor_proposta) : null
+
+    const pecasNumeradas = formData.pecas.map((p) => ({
+      nome: p.nome.trim(),
+      valor: p.valor.trim() ? parseMoney(p.valor) : 0,
+    }))
+
     return {
-      veiculo_id: formData.veiculo_id,
       nome: formData.nome.trim(),
       cpf: onlyDigits(formData.cpf),
       telefone: formData.telefone.trim(),
       email: formData.email.trim(),
-      valor: valorNumerico && valorNumerico > 0 ? valorNumerico : null,
+      cliente_data: formData.cliente_data || null,
+      numero_contrato: formData.numero_contrato.trim() || null,
+
+      veiculo_marca: formData.veiculo_marca.trim(),
+      veiculo_modelo: formData.veiculo_modelo.trim(),
+      veiculo_ano: formData.veiculo_ano.trim() ? Number(formData.veiculo_ano) : null,
+      veiculo_placa: formData.veiculo_placa.trim(),
+      veiculo_valor_fipe: formData.veiculo_valor_fipe.trim()
+        ? parseMoney(formData.veiculo_valor_fipe)
+        : null,
+      valor_estimado_divida: formData.valor_estimado_divida.trim()
+        ? parseMoney(formData.valor_estimado_divida)
+        : null,
+
+      valor_ipva: formData.valor_ipva.trim() ? parseMoney(formData.valor_ipva) : null,
+      valor_licenciamento: formData.valor_licenciamento.trim()
+        ? parseMoney(formData.valor_licenciamento)
+        : null,
+      valor_multas: formData.valor_multas.trim() ? parseMoney(formData.valor_multas) : null,
+
+      valor_parcela: formData.valor_parcela.trim() ? parseMoney(formData.valor_parcela) : null,
+      parcelas_totais: formData.parcelas_totais.trim() ? Number(formData.parcelas_totais) : null,
+      parcelas_pagas: formData.parcelas_pagas.trim() ? Number(formData.parcelas_pagas) : null,
+      parcelas_atrasadas: formData.parcelas_atrasadas.trim()
+        ? Number(formData.parcelas_atrasadas)
+        : null,
+      banco: formData.banco.trim() || null,
+
+      pecasConserto: pecasNumeradas,
+
+      valor: valorPropostaNum,
       mensagem: formData.mensagem.trim(),
-      status: 'pendente' as const,
-      pecasConserto: pecasPayload,
+      proposta_previa: formData.proposta_previa.trim()
+        ? parseMoney(formData.proposta_previa)
+        : null,
     }
   }
 
-  const persistPdfWithPayload = async (
-    payload: ReturnType<typeof buildPayload>,
+  const buildPdfPayload = () => {
+    const p = buildPayloadFromForm()
+    return {
+      veiculo_id: '',
+      nome: p.nome,
+      cpf: p.cpf,
+      telefone: p.telefone,
+      email: p.email,
+      valor: p.valor,
+      mensagem: p.mensagem,
+      status: 'pendente' as const,
+      cliente_data: p.cliente_data ?? null,
+      numero_contrato: p.numero_contrato ?? null,
+      veiculo_marca: p.veiculo_marca,
+      veiculo_modelo: p.veiculo_modelo,
+      veiculo_ano: p.veiculo_ano,
+      veiculo_placa: p.veiculo_placa,
+      veiculo_valor_fipe: p.veiculo_valor_fipe,
+      valor_estimado_divida: p.valor_estimado_divida,
+      valor_ipva: p.valor_ipva,
+      valor_licenciamento: p.valor_licenciamento,
+      valor_multas: p.valor_multas,
+      valor_parcela: p.valor_parcela,
+      parcelas_totais: p.parcelas_totais,
+      parcelas_pagas: p.parcelas_pagas,
+      parcelas_atrasadas: p.parcelas_atrasadas,
+      banco: p.banco,
+      pecasConserto: p.pecasConserto,
+      proposta_previa: p.proposta_previa,
+    }
+  }
+
+  const persistPdf = async (
+    payload: ReturnType<typeof buildPdfPayload>,
     finalName: string,
-  ): Promise<{ ok: boolean; blob?: Blob }> => {
+  ): Promise<{ ok: boolean }> => {
     const res = await fetch('/api/propostas/preview-pdf-autorizacao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -229,16 +456,20 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
       triggerBlobDownload(blob, finalName)
       toast.success('PDF de autorização baixado.', 'Pronto!')
     }
-    return { ok: true, blob }
+    return { ok: true }
   }
 
   const handleConfirmSave = async () => {
     setCreating(true)
     try {
-      const payload = buildPayload()
-      const finalName = sanitizeFileName(fileName, `autorizacao-proposta-preview`)
+      const payload = buildPayloadFromForm()
+      const finalName = sanitizeFileName(
+        fileName,
+        `proposta-${payload.numero_contrato?.replace(/^#/, '') || 'preview'}-${Date.now().toString(36).toUpperCase()}`,
+      )
 
-      const persist = await persistPdfWithPayload(payload, finalName)
+      const pdfPayload = buildPdfPayload()
+      const persist = await persistPdf(pdfPayload, finalName)
       if (!persist.ok) {
         setCreating(false)
         return
@@ -267,9 +498,10 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     if (creating) return
     setCreating(true)
     try {
-      const payload = buildPayload()
-      const finalName = sanitizeFileName(fileName, `autorizacao-rascunho`)
-      const persist = await persistPdfWithPayload(payload, finalName)
+      buildPayloadFromForm()
+      const finalName = sanitizeFileName(fileName, `proposta-rascunho`)
+      const pdfPayload = buildPdfPayload()
+      const persist = await persistPdf(pdfPayload, finalName)
       if (persist.ok) {
         toast.info('Proposta descartada do banco. PDF gerado.', 'Não salvar')
       }
@@ -284,72 +516,20 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
     }
   }
 
-  const setField = <K extends keyof FormData>(key: K, value: FormData[K]) => {
-    setFormData((prev) => ({ ...prev, [key]: value }))
-    if (formErrors[key]) setFormErrors((prev) => ({ ...prev, [key]: undefined }))
-  }
-
-  const carregarPecasDoVeiculo = useCallback(async (veiculoId: string) => {
-    if (!veiculoId) return
-    setLoadingPecas(true)
-    try {
-      const res = await fetch(`/api/veiculos/${veiculoId}/pecas-conserto`)
-      if (!res.ok) {
-        setPecasConserto([])
-        setPecasOrigemPuxada(false)
-        return
-      }
-      const data = (await res.json()) as { pecas?: Array<{ nome: string; valor: number }> }
-      const pecas = Array.isArray(data.pecas) ? data.pecas : []
-      // Substitui apenas as peças vindas da manutenção, preservando as manuais.
-      setPecasConserto((prev) => {
-        const manuais = prev.filter((p) => p.origem === 'manual')
-        const auto = pecas.map((p) => ({
-          nome: p.nome,
-          valor: p.valor > 0
-            ? p.valor.toFixed(2).replace('.', ',')
-            : '',
-          origem: 'manutencao' as const,
-        }))
-        return [...auto, ...manuais]
-      })
-      setPecasOrigemPuxada(pecas.length > 0)
-    } catch {
-      // silencioso — falhas de rede não devem travar a tela
-    } finally {
-      setLoadingPecas(false)
-    }
-  }, [])
-
-  const handleVeiculoSelecionado = useCallback(
-    (id: string) => {
-      setField('veiculo_id', id)
-      carregarPecasDoVeiculo(id)
-    },
-    [carregarPecasDoVeiculo, setField],
-  )
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const errors: Partial<Record<keyof FormData, string>> = {}
-
-    if (!formData.veiculo_id) errors.veiculo_id = 'Selecione um veículo.'
+  const validateForm = (): boolean => {
+    const errors: Partial<Record<keyof FormData | 'pecas', string>> = {}
 
     const nomeTrim = formData.nome.trim()
     if (!nomeTrim || nomeTrim.length < 2) {
       errors.nome = 'Informe o nome completo do cliente.'
     }
-
     const cpfDigits = onlyDigits(formData.cpf)
-    if (!cpfDigits) {
-      errors.cpf = 'Informe o CPF do cliente.'
-    } else if (!validarCPF(cpfDigits)) {
-      errors.cpf = 'CPF inválido.'
-    }
+    if (!cpfDigits) errors.cpf = 'Informe o CPF.'
+    else if (!validarCPF(cpfDigits)) errors.cpf = 'CPF inválido.'
 
-    const telefoneDigits = onlyDigits(formData.telefone)
-    if (!telefoneDigits || telefoneDigits.length < 10) {
-      errors.telefone = 'Informe um telefone válido com DDD.'
+    const telDigits = onlyDigits(formData.telefone)
+    if (!telDigits || telDigits.length < 10) {
+      errors.telefone = 'Informe um telefone com DDD.'
     }
 
     const emailTrim = formData.email.trim()
@@ -357,37 +537,90 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
       errors.email = 'Informe um e-mail válido.'
     }
 
+    if (!formData.veiculo_marca.trim()) errors.veiculo_marca = 'Informe a marca.'
+    if (!formData.veiculo_modelo.trim()) errors.veiculo_modelo = 'Informe o modelo.'
+
     if (!formData.mensagem.trim()) {
       errors.mensagem = 'Descreva o interesse do cliente.'
+    }
+
+    const pecasInvalidas = formData.pecas.filter((p) => !p.nome.trim() && p.valor.trim())
+    if (pecasInvalidas.length > 0) {
+      errors.pecas = 'Preencha o nome de todas as peças com valor.'
     }
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
       toast.error('Confira os campos destacados antes de continuar.', 'Formulário incompleto')
-      return
+      return false
     }
 
     setFormErrors({})
-    setFileName(`autorizacao-proposta-${Date.now().toString(36).toUpperCase()}`)
+    return true
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validateForm()) {
+      setOpenSections(new Set(ALL_SECTIONS))
+      return
+    }
+    setFileName(
+      formData.numero_contrato.trim()
+        ? `proposta-${formData.numero_contrato.replace(/^#/, '').trim()}-${Date.now().toString(36).toUpperCase()}`
+        : `proposta-${Date.now().toString(36).toUpperCase()}`,
+    )
     setConfirmOpen(true)
   }
 
-  const selectedVeiculo = veiculos.find((v) => v.id === formData.veiculo_id)
-  const valorNumerico = formData.valor.trim() ? parseMoney(formData.valor) : null
+  const valorPropostaNum = formData.valor_proposta.trim()
+    ? parseMoney(formData.valor_proposta)
+    : null
+
+  const totalPecas = useMemo(() => {
+    return formData.pecas.reduce((acc, p) => {
+      if (!p.nome.trim()) return acc
+      const v = p.valor.trim() ? parseMoney(p.valor) : 0
+      return acc + v
+    }, 0)
+  }, [formData.pecas])
 
   const completion = useMemo(() => {
-    const fields: (keyof FormData)[] = ['veiculo_id', 'nome', 'cpf', 'telefone', 'email', 'mensagem']
-    const filled = fields.filter((f) => {
-      const v = formData[f]
-      return typeof v === 'string' ? v.trim().length > 0 : Boolean(v)
-    }).length
-    return Math.round((filled / fields.length) * 100)
-  }, [formData])
+    const checks: Record<SectionKey, boolean> = {
+      cliente: !!(
+        formData.nome &&
+        onlyDigits(formData.cpf).length >= 11 &&
+        formData.email &&
+        formData.telefone
+      ),
+      veiculo: !!(formData.veiculo_marca && formData.veiculo_modelo),
+      pendencias: !!(
+        formData.valor_ipva ||
+        formData.valor_licenciamento ||
+        formData.valor_multas
+      ),
+      parcelas: !!(
+        formData.parcelas_totais ||
+        formData.parcelas_pagas ||
+        formData.parcelas_atrasadas ||
+        formData.valor_parcela
+      ),
+      pecas: formData.pecas.some((p) => p.nome.trim()),
+      proposta: !!(valorPropostaNum && valorPropostaNum > 0 && formData.mensagem.trim()),
+      previa: formData.proposta_previa.trim() !== '',
+    }
+    const total = ALL_SECTIONS.length
+    const filled = ALL_SECTIONS.filter((k) => checks[k]).length
+    return { pct: Math.round((filled / total) * 100), checks }
+  }, [formData, valorPropostaNum])
+
+  const isOpen = (id: SectionKey) => openSections.has(id)
+  const completed = (id: SectionKey) => completion.checks[id]
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+    <div className="space-y-5 pb-28 md:space-y-6 md:pb-0">
+      <header className="space-y-3">
+        <div className="hidden md:block">
           <Breadcrumb
             items={[
               { label: 'Dashboard', href: '/dashboard' },
@@ -396,144 +629,85 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
               { label: 'Cadastrar' },
             ]}
           />
-          <div className="mt-2 flex items-center gap-3">
+        </div>
+
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty/10 text-liberty">
               <IconSparkles size={22} stroke={2} />
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-neutral-950">
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-xl font-bold tracking-tight text-neutral-950 md:text-3xl">
                 Cadastrar nova proposta
               </h1>
-              <p className="mt-1 text-sm text-neutral-500">
-                Preencha os dados do cliente e selecione o veículo de interesse para
-                gerar o PDF de autorização.
+              <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm">
+                Preencha as seções e gere o PDF de autorização — não exige veículo no estoque.
               </p>
             </div>
           </div>
+          <Link
+            href="/dashboard/propostas/gerador"
+            aria-label="Voltar para o Gerador"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer md:px-4"
+          >
+            <IconArrowLeft size={14} stroke={2.5} />
+            <span className="hidden sm:inline">Voltar para o Gerador</span>
+          </Link>
         </div>
-        <Link
-          href="/dashboard/propostas/gerador"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
-        >
-          <IconArrowLeft size={14} stroke={2.5} />
-          Voltar para o Gerador
-        </Link>
-      </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-        <form
-          onSubmit={handleSubmit}
-          className="rounded-2xl border border-neutral-200 bg-white shadow-xs overflow-hidden"
-        >
-          <div className="border-b border-neutral-100 bg-neutral-50/50 px-6 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-                <IconUser size={14} />
-                Dados do cliente
-              </div>
-              <span
-                className={
-                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ' +
-                  (completion === 100
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-amber-50 text-amber-700 border border-amber-200')
-                }
-              >
-                <span
-                  className={
-                    'h-1.5 w-1.5 rounded-full ' +
-                    (completion === 100 ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse')
-                  }
-                />
-                {completion}% preenchido
-              </span>
-            </div>
+        <div className="flex items-center gap-2 md:hidden">
+          <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-200">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-liberty transition-[width] duration-500 ease-out"
+              style={{ width: `${completion.pct}%` }}
+            />
           </div>
+          <span className="shrink-0 text-[11px] font-bold tabular-nums text-neutral-600">
+            {completion.pct}%
+          </span>
+        </div>
 
-          <div className="space-y-5 p-6">
-            <section className="space-y-3">
-              <header className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                <IconCar size={12} />
-                Veículo
-              </header>
-              <div>
-                <label className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5">
-                  Veículo de interesse
-                </label>
-                {selectedVeiculo ? (
-                  <div className="flex items-center gap-3 rounded-xl border border-liberty/30 bg-liberty/5 p-2.5">
-                    <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
-                      {selectedVeiculo.foto ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={selectedVeiculo.foto}
-                          alt={`${selectedVeiculo.marca} ${selectedVeiculo.modelo}`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200 text-neutral-400">
-                          <IconCar size={20} stroke={1.5} />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-neutral-900">
-                        {selectedVeiculo.marca} {selectedVeiculo.modelo}
-                        {selectedVeiculo.ano ? ` ${selectedVeiculo.ano}` : ''}
-                      </p>
-                      {selectedVeiculo.preco != null && (
-                        <p className="mt-0.5 text-xs font-semibold text-liberty-deep">
-                          {formatCurrency(selectedVeiculo.preco)}
-                        </p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setPickerOpen(true)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
-                    >
-                      Trocar
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen(true)}
-                    className={
-                      'flex w-full items-center gap-3 rounded-xl border-2 border-dashed bg-neutral-50/40 px-4 py-3 text-left transition-[border-color,background-color] duration-200 cursor-pointer hover:bg-neutral-50 hover:border-liberty/40 ' +
-                      (formErrors.veiculo_id
-                        ? 'border-rose-500/60 bg-rose-50/40'
-                        : 'border-neutral-300')
-                    }
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-400 border border-neutral-200">
-                      <IconCar size={18} stroke={1.5} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-neutral-700">
-                        Escolher veículo
-                      </p>
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        Clique para ver os veículos disponíveis e selecione um.
-                      </p>
-                    </div>
-                  </button>
-                )}
-                {formErrors.veiculo_id && (
-                  <p className="mt-1.5 text-xs font-semibold text-rose-600">
-                    {formErrors.veiculo_id}
-                  </p>
-                )}
-              </div>
-            </section>
+        <div className="hidden items-center gap-2 md:flex">
+          <button
+            type="button"
+            onClick={openAll}
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+          >
+            <IconChevronDown size={12} stroke={2.5} />
+            Expandir tudo
+          </button>
+          <button
+            type="button"
+            onClick={closeAll}
+            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+          >
+            <IconChevronUp size={12} stroke={2.5} />
+            Recolher tudo
+          </button>
+        </div>
+      </header>
 
-            <div className="h-px bg-neutral-100" />
-
-            <section className="space-y-3">
-              <header className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                <IconUser size={12} />
-                Identificação
-              </header>
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-2xl border border-neutral-200 bg-white shadow-xs overflow-hidden"
+      >
+        {/* ───── Cliente ───── */}
+        <div className={isOpen('cliente') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="cliente"
+            icon={IconUser}
+            title="Dados do cliente"
+            subtitle={
+              formData.nome && formData.cpf
+                ? `${formData.nome} • ${formData.cpf}`
+                : 'Nome, CPF, contato e número do contrato'
+            }
+            open={isOpen('cliente')}
+            onToggle={() => toggleSection('cliente')}
+            badge={completed('cliente') ? 'OK' : undefined}
+          />
+          {isOpen('cliente') && (
+            <SectionBody>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                   label="Nome completo"
@@ -555,17 +729,6 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                   error={formErrors.cpf}
                   required
                 />
-              </div>
-            </section>
-
-            <div className="h-px bg-neutral-100" />
-
-            <section className="space-y-3">
-              <header className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                <IconPhone size={12} />
-                Contato
-              </header>
-              <div className="grid gap-4 sm:grid-cols-2">
                 <Input
                   label="Telefone / WhatsApp"
                   name="telefone"
@@ -588,418 +751,716 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                   leftIcon={<IconMail size={14} />}
                   required
                 />
+                <Input
+                  label="Data da proposta"
+                  name="cliente_data"
+                  type="date"
+                  value={formData.cliente_data}
+                  onChange={(e) => setField('cliente_data', e.target.value)}
+                  leftIcon={<IconCalendar size={14} />}
+                  hint="Data que aparece como capa do PDF."
+                />
+                <Input
+                  label="Número do Contrato"
+                  name="numero_contrato"
+                  placeholder="Ex.: 2024-001"
+                  value={formData.numero_contrato}
+                  onChange={(e) => setField('numero_contrato', e.target.value)}
+                  leftIcon={<IconHash size={14} />}
+                  hint="Deixe vazio para gerar automaticamente."
+                />
               </div>
-            </section>
+            </SectionBody>
+          )}
+        </div>
 
-            <div className="h-px bg-neutral-100" />
-
-            <section className="space-y-3">
-              <header className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                <IconCoin size={12} />
-                Oferta
-              </header>
-              <div>
-                <label
-                  htmlFor="valor-input"
-                  className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5"
-                >
-                  Valor ofertado <span className="text-neutral-400 normal-case font-semibold tracking-normal">(opcional)</span>
-                </label>
-                <div className="relative">
-                  <span
-                    aria-hidden
-                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                  >
-                    <IconCoin size={14} />
-                  </span>
-                  <input
-                    id="valor-input"
-                    type="text"
-                    inputMode="numeric"
-                    value={formData.valor}
-                    onChange={(e) => setField('valor', maskMoney(e.target.value))}
+        {/* ───── Veículo ───── */}
+        <div className={isOpen('veiculo') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="veiculo"
+            icon={IconCar}
+            title="Veículo"
+            subtitle={
+              formData.veiculo_marca || formData.veiculo_modelo
+                ? `${formData.veiculo_marca} ${formData.veiculo_modelo}`.trim()
+                : 'Marca, modelo, placa, ano e valor FIPE — digitação livre'
+            }
+            open={isOpen('veiculo')}
+            onToggle={() => toggleSection('veiculo')}
+            badge={completed('veiculo') ? 'OK' : undefined}
+          />
+          {isOpen('veiculo') && (
+            <SectionBody>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Marca"
+                  name="veiculo_marca"
+                  placeholder="Ex.: Honda"
+                  value={formData.veiculo_marca}
+                  onChange={(e) => setField('veiculo_marca', e.target.value)}
+                  error={formErrors.veiculo_marca}
+                  leftIcon={<IconCar size={14} />}
+                  required
+                />
+                <Input
+                  label="Modelo"
+                  name="veiculo_modelo"
+                  placeholder="Ex.: Civic 2.0"
+                  value={formData.veiculo_modelo}
+                  onChange={(e) => setField('veiculo_modelo', e.target.value)}
+                  error={formErrors.veiculo_modelo}
+                  required
+                />
+                <Input
+                  label="Placa"
+                  name="veiculo_placa"
+                  placeholder="ABC-1D23"
+                  value={formData.veiculo_placa}
+                  onChange={(e) => setField('veiculo_placa', maskPlate(e.target.value))}
+                  leftIcon={<IconReceipt size={14} />}
+                />
+                <Input
+                  label="Ano do Veículo"
+                  name="veiculo_ano"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex.: 2022"
+                  value={formData.veiculo_ano}
+                  onChange={(e) => setField('veiculo_ano', e.target.value)}
+                />
+                <div>
+                  <Input
+                    label="Valor FIPE"
+                    name="veiculo_valor_fipe"
                     placeholder="0,00"
-                    className="w-full rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15 transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5 pl-10 pr-3.5 text-sm font-semibold text-neutral-900 placeholder:text-neutral-400"
+                    value={formData.veiculo_valor_fipe}
+                    inputMode="numeric"
+                    onChange={(e) => setField('veiculo_valor_fipe', maskMoney(e.target.value))}
+                    leftIcon={<IconCoin size={14} />}
+                    hint="Valor de tabela FIPE atual do veículo."
                   />
+                  <FormattedMoneyHint value={formData.veiculo_valor_fipe} />
                 </div>
-                <p className="mt-1.5 text-xs text-neutral-500">
-                  Se vazio, a proposta é registrada sem valor de oferta.
-                </p>
+                <div>
+                  <Input
+                    label="Valor estimado da dívida"
+                    name="valor_estimado_divida"
+                    placeholder="0,00"
+                    value={formData.valor_estimado_divida}
+                    inputMode="numeric"
+                    onChange={(e) =>
+                      setField('valor_estimado_divida', maskMoney(e.target.value))
+                    }
+                    leftIcon={<IconCalculator size={14} />}
+                    hint="Estimativa total da dívida do veículo."
+                  />
+                  <FormattedMoneyHint value={formData.valor_estimado_divida} />
+                </div>
               </div>
-            </section>
 
-            <div className="h-px bg-neutral-100" />
+              {veiculos.length > 0 && (
+                <p className="mt-3 text-[11px] text-neutral-500">
+                  Você tem {veiculos.length} veículo
+                  {veiculos.length === 1 ? '' : 's'} cadastrado
+                  {veiculos.length === 1 ? '' : 's'} no estoque. Esta proposta é
+                  digitada livremente e não vincula o veículo da lista.
+                </p>
+              )}
+            </SectionBody>
+          )}
+        </div>
 
-            <section className="space-y-3">
-              <header className="flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                <IconNote size={12} />
-                Mensagem
-              </header>
-              <Textarea
-                label="Mensagem / interesse"
-                name="mensagem"
-                rows={5}
-                placeholder="Descreva o interesse do cliente neste veículo..."
-                value={formData.mensagem}
-                onChange={(e) => setField('mensagem', e.target.value)}
-                error={formErrors.mensagem}
-                required
-              />
-            </section>
+        {/* ───── Pendências ───── */}
+        <div className={isOpen('pendencias') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="pendencias"
+            icon={IconAlertTriangle}
+            title="Pendências / Débitos"
+            subtitle={
+              formData.valor_ipva || formData.valor_licenciamento || formData.valor_multas
+                ? 'Pendências informadas (valores serão exibidos no PDF)'
+                : 'IPVA, licenciamento e multas do veículo'
+            }
+            open={isOpen('pendencias')}
+            onToggle={() => toggleSection('pendencias')}
+          />
+          {isOpen('pendencias') && (
+            <SectionBody>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <Input
+                    label="Valor do IPVA"
+                    name="valor_ipva"
+                    placeholder="0,00"
+                    value={formData.valor_ipva}
+                    inputMode="numeric"
+                    onChange={(e) => setField('valor_ipva', maskMoney(e.target.value))}
+                    leftIcon={<IconReceipt size={14} />}
+                  />
+                  <FormattedMoneyHint value={formData.valor_ipva} />
+                </div>
+                <div>
+                  <Input
+                    label="Valor do Licenciamento"
+                    name="valor_licenciamento"
+                    placeholder="0,00"
+                    value={formData.valor_licenciamento}
+                    inputMode="numeric"
+                    onChange={(e) =>
+                      setField('valor_licenciamento', maskMoney(e.target.value))
+                    }
+                    leftIcon={<IconReceipt size={14} />}
+                  />
+                  <FormattedMoneyHint value={formData.valor_licenciamento} />
+                </div>
+                <div>
+                  <Input
+                    label="Valor das Multas"
+                    name="valor_multas"
+                    placeholder="0,00"
+                    value={formData.valor_multas}
+                    inputMode="numeric"
+                    onChange={(e) => setField('valor_multas', maskMoney(e.target.value))}
+                    leftIcon={<IconAlertTriangle size={14} />}
+                  />
+                  <FormattedMoneyHint value={formData.valor_multas} />
+                </div>
+              </div>
+            </SectionBody>
+          )}
+        </div>
 
-            <div className="h-px bg-neutral-100" />
+        {/* ───── Parcelas ───── */}
+        <div className={isOpen('parcelas') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="parcelas"
+            icon={IconCalculator}
+            title="Parcelas do Financiamento"
+            subtitle={
+              formData.parcelas_totais || formData.parcelas_pagas
+                ? `${formData.parcelas_pagas || '?'}/${formData.parcelas_totais || '?'} pagas`
+                : 'Parcelas, valor e banco do financiamento'
+            }
+            open={isOpen('parcelas')}
+            onToggle={() => toggleSection('parcelas')}
+          />
+          {isOpen('parcelas') && (
+            <SectionBody>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="Banco / Financeira"
+                  name="banco"
+                  placeholder="Ex.: Banco Pan"
+                  value={formData.banco}
+                  onChange={(e) => setField('banco', e.target.value)}
+                  leftIcon={<IconBuildingBank size={14} />}
+                />
+                <Input
+                  label="Valor das parcelas"
+                  name="valor_parcela"
+                  placeholder="0,00"
+                  value={formData.valor_parcela}
+                  inputMode="numeric"
+                  onChange={(e) => setField('valor_parcela', maskMoney(e.target.value))}
+                  leftIcon={<IconCoin size={14} />}
+                />
+                <Input
+                  label="Parcelas totais"
+                  name="parcelas_totais"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex.: 48"
+                  value={formData.parcelas_totais}
+                  onChange={(e) => setField('parcelas_totais', e.target.value)}
+                />
+                <Input
+                  label="Parcelas pagas"
+                  name="parcelas_pagas"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex.: 12"
+                  value={formData.parcelas_pagas}
+                  onChange={(e) => setField('parcelas_pagas', e.target.value)}
+                />
+                <Input
+                  label="Parcelas atrasadas"
+                  name="parcelas_atrasadas"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Ex.: 3"
+                  value={formData.parcelas_atrasadas}
+                  onChange={(e) => setField('parcelas_atrasadas', e.target.value)}
+                />
+                <div>
+                  {formData.valor_parcela.trim() && formData.parcelas_atrasadas.trim() && (
+                    <p className="mt-6 text-[11px] font-semibold text-rose-600">
+                      Saldo devedor (parcelas × atrasadas):{' '}
+                      {formatCurrency(
+                        parseMoney(formData.valor_parcela) *
+                          Number(formData.parcelas_atrasadas || '0'),
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </SectionBody>
+          )}
+        </div>
 
-            <section className="space-y-3">
-              <header className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 inline-flex items-center gap-2">
-                  <IconTool size={12} />
-                  Peças para conserto
-                </span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {pecasOrigemPuxada && pecasDaManutencao.length > 0 && (
+        {/* ───── Peças ───── */}
+        <div className={isOpen('pecas') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="pecas"
+            icon={IconTool}
+            title="Peças que exigem reparo"
+            subtitle={
+              formData.pecas.length > 0
+                ? `${formData.pecas.length} peça${formData.pecas.length === 1 ? '' : 's'} • ${formatCurrency(totalPecas)}`
+                : 'Liste peças e valores de reparo (opcional)'
+            }
+            open={isOpen('pecas')}
+            onToggle={() => toggleSection('pecas')}
+          />
+          {isOpen('pecas') && (
+            <SectionBody>
+              <div className="space-y-2">
+                {formData.pecas.length === 0 && (
+                  <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 px-3 py-3 text-xs text-neutral-500">
+                    Nenhuma peça adicionada. Use o botão abaixo para listar
+                    manualmente as peças que precisarão de reparo.
+                  </div>
+                )}
+
+                {formData.pecas.map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 sm:flex-row sm:items-center"
+                  >
+                    <div className="relative flex-1">
+                      <span
+                        aria-hidden
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                      >
+                        <IconTool size={13} />
+                      </span>
+                      <input
+                        type="text"
+                        value={p.nome}
+                        onChange={(e) => {
+                          const novo = [...formData.pecas]
+                          novo[idx] = { ...novo[idx], nome: e.target.value }
+                          setField('pecas', novo)
+                        }}
+                        placeholder="Nome da peça"
+                        className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div className="relative w-full sm:w-40">
+                      <span
+                        aria-hidden
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+                      >
+                        <IconCoin size={13} />
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={p.valor}
+                        onChange={(e) => {
+                          const novo = [...formData.pecas]
+                          novo[idx] = { ...novo[idx], valor: maskMoney(e.target.value) }
+                          setField('pecas', novo)
+                        }}
+                        placeholder="0,00"
+                        className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
+                      />
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setPecasConserto((prev) =>
-                          prev.filter((p) => p.origem === 'manual'),
-                        )
-                        setPecasOrigemPuxada(false)
+                        const novo = formData.pecas.filter((_, i) => i !== idx)
+                        setField('pecas', novo)
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-neutral-400 hover:bg-neutral-50 transition-ui cursor-pointer"
+                      aria-label="Remover peça"
+                      className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
                     >
-                      <IconX size={12} stroke={2.5} />
-                      Descartar peças da manutenção
+                      <IconTrash size={13} stroke={2.5} />
                     </button>
-                  )}
+                  </div>
+                ))}
+
+                {formErrors.pecas && (
+                  <p className="text-[11px] font-semibold text-rose-600">
+                    {formErrors.pecas}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between gap-2 pt-2">
                   <button
                     type="button"
                     onClick={() =>
-                      setPecasConserto((prev) => [
-                        ...prev,
-                        { nome: '', valor: '', origem: 'manual' },
-                      ])
+                      setField('pecas', [...formData.pecas, { nome: '', valor: '' }])
                     }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-bold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:border-liberty/40 hover:bg-liberty/5 hover:text-liberty-deep transition-ui cursor-pointer"
                   >
                     <IconPlus size={12} stroke={2.5} />
                     Adicionar peça
                   </button>
-                </div>
-              </header>
-
-              {loadingPecas ? (
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-neutral-50/50 px-3 py-3 text-xs text-neutral-500">
-                  <svg
-                    className="animate-spin h-3 w-3"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8v8z"
-                    />
-                  </svg>
-                  Carregando peças de manutenção do veículo…
-                </div>
-              ) : pecasOrigemPuxada && pecasDaManutencao.length > 0 ? (
-                <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-emerald-700 inline-flex items-center gap-1.5">
-                      <IconTool size={11} />
-                      {pecasDaManutencao.length}{' '}
-                      {pecasDaManutencao.length === 1
-                        ? 'peça puxada da manutenção'
-                        : 'peças puxadas da manutenção'}
+                  {formData.pecas.length > 0 && (
+                    <span className="text-[11px] font-semibold text-neutral-600">
+                      Total estimado:{' '}
+                      <strong className="text-liberty-deep">
+                        {formatCurrency(totalPecas)}
+                      </strong>
                     </span>
-                  </div>
-                  <ul className="space-y-2">
-                    {pecasDaManutencao.map((p, idx) => {
-                      const realIdx = pecasConserto.findIndex(
-                        (x) => x === p,
-                      )
-                      return (
-                        <li
-                          key={`auto-${idx}`}
-                          className="flex flex-col gap-2 rounded-lg border border-emerald-200 bg-white p-3 sm:flex-row sm:items-center"
-                        >
-                          <div className="relative flex-1">
-                            <span
-                              aria-hidden
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                            >
-                              <IconTool size={13} />
-                            </span>
-                            <input
-                              type="text"
-                              value={p.nome}
-                              onChange={(e) =>
-                                setPecasConserto((prev) =>
-                                  prev.map((x, i) =>
-                                    i === realIdx
-                                      ? { ...x, nome: e.target.value }
-                                      : x,
-                                  ),
-                                )
-                              }
-                              placeholder="Nome da peça"
-                              className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                            />
-                          </div>
-                          <div className="relative w-full sm:w-40">
-                            <span
-                              aria-hidden
-                              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                            >
-                              <IconCoin size={13} />
-                            </span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={p.valor}
-                              onChange={(e) =>
-                                setPecasConserto((prev) =>
-                                  prev.map((x, i) =>
-                                    i === realIdx
-                                      ? {
-                                          ...x,
-                                          valor: maskMoney(e.target.value),
-                                        }
-                                      : x,
-                                  ),
-                                )
-                              }
-                              placeholder="0,00"
-                              className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPecasConserto((prev) =>
-                                prev.filter((_, i) => i !== realIdx),
-                              )
-                            }
-                            aria-label="Remover peça"
-                            className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
-                          >
-                            <IconTrash size={13} stroke={2.5} />
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                  {pecasDaManutencao.length === 0 && null}
+                  )}
                 </div>
-              ) : pecasConserto.length === 0 ? (
-                <p className="text-xs text-neutral-500">
-                  Nenhuma peça vinculada a este veículo nas manutenções. Você
-                  pode listar manualmente as peças que precisarão de conserto.
-                </p>
-              ) : null}
+              </div>
+            </SectionBody>
+          )}
+        </div>
 
-              {pecasConserto.filter((p) => p.origem === 'manual').length > 0 && (
-                <ul className="space-y-2">
-                  {pecasConserto
-                    .map((p, idx) => ({ p, idx }))
-                    .filter(({ p }) => p.origem === 'manual')
-                    .map(({ p, idx }) => (
-                      <li
-                        key={`manual-${idx}`}
-                        className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 sm:flex-row sm:items-center"
-                      >
-                        <div className="relative flex-1">
-                          <span
-                            aria-hidden
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                          >
-                            <IconTool size={13} />
-                          </span>
-                          <input
-                            type="text"
-                            value={p.nome}
-                            onChange={(e) =>
-                              setPecasConserto((prev) =>
-                                prev.map((x, i) =>
-                                  i === idx
-                                    ? { ...x, nome: e.target.value }
-                                    : x,
-                                ),
-                              )
-                            }
-                            placeholder="Nome da peça"
-                            className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                          />
-                        </div>
-                        <div className="relative w-full sm:w-40">
-                          <span
-                            aria-hidden
-                            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
-                          >
-                            <IconCoin size={13} />
-                          </span>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={p.valor}
-                            onChange={(e) =>
-                              setPecasConserto((prev) =>
-                                prev.map((x, i) =>
-                                  i === idx
-                                    ? { ...x, valor: maskMoney(e.target.value) }
-                                    : x,
-                                ),
-                              )
-                            }
-                            placeholder="0,00"
-                            className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPecasConserto((prev) =>
-                              prev.filter((_, i) => i !== idx),
-                            )
-                          }
-                          aria-label="Remover peça"
-                          className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer"
-                        >
-                          <IconTrash size={13} stroke={2.5} />
-                        </button>
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </section>
+        {/* ───── Proposta ───── */}
+        <div className={isOpen('proposta') ? 'border-b border-neutral-100' : ''}>
+          <SectionHeader
+            id="proposta"
+            icon={IconCoin}
+            title="Valor da Proposta"
+            subtitle={
+              valorPropostaNum && valorPropostaNum > 0
+                ? formatCurrency(valorPropostaNum)
+                : 'Valor comercial destacado na página 3 do PDF'
+            }
+            open={isOpen('proposta')}
+            onToggle={() => toggleSection('proposta')}
+            badge={completed('proposta') ? 'OK' : undefined}
+          />
+          {isOpen('proposta') && (
+            <SectionBody>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Input
+                    label="Valor da Proposta"
+                    name="valor_proposta"
+                    placeholder="0,00"
+                    value={formData.valor_proposta}
+                    inputMode="numeric"
+                    onChange={(e) => setField('valor_proposta', maskMoney(e.target.value))}
+                    leftIcon={<IconCoin size={14} />}
+                    required
+                  />
+                  <FormattedMoneyHint value={formData.valor_proposta} />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <Textarea
+                  label="Mensagem / interesse"
+                  name="mensagem"
+                  rows={3}
+                  placeholder="Descreva o interesse do cliente neste veículo..."
+                  value={formData.mensagem}
+                  onChange={(e) => setField('mensagem', e.target.value)}
+                  error={formErrors.mensagem}
+                  required
+                />
+              </div>
+            </SectionBody>
+          )}
+        </div>
+
+        {/* ───── Proposta Prévia ───── */}
+        <div className="">
+          <SectionHeader
+            id="previa"
+            icon={IconCoin}
+            title="Proposta Prévia"
+            subtitle={
+              formData.proposta_previa.trim()
+                ? formatCurrency(parseMoney(formData.proposta_previa))
+                : 'Valor em destaque na página 4 do PDF'
+            }
+            open={isOpen('previa')}
+            onToggle={() => toggleSection('previa')}
+            badge={completed('previa') ? 'OK' : undefined}
+          />
+          {isOpen('previa') && (
+            <SectionBody last>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Input
+                    label="Valor da Proposta Prévia"
+                    name="proposta_previa"
+                    placeholder="0,00"
+                    value={formData.proposta_previa}
+                    inputMode="numeric"
+                    onChange={(e) => setField('proposta_previa', maskMoney(e.target.value))}
+                    leftIcon={<IconCoin size={14} />}
+                    error={formErrors.proposta_previa}
+                    hint="Opcional. Exibido em destaque na página 4 do PDF, acima das assinaturas."
+                  />
+                  <FormattedMoneyHint value={formData.proposta_previa} />
+                </div>
+                <div className="rounded-lg border border-liberty/20 bg-liberty/5 p-3 text-xs text-neutral-700">
+                  <p className="font-bold text-liberty-deep">Onde aparece</p>
+                  <p className="mt-1">
+                    O valor da proposta prévia é exibido em destaque (caixa vermelha)
+                    na página 4 do PDF, após a escrita da proposta e antes das
+                    linhas de assinatura.
+                  </p>
+                </div>
+              </div>
+            </SectionBody>
+          )}
+        </div>
+
+        {/* Footer desktop */}
+        <div className="hidden flex-col-reverse items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/50 px-6 py-4 sm:flex-row md:flex">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+            <IconShieldCheck size={13} className="text-emerald-600" />
+            Dados criptografados antes de salvar.
           </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/dashboard/propostas/gerador"
+              className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer text-center"
+            >
+              Cancelar
+            </Link>
+            <button
+              type="submit"
+              disabled={creating}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+            >
+              {creating ? (
+                <>
+                  <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  Continuar
+                  <IconArrowRight size={14} stroke={2.5} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-neutral-100 bg-neutral-50/50 px-6 py-4">
-            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-              <IconShieldCheck size={13} className="text-emerald-600" />
-              Dados criptografados antes de salvar.
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Link
-                href="/dashboard/propostas/gerador"
-                className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer text-center"
-              >
-                Cancelar
-              </Link>
+      <div className="hidden gap-3 md:flex">
+        <button
+          type="button"
+          onClick={() => setSummaryOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+        >
+          <IconEye size={14} stroke={2.5} />
+          Visualizar resumo da proposta
+        </button>
+      </div>
+
+      {typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.75rem)' }}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(true)}
+              aria-label="Visualizar resumo da proposta"
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white px-3 text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+            >
+              <IconEye size={18} stroke={2} />
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={creating}
+              aria-label="Continuar"
+              className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-liberty px-4 text-sm font-bold text-white shadow-sm transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+            >
+              {creating ? (
+                <>
+                  <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  Continuar
+                  <IconArrowRight size={16} stroke={2.5} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {typeof document !== 'undefined' && summaryOpen && createPortal(
+        <div
+          className="fixed inset-0 z-50 bg-neutral-950/60 backdrop-blur-sm"
+          onClick={() => setSummaryOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Resumo da proposta"
+            className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-hidden rounded-t-2xl border-t border-neutral-200 bg-white shadow-2xl md:inset-auto md:left-1/2 md:top-1/2 md:max-h-[80vh] md:w-full md:max-w-md md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-2xl md:border animate-[drawer-sheet-up_0.25s_cubic-bezier(0.16,1,0.3,1)_both]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4 md:px-6 md:py-5">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-liberty/10 text-liberty">
+                  <IconFileText size={18} stroke={2} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty">
+                    Resumo
+                  </p>
+                  <h3 className="text-base font-bold text-neutral-950">
+                    Prévia do que será gerado
+                  </h3>
+                </div>
+              </div>
               <button
-                type="submit"
-                disabled={creating}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-[background-color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+                type="button"
+                onClick={() => setSummaryOpen(false)}
+                aria-label="Fechar resumo"
+                className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer"
               >
-                {creating ? (
-                  <>
-                    <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Salvando...
-                  </>
+                <IconChevronDown size={20} stroke={2} className="md:hidden" />
+                <IconX size={18} stroke={2} className="hidden md:block" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] space-y-3 overflow-y-auto p-5 md:max-h-[60vh]">
+              <SummarySection title="Cliente" icon={IconUser}>
+                <SummaryRow label="Nome" value={formData.nome} />
+                <SummaryRow label="CPF" value={formData.cpf} />
+                <SummaryRow label="Telefone" value={formData.telefone} />
+                <SummaryRow label="E-mail" value={formData.email} />
+                <SummaryRow label="Data" value={formData.cliente_data} />
+                <SummaryRow label="Contrato" value={formData.numero_contrato || 'automático'} />
+              </SummarySection>
+
+              <SummarySection title="Veículo" icon={IconCar}>
+                <SummaryRow
+                  label="Marca/Modelo"
+                  value={`${formData.veiculo_marca} ${formData.veiculo_modelo}`.trim()}
+                />
+                <SummaryRow label="Placa" value={formData.veiculo_placa} />
+                <SummaryRow label="Ano" value={formData.veiculo_ano} />
+                <SummaryRow
+                  label="Valor FIPE"
+                  value={
+                    formData.veiculo_valor_fipe
+                      ? formatCurrency(parseMoney(formData.veiculo_valor_fipe))
+                      : null
+                  }
+                />
+                <SummaryRow
+                  label="Valor estimado da dívida"
+                  value={
+                    formData.valor_estimado_divida
+                      ? formatCurrency(parseMoney(formData.valor_estimado_divida))
+                      : null
+                  }
+                />
+              </SummarySection>
+
+              <SummarySection title="Pendências / Parcelas" icon={IconCalculator}>
+                <SummaryRow label="IPVA" value={formData.valor_ipva ? formatCurrency(parseMoney(formData.valor_ipva)) : null} />
+                <SummaryRow label="Licenciamento" value={formData.valor_licenciamento ? formatCurrency(parseMoney(formData.valor_licenciamento)) : null} />
+                <SummaryRow label="Multas" value={formData.valor_multas ? formatCurrency(parseMoney(formData.valor_multas)) : null} />
+                <SummaryRow label="Banco" value={formData.banco} />
+                <SummaryRow label="Valor da parcela" value={formData.valor_parcela ? formatCurrency(parseMoney(formData.valor_parcela)) : null} />
+                <SummaryRow
+                  label="Parcelas"
+                  value={
+                    formData.parcelas_totais || formData.parcelas_pagas || formData.parcelas_atrasadas
+                      ? `${formData.parcelas_pagas || '?'}/${formData.parcelas_totais || '?'} pagas • ${formData.parcelas_atrasadas || '0'} atrasadas`
+                      : null
+                  }
+                />
+              </SummarySection>
+
+              <SummarySection title="Peças" icon={IconTool}>
+                {formData.pecas.length === 0 ? (
+                  <p className="text-[11px] text-neutral-500">Nenhuma peça listada.</p>
                 ) : (
                   <>
-                    Continuar
-                    <IconArrowRight size={14} stroke={2.5} />
+                    <ul className="space-y-1 text-xs text-neutral-700">
+                      {formData.pecas.slice(0, 6).map((p, i) => (
+                        <li key={i} className="flex justify-between gap-2">
+                          <span className="truncate">{p.nome || '—'}</span>
+                          <span className="font-semibold tabular-nums">
+                            {p.valor ? formatCurrency(parseMoney(p.valor)) : '—'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {formData.pecas.length > 6 && (
+                      <p className="mt-1 text-[11px] text-neutral-500">
+                        +{formData.pecas.length - 6} outras…
+                      </p>
+                    )}
+                    <p className="mt-1 text-[11px] font-bold text-liberty-deep">
+                      Total: {formatCurrency(totalPecas)}
+                    </p>
                   </>
                 )}
+              </SummarySection>
+
+              <SummarySection title="Proposta" icon={IconCoin}>
+                <SummaryRow
+                  label="Valor da proposta"
+                  value={
+                    valorPropostaNum && valorPropostaNum > 0
+                      ? formatCurrency(valorPropostaNum)
+                      : null
+                  }
+                  accent
+                />
+                <SummaryRow label="Mensagem" value={formData.mensagem} />
+              </SummarySection>
+
+              <SummarySection title="Proposta Prévia" icon={IconCoin}>
+                <SummaryRow
+                  label="Valor da proposta prévia"
+                  value={
+                    formData.proposta_previa.trim()
+                      ? formatCurrency(parseMoney(formData.proposta_previa))
+                      : null
+                  }
+                  accent
+                />
+              </SummarySection>
+            </div>
+
+            <div className="border-t border-neutral-100 bg-neutral-50/50 px-5 py-3 md:px-6">
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(false)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+              >
+                Voltar ao formulário
               </button>
             </div>
           </div>
-        </form>
-
-        <aside className="space-y-4 lg:sticky lg:top-8 lg:self-start">
-          <div className="rounded-2xl border border-liberty/20 bg-gradient-to-br from-liberty/5 via-white to-white p-5 shadow-xs">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty">
-                  Resumo da proposta
-                </p>
-                <h3 className="mt-1 text-lg font-bold text-neutral-950">
-                  Prévia do que será gerado
-                </h3>
-              </div>
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-liberty/10 text-liberty">
-                <IconFileText size={18} stroke={2} />
-              </div>
-            </div>
-
-            <dl className="mt-4 space-y-2.5 text-sm">
-              <SummaryRow
-                label="Veículo"
-                value={
-                  selectedVeiculo
-                    ? `${selectedVeiculo.marca} ${selectedVeiculo.modelo}${
-                        selectedVeiculo.ano ? ` ${selectedVeiculo.ano}` : ''
-                      }`
-                    : 'Selecione um veículo'
-                }
-              />
-              <SummaryRow
-                label="Preço sugerido"
-                value={selectedVeiculo ? formatCurrency(selectedVeiculo.preco) : '—'}
-              />
-              <SummaryRow label="Cliente" value={formData.nome || '—'} />
-              <SummaryRow label="CPF" value={formData.cpf || '—'} />
-              <SummaryRow label="Telefone" value={formData.telefone || '—'} />
-              <SummaryRow label="E-mail" value={formData.email || '—'} />
-              <SummaryRow
-                label="Valor ofertado"
-                value={valorNumerico ? formatCurrency(valorNumerico) : '—'}
-                accent={Boolean(valorNumerico)}
-              />
-            </dl>
-
-            <div className="mt-5 rounded-lg border border-neutral-200 bg-white p-3">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-                Mensagem
-              </p>
-              <p className="mt-1.5 text-xs text-neutral-700 leading-relaxed whitespace-pre-line line-clamp-5">
-                {formData.mensagem || 'Nenhuma mensagem informada.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs">
-            <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-                <IconShieldCheck size={18} stroke={2} />
-              </div>
-              <div className="text-xs text-neutral-600 leading-relaxed">
-                <p className="font-bold text-neutral-900">Privacidade</p>
-                <p className="mt-0.5">
-                  O CPF é criptografado antes de ser armazenado. O e-mail e telefone são
-                  usados apenas para contato comercial.
-                </p>
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
-
-      <VeiculoPicker
-        key={pickerOpen ? 'open' : 'closed'}
-        open={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        veiculos={veiculos}
-        value={formData.veiculo_id || null}
-        onSelect={handleVeiculoSelecionado}
-      />
+        </div>,
+        document.body,
+      )}
 
       {confirmOpen && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeConfirm()
           }}
@@ -1007,9 +1468,10 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-md overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+            style={{ maxHeight: 'calc(100vh - 2rem)' }}
           >
-            <div className="relative bg-gradient-to-br from-liberty/10 via-white to-white px-6 pt-6 pb-5 border-b border-neutral-100">
+            <div className="relative border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4 sm:px-6 sm:pt-6 sm:pb-5">
               <button
                 type="button"
                 onClick={closeConfirm}
@@ -1018,7 +1480,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
               >
                 <IconX size={18} stroke={2} />
               </button>
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 pr-8">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty text-white shadow-sm">
                   <IconFileText size={22} stroke={2} />
                 </div>
@@ -1027,26 +1489,26 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                     Gerar PDF de autorização
                   </h2>
                   <p className="mt-1 text-sm text-neutral-600">
-                    O documento será gerado agora. Em seguida, escolha se a proposta
-                    também deve ser cadastrada no sistema.
+                    O documento será gerado agora. Em seguida, escolha se a
+                    proposta também deve ser cadastrada no sistema.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 px-6 py-5">
+            <div className="space-y-4 overflow-y-auto px-5 py-5 sm:px-6" style={{ maxHeight: 'calc(100vh - 18rem)' }}>
               <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-3.5">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 inline-flex items-center gap-1.5">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
                     <IconFolderOpen size={12} />
                     Pasta de destino
                   </span>
                   {dirName ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
                       Selecionada
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 border border-neutral-200 px-2 py-0.5 text-[10px] font-bold text-neutral-600">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-600">
                       Padrão
                     </span>
                   )}
@@ -1063,10 +1525,11 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                   </button>
                   {dirName && (
                     <span
-                      className="text-[11px] text-neutral-500 font-medium truncate max-w-[220px]"
+                      className="max-w-[220px] truncate text-[11px] font-medium text-neutral-500"
                       title={dirName}
                     >
-                      Salvar em: <strong className="text-neutral-700">{dirName}</strong>
+                      Salvar em:{' '}
+                      <strong className="text-neutral-700">{dirName}</strong>
                     </span>
                   )}
                   {!dirName && (
@@ -1080,7 +1543,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
               <div>
                 <label
                   htmlFor="file-name-input"
-                  className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5"
+                  className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500"
                 >
                   Nome do arquivo PDF
                 </label>
@@ -1097,7 +1560,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
                     value={fileName}
                     onChange={(e) => setFileName(e.target.value)}
                     placeholder="autorizacao-proposta"
-                    className="w-full rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15 transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5 pl-10 pr-3.5 text-sm text-neutral-900 placeholder:text-neutral-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15 transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5 pl-10 pr-3.5 text-sm font-semibold text-neutral-900 placeholder:text-neutral-400 disabled:opacity-60 disabled:cursor-not-allowed"
                     disabled={creating}
                   />
                 </div>
@@ -1107,7 +1570,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-6 py-4">
+            <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/60 px-5 py-4 sm:px-6">
               <button
                 type="button"
                 onClick={handleConfirmSave}
@@ -1116,7 +1579,7 @@ export default function CadastrarPropostaClient({ veiculos }: CadastrarPropostaC
               >
                 {creating ? (
                   <>
-                    <svg className="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                     </svg>
@@ -1153,22 +1616,43 @@ function SummaryRow({
   accent,
 }: {
   label: string
-  value: string
+  value: string | null | undefined
   accent?: boolean
 }) {
+  const v = value && value.trim() ? value : null
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-neutral-100 pb-2 last:border-0 last:pb-0">
-      <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 shrink-0">
+    <div className="flex items-start justify-between gap-3 border-b border-neutral-100 py-1.5 last:border-0">
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
         {label}
       </span>
       <span
         className={
-          'text-right text-sm font-semibold break-words ' +
+          'break-words text-right text-xs font-semibold ' +
           (accent ? 'text-liberty-deep' : 'text-neutral-900')
         }
       >
-        {value && value.trim() ? value : <span className="text-neutral-400 font-normal">—</span>}
+        {v ?? <span className="font-normal text-neutral-400">—</span>}
       </span>
+    </div>
+  )
+}
+
+function SummarySection({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string
+  icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>
+  children: React.ReactNode
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+      <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+        <Icon size={12} className="text-neutral-400" />
+        {title}
+      </p>
+      {children}
     </div>
   )
 }

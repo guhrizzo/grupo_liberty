@@ -44,6 +44,7 @@ const toImageDataUrl = (fileName: string, mime = 'image/png'): string => {
 const FUNDO_1 = toImageDataUrl('fundo-1.png')
 const FUNDO_2 = toImageDataUrl('fundo-2.png')
 const FUNDO_3 = toImageDataUrl('fundo-3.png')
+const FUNDO_4 = toImageDataUrl('fundo-3.png')
 const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-blue.png')
 const CHECK_BLUE = toImageDataUrl('check-blue.png')
 const SETA = toImageDataUrl('seta.png')
@@ -130,7 +131,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   h1Title: {
-    fontSize: 120,
+    fontSize: 110,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   h1Span: {
-    fontSize: 108,
+    fontSize: 98,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -169,20 +170,20 @@ const styles = StyleSheet.create({
   infoColLabel: {
     fontFamily: INTER_FONT,
     fontWeight: 600,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.textLight,
     marginBottom: 3,
   },
   infoColValue: {
     fontFamily: INTER_FONT,
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.textMuted,
   },
   logoBlue: {
     width: 130,
   },
 
-  // PAGE 2 — INFORMACÕES DO VEÍCULO E DÍVIDA
+  // PAGE 2 — INFORMAÇÕES DO VEÍCULO E DÍVIDA
   page2Content: {
     flex: 1,
     paddingHorizontal: 25,
@@ -195,68 +196,68 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     borderRadius: 24,
     backgroundColor: COLORS.bgContainer,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   h2Title: {
-    fontSize: 26,
+    fontSize: 22,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
     marginTop: 6,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   pathLine: {
     width: '100%',
     height: 1,
     backgroundColor: COLORS.borderLine,
-    marginVertical: 12,
+    marginVertical: 8,
   },
   pathLineShort: {
     width: '100%',
     height: 1,
     backgroundColor: COLORS.borderLine,
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   dadosRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
     alignItems: 'center',
   },
   dadosLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textMuted,
     fontFamily: INTER_FONT,
     maxWidth: '60%',
   },
   dadosLabelRed: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.redInfo,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     maxWidth: '60%',
   },
   dadosValue: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textLight,
     fontFamily: INTER_FONT,
     fontWeight: 500,
   },
   dadosValueRed: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.redInfo,
     fontFamily: INTER_FONT,
     fontWeight: 600,
   },
   sndTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
-    marginTop: 8,
-    marginBottom: 6,
+    marginTop: 6,
+    marginBottom: 4,
   },
 
   // PAGE 3 — PROPOSTA COMERCIAL
@@ -272,41 +273,41 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     borderRadius: 24,
     backgroundColor: COLORS.accentBlueTransp,
-    paddingHorizontal: 28,
-    paddingVertical: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     justifyContent: 'space-between',
   },
   thrdTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
     marginTop: 6,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   propComercialRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   propText: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textMuted,
     fontFamily: INTER_FONT,
     lineHeight: 1.35,
   },
   carValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
   },
   longText: {
-    fontSize: 13,
-    lineHeight: 1.45,
+    fontSize: 11,
+    lineHeight: 1.4,
     color: COLORS.textMuted,
-    marginVertical: 12,
+    marginVertical: 8,
   },
   list: {
     marginTop: 4,
@@ -315,32 +316,110 @@ const styles = StyleSheet.create({
   checkItem: {
     flexDirection: 'row',
     gap: 7,
-    marginBottom: 10,
+    marginBottom: 8,
     alignItems: 'flex-start',
   },
   checkImg: {
-    width: 12,
-    height: 12,
-    marginTop: 1,
+    width: 10,
+    height: 10,
+    marginTop: 2,
   },
   checkText: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
     lineHeight: 1.35,
     flex: 1,
   },
   fthTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   condicoesP: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textMuted,
     lineHeight: 1.45,
+    marginBottom: 6,
+  },
+
+  // PAGE 4 — ESCRITA DA PROPOSTA PRÉVIA
+  page4Content: {
+    flex: 1,
+    paddingHorizontal: 25,
+    paddingVertical: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subcontainer4: {
+    width: '94%',
+    flexGrow: 1,
+    borderRadius: 24,
+    backgroundColor: COLORS.bgContainer,
+    paddingHorizontal: 28,
+    paddingVertical: 22,
+  },
+  previaTitle: {
+    fontSize: 22,
+    fontFamily: INTER_FONT,
+    fontWeight: 600,
+    color: COLORS.textLight,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  previaText: {
+    fontSize: 12,
+    lineHeight: 1.55,
+    color: COLORS.textMuted,
+    fontFamily: INTER_FONT,
+  },
+  previaSignedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 28,
+  },
+  previaSignedBlock: {
+    width: '45%',
+  },
+  previaSignedLine: {
+    width: '100%',
+    height: 1,
+    backgroundColor: COLORS.borderLine,
+    marginBottom: 6,
+  },
+  previaSignedLabel: {
+    fontSize: 11,
+    color: COLORS.textSubtle,
+    textAlign: 'center',
+    fontFamily: INTER_FONT,
+  },
+  previaValueBox: {
+    marginTop: 24,
+    marginBottom: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 26, 64, 0.4)',
+    borderStyle: 'solid',
+    backgroundColor: 'rgba(255, 26, 64, 0.08)',
+    alignItems: 'center',
+  },
+  previaValueLabel: {
+    fontSize: 11,
+    fontFamily: INTER_FONT,
+    fontWeight: 600,
+    color: COLORS.redInfo,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
     marginBottom: 8,
+  },
+  previaValueAmount: {
+    fontSize: 28,
+    fontFamily: INTER_FONT,
+    fontWeight: 700,
+    color: COLORS.redInfo,
   },
 })
 
@@ -366,10 +445,13 @@ function formatDateBR(iso: string | undefined | null): string {
 
 export interface PropostaAutorizacaoDocumentProps {
   id: string
+  // Contrato / capa
+  numeroContrato?: string | null
   clienteNome: string
   clienteCpf?: string | null
   clienteEmail?: string | null
   clienteTelefone?: string | null
+  clienteData?: string | null
   // Veículo
   veiculoMarca: string
   veiculoModelo: string
@@ -377,7 +459,8 @@ export interface PropostaAutorizacaoDocumentProps {
   veiculoPlaca?: string | null
   veiculoPrecoSugerido?: number | null
   veiculoValorFipe?: number | null
-  // Financeiro
+  valorEstimadoDivida?: number | null
+  // Financeiro do veículo
   parcelasTotais?: number | null
   parcelasPagas?: number | null
   parcelasAtrasadas?: number | null
@@ -385,18 +468,21 @@ export interface PropostaAutorizacaoDocumentProps {
   saldoDevedor?: number | null
   dividaTotal?: number | null
   custoAcumulado?: number | null
-  // Pendências
-  ipvaAtrasado?: number | null
-  licenciamento?: number | null
-  multas?: number | null
-  /** Lista detalhada de débitos (substitui ipva/licenciamento/multas quando presente). */
+  // Pendências do veículo
+  valorIpva?: number | null
+  valorLicenciamento?: number | null
+  valorMultas?: number | null
+  /** Lista detalhada de débitos (substitui valorIpva/licenciamento/multas quando presente). */
   debitosItens?: Array<{ chave: string; label: string; valor: number }> | null
+  // Peças
   pecasReparo?: string | null
   valorPecasReparo?: number | null
   pecasConserto?: Array<{ nome: string; valor: number }> | null
   banco?: string | null
-  // Proposta
+  // Proposta comercial
   propostaComercial?: number | null
+  /** Valor monetário da proposta prévia (página 4 do PDF). */
+  propostaPrevia?: number | null
   valorOfertado?: number | null
   mensagem?: string | null
   statusProposta?: string
@@ -408,26 +494,30 @@ export interface PropostaAutorizacaoDocumentProps {
 export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDocumentProps) {
   const {
     id,
+    numeroContrato,
     clienteNome,
     clienteCpf,
+    clienteData,
     veiculoMarca,
     veiculoModelo,
     veiculoAno,
     veiculoPlaca,
     veiculoValorFipe,
+    valorEstimadoDivida,
     parcelasTotais = 0,
     parcelasPagas = 0,
     parcelasAtrasadas: parcelasAtrasadasProp,
     valorParcela = 0,
     saldoDevedor: saldoDevedorProp,
-    ipvaAtrasado = 0,
-    licenciamento = 0,
-    multas = 0,
+    valorIpva = 0,
+    valorLicenciamento = 0,
+    valorMultas = 0,
     debitosItens,
     pecasReparo,
     valorPecasReparo = 0,
     pecasConserto,
     propostaComercial,
+    propostaPrevia,
     valorOfertado = 0,
     criadoEm,
     condicoes,
@@ -444,17 +534,15 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
   const calcSaldoDevedor =
     saldoDevedorProp != null ? Number(saldoDevedorProp) : parcelasEmAtraso * valParcela
 
-  const ipvaVal = Number(ipvaAtrasado) || 0
-  const licVal = Number(licenciamento) || 0
-  const multasVal = Number(multas) || 0
+  const ipvaVal = Number(valorIpva) || 0
+  const licVal = Number(valorLicenciamento) || 0
+  const multasVal = Number(valorMultas) || 0
 
-  // Lista unificada de débitos. Prioriza o array estruturado.
-  // Mantém fallback dos 3 campos legados (ipvaAtrasado/licenciamento/multas).
   const debitosLista: Array<{ chave: string; label: string; valor: number }> =
     Array.isArray(debitosItens) && debitosItens.length > 0
       ? debitosItens.filter((d) => Number(d.valor) > 0)
       : [
-          { chave: 'ipva', label: 'IPVA atrasado', valor: ipvaVal },
+          { chave: 'ipva', label: 'IPVA', valor: ipvaVal },
           { chave: 'licenciamento', label: 'Licenciamento', valor: licVal },
           { chave: 'multas', label: 'Multas', valor: multasVal },
         ].filter((d) => Number(d.valor) > 0)
@@ -463,7 +551,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
 
   const reparoVal = Number(valorPecasReparo) || 0
 
-  // Lista prioriza o array estruturado. Fallback: string única legada.
   const pecasConsertoList = Array.isArray(pecasConserto) && pecasConserto.length > 0
     ? pecasConserto
     : null
@@ -481,8 +568,12 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
 
   const propostaValorFinal = propostaComercial ?? valorOfertado ?? 0
 
-  const numContrato = `#${id.slice(0, 8).toUpperCase()}`
-  const dataContrato = formatDateBR(criadoEm)
+  const numContrato =
+    numeroContrato ?? `#${id.slice(0, 8).toUpperCase()}`
+  const dataContrato =
+    clienteData && clienteData.trim()
+      ? formatDateBR(clienteData)
+      : formatDateBR(criadoEm)
 
   const temPendencias = totEncargos > 0
   const temReparos = temPecasConserto
@@ -497,6 +588,18 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
           'Após o processo finalizado, nenhuma pendência financeira recairá sobre o antigo proprietário.',
           'Um contrato formal será assinado para segurança de ambas as partes.',
         ]
+
+  const previaParagrafos = [
+    'A Liberty Car, pessoa jurídica de direito privado, especializada na aquisição de veículos com pendências financeiras ou administrativas, apresenta esta proposta prévia de aquisição do veículo descrito neste documento ao(à) cliente identificado(a) na capa.',
+    'A presente proposta tem caráter prévio e ilustrativo, sendo definitiva somente após análise documental, vistoria técnica do veículo e assinatura de contrato formal de compra e cessão de direitos entre as partes.',
+    'O(A) cliente declara estar ciente de que o veículo pode apresentar débitos junto ao DETRAN, ao banco financiador ou a outros órgãos, e que tais pendências serão objeto de análise e, quando aplicável, de assunção por parte da Liberty Car nos termos do contrato a ser firmado.',
+    'Quaisquer condições particulares — tais como prazos, valores, forma de pagamento e responsabilidades adicionais — serão descritas de forma detalhada no instrumento contratual definitivo.',
+  ]
+
+  const propostaPreviaValorFinal =
+    propostaPrevia != null && Number.isFinite(propostaPrevia) && propostaPrevia > 0
+      ? propostaPrevia
+      : null
 
   return (
     <Document
@@ -517,17 +620,32 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
             </View>
             <View style={styles.capaBottomBlock}>
               <View style={styles.dateBlock}>
-                <Text style={styles.dateText}>{numContrato}</Text>
-                <Text style={styles.dateText}>{dataContrato}</Text>
+                <Text style={styles.dateText}>Contrato: {numContrato}</Text>
+                <Text style={styles.dateText}>Data: {dataContrato}</Text>
               </View>
               <View style={styles.infoRow}>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.infoColLabel}>Cliente:</Text>
                   <Text style={styles.infoColValue}>{clienteNome}</Text>
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.infoColLabel}>CPF:</Text>
                   <Text style={styles.infoColValue}>{clienteCpf || 'N/A'}</Text>
+                </View>
+              </View>
+              <View style={styles.infoRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoColLabel}>Veículo:</Text>
+                  <Text style={styles.infoColValue}>
+                    {veiculoMarca} {veiculoModelo}
+                    {veiculoAno ? ` ${veiculoAno}` : ''}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoColLabel}>Placa:</Text>
+                  <Text style={styles.infoColValue}>
+                    {veiculoPlaca ? veiculoPlaca.toUpperCase() : 'N/A'}
+                  </Text>
                 </View>
               </View>
               {LOGO_LIBERTY ? <Image src={LOGO_LIBERTY} style={styles.logoBlue} /> : null}
@@ -536,7 +654,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
         </ImageBackground>
       </Page>
 
-      {/* ───── PÁGINA 2 — INFORMAÇÕES DO VEÍCULO + DÍVIDA ───── */}
+      {/* ───── PÁGINA 2 — INFORMAÇÕES DO VEÍCULO + DÍVIDA + PENDÊNCIAS + PEÇAS ───── */}
       <Page size="A4" style={styles.page}>
         <ImageBackground src={FUNDO_2} style={styles.pageFill}>
           <View style={styles.page2Content}>
@@ -561,8 +679,12 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                 </Text>
               </View>
               <View style={styles.dadosRow}>
-                <Text style={styles.dadosLabel}>Valor de mercado/FIBE:</Text>
+                <Text style={styles.dadosLabel}>Valor de mercado/FIPE:</Text>
                 <Text style={styles.dadosValue}>{formatBRL(veiculoValorFipe)}</Text>
+              </View>
+              <View style={styles.dadosRow}>
+                <Text style={styles.dadosLabel}>Valor estimado da dívida:</Text>
+                <Text style={styles.dadosValue}>{formatBRL(valorEstimadoDivida)}</Text>
               </View>
 
               <View style={styles.pathLine} />
@@ -670,11 +792,11 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                 </View>
 
                 <Text style={styles.longText}>
-                  Mesmo que o veículo esteja gerando um{'\n'}
-                  prejuízo acumulado de mais de {formatBRL(prejuizoTotal)},{'\n'}
-                  a LibertyCar se compromete e assume todos os riscos e{'\n'}
-                  responsabilidades do processo, pagando à vista por algo que,{'\n'}
-                  na prática, está em situação desfavorável.
+                  Mesmo que o veículo esteja gerando um prejuízo acumulado de
+                  mais de {formatBRL(prejuizoTotal)}, a LibertyCar se
+                  compromete e assume todos os riscos e responsabilidades do
+                  processo, pagando à vista por algo que, na prática, está em
+                  situação desfavorável.
                 </Text>
 
                 <Text style={[styles.propText, { fontWeight: 600, color: COLORS.textLight, marginBottom: 4 }]}>
@@ -685,7 +807,8 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                   {[
                     'Assunção integral da dívida ativa até a quitação total junto ao banco.',
                     'Assunção de TODAS as pendências do veículo junto ao Detran (IPVA atrasado, multas, licenciamento).',
-                    'Assunção dos custos de reparo do veículo (incluindo estética e mecânica). Regularização completa da documentação, taxas de transferência, vistoria, desbloqueio e o que mais for necessário.',
+                    'Assunção dos custos de reparo do veículo (incluindo estética e mecânica).',
+                    'Regularização completa da documentação, taxas de transferência, vistoria, desbloqueio e o que mais for necessário.',
                     'Cobertura de eventuais pendências com cartórios (procurações, bloqueios e restrições judiciais).',
                     'Serviço adicional de limpeza de nome, caso a dívida com o banco esteja vinculada ao CPF do proprietário.',
                   ].map((item, idx) => (
@@ -704,6 +827,50 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                     {p}
                   </Text>
                 ))}
+              </View>
+            </View>
+          </View>
+        </ImageBackground>
+      </Page>
+
+      {/* ───── PÁGINA 4 — PROPOSTA PRÉVIA ───── */}
+      <Page size="A4" style={styles.page}>
+        <ImageBackground src={FUNDO_4} style={styles.pageFill}>
+          <View style={styles.page4Content}>
+            <View style={styles.subcontainer4}>
+              <Text style={styles.previaTitle}>Proposta Prévia</Text>
+              <View style={styles.pathLine} />
+
+              {previaParagrafos.map((par, idx) => (
+                <Text key={idx} style={styles.previaText}>
+                  {par}
+                </Text>
+              ))}
+
+              {propostaPreviaValorFinal !== null && (
+                <View style={styles.previaValueBox}>
+                  <Text style={styles.previaValueLabel}>
+                    Valor da Proposta Pr\u00e9via
+                  </Text>
+                  <Text style={styles.previaValueAmount}>
+                    {formatBRL(propostaPreviaValorFinal)}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.previaSignedRow}>
+                <View style={styles.previaSignedBlock}>
+                  <View style={styles.previaSignedLine} />
+                  <Text style={styles.previaSignedLabel}>
+                    Liberty Car — CNPJ
+                  </Text>
+                </View>
+                <View style={styles.previaSignedBlock}>
+                  <View style={styles.previaSignedLine} />
+                  <Text style={styles.previaSignedLabel}>
+                    {clienteNome || 'Cliente'}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>

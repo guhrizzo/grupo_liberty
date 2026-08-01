@@ -34,8 +34,19 @@ export function VeiculoPicker({
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+    }
   }, [open, onClose])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
 
   const filtered = useMemo(() => {
     const t = search.trim().toLowerCase()
@@ -49,7 +60,7 @@ export function VeiculoPicker({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/70 backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -57,19 +68,21 @@ export function VeiculoPicker({
       <div
         role="dialog"
         aria-modal="true"
-        className="w-full max-w-3xl rounded-2xl border border-neutral-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+        aria-label="Selecionar veículo"
+        className="flex w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+        style={{ maxHeight: 'calc(100vh - 1rem)' }}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-100 px-6 py-5">
-          <div className="flex items-start gap-3">
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty/10 text-liberty">
               <IconCar size={22} stroke={2} />
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="text-lg font-bold text-neutral-950">
                 Selecione um veículo
               </h2>
               <p className="mt-1 text-sm text-neutral-500">
-                Clique no card do veículo desejado para vinculá-lo à proposta.
+                Toque no card do veículo desejado.
               </p>
             </div>
           </div>
@@ -77,13 +90,13 @@ export function VeiculoPicker({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer"
+            className="shrink-0 rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer"
           >
             <IconX size={18} stroke={2} />
           </button>
         </div>
 
-        <div className="border-b border-neutral-100 bg-neutral-50/50 px-6 py-3">
+        <div className="sticky top-0 z-10 border-b border-neutral-100 bg-neutral-50/80 px-5 py-3 backdrop-blur sm:px-6">
           <div className="relative">
             <IconSearch
               size={14}
@@ -94,16 +107,16 @@ export function VeiculoPicker({
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por marca ou modelo..."
-              className="w-full rounded-lg border border-neutral-200 bg-white pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none transition-colors"
+              placeholder="Buscar por marca, modelo ou ano..."
+              className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none transition-colors"
             />
           </div>
-          <p className="mt-2 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-neutral-500">
             {filtered.length} {filtered.length === 1 ? 'veículo' : 'veículos'}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <IconCar size={32} className="text-neutral-300" stroke={1.5} />
@@ -115,7 +128,7 @@ export function VeiculoPicker({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
               {filtered.map((v) => {
                 const isSelected = v.id === value
                 return (
@@ -127,13 +140,13 @@ export function VeiculoPicker({
                       onClose()
                     }}
                     className={
-                      'group relative flex flex-col items-stretch overflow-hidden rounded-xl border bg-white text-left transition-[border-color,box-shadow,transform] duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-md ' +
+                      'group relative flex w-full items-stretch overflow-hidden rounded-xl border bg-white text-left transition-[border-color,box-shadow,transform] duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ' +
                       (isSelected
                         ? 'border-liberty ring-2 ring-liberty/30'
                         : 'border-neutral-200 hover:border-liberty/40')
                     }
                   >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-100">
+                    <div className="relative aspect-[4/3] w-32 shrink-0 overflow-hidden bg-neutral-100 sm:w-full sm:aspect-[4/3]">
                       {v.foto ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -144,7 +157,7 @@ export function VeiculoPicker({
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-neutral-100 to-neutral-200 text-neutral-400">
-                          <IconCar size={32} stroke={1.5} />
+                          <IconCar size={28} stroke={1.5} />
                         </div>
                       )}
                       {isSelected && (
@@ -158,12 +171,12 @@ export function VeiculoPicker({
                         </span>
                       </div>
                     </div>
-                    <div className="p-2.5">
-                      <p className="truncate text-xs font-bold text-neutral-900">
+                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3">
+                      <p className="line-clamp-2 text-sm font-bold text-neutral-900 sm:truncate">
                         {v.modelo}
                       </p>
                       {v.preco != null && (
-                        <p className="mt-0.5 truncate text-[11px] font-semibold text-liberty-deep">
+                        <p className="truncate text-xs font-semibold text-liberty-deep">
                           {formatCurrency(v.preco)}
                         </p>
                       )}

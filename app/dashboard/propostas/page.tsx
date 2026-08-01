@@ -18,7 +18,13 @@ export default async function PropostasDashboardPage() {
   }
 
   const propostas = await getPropostas()
-  const veiculoIds = Array.from(new Set(propostas.map((p) => p.veiculo_id).filter(Boolean)))
+  const veiculoIds = Array.from(
+    new Set(
+      propostas
+        .map((p) => p.veiculo_id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    ),
+  )
   const manutencoes = await getManutencoesPorVeiculos(veiculoIds)
 
   return <PropostasClient propostas={propostas} manutencoes={manutencoes} />

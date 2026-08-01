@@ -43,18 +43,40 @@ function parsePecasManuais(value: unknown): PecaConserto[] {
   return out
 }
 
+function numFromAny(v: unknown): number | null {
+  if (v == null || v === '') return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  if (typeof v === 'string') {
+    const cleaned = v.replace(/\./g, '').replace(',', '.').trim()
+    if (!cleaned) return null
+    const n = Number(cleaned)
+    return Number.isFinite(n) ? n : null
+  }
+  return null
+}
+
+function intFromAny(v: unknown): number | null {
+  const n = numFromAny(v)
+  return n == null ? null : Math.round(n)
+}
+
+function strOrNull(v: unknown): string | null {
+  if (v == null) return null
+  const s = String(v).trim()
+  return s ? s : null
+}
+
 /**
  * POST /api/propostas/preview-pdf-autorizacao
  *
  * Gera o PDF de autorização a partir de dados brutos enviados no body,
  * SEM persistir a proposta no Firestore.
  *
- * Body (JSON):
- *   - veiculo_id (obrigatório)
- *   - nome, cpf, telefone, email (cliente)
- *   - valor (number | null)
- *   - mensagem
- *   - status (default "pendente")
+ * Aceita dois modos:
+ * 1. **Livre**: o cliente envia TODOS os campos do veículo/financeiro/pendências
+ *    diretamente no body. Não exige `veiculo_id`.
+ * 2. **Veículo do estoque**: envia `veiculo_id` e o backend hidrata os demais
+ *    dados financeiros a partir de Firestore (retrocompatibilidade).
  *
  * Permissão: mesma da rota de PDF (`assertPodeGerarPropostaPDF`).
  */
@@ -73,91 +95,95 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Body inválido (esperado JSON).' }, { status: 400 })
   }
 
-  const veiculo_id = String(body.veiculo_id ?? '').trim()
+  // ─────────────── Cliente ───────────────
   const nome = String(body.nome ?? '').trim()
   const email = String(body.email ?? '').trim()
   const telefone = String(body.telefone ?? '').trim()
   const mensagem = String(body.mensagem ?? '').trim()
   const status = String(body.status ?? 'pendente')
   const cpfRaw = String(body.cpf ?? '').replace(/\D/g, '')
-  const valorNum =
-    typeof body.valor === 'number'
-      ? body.valor
-      : body.valor != null
-        ? Number(body.valor)
-        : null
+  const clienteData = strOrNull(body.cliente_data) ?? strOrNull(body.data)
+  const numeroContrato = strOrNull(body.numero_contrato)
+  const propostaPreviaNum = numFromAny(body.proposta_previa)
+  const condicoes = strOrNull(body.condicoes)
+  const valorNum = numFromAny(body.valor) ?? numFromAny(body.proposta_comercial)
 
-  // Peças informadas manualmente no formulário (opcional).
+  // Peças manuais (opcional)
   const pecasConsertoManual = parsePecasManuais(body.pecasConserto)
 
-  if (!veiculo_id) {
-    return NextResponse.json({ error: 'veiculo_id é obrigatório.' }, { status: 400 })
-  }
-  if (!nome) {
-    return NextResponse.json({ error: 'nome é obrigatório.' }, { status: 400 })
-  }
+  // ─────────────── Veículo + Financeiro ───────────────
+  // Pode vir tanto pelo estoque (veiculo_id) quanto por digitação livre.
+  const veiculo_id = String(body.veiculo_id ?? '').trim()
 
-  // Buscar veículo
-  let veiculoMarca = 'N/A'
-  let veiculoModelo = 'N/A'
-  let veiculoAno: number | null = null
-  let veiculoPlaca: string | null = null
-  let veiculoPrecoSugerido: number | null = null
-  let veiculoValorFipe: number | null = null
-  let valorParcela: number | null = null
+  let veiculoMarca = strOrNull(body.veiculo_marca) ?? 'N/A'
+  let veiculoModelo = strOrNull(body.veiculo_modelo) ?? 'N/A'
+  let veiculoAno = intFromAny(body.veiculo_ano)
+  let veiculoPlaca = strOrNull(body.veiculo_placa)
+  let veiculoPrecoSugerido = numFromAny(body.veiculo_preco_sugerido)
+  let veiculoValorFipe = numFromAny(body.veiculo_valor_fipe)
+  const valorEstimadoDivida = numFromAny(body.valor_estimado_divida)
+  let valorParcela = numFromAny(body.valor_parcela)
   let dividaTotal: number | null = null
   let custoAcumulado: number | null = null
-  let parcelasAtrasadas: number | null = null
-  let banco: string | null = null
+  const parcelasTotais: number | null = intFromAny(body.parcelas_totais)
+  const parcelasPagas: number | null = intFromAny(body.parcelas_pagas)
+  let parcelasAtrasadas: number | null = intFromAny(body.parcelas_atrasadas)
+  let banco: string | null = strOrNull(body.banco)
+  const valorIpva = numFromAny(body.valor_ipva)
+  const valorLicenciamento = numFromAny(body.valor_licenciamento)
+  const valorMultas = numFromAny(body.valor_multas)
   let debitosItensPdf: Array<{ chave: string; label: string; valor: number }> = []
 
-  try {
-    const veiculoDoc = await adminDb.collection('veiculos').doc(veiculo_id).get()
-    if (veiculoDoc.exists) {
-      const v = veiculoDoc.data() as {
-        marca?: string
-        modelo?: string
-        ano?: number | null
-        placa?: string | null
-        preco?: number | null
-        tabelaFipe?: number | null
-        valorParcela?: number | null
-        custoAcumulado?: number | null
-        debitos?: number | null
-        debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
-        parcelasRestantes?: number | null
-        banco?: string | null
+  // Se veio veiculo_id, sobrescreve com dados do Firestore (modo estoque).
+  if (veiculo_id) {
+    try {
+      const veiculoDoc = await adminDb.collection('veiculos').doc(veiculo_id).get()
+      if (veiculoDoc.exists) {
+        const v = veiculoDoc.data() as {
+          marca?: string
+          modelo?: string
+          ano?: number | null
+          placa?: string | null
+          preco?: number | null
+          tabelaFipe?: number | null
+          valorParcela?: number | null
+          custoAcumulado?: number | null
+          debitos?: number | null
+          debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
+          parcelasRestantes?: number | null
+          banco?: string | null
+        }
+        if (!veiculoMarca || veiculoMarca === 'N/A') veiculoMarca = v.marca ?? 'N/A'
+        if (!veiculoModelo || veiculoModelo === 'N/A') veiculoModelo = v.modelo ?? 'N/A'
+        if (veiculoAno == null) veiculoAno = v.ano ?? null
+        if (!veiculoPlaca) veiculoPlaca = v.placa ?? null
+        if (veiculoPrecoSugerido == null) veiculoPrecoSugerido = v.preco ?? null
+        if (veiculoValorFipe == null) veiculoValorFipe = v.tabelaFipe ?? null
+        if (valorParcela == null) valorParcela = v.valorParcela ?? null
+        if (custoAcumulado == null) custoAcumulado = v.custoAcumulado ?? null
+        dividaTotal = v.debitos ?? null
+        if (!banco) banco = v.banco ?? null
+        if (parcelasAtrasadas == null) parcelasAtrasadas = v.parcelasRestantes ?? null
+        if (Array.isArray(v.debitosItens) && v.debitosItens.length > 0) {
+          debitosItensPdf = v.debitosItens
+            .filter((d) => Number(d.valor) > 0)
+            .map((d) => ({
+              chave: String(d.chave),
+              label: d.label ? String(d.label) : String(d.chave),
+              valor: Number(d.valor) || 0,
+            }))
+        }
       }
-      veiculoMarca = v.marca ?? 'N/A'
-      veiculoModelo = v.modelo ?? 'N/A'
-      veiculoAno = v.ano ?? null
-      veiculoPlaca = v.placa ?? null
-      veiculoPrecoSugerido = v.preco ?? null
-      veiculoValorFipe = v.tabelaFipe ?? null
-      valorParcela = v.valorParcela ?? null
-      custoAcumulado = v.custoAcumulado ?? null
-      dividaTotal = v.debitos ?? null
-      banco = v.banco ?? null
-      parcelasAtrasadas = v.parcelasRestantes ?? null
-      if (Array.isArray(v.debitosItens) && v.debitosItens.length > 0) {
-        debitosItensPdf = v.debitosItens
-          .filter((d) => Number(d.valor) > 0)
-          .map((d) => ({
-            chave: String(d.chave),
-            label: d.label ? String(d.label) : String(d.chave),
-            valor: Number(d.valor) || 0,
-          }))
-      }
+    } catch {
+      // segue com os valores já preenchidos
     }
-  } catch {
-    // segue com defaults
   }
 
-  // Resolver dados do cliente a partir de token, se houver
+  // ─────────────── Identidade do cliente ───────────────
   let clienteNome = nome
   let clienteEmail = email || 'N/A'
   let clienteTelefone: string | null = telefone || null
-  let clienteCpf: string | null = cpfRaw ? maskCPFCNPJ(cpfRaw) : null
+  const clienteCpf: string | null = cpfRaw ? maskCPFCNPJ(cpfRaw) : null
 
   const authHeader = req.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
@@ -173,12 +199,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Se não veio cliente mas veio nome no body, usa
+  if (!clienteNome && clienteEmail && clienteEmail !== 'N/A') {
+    clienteNome = clienteEmail
+  }
+
+  // Saldo devedor = valorParcela * parcelasAtrasadas (se aplicável)
   const saldoDevedor =
     valorParcela != null && parcelasAtrasadas != null
       ? valorParcela * parcelasAtrasadas
       : null
 
-  // Coletar peças para conserto das manutenções do veículo (somente concluídas/em execução).
+  // Coletar peças de manutenções (se houver veiculo_id)
   const pecasConserto: PecaConserto[] = []
   if (veiculo_id) {
     try {
@@ -190,10 +222,8 @@ export async function POST(req: NextRequest) {
       snap.forEach((doc) => {
         const data = doc.data() as {
           pecasConserto?: unknown
-          descricao?: string | null
           status?: string
         }
-        // Ignora manutenções canceladas
         if (data.status === 'cancelada') return
         if (Array.isArray(data.pecasConserto)) {
           for (const item of data.pecasConserto) {
@@ -207,7 +237,7 @@ export async function POST(req: NextRequest) {
                   ? Number(obj.valor)
                   : 0
             if (!nome) continue
-            const key = `${nome}`.toLowerCase()
+            const key = nome.toLowerCase()
             if (vistos.has(key)) continue
             vistos.add(key)
             pecasConserto.push({
@@ -233,23 +263,29 @@ export async function POST(req: NextRequest) {
 
   const docProps: PropostaAutorizacaoDocumentProps = {
     id: rascunhoId,
+    numeroContrato,
     clienteNome,
     clienteCpf,
     clienteEmail,
     clienteTelefone,
+    clienteData,
     veiculoMarca,
     veiculoModelo,
     veiculoAno,
     veiculoPlaca,
     veiculoPrecoSugerido,
     veiculoValorFipe,
-    parcelasTotais: null,
-    parcelasPagas: null,
+    valorEstimadoDivida,
+    parcelasTotais,
+    parcelasPagas,
     parcelasAtrasadas,
     valorParcela,
     saldoDevedor,
     dividaTotal,
     custoAcumulado,
+    valorIpva: valorIpva ?? undefined,
+    valorLicenciamento: valorLicenciamento ?? undefined,
+    valorMultas: valorMultas ?? undefined,
     banco,
     debitosItens: debitosItensPdf,
     propostaComercial: valorNum,
@@ -259,7 +295,8 @@ export async function POST(req: NextRequest) {
     pecasConserto,
     criadoEm: new Date().toISOString(),
     observacoesInternas: null,
-    condicoes: null,
+    condicoes,
+    propostaPrevia: propostaPreviaNum,
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -511,7 +511,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
 
                   {/* Manutenções do veículo */}
                   {(() => {
-                    const lista = manutencoesPorVeiculo.get(p.veiculo_id) ?? []
+                    const lista = p.veiculo_id ? (manutencoesPorVeiculo.get(p.veiculo_id) ?? []) : []
                     const visiveis = lista.slice(0, 3)
                     const restantes = lista.length - visiveis.length
                     return (

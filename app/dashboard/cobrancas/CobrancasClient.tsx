@@ -688,7 +688,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                   label={labelParcelas(tipo)}
                   type="number"
                   min="1"
-                  max="120"
+                  max="300"
                   value={numeroParcelas}
                   onChange={(e) => setNumeroParcelas(e.target.value)}
                   required

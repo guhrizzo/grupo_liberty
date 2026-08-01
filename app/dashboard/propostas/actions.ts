@@ -8,20 +8,57 @@ import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 
+export interface PropostaPecaConserto {
+  nome: string
+  valor: number
+}
+
 export interface Proposta {
   id: string
-  veiculo_id: string
+  veiculo_id?: string | null
   user_id: string | null
   nome?: string
   cpf?: string
   telefone?: string
   email?: string
+  /** ISO date da proposta (cliente_data ou created_at) */
+  cliente_data?: string | null
+  /** Número do contrato exibido no PDF (pode coincidir com id curto). */
+  numero_contrato?: string | null
   valor: number | null
+  /** Valor comercial final destacado no PDF (página 3). */
   proposta_comercial?: number | null
+  /** Valor monetário da "Proposta Prévia" exibido em destaque (página 4). */
+  proposta_previa?: number | null
   condicoes?: string | null
   mensagem: string
   status: 'pendente' | 'aceito' | 'recusado'
   created_at: string
+
+  // Veículo (digitado, pois o gerador agora aceita carros fora do estoque)
+  veiculo_marca?: string | null
+  veiculo_modelo?: string | null
+  veiculo_ano?: number | null
+  veiculo_placa?: string | null
+  veiculo_valor_fipe?: number | null
+  valor_estimado_divida?: number | null
+
+  // Pendências
+  valor_ipva?: number | null
+  valor_licenciamento?: number | null
+  valor_multas?: number | null
+
+  // Parcelamento
+  valor_parcela?: number | null
+  parcelas_totais?: number | null
+  parcelas_pagas?: number | null
+  parcelas_atrasadas?: number | null
+  banco?: string | null
+
+  // Peças
+  pecas_conserto?: PropostaPecaConserto[] | null
+
+  // Mantidos (retrocompatibilidade)
   veiculos: {
     marca: string
     modelo: string
@@ -40,7 +77,7 @@ async function getSessionUser() {
   try {
     const decodedClaims = await adminAuth.verifySessionCookie(session, true)
     return decodedClaims
-  } catch (error) {
+  } catch {
     return null
   }
 }
@@ -66,7 +103,6 @@ export async function getPropostas(): Promise<Proposta[]> {
   try {
     await assertAuthorized()
 
-    // 1. Buscar todas as propostas
     const propostasSnapshot = await adminDb.collection('propostas')
       .orderBy('created_at', 'desc')
       .get()
@@ -78,7 +114,6 @@ export async function getPropostas(): Promise<Proposta[]> {
 
     if (propostasList.length === 0) return []
 
-    // 2. Buscar todos os veículos para mapeamento (evita consultas N+1)
     const veiculosSnapshot = await adminDb.collection('veiculos').get()
     const veiculosMap: Record<string, { marca: string; modelo: string; preco: number }> = {}
     veiculosSnapshot.forEach((doc: any) => {
@@ -90,7 +125,6 @@ export async function getPropostas(): Promise<Proposta[]> {
       }
     })
 
-    // 3. Buscar usuários do Auth para obter e-mail e nome (fallback)
     let authUsers: any[] = []
     try {
       const listUsersResult = await adminAuth.listUsers()
@@ -99,7 +133,6 @@ export async function getPropostas(): Promise<Proposta[]> {
       // Caso não consiga listar usuários do Auth
     }
 
-    // 4. Cruzar dados das propostas, veículos e dados de contato
     return propostasList.map((p: any) => {
       const authUser = authUsers.find((u: any) => u.uid === p.user_id)
       const veiculoInfo = veiculosMap[p.veiculo_id] || null
@@ -116,20 +149,53 @@ export async function getPropostas(): Promise<Proposta[]> {
         }
       }
 
+      const pecasConserto: PropostaPecaConserto[] | null = Array.isArray(p.pecas_conserto)
+        ? p.pecas_conserto.map((x: unknown) => {
+            const obj = x as { nome?: unknown; valor?: unknown }
+            return {
+              nome: String(obj.nome ?? '').trim(),
+              valor: Number(obj.valor) || 0,
+            }
+          })
+        : null
+
       return {
         id: p.id,
-        veiculo_id: p.veiculo_id,
+        veiculo_id: p.veiculo_id ?? null,
         user_id: p.user_id ?? null,
         nome: clienteNome,
         cpf: decryptedCpf || undefined,
         telefone: clienteTelefone,
         email: clienteEmail,
+        cliente_data: p.cliente_data ?? null,
+        numero_contrato: p.numero_contrato ?? null,
         valor: p.valor,
         proposta_comercial: p.proposta_comercial ?? null,
         condicoes: p.condicoes ?? null,
         mensagem: p.mensagem,
+        proposta_previa: p.proposta_previa ?? null,
         status: p.status,
         created_at: p.created_at,
+
+        veiculo_marca: p.veiculo_marca ?? null,
+        veiculo_modelo: p.veiculo_modelo ?? null,
+        veiculo_ano: p.veiculo_ano ?? null,
+        veiculo_placa: p.veiculo_placa ?? null,
+        veiculo_valor_fipe: p.veiculo_valor_fipe ?? null,
+        valor_estimado_divida: p.valor_estimado_divida ?? null,
+
+        valor_ipva: p.valor_ipva ?? null,
+        valor_licenciamento: p.valor_licenciamento ?? null,
+        valor_multas: p.valor_multas ?? null,
+
+        valor_parcela: p.valor_parcela ?? null,
+        parcelas_totais: p.parcelas_totais ?? null,
+        parcelas_pagas: p.parcelas_pagas ?? null,
+        parcelas_atrasadas: p.parcelas_atrasadas ?? null,
+        banco: p.banco ?? null,
+
+        pecas_conserto: pecasConserto,
+
         veiculos: veiculoInfo,
         user_email: clienteEmail,
         user_name: clienteNome,
@@ -142,9 +208,7 @@ export async function getPropostas(): Promise<Proposta[]> {
   }
 }
 
-/**
- * Atualiza o status de uma proposta.
- */
+/** Atualiza o status de uma proposta. */
 export async function updatePropostaStatus(id: string, newStatus: 'pendente' | 'aceito' | 'recusado'): Promise<{ success?: string; error?: string; emailSent?: boolean }> {
   try {
     await assertAuthorized()
@@ -156,7 +220,6 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
 
     revalidatePath('/dashboard/propostas')
 
-    // Disparar e-mail de notificação para aceito ou recusado (não bloqueia o retorno)
     let emailSent = false
     if (newStatus === 'aceito' || newStatus === 'recusado') {
       try {
@@ -164,7 +227,6 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
         const proposta = propostaDoc.data()
 
         if (proposta) {
-          // Resolver nome e e-mail do cliente
           let clienteNome = proposta.nome || 'Cliente'
           let clienteEmail = proposta.email || ''
 
@@ -174,11 +236,10 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
               clienteEmail = authUser.email || ''
               clienteNome = proposta.nome || authUser.displayName || 'Cliente'
             } catch {
-              // Usuário não encontrado no Auth, continua com dados da proposta
+              // Usuário não encontrado
             }
           }
 
-          // Resolver dados do veículo
           let veiculoMarca = 'Veículo'
           let veiculoModelo = ''
           if (proposta.veiculo_id) {
@@ -190,7 +251,7 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
                 veiculoModelo = veiculo.modelo || ''
               }
             } catch {
-              // Veículo removido ou não encontrado
+              // Veículo removido
             }
           }
 
@@ -204,7 +265,6 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
           })
         }
       } catch (emailErr) {
-        // Erros de e-mail não devem bloquear a atualização do status
         console.error('[Email] Falha ao enviar notificação de proposta:', emailErr)
       }
     }
@@ -215,9 +275,7 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
   }
 }
 
-/**
- * Exclui permanentemente uma proposta com status 'aceito' ou 'recusado'.
- */
+/** Exclui uma proposta aceita ou recusada. */
 export async function deleteProposta(id: string): Promise<{ success?: string; error?: string }> {
   try {
     await assertAuthorized()
@@ -243,11 +301,7 @@ export async function deleteProposta(id: string): Promise<{ success?: string; er
   }
 }
 
-/**
- * Atualiza a "Proposta Comercial" e/ou "Condições" de uma proposta sem
- * alterar seu status. Usado pelo modal "Gerador de proposta" quando o
- * vendedor quer gravar os ajustes antes (ou sem) gerar o PDF.
- */
+/** Atualiza apenas a Proposta Comercial e/ou Condições. */
 export async function updatePropostaComercial(
   id: string,
   propostaComercial: number | null,
@@ -256,15 +310,11 @@ export async function updatePropostaComercial(
   try {
     await assertAuthorized()
 
-    if (!id) {
-      return { error: 'ID da proposta inválido.' }
-    }
+    if (!id) return { error: 'ID da proposta inválido.' }
 
     const propostaRef = adminDb.collection('propostas').doc(id)
     const propostaDoc = await propostaRef.get()
-    if (!propostaDoc.exists) {
-      return { error: 'Proposta não encontrada.' }
-    }
+    if (!propostaDoc.exists) return { error: 'Proposta não encontrada.' }
 
     const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -290,10 +340,7 @@ export async function updatePropostaComercial(
   }
 }
 
-/**
- * Lista os veículos disponíveis para vincular a uma proposta.
- * Retorna apenas dados básicos (id, marca, modelo, preco).
- */
+/** Lista os veículos do estoque para a nova proposta (modo legado). */
 export interface VeiculoResumo {
   id: string
   marca: string
@@ -332,20 +379,68 @@ export async function listVeiculosForProposta(): Promise<VeiculoResumo[]> {
   }
 }
 
+/** Schema completo para criação manual de uma proposta no Gerador. */
 export interface CreatePropostaInput {
-  veiculo_id: string
+  // Cliente
   nome: string
   cpf: string
   telefone: string
   email: string
+  /** Data no formato YYYY-MM-DD (opcional). */
+  cliente_data?: string | null
+  /** Número do contrato (opcional — gerado automático se ausente). */
+  numero_contrato?: string | null
+
+  // Veículo (digitado, sem exigir veiculo_id)
+  veiculo_id?: string | null
+  veiculo_marca: string
+  veiculo_modelo: string
+  veiculo_ano: number | null
+  veiculo_placa: string
+  veiculo_valor_fipe: number | null
+  valor_estimado_divida: number | null
+
+  // Pendências
+  valor_ipva: number | null
+  valor_licenciamento: number | null
+  valor_multas: number | null
+
+  // Parcelamento
+  valor_parcela: number | null
+  parcelas_totais: number | null
+  parcelas_pagas: number | null
+  parcelas_atrasadas: number | null
+  banco?: string | null
+
+  // Peças
+  pecasConserto: Array<{ nome: string; valor: number }>
+
+  // Proposta comercial + proposta prévia (valor monetário exibido na página 4)
   valor: number | null
+  /** Valor monetário da proposta prévia (página 4 do PDF). */
+  proposta_previa: number | null
   mensagem: string
   status?: 'pendente' | 'aceito' | 'recusado'
 }
 
+function sanitizeText(value: string | null | undefined): string {
+  return (value ?? '').toString().trim()
+}
+
+function sanitizeOptionalInt(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null
+  const n = Math.round(value)
+  return n >= 0 ? n : null
+}
+
+function sanitizeOptionalNumber(value: number | null | undefined): number | null {
+  if (value == null || !Number.isFinite(value)) return null
+  return value >= 0 ? value : null
+}
+
 /**
- * Cria uma nova proposta manualmente pelo dashboard.
- * Usado pelo botão "Cadastrar nova proposta" no Gerador.
+ * Cria uma nova proposta manualmente pelo dashboard ("Cadastrar nova proposta").
+ * O veículo é digitado livremente — não exige que esteja no estoque.
  */
 export async function createProposta(
   input: CreatePropostaInput,
@@ -353,18 +448,17 @@ export async function createProposta(
   try {
     await assertAuthorized()
 
-    const veiculo_id = String(input.veiculo_id ?? '').trim()
-    const nome = String(input.nome ?? '').trim()
-    const cpfDigits = onlyDigits(String(input.cpf ?? ''))
-    const telefone = String(input.telefone ?? '').trim()
-    const email = String(input.email ?? '').trim()
-    const mensagem = String(input.mensagem ?? '').trim()
-    const status =
-      input.status && ['pendente', 'aceito', 'recusado'].includes(input.status)
-        ? input.status
-        : 'pendente'
+    const nome = sanitizeText(input.nome)
+    const cpfDigits = onlyDigits(sanitizeText(input.cpf))
+    const telefone = sanitizeText(input.telefone)
+    const email = sanitizeText(input.email)
+    const mensagem = sanitizeText(input.mensagem)
 
-    if (!veiculo_id) return { error: 'Selecione um veículo.' }
+    const veiculoId = input.veiculo_id ? sanitizeText(input.veiculo_id) : ''
+    const veiculoMarca = sanitizeText(input.veiculo_marca)
+    const veiculoModelo = sanitizeText(input.veiculo_modelo)
+    const veiculoPlaca = sanitizeText(input.veiculo_placa)
+
     if (!nome || nome.length < 2) return { error: 'Informe o nome completo do cliente.' }
     if (!cpfDigits || !validarCPF(cpfDigits)) {
       return { error: 'O CPF informado é inválido.' }
@@ -375,30 +469,51 @@ export async function createProposta(
     if (!email || !email.includes('@')) {
       return { error: 'Informe um endereço de e-mail válido.' }
     }
-    if (!mensagem) {
-      return { error: 'A mensagem de interesse é obrigatória.' }
-    }
+    if (!veiculoMarca) return { error: 'Informe a marca do veículo.' }
+    if (!veiculoModelo) return { error: 'Informe o modelo do veículo.' }
+    if (!mensagem) return { error: 'A mensagem de interesse é obrigatória.' }
 
-    const valor =
-      input.valor === null || input.valor === undefined
-        ? null
-        : Number(input.valor)
-
+    const valor = input.valor == null ? null : Number(input.valor)
     if (valor !== null && (!Number.isFinite(valor) || valor <= 0)) {
       return { error: 'Valor da proposta inválido.' }
     }
 
-    // Verifica se o veículo existe
-    const veiculoDoc = await adminDb.collection('veiculos').doc(veiculo_id).get()
-    if (!veiculoDoc.exists) {
-      return { error: 'Veículo não encontrado.' }
+    const propostaPreviaNum =
+      input.proposta_previa == null ? null : Number(input.proposta_previa)
+    if (
+      propostaPreviaNum !== null &&
+      (!Number.isFinite(propostaPreviaNum) || propostaPreviaNum <= 0)
+    ) {
+      return { error: 'Valor da proposta prévia inválido.' }
+    }
+
+    // Se veio veiculo_id, valida que existe
+    if (veiculoId) {
+      const veiculoDoc = await adminDb.collection('veiculos').doc(veiculoId).get()
+      if (!veiculoDoc.exists) {
+        return { error: 'Veículo selecionado não foi encontrado.' }
+      }
     }
 
     const cpfCriptografado = encrypt(cpfDigits)
 
+    const pecasLimpa: PropostaPecaConserto[] = (input.pecasConserto ?? [])
+      .map((p) => ({
+        nome: sanitizeText(p.nome),
+        valor: sanitizeOptionalNumber(Number(p.valor)) ?? 0,
+      }))
+      .filter((p) => p.nome.length > 0)
+
     const docRef = adminDb.collection('propostas').doc()
+    const numeroContrato =
+      sanitizeText(input.numero_contrato ?? '') ||
+      `#${docRef.id.slice(0, 8).toUpperCase()}`
+
+    const clienteData = sanitizeText(input.cliente_data ?? '') || null
+    const nowIso = new Date().toISOString()
+
     await docRef.set({
-      veiculo_id,
+      veiculo_id: veiculoId || null,
       user_id: null,
       nome,
       cpf: cpfCriptografado,
@@ -406,9 +521,32 @@ export async function createProposta(
       email,
       valor,
       mensagem,
-      status,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      proposta_previa: propostaPreviaNum,
+      status: input.status ?? 'pendente',
+      cliente_data: clienteData,
+      numero_contrato: numeroContrato,
+
+      veiculo_marca: veiculoMarca,
+      veiculo_modelo: veiculoModelo,
+      veiculo_ano: sanitizeOptionalInt(input.veiculo_ano),
+      veiculo_placa: veiculoPlaca || null,
+      veiculo_valor_fipe: sanitizeOptionalNumber(input.veiculo_valor_fipe),
+      valor_estimado_divida: sanitizeOptionalNumber(input.valor_estimado_divida),
+
+      valor_ipva: sanitizeOptionalNumber(input.valor_ipva),
+      valor_licenciamento: sanitizeOptionalNumber(input.valor_licenciamento),
+      valor_multas: sanitizeOptionalNumber(input.valor_multas),
+
+      valor_parcela: sanitizeOptionalNumber(input.valor_parcela),
+      parcelas_totais: sanitizeOptionalInt(input.parcelas_totais),
+      parcelas_pagas: sanitizeOptionalInt(input.parcelas_pagas),
+      parcelas_atrasadas: sanitizeOptionalInt(input.parcelas_atrasadas),
+      banco: sanitizeText(input.banco ?? '') || null,
+
+      pecas_conserto: pecasLimpa,
+
+      created_at: nowIso,
+      updated_at: nowIso,
       origem: 'manual',
     })
 
