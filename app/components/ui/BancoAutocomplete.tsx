@@ -166,7 +166,7 @@ export function BancoAutocomplete({
             aria-hidden
             title={
               bancoReconhecido
-                ? `Banco reconhecido · Quitação ${bancoReconhecido.quitacaoPercent ?? '—'}%`
+                ? `Banco reconhecido · Quitação ${bancoReconhecido.descontoPercent ?? '—'}%`
                 : 'Banco não encontrado na tabela — % de quitação não será aplicada automaticamente'
             }
             className={cn(
@@ -253,7 +253,7 @@ export function BancoAutocomplete({
           )}
         >
           {bancoReconhecido
-            ? `Banco reconhecido · quitação de ${bancoReconhecido.quitacaoPercent ?? '—'}% usada na Proposta Prévia.`
+            ? `Banco reconhecido · quitação de ${bancoReconhecido.descontoPercent ?? '—'}% usada na Proposta Prévia.`
             : 'Banco não encontrado na tabela — a % de quitação não entrará no cálculo automático.'}
         </p>
       ) : null}

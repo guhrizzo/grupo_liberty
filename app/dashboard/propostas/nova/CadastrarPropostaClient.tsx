@@ -580,10 +580,18 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     }, 0)
   }, [formData.pecas])
 
-  // Proposta Prévia = (parcelas em aberto × valor da parcela × % quitação do
-  // banco) − metade da FIPE. A % de quitação vem da tabela de bancos, casada
-  // pelo nome digitado no campo "Banco / Financeira".
-  const propostaPreviaParcelasEmAberto = Number(formData.parcelas_atrasadas) || 0
+  // Proposta Prévia = metade da FIPE − quitação estimada, onde a quitação
+  // estimada é a dívida em aberto (parcelas restantes [totais − pagas] ×
+  // valor da parcela) × (1 − % quitação do banco) — a % de quitação é um
+  // desconto sobre a dívida, não a fração a pagar. Ex.: dívida 135.999 com
+  // 70% de quitação → quitação estimada = 135.999 × 0,30 = 40.799,70.
+  // A % de quitação usada aqui vem da coluna "Descontos" da tabela de
+  // bancos (BancoInfo.descontoPercent), casada pelo nome digitado no campo
+  // "Banco / Financeira".
+  const propostaPreviaParcelasEmAberto = Math.max(
+    0,
+    (Number(formData.parcelas_totais) || 0) - (Number(formData.parcelas_pagas) || 0),
+  )
   const propostaPreviaValorParcela = formData.valor_parcela.trim()
     ? parseMoney(formData.valor_parcela)
     : 0
@@ -591,10 +599,10 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     propostaPreviaParcelasEmAberto * propostaPreviaValorParcela
 
   const propostaPreviaBancoInfo = getBancoByNome(formData.banco)
-  const propostaPreviaQuitacaoPercent = propostaPreviaBancoInfo?.quitacaoPercent ?? null
+  const propostaPreviaQuitacaoPercent = propostaPreviaBancoInfo?.descontoPercent ?? null
   const propostaPreviaQuitacaoEstimada =
     propostaPreviaQuitacaoPercent != null
-      ? propostaPreviaDividaTotal * (propostaPreviaQuitacaoPercent / 100)
+      ? propostaPreviaDividaTotal * (1 - propostaPreviaQuitacaoPercent / 100)
       : null
 
   const propostaPreviaValorFipe = formData.veiculo_valor_fipe.trim()
@@ -603,7 +611,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
 
   const propostaPreviaValorBruto =
     propostaPreviaQuitacaoEstimada != null
-      ? propostaPreviaQuitacaoEstimada - propostaPreviaValorFipe / 2
+      ? propostaPreviaValorFipe / 2 - propostaPreviaQuitacaoEstimada
       : null
   const propostaPreviaValorFinal =
     propostaPreviaValorBruto != null ? Math.max(0, propostaPreviaValorBruto) : null
@@ -1222,8 +1230,15 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                 <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3 text-xs text-neutral-700">
                   <p className="font-bold text-neutral-900">Cálculo automático</p>
                   <div className="flex items-center justify-between gap-2">
+                    <span>1/2 Valor FIPE</span>
+                    <span className="font-semibold">
+                      {formatCurrency(propostaPreviaCalc.valorFipe / 2)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
                     <span>
-                      Dívida em aberto ({propostaPreviaCalc.parcelasEmAberto}× parcela)
+                      Dívida em aberto ({propostaPreviaCalc.parcelasEmAberto} parcelas
+                      restantes × parcela)
                     </span>
                     <span className="font-semibold">
                       {formatCurrency(propostaPreviaCalc.dividaTotal)}
@@ -1231,8 +1246,8 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span>
-                      % Quitação do banco
-                      {propostaPreviaCalc.bancoInfo ? ` (${propostaPreviaCalc.bancoInfo.nome})` : ''}
+                      % Quitação (desconto) do banco
+                      {propostaPreviaCalc.bancoInfo ? ` — ${propostaPreviaCalc.bancoInfo.nome}` : ''}
                     </span>
                     <span className="font-semibold">
                       {propostaPreviaCalc.quitacaoPercent != null
@@ -1241,17 +1256,11 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span>Quitação estimada</span>
+                    <span>− Quitação estimada (dívida × [1 − % quitação])</span>
                     <span className="font-semibold">
                       {propostaPreviaCalc.quitacaoEstimada != null
                         ? formatCurrency(propostaPreviaCalc.quitacaoEstimada)
                         : '—'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span>− 1/2 Valor FIPE</span>
-                    <span className="font-semibold">
-                      {formatCurrency(propostaPreviaCalc.valorFipe / 2)}
                     </span>
                   </div>
                   {!propostaPreviaCalc.bancoInfo && (
@@ -1277,8 +1286,9 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                       : '—'}
                   </p>
                   <p className="mt-2">
-                    Fórmula: dívida em aberto (parcelas em atraso × valor da parcela) × %
-                    quitação do banco, menos metade do valor FIPE do veículo.
+                    Fórmula: metade do valor FIPE do veículo, menos a quitação estimada —
+                    dívida em aberto (parcelas restantes × valor da parcela) × (1 − % de
+                    quitação do banco), já que a % representa um desconto sobre a dívida.
                   </p>
                 </div>
               </div>
