@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -34,7 +34,6 @@ import {
   Breadcrumb,
   useToast,
   Input,
-  Textarea,
   BancoAutocomplete,
 } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
@@ -93,7 +92,6 @@ interface FormData {
 
   // Proposta
   valor_proposta: string
-  mensagem: string
 }
 
 const TODAY_DATE = () => new Date().toISOString().slice(0, 10)
@@ -121,6 +119,13 @@ const maskMoney = (raw: string) => {
   if (!d) return ''
   const num = (parseInt(d, 10) / 100).toFixed(2)
   const [int, dec] = num.split('.')
+  const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return `${intFmt},${dec}`
+}
+
+const numberToMoneyString = (num: number): string => {
+  if (!Number.isFinite(num) || num <= 0) return ''
+  const [int, dec] = num.toFixed(2).split('.')
   const intFmt = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
   return `${intFmt},${dec}`
 }
@@ -259,9 +264,9 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     pecas: [],
 
     valor_proposta: '',
-    mensagem: '',
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData | 'pecas', string>>>({})
+  const [dividaEditadaManualmente, setDividaEditadaManualmente] = useState(false)
 
   const closeConfirm = useCallback(() => {
     if (creating) return
@@ -391,7 +396,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       pecasConserto: pecasNumeradas,
 
       valor: valorPropostaNum,
-      mensagem: formData.mensagem.trim(),
       proposta_previa: propostaPreviaCalc.valor,
     }
   }
@@ -405,7 +409,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       telefone: p.telefone,
       email: p.email,
       valor: p.valor,
-      mensagem: p.mensagem,
       status: 'pendente' as const,
       cliente_data: p.cliente_data ?? null,
       numero_contrato: p.numero_contrato ?? null,
@@ -535,10 +538,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     if (!formData.veiculo_marca.trim()) errors.veiculo_marca = 'Informe a marca.'
     if (!formData.veiculo_modelo.trim()) errors.veiculo_modelo = 'Informe o modelo.'
 
-    if (!formData.mensagem.trim()) {
-      errors.mensagem = 'Descreva o interesse do cliente.'
-    }
-
     if (
       valorPropostaNum != null &&
       propostaPreviaCalc.valor != null &&
@@ -636,6 +635,26 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     valor: propostaPreviaValorFinal,
   }
 
+  // Sugestão automática: IPVA + licenciamento + multas + saldo das parcelas
+  // restantes + peças de reparo. Some com o que o usuário digitar nesses
+  // campos; para de sincronizar assim que o campo é editado manualmente.
+  const dividaEstimadaCalculada =
+    (formData.valor_ipva.trim() ? parseMoney(formData.valor_ipva) : 0) +
+    (formData.valor_licenciamento.trim() ? parseMoney(formData.valor_licenciamento) : 0) +
+    (formData.valor_multas.trim() ? parseMoney(formData.valor_multas) : 0) +
+    propostaPreviaDividaTotal +
+    totalPecas
+
+  useEffect(() => {
+    if (dividaEditadaManualmente) return
+    const formatted = numberToMoneyString(dividaEstimadaCalculada)
+    setFormData((prev) =>
+      prev.valor_estimado_divida === formatted
+        ? prev
+        : { ...prev, valor_estimado_divida: formatted },
+    )
+  }, [dividaEstimadaCalculada, dividaEditadaManualmente])
+
   const completion = useMemo(() => {
     const checks: Record<SectionKey, boolean> = {
       cliente: !!(
@@ -657,7 +676,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
         formData.valor_parcela
       ),
       pecas: formData.pecas.some((p) => p.nome.trim()),
-      proposta: !!(valorPropostaNum && valorPropostaNum > 0 && formData.mensagem.trim()),
+      proposta: !!(valorPropostaNum && valorPropostaNum > 0),
       previa: propostaPreviaCalc.valor != null && propostaPreviaCalc.valor > 0,
     }
     const total = ALL_SECTIONS.length
@@ -896,21 +915,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                     hint="Valor de tabela FIPE atual do veículo."
                   />
                   <FormattedMoneyHint value={formData.veiculo_valor_fipe} />
-                </div>
-                <div>
-                  <Input
-                    label="Valor estimado da dívida"
-                    name="valor_estimado_divida"
-                    placeholder="0,00"
-                    value={formData.valor_estimado_divida}
-                    inputMode="numeric"
-                    onChange={(e) =>
-                      setField('valor_estimado_divida', maskMoney(e.target.value))
-                    }
-                    leftIcon={<IconCalculator size={14} />}
-                    hint="Estimativa total da dívida do veículo."
-                  />
-                  <FormattedMoneyHint value={formData.valor_estimado_divida} />
                 </div>
               </div>
 
@@ -1173,6 +1177,27 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           )}
         </div>
 
+        {/* ───── Valor estimado da dívida ───── */}
+        <div className="border-b border-neutral-100 px-4 py-5 md:px-6 md:py-6">
+          <div className="max-w-md">
+            <Input
+              label="Valor estimado da dívida"
+              name="valor_estimado_divida"
+              placeholder="0,00"
+              value={formData.valor_estimado_divida}
+              inputMode="numeric"
+              onChange={(e) => {
+                setDividaEditadaManualmente(true)
+                setField('valor_estimado_divida', maskMoney(e.target.value))
+              }}
+              leftIcon={<IconCalculator size={18} />}
+              className="py-3.5 text-base"
+              hint="Calculado automaticamente: IPVA + licenciamento + multas + saldo das parcelas restantes + peças. Pode ajustar manualmente."
+            />
+            <FormattedMoneyHint value={formData.valor_estimado_divida} />
+          </div>
+        </div>
+
         {/* ───── Proposta Prévia ───── */}
         <div className={isOpen('previa') ? 'border-b border-neutral-100' : ''}>
           <SectionHeader
@@ -1307,19 +1332,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   />
                   <FormattedMoneyHint value={formData.valor_proposta} />
                 </div>
-              </div>
-
-              <div className="mt-4">
-                <Textarea
-                  label="Mensagem / interesse"
-                  name="mensagem"
-                  rows={3}
-                  placeholder="Descreva o interesse do cliente neste veículo..."
-                  value={formData.mensagem}
-                  onChange={(e) => setField('mensagem', e.target.value)}
-                  error={formErrors.mensagem}
-                  required
-                />
               </div>
             </SectionBody>
           )}
@@ -1551,7 +1563,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   }
                   accent
                 />
-                <SummaryRow label="Mensagem" value={formData.mensagem} />
               </SummarySection>
             </div>
 

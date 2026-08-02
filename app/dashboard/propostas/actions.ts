@@ -419,7 +419,7 @@ export interface CreatePropostaInput {
   valor: number | null
   /** Valor monetário da proposta prévia (página 4 do PDF). */
   proposta_previa: number | null
-  mensagem: string
+  mensagem?: string
   status?: 'pendente' | 'aceito' | 'recusado'
 }
 
@@ -471,7 +471,6 @@ export async function createProposta(
     }
     if (!veiculoMarca) return { error: 'Informe a marca do veículo.' }
     if (!veiculoModelo) return { error: 'Informe o modelo do veículo.' }
-    if (!mensagem) return { error: 'A mensagem de interesse é obrigatória.' }
 
     const valor = input.valor == null ? null : Number(input.valor)
     if (valor !== null && (!Number.isFinite(valor) || valor <= 0)) {

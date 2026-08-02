@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   h1Title: {
-    fontSize: 110,
+    fontSize: 125,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   h1Span: {
-    fontSize: 98,
+    fontSize: 112,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -481,7 +481,10 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
     (pecasConsertoList != null && pecasConsertoList.length > 0) ||
     Boolean(pecasConsertoTextoFallback) ||
     reparoVal > 0
-  const prejuizoTotal = totEncargos + reparoVal + calcSaldoDevedor
+  const prejuizoTotal =
+    valorEstimadoDivida != null && Number(valorEstimadoDivida) > 0
+      ? Number(valorEstimadoDivida)
+      : totEncargos + reparoVal + calcSaldoDevedor
 
   const dataContrato =
     clienteData && clienteData.trim()
@@ -566,10 +569,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
               <View style={styles.dadosRow}>
                 <Text style={styles.dadosLabel}>Valor de mercado/FIPE:</Text>
                 <Text style={styles.dadosValue}>{formatBRL(veiculoValorFipe)}</Text>
-              </View>
-              <View style={styles.dadosRow}>
-                <Text style={styles.dadosLabel}>Valor estimado da dívida:</Text>
-                <Text style={styles.dadosValue}>{formatBRL(valorEstimadoDivida)}</Text>
               </View>
 
               <View style={styles.pathLine} />
