@@ -1294,7 +1294,7 @@ function ParcelasList({
                     {p.numeroParcela}ª
                   </td>
                   <td className="px-5 py-3 text-neutral-600">
-                    {new Date(p.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    {formatDate(p.dataVencimento)}
                   </td>
                   <td className="px-5 py-3 font-bold text-neutral-900">
                     {formatCurrency(p.valorParcela)}

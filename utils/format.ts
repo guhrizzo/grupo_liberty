@@ -29,9 +29,17 @@ export function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat('pt-BR').format(value)
 }
 
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/
+
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—'
-  const d = value instanceof Date ? value : new Date(value)
+  // Datas "puras" (YYYY-MM-DD, sem hora) são interpretadas pelo JS como
+  // UTC — formatar depois no fuso local pode voltar um dia (ex.: vencimento
+  // "2026-08-15" virando 14/08 em GMT-3). Forçamos meia-noite local nesse caso.
+  const d =
+    value instanceof Date
+      ? value
+      : new Date(DATE_ONLY_RE.test(value) ? `${value}T00:00:00` : value)
   if (Number.isNaN(d.getTime())) return '—'
   return dateBR.format(d)
 }
