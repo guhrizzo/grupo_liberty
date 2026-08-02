@@ -55,8 +55,8 @@ const ALL_SECTIONS: SectionKey[] = [
   'pendencias',
   'parcelas',
   'pecas',
-  'proposta',
   'previa',
+  'proposta',
 ]
 
 interface FormData {
@@ -539,6 +539,14 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
       errors.mensagem = 'Descreva o interesse do cliente.'
     }
 
+    if (
+      valorPropostaNum != null &&
+      propostaPreviaCalc.valor != null &&
+      valorPropostaNum > propostaPreviaCalc.valor
+    ) {
+      errors.valor_proposta = 'O valor da proposta não pode ser maior que a proposta prévia.'
+    }
+
     const pecasInvalidas = formData.pecas.filter((p) => !p.nome.trim() && p.valor.trim())
     if (pecasInvalidas.length > 0) {
       errors.pecas = 'Preencha o nome de todas as peças com valor.'
@@ -632,7 +640,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     const checks: Record<SectionKey, boolean> = {
       cliente: !!(
         formData.nome &&
-        onlyDigits(formData.cpf).length >= 11 &&
+        validarCPF(onlyDigits(formData.cpf)) &&
         formData.email &&
         formData.telefone
       ),
@@ -768,6 +776,12 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   value={formData.cpf}
                   inputMode="numeric"
                   onChange={(e) => setField('cpf', maskCpfCnpj(e.target.value))}
+                  onBlur={() => {
+                    const cpfDigits = onlyDigits(formData.cpf)
+                    if (cpfDigits && !validarCPF(cpfDigits)) {
+                      setFormErrors((prev) => ({ ...prev, cpf: 'CPF inválido.' }))
+                    }
+                  }}
                   error={formErrors.cpf}
                   required
                 />
@@ -1159,57 +1173,8 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           )}
         </div>
 
-        {/* ───── Proposta ───── */}
-        <div className={isOpen('proposta') ? 'border-b border-neutral-100' : ''}>
-          <SectionHeader
-            id="proposta"
-            icon={IconCoin}
-            title="Valor da Proposta"
-            subtitle={
-              valorPropostaNum && valorPropostaNum > 0
-                ? formatCurrency(valorPropostaNum)
-                : 'Valor comercial destacado na página 3 do PDF'
-            }
-            open={isOpen('proposta')}
-            onToggle={() => toggleSection('proposta')}
-            badge={completed('proposta') ? 'OK' : undefined}
-          />
-          {isOpen('proposta') && (
-            <SectionBody>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Input
-                    label="Valor da Proposta"
-                    name="valor_proposta"
-                    placeholder="0,00"
-                    value={formData.valor_proposta}
-                    inputMode="numeric"
-                    onChange={(e) => setField('valor_proposta', maskMoney(e.target.value))}
-                    leftIcon={<IconCoin size={14} />}
-                    required
-                  />
-                  <FormattedMoneyHint value={formData.valor_proposta} />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <Textarea
-                  label="Mensagem / interesse"
-                  name="mensagem"
-                  rows={3}
-                  placeholder="Descreva o interesse do cliente neste veículo..."
-                  value={formData.mensagem}
-                  onChange={(e) => setField('mensagem', e.target.value)}
-                  error={formErrors.mensagem}
-                  required
-                />
-              </div>
-            </SectionBody>
-          )}
-        </div>
-
         {/* ───── Proposta Prévia ───── */}
-        <div className="">
+        <div className={isOpen('previa') ? 'border-b border-neutral-100' : ''}>
           <SectionHeader
             id="previa"
             icon={IconCoin}
@@ -1224,7 +1189,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
             badge={completed('previa') ? 'OK' : undefined}
           />
           {isOpen('previa') && (
-            <SectionBody last>
+            <SectionBody>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3 text-xs text-neutral-700">
                   <p className="font-bold text-neutral-900">Cálculo automático</p>
@@ -1290,6 +1255,71 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                     quitação do banco), já que a % representa um desconto sobre a dívida.
                   </p>
                 </div>
+              </div>
+            </SectionBody>
+          )}
+        </div>
+
+        {/* ───── Proposta ───── */}
+        <div className="">
+          <SectionHeader
+            id="proposta"
+            icon={IconCoin}
+            title="Valor da Proposta"
+            subtitle={
+              valorPropostaNum && valorPropostaNum > 0
+                ? formatCurrency(valorPropostaNum)
+                : 'Valor comercial destacado na página 3 do PDF'
+            }
+            open={isOpen('proposta')}
+            onToggle={() => toggleSection('proposta')}
+            badge={completed('proposta') ? 'OK' : undefined}
+          />
+          {isOpen('proposta') && (
+            <SectionBody last>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Input
+                    label="Valor da Proposta"
+                    name="valor_proposta"
+                    placeholder="0,00"
+                    value={formData.valor_proposta}
+                    inputMode="numeric"
+                    onChange={(e) => setField('valor_proposta', maskMoney(e.target.value))}
+                    onBlur={() => {
+                      const valor = formData.valor_proposta.trim()
+                        ? parseMoney(formData.valor_proposta)
+                        : null
+                      if (
+                        valor != null &&
+                        propostaPreviaCalc.valor != null &&
+                        valor > propostaPreviaCalc.valor
+                      ) {
+                        setFormErrors((prev) => ({
+                          ...prev,
+                          valor_proposta: 'O valor da proposta não pode ser maior que a proposta prévia.',
+                        }))
+                      }
+                    }}
+                    error={formErrors.valor_proposta}
+                    leftIcon={<IconCoin size={14} />}
+                    required
+                  />
+                  <FormattedMoneyHint value={formData.valor_proposta} />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <Textarea
+                  label="Mensagem / interesse"
+                  name="mensagem"
+                  rows={3}
+                  placeholder="Descreva o interesse do cliente neste veículo..."
+                  value={formData.mensagem}
+                  onChange={(e) => setField('mensagem', e.target.value)}
+                  error={formErrors.mensagem}
+                  required
+                />
               </div>
             </SectionBody>
           )}
@@ -1499,6 +1529,18 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                 )}
               </SummarySection>
 
+              <SummarySection title="Proposta Prévia" icon={IconCoin}>
+                <SummaryRow
+                  label="Valor da proposta prévia"
+                  value={
+                    propostaPreviaCalc.valor != null
+                      ? formatCurrency(propostaPreviaCalc.valor)
+                      : null
+                  }
+                  accent
+                />
+              </SummarySection>
+
               <SummarySection title="Proposta" icon={IconCoin}>
                 <SummaryRow
                   label="Valor da proposta"
@@ -1510,18 +1552,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   accent
                 />
                 <SummaryRow label="Mensagem" value={formData.mensagem} />
-              </SummarySection>
-
-              <SummarySection title="Proposta Prévia" icon={IconCoin}>
-                <SummaryRow
-                  label="Valor da proposta prévia"
-                  value={
-                    propostaPreviaCalc.valor != null
-                      ? formatCurrency(propostaPreviaCalc.valor)
-                      : null
-                  }
-                  accent
-                />
               </SummarySection>
             </div>
 

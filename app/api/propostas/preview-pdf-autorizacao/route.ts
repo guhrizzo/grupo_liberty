@@ -204,10 +204,14 @@ export async function POST(req: NextRequest) {
     clienteNome = clienteEmail
   }
 
-  // Saldo devedor = valorParcela * parcelasAtrasadas (se aplicável)
+  // Saldo devedor = valorParcela * parcelas restantes (parcelas totais − parcelas pagas)
+  const parcelasRestantes =
+    parcelasTotais != null && parcelasPagas != null
+      ? Math.max(0, parcelasTotais - parcelasPagas)
+      : null
   const saldoDevedor =
-    valorParcela != null && parcelasAtrasadas != null
-      ? valorParcela * parcelasAtrasadas
+    valorParcela != null && parcelasRestantes != null
+      ? valorParcela * parcelasRestantes
       : null
 
   // Coletar peças de manutenções (se houver veiculo_id)

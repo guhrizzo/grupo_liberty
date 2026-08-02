@@ -443,14 +443,13 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
 
   const totTotais = Number(parcelasTotais) || 0
   const totPagas = Number(parcelasPagas) || 0
-  const parcelasEmAtraso =
-    parcelasAtrasadasProp != null
-      ? Number(parcelasAtrasadasProp)
-      : Math.max(0, totTotais - totPagas)
+  const parcelasRestantes = Math.max(0, totTotais - totPagas)
+  const parcelasEmAtraso = parcelasAtrasadasProp != null ? Number(parcelasAtrasadasProp) : 0
 
   const valParcela = Number(valorParcela) || 0
+  const propostaValorFinal = propostaComercial ?? valorOfertado ?? 0
   const calcSaldoDevedor =
-    saldoDevedorProp != null ? Number(saldoDevedorProp) : parcelasEmAtraso * valParcela
+    saldoDevedorProp != null ? Number(saldoDevedorProp) : parcelasRestantes * valParcela
 
   const ipvaVal = Number(valorIpva) || 0
   const licVal = Number(valorLicenciamento) || 0
@@ -483,8 +482,6 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
     Boolean(pecasConsertoTextoFallback) ||
     reparoVal > 0
   const prejuizoTotal = totEncargos + reparoVal + calcSaldoDevedor
-
-  const propostaValorFinal = propostaComercial ?? valorOfertado ?? 0
 
   const dataContrato =
     clienteData && clienteData.trim()
