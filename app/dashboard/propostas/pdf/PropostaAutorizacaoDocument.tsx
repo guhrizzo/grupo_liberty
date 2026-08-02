@@ -105,6 +105,7 @@ const COLORS = {
   textSubtle: '#a1a1aa',
   borderLine: 'rgba(255, 255, 255, 0.15)',
   redInfo: '#ff1a40',
+  greenValue: '#22c55e',
 }
 
 const styles = StyleSheet.create({
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: INTER_FONT,
     fontWeight: 600,
-    color: COLORS.textLight,
+    color: COLORS.greenValue,
   },
   longText: {
     fontSize: 11,
