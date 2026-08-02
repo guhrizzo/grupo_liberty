@@ -40,7 +40,8 @@ import { formatCurrency } from '@/utils/format'
 import { parseMoney, onlyDigits, maskPlate } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getBancoByNome } from '@/constants/bancos'
-import { createProposta, type CreatePropostaInput } from '../actions'
+import { type CreatePropostaInput } from '../actions'
+import { createPropostaRegistrada } from '../registros/actions'
 
 interface CadastrarPropostaClientProps {
   veiculos?: Array<{ id: string; marca: string; modelo: string; preco: number | null; ano?: number | null; foto?: string | null }>
@@ -473,7 +474,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
         return
       }
 
-      const res = await createProposta(payload)
+      const res = await createPropostaRegistrada(payload)
       if (res.error || !res.success) {
         toast.error(res.error || 'Não foi possível cadastrar', 'Erro ao salvar')
         return
@@ -482,7 +483,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
 
       setConfirmOpen(false)
       setFileName('')
-      router.push('/dashboard/propostas')
+      router.push('/dashboard/propostas/registros')
       router.refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro inesperado.'
@@ -635,6 +636,14 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     valor: propostaPreviaValorFinal,
   }
 
+  // Comissão do vendedor = R$ 300 fixos + 6% sobre a diferença entre a
+  // proposta prévia (calculada) e a proposta real (valor comercial digitado).
+  const comissaoVendedor = useMemo(() => {
+    if (valorPropostaNum == null || propostaPreviaCalc.valor == null) return null
+    const diferenca = propostaPreviaCalc.valor - valorPropostaNum
+    return 300 + diferenca * 0.06
+  }, [valorPropostaNum, propostaPreviaCalc.valor])
+
   // Sugestão automática: IPVA + licenciamento + multas + saldo das parcelas
   // restantes + peças de reparo. Some com o que o usuário digitar nesses
   // campos; para de sincronizar assim que o campo é editado manualmente.
@@ -755,6 +764,25 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           </button>
         </div>
       </header>
+
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-liberty/30 bg-liberty/5 p-4 shadow-xs">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-liberty/15 text-liberty-deep">
+            <IconCoin size={20} stroke={2} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty-deep/70">
+              Comissão do vendedor
+            </p>
+            <p className="text-xl font-black leading-tight text-liberty-deep sm:text-2xl">
+              {comissaoVendedor != null ? formatCurrency(comissaoVendedor) : '—'}
+            </p>
+          </div>
+        </div>
+        <p className="hidden max-w-[240px] shrink-0 text-right text-[11px] text-neutral-500 sm:block">
+          R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e o valor da proposta.
+        </p>
+      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -1331,6 +1359,16 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                     required
                   />
                   <FormattedMoneyHint value={formData.valor_proposta} />
+                </div>
+                <div className="rounded-lg border border-liberty/20 bg-liberty/5 p-4 text-xs text-neutral-700">
+                  <p className="font-bold text-liberty-deep">Comissão do vendedor</p>
+                  <p className="mt-1 text-2xl font-bold text-liberty-deep">
+                    {comissaoVendedor != null ? formatCurrency(comissaoVendedor) : '—'}
+                  </p>
+                  <p className="mt-2">
+                    Fórmula: R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e
+                    o valor da proposta.
+                  </p>
                 </div>
               </div>
             </SectionBody>
