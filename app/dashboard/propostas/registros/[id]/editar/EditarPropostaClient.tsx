@@ -20,7 +20,7 @@ import {
   IconCalculator,
   IconDeviceFloppy,
 } from '@tabler/icons-react'
-import { Breadcrumb, useToast, Input, Select, BancoAutocomplete } from '@/app/components/ui'
+import { Breadcrumb, useToast, Input, BancoAutocomplete } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { parseMoney, onlyDigits, maskPlate, maskPhone, maskCPFCNPJ, maskMoney, moneyFromNumber } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
@@ -60,7 +60,6 @@ interface FormData {
   pecas: Array<{ nome: string; valor: string }>
 
   valor_proposta: string
-  status: 'pendente' | 'aceito' | 'recusado'
 }
 
 function FormattedMoneyHint({ value }: { value: string }) {
@@ -101,7 +100,6 @@ function buildInitialFormData(p: PropostaRegistradaEditavel): FormData {
     })),
 
     valor_proposta: moneyFromNumber(p.valor),
-    status: p.status,
   }
 }
 
@@ -248,7 +246,6 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
 
         valor: valorPropostaNum,
         proposta_previa: propostaPreviaValor,
-        status: formData.status,
       }
 
       const res = await updatePropostaRegistrada(proposta.id, payload)
@@ -644,7 +641,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
 
         {/* Proposta */}
         <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xs md:p-6">
-          <h3 className="mb-4 text-sm font-bold text-neutral-950">Valor da Proposta e Status</h3>
+          <h3 className="mb-4 text-sm font-bold text-neutral-950">Valor da Proposta</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Input
@@ -659,16 +656,6 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               />
               <FormattedMoneyHint value={formData.valor_proposta} />
             </div>
-            <Select
-              label="Status"
-              value={formData.status}
-              onChange={(e) => setField('status', e.target.value as FormData['status'])}
-              options={[
-                { value: 'pendente', label: 'Pendente' },
-                { value: 'aceito', label: 'Aceito' },
-                { value: 'recusado', label: 'Recusado' },
-              ]}
-            />
           </div>
         </div>
 

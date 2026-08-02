@@ -26,12 +26,6 @@ interface PropostasRegistradasClientProps {
   propostas: PropostaRegistrada[]
 }
 
-const STATUS_TONE: Record<PropostaRegistrada['status'], string> = {
-  pendente: 'bg-amber-50 text-amber-800 border-amber-200',
-  aceito: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  recusado: 'bg-rose-50 text-rose-800 border-rose-200',
-}
-
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -328,11 +322,6 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider ${STATUS_TONE[p.status]}`}
-                      >
-                        {p.status}
-                      </span>
                       <button
                         type="button"
                         onClick={() => handleDownloadPdf(p)}
