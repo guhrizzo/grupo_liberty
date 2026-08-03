@@ -89,7 +89,13 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   const showInternalInfo =
     !!user && ['admin', 'vendedor', 'advogado', 'suporte'].includes(user.role ?? '')
 
-  if (veiculo.finalidade === 'pessoal' && !showInternalInfo) {
+  // Migração: veículos salvos antes desse campo existir usam a antiga
+  // 'finalidade' como fallback — 'venda' (ou ausente) permanece público,
+  // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
+  const isPublic: boolean =
+    typeof veiculo.publico === 'boolean' ? veiculo.publico : veiculo.finalidade !== 'pessoal'
+
+  if (!isPublic && !showInternalInfo) {
     notFound()
   }
 

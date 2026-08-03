@@ -65,7 +65,8 @@ export interface Veiculo {
   descricao: string | null
   fotos: string[]
   localizacao: string
-  finalidade: 'venda' | 'pessoal'
+  /** Visível no site público. Controlado pelo toggle Público/Privado — todo veículo fica no mesmo estoque. */
+  publico: boolean
   cpfCliente: string | null
   telefoneCliente: string | null
   telefoneAcessoria: string | null
@@ -198,7 +199,11 @@ export async function getVehicles(): Promise<Veiculo[]> {
         descricao: data.descricao || null,
         fotos: data.fotos || [],
         localizacao,
-        finalidade: data.finalidade === 'pessoal' ? 'pessoal' : 'venda',
+        // Migração: veículos salvos antes desse campo existir usam a antiga
+        // 'finalidade' como fallback — 'venda' (ou ausente) permanece público,
+        // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
+        publico:
+          typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
         cpfCliente: data.cpfCliente || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
@@ -324,8 +329,10 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const fotos: string[] = fotosJson ? JSON.parse(fotosJson) : []
   const localizacaoRaw = ((formData.get('localizacao') as string) || '').trim()
   const localizacao = localizacaoRaw === 'bauru' ? 'Bauru/SP' : localizacaoRaw === 'jau' ? 'Jaú/SP' : (localizacaoRaw || 'Jaú/SP')
-  const finalidadeRaw = formData.get('finalidade') as string
-  const finalidade: 'venda' | 'pessoal' = finalidadeRaw === 'pessoal' ? 'pessoal' : 'venda'
+  // Todo veículo fica no mesmo estoque; o toggle Público/Privado só controla
+  // se ele aparece no site (padrão: público).
+  const publicoRaw = formData.get('publico') as string | null
+  const publico = publicoRaw !== 'false'
 
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
@@ -394,18 +401,12 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     fieldErrors.ano = `Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}.`
   }
 
-  if (!precoRaw) {
-    if (finalidade === 'venda') {
-      fieldErrors.preco = 'Informe o valor da venda.'
-    }
-  } else if (Number.isNaN(preco) || preco <= 0) {
+  if (precoRaw && (Number.isNaN(preco) || preco <= 0)) {
     fieldErrors.preco = 'Valor da venda inválido.'
   }
 
   if (precoComDescontoRaw) {
-    if (finalidade !== 'venda') {
-      fieldErrors.precoComDesconto = 'Desconto disponível apenas para veículos à venda.'
-    } else if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
+    if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
       fieldErrors.precoComDesconto = 'Preço com desconto inválido.'
     } else if (preco == null || Number.isNaN(preco)) {
       fieldErrors.precoComDesconto = 'Informe o valor de venda para definir um desconto.'
@@ -462,7 +463,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
-  // Para veículos pessoais sem preço informado, armazena como null.
+  // Sem preço informado, armazena como null (fica no estoque sem valor exibido).
   const precoFinal: number | null = precoRaw ? preco : null
 
   try {
@@ -485,7 +486,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       descricao,
       fotos,
       localizacao,
-      finalidade,
+      publico,
       cpfCliente: cpfCliente || null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
@@ -600,57 +601,6 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
 }
 
 /**
- * Alterna a finalidade de um veículo entre 'venda' e 'pessoal'.
- * Ao mover para 'pessoal', descarta qualquer 'precoComDesconto' (desconto
- * da vitrine) para evitar lixo. Ao mover para 'venda', não toca em
- * 'precoComDesconto' (que deve estar null).
- */
-export async function toggleVehicleFinalidade(
-  id: string,
-  finalidade: 'venda' | 'pessoal',
-): Promise<{ success?: string; error?: string }> {
-  try {
-    await assertAdmin()
-  } catch (err: any) {
-    return { error: err.message }
-  }
-
-  if (!id || !['venda', 'pessoal'].includes(finalidade)) {
-    return { error: 'Parâmetros inválidos.' }
-  }
-
-  try {
-    const docRef = adminDb.collection('veiculos').doc(id)
-    const doc = await docRef.get()
-    if (!doc.exists) {
-      return { error: 'Veículo não encontrado.' }
-    }
-
-    const now = new Date().toISOString()
-
-    const update: Record<string, unknown> = {
-      finalidade,
-      updated_at: now,
-    }
-    if (finalidade === 'pessoal') {
-      update.precoComDesconto = null
-    }
-
-    await docRef.update(update)
-
-    revalidatePath('/dashboard/veiculos')
-    return {
-      success:
-        finalidade === 'venda'
-          ? 'Veículo movido para Venda.'
-          : 'Veículo movido para Pessoal.',
-    }
-  } catch (error: any) {
-    return { error: `Erro ao atualizar finalidade: ${error.message}` }
-  }
-}
-
-/**
  * Atualiza um veículo existente no banco de dados.
  */
 export async function updateVehicle(id: string, formData: FormData): Promise<VeiculoResponse> {
@@ -683,8 +633,10 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const fotosFinal: string[] = fotosJson ? JSON.parse(fotosJson) : []
   const localizacaoRaw = ((formData.get('localizacao') as string) || '').trim()
   const localizacao = localizacaoRaw === 'bauru' ? 'Bauru/SP' : localizacaoRaw === 'jau' ? 'Jaú/SP' : (localizacaoRaw || 'Jaú/SP')
-  const finalidadeRaw = formData.get('finalidade') as string
-  const finalidade: 'venda' | 'pessoal' = finalidadeRaw === 'pessoal' ? 'pessoal' : 'venda'
+  // Todo veículo fica no mesmo estoque; o toggle Público/Privado só controla
+  // se ele aparece no site (padrão: público).
+  const publicoRaw = formData.get('publico') as string | null
+  const publico = publicoRaw !== 'false'
 
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
@@ -753,18 +705,12 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     fieldErrors.ano = `Ano deve estar entre 1900 e ${new Date().getFullYear() + 1}.`
   }
 
-  if (!precoRaw) {
-    if (finalidade === 'venda') {
-      fieldErrors.preco = 'Informe o valor da venda.'
-    }
-  } else if (Number.isNaN(preco) || preco <= 0) {
+  if (precoRaw && (Number.isNaN(preco) || preco <= 0)) {
     fieldErrors.preco = 'Valor da venda inválido.'
   }
 
   if (precoComDescontoRaw) {
-    if (finalidade !== 'venda') {
-      fieldErrors.precoComDesconto = 'Desconto disponível apenas para veículos à venda.'
-    } else if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
+    if (precoComDescontoParsed === null || Number.isNaN(precoComDescontoParsed) || precoComDescontoParsed <= 0) {
       fieldErrors.precoComDesconto = 'Preço com desconto inválido.'
     } else if (preco == null || Number.isNaN(preco)) {
       fieldErrors.precoComDesconto = 'Informe o valor de venda para definir um desconto.'
@@ -789,7 +735,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
-  // Para veículos pessoais sem preço informado, armazena como null.
+  // Sem preço informado, armazena como null (fica no estoque sem valor exibido).
   const precoFinal: number | null = precoRaw ? preco : null
 
   try {
@@ -839,7 +785,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       descricao,
       fotos: fotosFinal,
       localizacao,
-      finalidade,
+      publico,
       cpfCliente: cpfCliente || null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,

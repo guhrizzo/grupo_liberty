@@ -215,11 +215,6 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       {v.localizacao}
                     </span>
                   )}
-                  {v.finalidade === 'pessoal' && (
-                    <span className="absolute top-3 right-16 inline-flex items-center gap-1.5 rounded-md bg-purple-100/90 backdrop-blur-sm text-purple-900 text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-purple-300">
-                      Pessoal
-                    </span>
-                  )}
                   {em && (
                     <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-md bg-emerald-500/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-emerald-600 shadow-sm">
                       −{pct}%

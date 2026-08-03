@@ -25,7 +25,8 @@ export default async function HomePage() {
     }
   }
   const todosVeiculos = await getVehicles()
-  const veiculos = todosVeiculos.filter(v => (v.finalidade || 'venda') === 'venda')
+  // Todo veículo fica no mesmo estoque; só aparece no site se marcado como público.
+  const veiculos = todosVeiculos.filter(v => v.publico === true)
 
   return (
     <div className="flex flex-col">

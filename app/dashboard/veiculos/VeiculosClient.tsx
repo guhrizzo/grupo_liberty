@@ -112,8 +112,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [descricao, setDescricao] = useState('')
   const [localizacaoSelect, setLocalizacaoSelect] = useState<'jau' | 'bauru' | 'outro'>('jau')
   const [outraCidade, setOutraCidade] = useState('')
-  const [finalidade, setFinalidade] = useState<'venda' | 'pessoal'>('venda')
-  const [abaAtiva, setAbaAtiva] = useState<'venda' | 'pessoal'>('venda')
+  // Visibilidade pública do veículo no site — controla se aparece na vitrine.
+  const [publico, setPublico] = useState(true)
   const [filtroCidade, setFiltroCidade] = useState<string>('')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
 
@@ -296,7 +296,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setDescricao('')
     setLocalizacaoSelect('jau')
     setOutraCidade('')
-    setFinalidade('venda')
+    setPublico(true)
     setBanco('')
     setBancoCodigo('')
     setTaxaJuros('')
@@ -351,7 +351,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       setOutraCidade(veiculo.localizacao)
     }
 
-    setFinalidade(veiculo.finalidade || 'venda')
+    setPublico(veiculo.publico)
     setBanco(veiculo.banco || '')
     setBancoCodigo(veiculo.bancoCodigo || '')
     setQuitacaoPercent(
@@ -457,7 +457,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       const localizacaoValor = localizacaoSelect === 'outro' ? (outraCidade.trim() || 'Jaú/SP') : (localizacaoSelect === 'bauru' ? 'Bauru/SP' : 'Jaú/SP')
       formData.append('descricao', descricao)
       formData.append('localizacao', localizacaoValor)
-      formData.append('finalidade', finalidade)
+      formData.append('publico', String(publico))
 
       let newPhotoIndex = 0
       const fotosFinalStr = JSON.stringify(photos.map(p => {
@@ -568,13 +568,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     return Array.from(set)
   }, [veiculos])
 
-  const totalVenda = useMemo(() => veiculos.filter(v => (v.finalidade || 'venda') === 'venda').length, [veiculos])
-  const totalPessoal = useMemo(() => veiculos.filter(v => v.finalidade === 'pessoal').length, [veiculos])
+  const totalPublicos = useMemo(() => veiculos.filter(v => v.publico).length, [veiculos])
 
   const veiculosFiltrados = useMemo(() => {
     return veiculos.filter((v) => {
-      const vFinalidade = v.finalidade || 'venda'
-      if (vFinalidade !== abaAtiva) return false
       if (filtroCidade && v.localizacao !== filtroCidade) return false
       if (!filtroBusca.trim()) return true
       const q = filtroBusca.toLowerCase()
@@ -584,7 +581,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         (v.placa && v.placa.toLowerCase().includes(q))
       )
     })
-  }, [veiculos, abaAtiva, filtroCidade, filtroBusca])
+  }, [veiculos, filtroCidade, filtroBusca])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -612,7 +609,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   resetForm()
                   setShowForm(false)
                 } else {
-                  setFinalidade(abaAtiva)
                   setShowForm(true)
                   setMessage(null)
                 }
@@ -787,24 +783,21 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                 </div>
 
-                {/* Finalidade — switch acima do Valor da Venda */}
+                {/* Visibilidade pública — todo veículo fica no mesmo estoque; o
+                    switch só controla se ele aparece no site público. */}
                 <div className="mt-6 flex items-center gap-3">
-                  <span className="text-sm font-medium text-neutral-700">Finalidade</span>
+                  <span className="text-sm font-medium text-neutral-700">Visibilidade</span>
                   <button
                     type="button"
                     role="switch"
-                    aria-checked={finalidade === 'venda'}
-                    aria-label={`Finalidade do veículo. Atual: ${finalidade === 'venda' ? 'Para Venda' : 'Pessoal'}.`}
-                    onClick={() => {
-                      const next = finalidade === 'venda' ? 'pessoal' : 'venda'
-                      setFinalidade(next)
-                      if (next === 'pessoal') setPrecoComDesconto('')
-                    }}
+                    aria-checked={publico}
+                    aria-label={`Visibilidade do veículo. Atual: ${publico ? 'Público' : 'Privado'}.`}
+                    onClick={() => setPublico((prev) => !prev)}
                     className={[
                       'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
                       'transition-colors duration-200 ease-out',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
-                      finalidade === 'venda' ? 'bg-emerald-500' : 'bg-neutral-300',
+                      publico ? 'bg-emerald-500' : 'bg-neutral-300',
                     ].join(' ')}
                   >
                     <span
@@ -812,19 +805,19 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       className={[
                         'inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0',
                         'transition-transform duration-200 ease-out',
-                        finalidade === 'venda' ? 'translate-x-5' : 'translate-x-0.5',
+                        publico ? 'translate-x-5' : 'translate-x-0.5',
                       ].join(' ')}
                     />
                   </button>
                   <span
                     className={[
                       'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border',
-                      finalidade === 'venda'
+                      publico
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                        : 'bg-purple-100 text-purple-800 border-purple-200',
+                        : 'bg-neutral-100 text-neutral-600 border-neutral-200',
                     ].join(' ')}
                   >
-                    {finalidade === 'venda' ? 'Para Venda' : 'Pessoal'}
+                    {publico ? 'Público' : 'Privado'}
                   </span>
                 </div>
 
@@ -832,13 +825,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3 mt-6">
                   <Input
                     id="preco"
-                    label={`Valor da venda (R$)${finalidade === 'venda' ? ' *' : ''}`}
+                    label="Valor da venda (R$)"
                     type="text"
                     inputMode="decimal"
-                    required={finalidade === 'venda'}
                     value={preco}
                     onChange={(e) => setPreco(maskMoney(e.target.value))}
-                    placeholder={finalidade === 'pessoal' ? 'Opcional' : 'R$ 0,00'}
+                    placeholder="R$ 0,00"
                     leftIcon={<IconCash size={14} />}
                     error={fieldErrors.preco}
                     rightAdornment={
@@ -877,37 +869,35 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   </Select>
                 </div>
 
-                {/* Linha 3.5: Preço com desconto (Para) — apenas para veículos de venda */}
-                {finalidade === 'venda' && (
-                  <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-6">
-                    <Input
-                      id="precoComDesconto"
-                      label="Preço com desconto — opcional"
-                      type="text"
-                      inputMode="decimal"
-                      value={precoComDesconto}
-                      onChange={(e) => setPrecoComDesconto(maskMoney(e.target.value))}
-                      placeholder="R$ 0,00"
-                      leftIcon={<IconCash size={14} />}
-                      error={fieldErrors.precoComDesconto}
-                      rightAdornment={
-                        precoComDesconto ? (
-                          <ClearMoneyButton
-                            value={precoComDesconto}
-                            onClear={() => setPrecoComDesconto('')}
-                            label="Preço com desconto"
-                          />
-                        ) : undefined
-                      }
-                    />
-                    <p className="self-center text-xs text-neutral-500 leading-snug">
-                      Preencha para exibir o preço antigo riscado e o percentual de desconto
-                      na vitrine pública. Deixe vazio para não destacar.
-                    </p>
-                  </div>
-                )}
+                {/* Linha 3.5: Preço com desconto (Para) */}
+                <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 mt-6">
+                  <Input
+                    id="precoComDesconto"
+                    label="Preço com desconto — opcional"
+                    type="text"
+                    inputMode="decimal"
+                    value={precoComDesconto}
+                    onChange={(e) => setPrecoComDesconto(maskMoney(e.target.value))}
+                    placeholder="R$ 0,00"
+                    leftIcon={<IconCash size={14} />}
+                    error={fieldErrors.precoComDesconto}
+                    rightAdornment={
+                      precoComDesconto ? (
+                        <ClearMoneyButton
+                          value={precoComDesconto}
+                          onClear={() => setPrecoComDesconto('')}
+                          label="Preço com desconto"
+                        />
+                      ) : undefined
+                    }
+                  />
+                  <p className="self-center text-xs text-neutral-500 leading-snug">
+                    Preencha para exibir o preço antigo riscado e o percentual de desconto
+                    na vitrine pública. Deixe vazio para não destacar.
+                  </p>
+                </div>
 
-                {/* Linha 4: Placa, Renavam, Unidade, Finalidade */}
+                {/* Linha 4: Placa, Renavam, Unidade */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mt-6">
                   <Input
                     id="placa"
@@ -1333,12 +1323,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 )}
               </div>
 
-              {/* ─── Dados do Vendedor (apenas para veículos pessoais) ──────────── */}
-              {finalidade === 'pessoal' && (
-                <div>
-                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
-                    Dados do Vendedor
-                  </h3>
+              {/* ─── Dados do Vendedor ──────────────────────────────────────────── */}
+              <div>
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+                  Dados do Vendedor
+                </h3>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Input
                       id="sellerName"
@@ -1419,7 +1408,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     )}
                   </div>
                 </div>
-              )}
 
               {/* ─── Upload de Fotos ────────────────────────────────── */}
               <div>
@@ -1551,49 +1539,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           </div>
         )}
 
-        {/* ─── Abas de Finalidade ─────────────────────────────── */}
-        <div className="border-b border-neutral-200 mb-6">
-          <nav className="-mb-px flex gap-0">
-            <button
-              type="button"
-              onClick={() => { setAbaAtiva('venda'); setFiltroBusca(''); setFiltroCidade('') }}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors duration-200 cursor-pointer ${
-                abaAtiva === 'venda'
-                  ? 'border-neutral-950 text-neutral-950'
-                  : 'border-transparent text-neutral-400 hover:text-neutral-700 hover:border-neutral-300'
-              }`}
-            >
-              <span>Para Venda</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                abaAtiva === 'venda' ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-500'
-              }`}>
-                {totalVenda}
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAbaAtiva('pessoal'); setFiltroBusca(''); setFiltroCidade('') }}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold border-b-2 transition-colors duration-200 cursor-pointer ${
-                abaAtiva === 'pessoal'
-                  ? 'border-purple-600 text-purple-700'
-                  : 'border-transparent text-neutral-400 hover:text-neutral-700 hover:border-neutral-300'
-              }`}
-            >
-              <span>Pessoal</span>
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                abaAtiva === 'pessoal' ? 'bg-purple-600 text-white' : 'bg-neutral-100 text-neutral-500'
-              }`}>
-                {totalPessoal}
-              </span>
-            </button>
-          </nav>
-        </div>
-
         {/* Lista de Veículos */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
-              {abaAtiva === 'venda' ? 'Veículos para Venda' : 'Veículos Pessoais'} ({veiculosFiltrados.length})
+              Estoque de Veículos ({veiculosFiltrados.length})
+              <span className="ml-2 font-normal normal-case text-neutral-400">
+                · {totalPublicos} público{totalPublicos === 1 ? '' : 's'}
+              </span>
             </h3>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -1661,6 +1614,15 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         +{v.fotos.length - 1} fotos
                       </span>
                     )}
+                    <span
+                      className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border shadow-sm ${
+                        v.publico
+                          ? 'bg-emerald-500/90 text-white border-emerald-600 backdrop-blur-sm'
+                          : 'bg-neutral-900/80 text-white border-neutral-700 backdrop-blur-sm'
+                      }`}
+                    >
+                      {v.publico ? 'Público' : 'Privado'}
+                    </span>
                   </div>
 
                   {/* Info */}
@@ -1689,15 +1651,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     </div>
 
                     <div className="mt-3 flex items-center gap-2 flex-wrap">
-                      {v.finalidade === 'pessoal' ? (
-                        <span className="rounded-full bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                          Pessoal
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                          Para Venda
-                        </span>
-                      )}
                       <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
                         {v.cambio}
                       </span>
