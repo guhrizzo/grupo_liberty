@@ -13,8 +13,21 @@ function formatCurrencyBR(value: number): string {
   }).format(value)
 }
 
+/** Escapa caracteres especiais de HTML — evita injeção via nome/veículo digitados pelo cliente. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function renderPropostaStatusEmail(data: PropostaEmailData): string {
-  const { clienteNome, veiculoMarca, veiculoModelo, valorOfertado, status } = data
+  const clienteNome = escapeHtml(data.clienteNome)
+  const veiculoMarca = escapeHtml(data.veiculoMarca)
+  const veiculoModelo = escapeHtml(data.veiculoModelo)
+  const { valorOfertado, status } = data
   const isAceito = status === 'aceito'
 
   const accentColor = isAceito ? '#16a34a' : '#dc2626'

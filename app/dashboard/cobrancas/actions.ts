@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { adminDb } from '@/utils/firebase/admin'
+import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,9 +86,24 @@ function serializeParcela(id: string, data: FirebaseFirestore.DocumentData): Par
   }
 }
 
+async function assertAuthorized() {
+  const user = await getSessionUser()
+  if (!user) throw new Error('Não autenticado.')
+  if (!hasPageAccess(user, 'cobrancas', ['admin', 'vendedor'])) {
+    throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
+  }
+  return user
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export async function getCobrancas(): Promise<Cobranca[]> {
+  try {
+    await assertAuthorized()
+  } catch {
+    return []
+  }
+
   const [cobrancasSnap, parcelasSnap] = await Promise.all([
     adminDb.collection('cobrancas').orderBy('criadoEm', 'desc').get(),
     adminDb.collection('cobranca_parcelas').orderBy('numeroParcela', 'asc').get(),
@@ -125,17 +140,15 @@ export async function getCobrancas(): Promise<Cobranca[]> {
 }
 
 export async function criarCobranca(formData: FormData): Promise<CobrancaResponse> {
+  let uid: string | null = null
   try {
-    const cookieStore = await cookies()
-    const session = cookieStore.get('session')?.value
-    let uid: string | null = null
-    if (session) {
-      try {
-        const decoded = await adminAuth.verifySessionCookie(session, true)
-        uid = decoded.uid
-      } catch {}
-    }
+    const user = await assertAuthorized()
+    uid = user.uid
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
 
+  try {
     const clienteNome = (formData.get('clienteNome') as string || '').trim()
     const veiculoId = (formData.get('veiculoId') as string || '').trim()
     const veiculoResumo = (formData.get('veiculoResumo') as string || '').trim()
@@ -220,6 +233,12 @@ export async function toggleParcela(
   pago: boolean
 ): Promise<CobrancaResponse> {
   try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
     await adminDb.collection('cobranca_parcelas').doc(parcelaId).update({
       pago,
       pagoEm: pago ? new Date().toISOString() : null,
@@ -233,6 +252,12 @@ export async function toggleParcela(
 }
 
 export async function deletarCobranca(cobrancaId: string): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
   try {
     // Excluir todas as parcelas
     const parcelasSnap = await adminDb

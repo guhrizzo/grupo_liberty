@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
+import { encrypt, decrypt } from '@/utils/crypto'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,44 @@ function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
 }
 
 export type DebitoItem = DebitoItemPersistido
+
+/**
+ * Descriptografa um CPF salvo. Registros gravados antes da criptografia
+ * (texto plano, sem o separador ':' do formato 'ivHex:encryptedHex') caem no
+ * fallback e retornam o valor bruto, para não quebrar veículos já cadastrados.
+ */
+function decryptCpfOrRaw(value: string | null | undefined): string {
+  if (!value) return ''
+  if (!value.includes(':')) return value
+  return decrypt(value) || value
+}
+
+/**
+ * Extrai o caminho do objeto dentro do bucket do Firebase Storage a partir de
+ * uma URL pública. Cobre os dois formatos que o Firebase Storage gera
+ * (`storage.googleapis.com/<bucket>/<path>` e `<bucket>.firebasestorage.app/<path>`).
+ * Retorna `null` para URLs de outro provedor (ex.: Supabase, configurado em
+ * next.config.ts mas sem suporte a exclusão aqui) — o chamador deve logar em
+ * vez de ignorar a falha em silêncio.
+ */
+function extractFirebaseStoragePath(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname === 'storage.googleapis.com') {
+      const segments = parsed.pathname.replace(/^\//, '').split('/')
+      segments.shift() // remove o nome do bucket
+      const path = segments.join('/')
+      return path || null
+    }
+    if (parsed.hostname.endsWith('.firebasestorage.app')) {
+      const path = parsed.pathname.replace(/^\//, '')
+      return path || null
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 export interface Veiculo {
   id: string
@@ -204,7 +243,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
         publico:
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
-        cpfCliente: data.cpfCliente || null,
+        cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
         valorParcela: data.valorParcela ?? null,
@@ -232,7 +271,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
             : null,
         valorEntrada: data.valorEntrada ?? null,
         sellerName: data.sellerName || null,
-        sellerCpf: data.sellerCpf || null,
+        sellerCpf: decryptCpfOrRaw(data.sellerCpf) || null,
         sellerBirthDate: data.sellerBirthDate || null,
         sellerCity: data.sellerCity || null,
         isVehicleInSellersName: data.isVehicleInSellersName ?? null,
@@ -487,7 +526,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       fotos,
       localizacao,
       publico,
-      cpfCliente: cpfCliente || null,
+      cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
       valorParcela,
@@ -504,7 +543,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       taxaPeriodicidade,
       valorEntrada,
       sellerName,
-      sellerCpf,
+      sellerCpf: sellerCpf ? encrypt(sellerCpf) : null,
       sellerBirthDate,
       sellerCity,
       isVehicleInSellersName,
@@ -551,16 +590,15 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
     // 2. Remover fotos do Storage
     if (veiculo?.fotos?.length) {
       for (const url of veiculo.fotos) {
-        const parts = url.split('storage.googleapis.com/')
-        if (parts[1]) {
-          const subParts = parts[1].split('/')
-          subParts.shift() // remover nome do bucket
-          const filePath = subParts.join('/')
-          try {
-            await bucket.file(filePath).delete()
-          } catch (deleteFileErr) {
-            console.error(`Erro ao deletar arquivo ${filePath} do Firebase Storage:`, deleteFileErr)
-          }
+        const filePath = extractFirebaseStoragePath(url)
+        if (!filePath) {
+          console.warn(`Foto com URL de provedor não suportado para exclusão automática: ${url}`)
+          continue
+        }
+        try {
+          await bucket.file(filePath).delete()
+        } catch (deleteFileErr) {
+          console.error(`Erro ao deletar arquivo ${filePath} do Firebase Storage:`, deleteFileErr)
         }
       }
     }
@@ -731,6 +769,38 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     fieldErrors.renavam = 'Renavam inválido.'
   }
 
+  if (cpfCliente && cpfCliente.replace(/\D/g, '').length < 11) {
+    fieldErrors.cpfCliente = 'CPF incompleto.'
+  }
+
+  if (telefoneCliente && telefoneCliente.replace(/\D/g, '').length < 10) {
+    fieldErrors.telefoneCliente = 'Telefone incompleto.'
+  }
+
+  if (telefoneAcessoria && telefoneAcessoria.replace(/\D/g, '').length < 10) {
+    fieldErrors.telefoneAcessoria = 'Telefone da acessória incompleto.'
+  }
+
+  if (valorParcela !== null && (Number.isNaN(valorParcela) || valorParcela < 0)) {
+    fieldErrors.valorParcela = 'Valor da parcela inválido.'
+  }
+  if (custoAcumulado !== null && (Number.isNaN(custoAcumulado) || custoAcumulado < 0)) {
+    fieldErrors.custoAcumulado = 'Custo acumulado inválido.'
+  }
+  if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
+    fieldErrors.debitos = 'Débitos inválido.'
+  }
+  if (parcelasRestantes !== null && (Number.isNaN(parcelasRestantes) || parcelasRestantes < 0)) {
+    fieldErrors.parcelasRestantes = 'Parcelas inválidas.'
+  }
+
+  if (taxaJuros !== null && (Number.isNaN(taxaJuros) || taxaJuros < 0 || taxaJuros > 50)) {
+    fieldErrors.taxaJuros = 'Taxa de juros inválida (0 a 50%).'
+  }
+  if (valorEntrada !== null && (Number.isNaN(valorEntrada) || valorEntrada < 0)) {
+    fieldErrors.valorEntrada = 'Entrada inválida.'
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
@@ -752,18 +822,16 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     // Apagar fotos removidas do Storage
     if (veiculoAntigo?.fotos?.length) {
       for (const url of veiculoAntigo.fotos) {
-        if (!fotosFinal.includes(url)) {
-          const parts = url.split('storage.googleapis.com/')
-          if (parts[1]) {
-            const subParts = parts[1].split('/')
-            subParts.shift()
-            const filePath = subParts.join('/')
-            try {
-              await bucket.file(filePath).delete()
-            } catch (err) {
-              console.error(`Erro ao deletar arquivo removido ${filePath}:`, err)
-            }
-          }
+        if (fotosFinal.includes(url)) continue
+        const filePath = extractFirebaseStoragePath(url)
+        if (!filePath) {
+          console.warn(`Foto com URL de provedor não suportado para exclusão automática: ${url}`)
+          continue
+        }
+        try {
+          await bucket.file(filePath).delete()
+        } catch (err) {
+          console.error(`Erro ao deletar arquivo removido ${filePath}:`, err)
         }
       }
     }
@@ -786,7 +854,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       fotos: fotosFinal,
       localizacao,
       publico,
-      cpfCliente: cpfCliente || null,
+      cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
       valorParcela,
@@ -803,7 +871,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       taxaPeriodicidade,
       valorEntrada,
       sellerName,
-      sellerCpf,
+      sellerCpf: sellerCpf ? encrypt(sellerCpf) : null,
       sellerBirthDate,
       sellerCity,
       isVehicleInSellersName,

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { IconCar, IconArrowRight, IconUser } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { toPublicVeiculo } from '@/app/dashboard/veiculos/public'
 import PublicVehiclesList from './PublicVehiclesList'
 import { Button } from './components/ui'
 
@@ -26,7 +27,9 @@ export default async function HomePage() {
   }
   const todosVeiculos = await getVehicles()
   // Todo veículo fica no mesmo estoque; só aparece no site se marcado como público.
-  const veiculos = todosVeiculos.filter(v => v.publico === true)
+  // Mapeado para um subconjunto público-seguro — sem CPF, dados do vendedor ou
+  // financiamento — antes de serializar no payload da página pública.
+  const veiculos = todosVeiculos.filter(v => v.publico === true).map(toPublicVeiculo)
 
   return (
     <div className="flex flex-col">

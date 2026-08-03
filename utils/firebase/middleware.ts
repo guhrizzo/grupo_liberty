@@ -1,41 +1,35 @@
 import { NextResponse, type NextRequest } from 'next/server';
-
-function parseJwt(token: string) {
-  try {
-    const base64Url = token.split('.')[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    return null;
-  }
-}
+import { adminAuth } from './admin';
 
 export async function updateSession(request: NextRequest) {
-  const sessionCookie = request.cookies.get('session')?.value;
+  const { pathname } = request.nextUrl;
 
-  let user = null;
+  // Só rotas privadas precisam da checagem — evita verificação
+  // criptográfica em toda requisição do site público.
+  if (!pathname.startsWith('/dashboard')) {
+    return NextResponse.next({ request });
+  }
+
+  const sessionCookie = request.cookies.get('session')?.value;
+  let authenticated = false;
+
   if (sessionCookie) {
-    const decoded = parseJwt(sessionCookie);
-    if (decoded && decoded.exp * 1000 > Date.now()) {
-      user = {
-        uid: decoded.sub || decoded.user_id,
-        email: decoded.email,
-      };
+    try {
+      // Verificação real (assinatura + validade). Sem checkRevoked aqui —
+      // essa checagem (com round-trip de rede) já é feita, com autoridade,
+      // por getSessionUser() em cada página/Server Action; duplicá-la aqui
+      // deixaria toda navegação do dashboard mais lenta sem ganho real.
+      await adminAuth.verifySessionCookie(sessionCookie);
+      authenticated = true;
+    } catch {
+      authenticated = false;
     }
   }
 
-  // Se tentar acessar rota privada e não estiver logado
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+  if (!authenticated) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    // Remove o cookie expirado se houver
+    // Remove o cookie inválido/expirado se houver
     const response = NextResponse.redirect(url);
     if (sessionCookie) {
       response.cookies.delete('session');

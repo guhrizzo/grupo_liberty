@@ -8,10 +8,10 @@ import LoadingBar from './components/LoadingBar'
 import ShareButton from './components/ShareButton'
 import { Button, ChipFilter, EmptyState, Input, Select } from './components/ui'
 import { useDebounce } from '@/utils/useDebounce'
-import { Veiculo } from './dashboard/veiculos/actions'
+import { PublicVeiculo } from './dashboard/veiculos/public'
 
 interface PublicVehiclesListProps {
-  veiculos: Veiculo[]
+  veiculos: PublicVeiculo[]
 }
 
 type CambioFilter = 'Todos' | 'Manual' | 'Automatico' | 'CVT'
@@ -74,9 +74,9 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
   }
 
-  const isEmDesconto = (v: Veiculo) =>
+  const isEmDesconto = (v: PublicVeiculo) =>
     v.preco != null && v.precoComDesconto != null && v.precoComDesconto < v.preco
-  const descontoPercent = (v: Veiculo) =>
+  const descontoPercent = (v: PublicVeiculo) =>
     Math.round((1 - (v.precoComDesconto as number) / (v.preco as number)) * 100)
 
   if (totalCount === 0) {
