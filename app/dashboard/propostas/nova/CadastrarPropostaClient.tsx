@@ -765,25 +765,6 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
         </div>
       </header>
 
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-liberty/30 bg-liberty/5 p-4 shadow-xs">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-liberty/15 text-liberty-deep">
-            <IconCoin size={20} stroke={2} />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty-deep/70">
-              Comissão do vendedor
-            </p>
-            <p className="text-xl font-black leading-tight text-liberty-deep sm:text-2xl">
-              {comissaoVendedor != null ? formatCurrency(comissaoVendedor) : '—'}
-            </p>
-          </div>
-        </div>
-        <p className="hidden max-w-[240px] shrink-0 text-right text-[11px] text-neutral-500 sm:block">
-          R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e o valor da proposta.
-        </p>
-      </div>
-
       <form
         onSubmit={handleSubmit}
         className="rounded-2xl border border-neutral-200 bg-white shadow-xs overflow-hidden"
