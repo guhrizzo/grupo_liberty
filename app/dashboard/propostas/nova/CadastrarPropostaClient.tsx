@@ -588,13 +588,14 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     }, 0)
   }, [formData.pecas])
 
-  // Proposta Prévia = metade da FIPE − quitação estimada, onde a quitação
-  // estimada é a dívida em aberto (parcelas restantes [totais − pagas] ×
-  // valor da parcela) × (1 − % quitação do banco) — a % de quitação é um
-  // desconto sobre a dívida, não a fração a pagar. Ex.: dívida 135.999 com
-  // 70% de quitação → quitação estimada = 135.999 × 0,30 = 40.799,70.
-  // A % de quitação usada aqui vem da coluna "Descontos" da tabela de
-  // bancos (BancoInfo.descontoPercent), casada pelo nome digitado no campo
+  // Proposta Prévia = metade da FIPE − quitação estimada − débitos do veículo
+  // (IPVA + licenciamento + multas). A quitação estimada é a dívida em
+  // aberto (parcelas restantes [totais − pagas] × valor da parcela) ×
+  // (1 − % quitação do banco) — a % de quitação é um desconto sobre a
+  // dívida, não a fração a pagar. Ex.: dívida 135.999 com 70% de quitação
+  // → quitação estimada = 135.999 × 0,30 = 40.799,70. A % de quitação
+  // usada aqui vem da coluna "Descontos" da tabela de bancos
+  // (BancoInfo.descontoPercent), casada pelo nome digitado no campo
   // "Banco / Financeira".
   const propostaPreviaParcelasEmAberto = Math.max(
     0,
@@ -617,9 +618,23 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     ? parseMoney(formData.veiculo_valor_fipe)
     : 0
 
+  // Débitos do veículo debitados do valor da proposta prévia. Só entram
+  // na conta os campos preenchidos com valor > 0.
+  const propostaPreviaValorIpva = formData.valor_ipva.trim()
+    ? parseMoney(formData.valor_ipva)
+    : 0
+  const propostaPreviaValorLicenciamento = formData.valor_licenciamento.trim()
+    ? parseMoney(formData.valor_licenciamento)
+    : 0
+  const propostaPreviaValorMultas = formData.valor_multas.trim()
+    ? parseMoney(formData.valor_multas)
+    : 0
+  const propostaPreviaDebitosVeiculo =
+    propostaPreviaValorIpva + propostaPreviaValorLicenciamento + propostaPreviaValorMultas
+
   const propostaPreviaValorBruto =
     propostaPreviaQuitacaoEstimada != null
-      ? propostaPreviaValorFipe / 2 - propostaPreviaQuitacaoEstimada
+      ? propostaPreviaValorFipe / 2 - propostaPreviaQuitacaoEstimada - propostaPreviaDebitosVeiculo
       : null
   const propostaPreviaValorFinal =
     propostaPreviaValorBruto != null ? Math.max(0, propostaPreviaValorBruto) : null
@@ -632,6 +647,10 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     quitacaoPercent: propostaPreviaQuitacaoPercent,
     quitacaoEstimada: propostaPreviaQuitacaoEstimada,
     valorFipe: propostaPreviaValorFipe,
+    valorIpva: propostaPreviaValorIpva,
+    valorLicenciamento: propostaPreviaValorLicenciamento,
+    valorMultas: propostaPreviaValorMultas,
+    debitosVeiculo: propostaPreviaDebitosVeiculo,
     valorBruto: propostaPreviaValorBruto,
     valor: propostaPreviaValorFinal,
   }
@@ -1261,6 +1280,28 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                         : '—'}
                     </span>
                   </div>
+                  {propostaPreviaCalc.debitosVeiculo > 0 && (
+                    <>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>− IPVA</span>
+                        <span className="font-semibold">
+                          {formatCurrency(propostaPreviaCalc.valorIpva)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>− Licenciamento</span>
+                        <span className="font-semibold">
+                          {formatCurrency(propostaPreviaCalc.valorLicenciamento)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span>− Multas</span>
+                        <span className="font-semibold">
+                          {formatCurrency(propostaPreviaCalc.valorMultas)}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   {!propostaPreviaCalc.bancoInfo && (
                     <p className="flex items-start gap-1.5 pt-1 text-amber-700">
                       <IconAlertTriangle size={12} className="mt-0.5 shrink-0" stroke={2.2} />
@@ -1286,7 +1327,8 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   <p className="mt-2">
                     Fórmula: metade do valor FIPE do veículo, menos a quitação estimada —
                     dívida em aberto (parcelas restantes × valor da parcela) × (1 − % de
-                    quitação do banco), já que a % representa um desconto sobre a dívida.
+                    quitação do banco) — e menos os débitos do veículo (IPVA +
+                    licenciamento + multas), quando informados.
                   </p>
                 </div>
               </div>
