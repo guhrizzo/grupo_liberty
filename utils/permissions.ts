@@ -107,6 +107,34 @@ export async function assertPodeGerarPropostaPDF(): Promise<SessionUser> {
 }
 
 /**
+ * Garante permissão para criar/editar/excluir veículos.
+ * Admin sempre pode. Demais roles precisam da flag
+ * `permissions.veiculos = true` no perfil (liberada pelo admin).
+ */
+export async function assertPodeGerenciarVeiculos(): Promise<SessionUser> {
+  const user = await getSessionUser()
+  if (!user) throw new Error('Não autenticado.')
+
+  const isAdmin = user.role === 'admin'
+  const hasFlag = user.permissions?.veiculos === true
+
+  if (!isAdmin && !hasFlag) {
+    throw new Error('Acesso negado. Você não tem permissão para gerenciar veículos.')
+  }
+
+  return user
+}
+
+/**
+ * Versão síncrona do gate de veículos — recebe o usuário já
+ * carregado e devolve apenas o booleano.
+ */
+export function canManageVeiculos(user: SessionUser | null | undefined): boolean {
+  if (!user) return false
+  return user.role === 'admin' || user.permissions?.veiculos === true
+}
+
+/**
  * Verifica se o usuário logado tem acesso a uma página/aba específica do dashboard.
  */
 export function hasPageAccess(

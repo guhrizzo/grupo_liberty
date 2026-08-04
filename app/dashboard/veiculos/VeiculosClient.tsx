@@ -82,6 +82,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentRole = currentUser?.role
+  const canEdit =
+    currentRole === 'admin' || currentUser?.permissions?.veiculos === true
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
@@ -600,7 +602,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             </h1>
           </div>
 
-          {currentRole === 'admin' && (
+          {canEdit && (
             <Button
               variant={showForm ? 'secondary' : 'liberty'}
               leftIcon={!showForm ? <IconPlus size={16} stroke={2.5} /> : undefined}
@@ -633,7 +635,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         )}
 
         {/* Formulário de Cadastro / Edição */}
-        {showForm && currentRole === 'admin' && (
+        {showForm && canEdit && (
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs mb-8">
             <h2 className="text-lg font-semibold text-neutral-900 mb-6">
               {editingId ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}
@@ -1527,13 +1529,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           </div>
         )}
 
-        {/* Aviso para não-admin */}
-        {currentRole !== 'admin' && (
+        {/* Aviso para quem não tem permissão */}
+        {!canEdit && (
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs mb-8">
             <div className="rounded-lg bg-amber-50 border border-amber-200 p-5 text-amber-800">
               <p className="font-semibold mb-1">Acesso Restrito</p>
               <p className="text-sm">
-                Apenas administradores podem cadastrar e gerenciar veículos.
+                Apenas administradores (ou usuários com permissão de veículos liberada) podem cadastrar e gerenciar veículos.
               </p>
             </div>
           </div>
@@ -1582,7 +1584,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   : 'Nenhum veículo encontrado com os filtros atuais'}
               </p>
               <p className="text-xs text-neutral-400 mt-1">
-                {currentRole === 'admin'
+                {canEdit
                   ? 'Clique em "Novo Veículo" para começar ou ajuste a busca.'
                   : 'Aguarde um administrador cadastrar veículos.'}
               </p>
@@ -1675,7 +1677,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                           >
                             Link
                           </Link>
-                          {currentRole === 'admin' && (
+                          {canEdit && (
                             <>
                               <button
                                 onClick={() => handleEdit(v)}

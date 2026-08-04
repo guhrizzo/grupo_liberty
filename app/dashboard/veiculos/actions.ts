@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { encrypt, decrypt } from '@/utils/crypto'
+import { assertPodeGerenciarVeiculos } from '@/utils/permissions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -186,25 +187,6 @@ async function getSessionUser() {
     return null
   }
 }
-
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const claims: any = user
-  const isAdminByClaim = claims.admin === true || claims.role === 'admin'
-
-  if (isAdminByClaim) return { user }
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Você precisa ser administrador para realizar esta ação.')
-  }
-
-  return { user }
-}
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
 /**
@@ -294,7 +276,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
  */
 export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: string[]; error?: string }> {
   try {
-    await assertAdmin()
+    await assertPodeGerenciarVeiculos()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -339,8 +321,8 @@ export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: 
 export async function createVehicle(formData: FormData): Promise<VeiculoResponse> {
   let user: any
   try {
-    const res = await assertAdmin()
-    user = res.user
+    const res = await assertPodeGerenciarVeiculos()
+    user = res
   } catch (err: any) {
     return { error: err.message }
   }
@@ -570,7 +552,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
  */
 export async function deleteVehicle(id: string): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertPodeGerenciarVeiculos()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -643,7 +625,7 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
  */
 export async function updateVehicle(id: string, formData: FormData): Promise<VeiculoResponse> {
   try {
-    await assertAdmin()
+    await assertPodeGerenciarVeiculos()
   } catch (err: any) {
     return { error: err.message }
   }

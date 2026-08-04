@@ -22,6 +22,7 @@ export default async function VeiculosPage() {
     id: user.uid,
     email: user.email,
     role: user.role,
+    permissions: user.permissions,
   }
 
   return <VeiculosClient currentUser={clientUser} veiculos={veiculos} />
