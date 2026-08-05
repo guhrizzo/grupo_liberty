@@ -90,6 +90,17 @@ export default function PublicFooter() {
 
       <div className="mx-auto max-w-7xl mt-8 pt-6 border-t border-neutral-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-500">
         <p>© {new Date().getFullYear()} Liberty Car. Todos os direitos reservados.</p>
+        <p>
+          Desenvolvido por{' '}
+          <a
+            href="https://www.instagram.com/gfrizzo_/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-neutral-700 hover:text-liberty transition-colors"
+          >
+            Gustavo Rizzo
+          </a>
+        </p>
         <FooterLegalLinks />
       </div>
     </footer>
