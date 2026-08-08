@@ -64,14 +64,48 @@ export async function login(_prev: LoginResult, formData: FormData): Promise<Log
   redirect('/dashboard')
 }
 
+export type EmailAuthMethod = { hasPassword: boolean; hasGoogle: boolean }
+
+/**
+ * Verifica, ANTES de abrir o popup do Google, se o e-mail já tem uma conta
+ * com senha. Usado pelo cliente para decidir se precisa pedir a senha atual
+ * e vincular deliberadamente (linkWithPopup) em vez de deixar o
+ * signInWithPopup decidir sozinho.
+ *
+ * Necessário porque este projeto Firebase tem a proteção de privacidade de
+ * e-mail ativada ("Improved Email Privacy"), que faz o signInWithPopup NÃO
+ * lançar mais o erro auth/account-exists-with-different-credential nesse
+ * caso — em vez disso, ele autentica direto na conta existente e derruba o
+ * provedor de senha, sem avisar. Pré-checar aqui evita essa troca.
+ *
+ * Não revela se a conta existe (mesmo retorno `false` para "não existe" e
+ * "existe mas sem senha") — só o "true" positivo confirma existência, e
+ * isso é inerente ao próprio fluxo de vinculação.
+ */
+export async function checkEmailAuthMethod(email: string): Promise<EmailAuthMethod> {
+  const cleanEmail = (email || '').trim()
+  if (!cleanEmail) return { hasPassword: false, hasGoogle: false }
+
+  try {
+    const user = await adminAuth.getUserByEmail(cleanEmail)
+    const providerIds = user.providerData.map((p) => p.providerId)
+    return {
+      hasPassword: providerIds.includes('password'),
+      hasGoogle: providerIds.includes('google.com'),
+    }
+  } catch {
+    // Conta não existe (ou erro de rede) — cliente segue o fluxo normal do Google.
+    return { hasPassword: false, hasGoogle: false }
+  }
+}
+
 /**
  * Login via Google (idToken já obtido no cliente com signInWithPopup).
  *
  * Nunca cria usuário novo: só cria a sessão se já existir um perfil em
  * `profiles/{uid}` (provisionado por um admin em /dashboard/usuarios).
- * Como o projeto Firebase usa "uma conta por e-mail", um e-mail que já
- * tem conta com senha só resulta nesse mesmo uid depois de vinculado no
- * cliente (linkWithCredential) — nunca em um uid/perfil duplicado.
+ * A vinculação de conta acontece no cliente ANTES desta função ser chamada
+ * (ver checkEmailAuthMethod) — aqui só validamos e criamos a sessão.
  * Se for um e-mail realmente novo (sem perfil), o usuário do Auth que o
  * popup do Google acabou de criar é removido, para não sobrar cadastro
  * órfão no banco.

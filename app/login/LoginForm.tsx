@@ -14,14 +14,13 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
-  linkWithCredential,
-  type AuthCredential,
+  linkWithPopup,
   type AuthError,
 } from 'firebase/auth'
 import { auth } from '@/utils/firebase/client'
 import LoadingBar from '../components/LoadingBar'
 import { Button, Input, useToast, ZoomIn } from '../components/ui'
-import { login, loginWithGoogle, requestPasswordReset } from './actions'
+import { login, loginWithGoogle, checkEmailAuthMethod, requestPasswordReset } from './actions'
 
 const initialState: { error?: string } = {}
 
@@ -29,7 +28,6 @@ const initialState: { error?: string } = {}
  *  atual para vincular o Google a essa mesma conta (nunca criamos uma nova). */
 interface LinkPrompt {
   email: string
-  credential: AuthCredential
 }
 
 /** Logo oficial colorido do Google ("G" multicolor), embutido como SVG puro
@@ -109,17 +107,37 @@ export default function LoginForm({
   // fica FORA do try/catch — se ficasse dentro, o redirect() do Next.js
   // (que funciona lançando uma exceção especial) seria capturado aqui como
   // se fosse um erro comum e o redirecionamento nunca aconteceria.
+  //
+  // Antes de abrir o popup, checamos no servidor se esse e-mail já tem
+  // conta com senha. Se tiver (e ainda não tiver Google vinculado), pedimos
+  // a senha atual e vinculamos deliberadamente (linkWithPopup) — não
+  // deixamos o signInWithPopup "decidir sozinho", porque neste projeto o
+  // Firebase tem a proteção de privacidade de e-mail ativada, que faz ele
+  // autenticar direto na conta existente e derrubar a senha sem avisar.
 
   function handleGoogleLogin() {
+    const typedEmail = email.trim()
+    if (!typedEmail) {
+      toast.error('Digite seu e-mail no campo acima antes de continuar com o Google.', 'Informe seu e-mail')
+      return
+    }
+
     startGoogleTransition(async () => {
+      const { hasPassword, hasGoogle } = await checkEmailAuthMethod(typedEmail)
+      if (hasPassword && !hasGoogle) {
+        setLinkPassword('')
+        setLinkPrompt({ email: typedEmail })
+        return
+      }
+
       let idToken: string
       try {
         const provider = new GoogleAuthProvider()
-        provider.setCustomParameters({ prompt: 'select_account' })
+        provider.setCustomParameters({ prompt: 'select_account', login_hint: typedEmail })
         const result = await signInWithPopup(auth, provider)
         idToken = await result.user.getIdToken()
       } catch (err) {
-        handleGoogleAuthError(err)
+        handleGoogleAuthError(err, typedEmail)
         return
       }
 
@@ -128,22 +146,17 @@ export default function LoginForm({
     })
   }
 
-  function handleGoogleAuthError(err: unknown) {
+  function handleGoogleAuthError(err: unknown, typedEmail: string) {
     const fbErr = err as AuthError
     if (fbErr?.code === 'auth/popup-closed-by-user' || fbErr?.code === 'auth/cancelled-popup-request') {
       return // usuário fechou o popup — sem toast de erro
     }
     if (fbErr?.code === 'auth/account-exists-with-different-credential') {
-      // Já existe uma conta com esse e-mail cadastrada com senha (o único
-      // outro método de login deste app). Em vez de criar um usuário novo,
-      // pedimos a senha atual para vincular o Google à MESMA conta.
-      const credential = GoogleAuthProvider.credentialFromError(fbErr)
-      const linkEmail = (fbErr.customData as { email?: string } | undefined)?.email
-      if (credential && linkEmail) {
-        setLinkPassword('')
-        setLinkPrompt({ email: linkEmail, credential })
-        return
-      }
+      // Não deveria mais acontecer (já pré-checamos acima), mas cobre uma
+      // eventual corrida — conta criada com senha entre o clique e o popup.
+      setLinkPassword('')
+      setLinkPrompt({ email: typedEmail })
+      return
     }
     console.error('Erro no login com Google:', err)
     toast.error('Não foi possível entrar com o Google. Tente novamente.', 'Erro')
@@ -152,20 +165,30 @@ export default function LoginForm({
   function handleLinkSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!linkPrompt) return
-    const { email: linkEmail, credential } = linkPrompt
+    const linkEmail = linkPrompt.email
 
     startLinkTransition(async () => {
       let idToken: string
       try {
-        const userCred = await signInWithEmailAndPassword(auth, linkEmail, linkPassword)
-        await linkWithCredential(userCred.user, credential)
-        idToken = await userCred.user.getIdToken()
+        // 1) Autentica com a senha atual (conta existente).
+        const passwordCred = await signInWithEmailAndPassword(auth, linkEmail, linkPassword)
+        // 2) Vincula o Google a ESSE MESMO usuário já autenticado — o
+        //    linkWithPopup garante que o Google não crie/assuma outra conta.
+        const provider = new GoogleAuthProvider()
+        provider.setCustomParameters({ prompt: 'select_account', login_hint: linkEmail })
+        const linkedCred = await linkWithPopup(passwordCred.user, provider)
+        idToken = await linkedCred.user.getIdToken()
       } catch (err) {
         const fbErr = err as AuthError
-        const msg =
-          fbErr?.code === 'auth/wrong-password' || fbErr?.code === 'auth/invalid-credential'
-            ? 'Senha incorreta.'
-            : 'Não foi possível vincular a conta. Tente novamente.'
+        if (fbErr?.code === 'auth/popup-closed-by-user' || fbErr?.code === 'auth/cancelled-popup-request') {
+          return // fechou o popup do Google — sem toast de erro
+        }
+        let msg = 'Não foi possível vincular a conta. Tente novamente.'
+        if (fbErr?.code === 'auth/wrong-password' || fbErr?.code === 'auth/invalid-credential') {
+          msg = 'Senha incorreta.'
+        } else if (fbErr?.code === 'auth/credential-already-in-use') {
+          msg = 'Essa conta Google já está vinculada a outro usuário.'
+        }
         toast.error(msg, 'Erro ao vincular')
         return
       }
