@@ -7,7 +7,16 @@ import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TipoCobranca = 'aluguel' | 'promissoria' | 'quinzenal'
-export type StatusParcela = 'pendente' | 'pago' | 'atrasado'
+export type StatusParcela = 'pendente' | 'parcial' | 'pago' | 'atrasado'
+
+export interface Pagamento {
+  id: string
+  parcelaId: string
+  cobrancaId: string
+  valor: number
+  data: string // YYYY-MM-DD — data em que o pagamento foi/será feito
+  criadoEm: string
+}
 
 export interface Parcela {
   id: string
@@ -16,8 +25,11 @@ export interface Parcela {
   valorParcela: number
   dataVencimento: string // YYYY-MM-DD
   status: StatusParcela
-  pago: boolean
-  pagoEm: string | null
+  pago: boolean // true somente quando quitada (valorPago >= valorParcela)
+  pagoEm: string | null // data do último pagamento registrado
+  valorPago: number // soma de todos os pagamentos registrados
+  valorRestante: number // valorParcela - valorPago (nunca negativo)
+  pagamentos: Pagamento[]
 }
 
 export interface Cobranca {
@@ -42,6 +54,12 @@ export type CobrancaResponse = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const EPSILON = 0.01
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date)
   d.setMonth(d.getMonth() + months)
@@ -64,25 +82,55 @@ function toDateString(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
-function computeStatus(dataVencimento: string, pago: boolean): StatusParcela {
-  if (pago) return 'pago'
+function computeStatus(
+  dataVencimento: string,
+  valorPago: number,
+  valorParcela: number,
+): StatusParcela {
+  if (valorPago >= valorParcela - EPSILON) return 'pago'
   const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
   const venc = new Date(dataVencimento + 'T00:00:00')
-  return venc < hoje ? 'atrasado' : 'pendente'
+  if (venc < hoje) return 'atrasado'
+  if (valorPago > 0) return 'parcial'
+  return 'pendente'
 }
 
-function serializeParcela(id: string, data: FirebaseFirestore.DocumentData): Parcela {
-  const pago = Boolean(data.pago)
+function serializePagamento(id: string, data: FirebaseFirestore.DocumentData): Pagamento {
+  return {
+    id,
+    parcelaId: data.parcelaId,
+    cobrancaId: data.cobrancaId,
+    valor: data.valor,
+    data: data.data,
+    criadoEm: data.criadoEm,
+  }
+}
+
+function serializeParcela(
+  id: string,
+  data: FirebaseFirestore.DocumentData,
+  pagamentos: Pagamento[],
+): Parcela {
+  const valorParcela = data.valorParcela
+  const pagamentosOrdenados = [...pagamentos].sort((a, b) => a.data.localeCompare(b.data))
+  const valorPago = round2(pagamentosOrdenados.reduce((s, p) => s + p.valor, 0))
+  const status = computeStatus(data.dataVencimento, valorPago, valorParcela)
   return {
     id,
     cobrancaId: data.cobrancaId,
     numeroParcela: data.numeroParcela,
-    valorParcela: data.valorParcela,
+    valorParcela,
     dataVencimento: data.dataVencimento,
-    status: computeStatus(data.dataVencimento, pago),
-    pago,
-    pagoEm: data.pagoEm ?? null,
+    status,
+    pago: status === 'pago',
+    pagoEm:
+      pagamentosOrdenados.length > 0
+        ? pagamentosOrdenados[pagamentosOrdenados.length - 1].data
+        : null,
+    valorPago,
+    valorRestante: Math.max(round2(valorParcela - valorPago), 0),
+    pagamentos: pagamentosOrdenados,
   }
 }
 
@@ -104,14 +152,23 @@ export async function getCobrancas(): Promise<Cobranca[]> {
     return []
   }
 
-  const [cobrancasSnap, parcelasSnap] = await Promise.all([
+  const [cobrancasSnap, parcelasSnap, pagamentosSnap] = await Promise.all([
     adminDb.collection('cobrancas').orderBy('criadoEm', 'desc').get(),
     adminDb.collection('cobranca_parcelas').orderBy('numeroParcela', 'asc').get(),
+    adminDb.collection('cobranca_pagamentos').get(),
   ])
+
+  const pagamentosPorParcela = new Map<string, Pagamento[]>()
+  for (const doc of pagamentosSnap.docs) {
+    const pg = serializePagamento(doc.id, doc.data())
+    const list = pagamentosPorParcela.get(pg.parcelaId) ?? []
+    list.push(pg)
+    pagamentosPorParcela.set(pg.parcelaId, list)
+  }
 
   const parcelasPorCobranca = new Map<string, Parcela[]>()
   for (const doc of parcelasSnap.docs) {
-    const p = serializeParcela(doc.id, doc.data())
+    const p = serializeParcela(doc.id, doc.data(), pagamentosPorParcela.get(doc.id) ?? [])
     const list = parcelasPorCobranca.get(p.cobrancaId) ?? []
     list.push(p)
     parcelasPorCobranca.set(p.cobrancaId, list)
@@ -228,9 +285,16 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
   }
 }
 
-export async function toggleParcela(
+/**
+ * Registra um pagamento (total ou parcial) para uma parcela.
+ * Ex.: parcela de R$100 — cliente paga R$80 agora e R$20 dias depois.
+ * Cada chamada cria um novo registro em `cobranca_pagamentos`; o valor pago
+ * da parcela é a soma de todos os registros.
+ */
+export async function registrarPagamento(
   parcelaId: string,
-  pago: boolean
+  valor: number,
+  data: string,
 ): Promise<CobrancaResponse> {
   try {
     await assertAuthorized()
@@ -239,15 +303,97 @@ export async function toggleParcela(
   }
 
   try {
-    await adminDb.collection('cobranca_parcelas').doc(parcelaId).update({
-      pago,
-      pagoEm: pago ? new Date().toISOString() : null,
+    if (!parcelaId) return { error: 'Parcela inválida.' }
+    if (typeof valor !== 'number' || isNaN(valor) || valor <= 0) {
+      return { error: 'Informe um valor de pagamento válido.' }
+    }
+    if (!data) return { error: 'Informe a data do pagamento.' }
+
+    const parcelaRef = adminDb.collection('cobranca_parcelas').doc(parcelaId)
+    const parcelaDoc = await parcelaRef.get()
+    if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
+    const parcelaData = parcelaDoc.data()!
+
+    const pagamentosSnap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('parcelaId', '==', parcelaId)
+      .get()
+    const totalPago = round2(
+      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
+    )
+    const saldo = round2(parcelaData.valorParcela - totalPago)
+
+    if (saldo <= EPSILON) return { error: 'Esta parcela já está totalmente paga.' }
+    const valorArredondado = round2(valor)
+    if (valorArredondado > saldo + EPSILON) {
+      return {
+        error: `Valor maior que o saldo restante (R$ ${saldo.toFixed(2).replace('.', ',')}).`,
+      }
+    }
+
+    await adminDb.collection('cobranca_pagamentos').add({
+      parcelaId,
+      cobrancaId: parcelaData.cobrancaId,
+      valor: valorArredondado,
+      data,
+      criadoEm: new Date().toISOString(),
     })
+
     revalidatePath('/dashboard/cobrancas')
-    return { success: 'Status atualizado.' }
+    const restante = round2(saldo - valorArredondado)
+    return {
+      success:
+        restante <= EPSILON
+          ? 'Parcela quitada!'
+          : `Pagamento registrado. Saldo restante: R$ ${restante.toFixed(2).replace('.', ',')}.`,
+    }
   } catch (err: any) {
-    console.error('[toggleParcela]', err)
-    return { error: 'Erro ao atualizar parcela.' }
+    console.error('[registrarPagamento]', err)
+    return { error: 'Erro ao registrar pagamento.' }
+  }
+}
+
+/** Remove um pagamento específico (estorno/correção de lançamento). */
+export async function removerPagamento(pagamentoId: string): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    await adminDb.collection('cobranca_pagamentos').doc(pagamentoId).delete()
+    revalidatePath('/dashboard/cobrancas')
+    return { success: 'Pagamento removido.' }
+  } catch (err: any) {
+    console.error('[removerPagamento]', err)
+    return { error: 'Erro ao remover pagamento.' }
+  }
+}
+
+/** Desfaz todos os pagamentos de uma parcela, voltando ela para "pendente". */
+export async function resetParcela(parcelaId: string): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    const snap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('parcelaId', '==', parcelaId)
+      .get()
+
+    const batch = adminDb.batch()
+    for (const doc of snap.docs) batch.delete(doc.ref)
+    await batch.commit()
+
+    revalidatePath('/dashboard/cobrancas')
+    return { success: 'Pagamentos da parcela removidos.' }
+  } catch (err: any) {
+    console.error('[resetParcela]', err)
+    return { error: 'Erro ao desfazer pagamentos.' }
   }
 }
 
@@ -259,13 +405,16 @@ export async function deletarCobranca(cobrancaId: string): Promise<CobrancaRespo
   }
 
   try {
-    // Excluir todas as parcelas
-    const parcelasSnap = await adminDb
-      .collection('cobranca_parcelas')
-      .where('cobrancaId', '==', cobrancaId)
-      .get()
+    // Excluir todas as parcelas e os pagamentos vinculados
+    const [parcelasSnap, pagamentosSnap] = await Promise.all([
+      adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
+      adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
+    ])
 
     const batch = adminDb.batch()
+    for (const doc of pagamentosSnap.docs) {
+      batch.delete(doc.ref)
+    }
     for (const doc of parcelasSnap.docs) {
       batch.delete(doc.ref)
     }

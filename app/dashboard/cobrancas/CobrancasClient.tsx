@@ -34,8 +34,8 @@ import {
 } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, parseMoney } from '@/utils/masks'
-import type { Cobranca, Parcela, TipoCobranca } from './actions'
-import { criarCobranca, toggleParcela, deletarCobranca } from './actions'
+import type { Cobranca, Parcela, Pagamento, TipoCobranca } from './actions'
+import { criarCobranca, registrarPagamento, removerPagamento, resetParcela, deletarCobranca } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -107,6 +107,13 @@ function StatusBadge({ status }: { status: Parcela['status'] }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
         <IconCheck size={10} stroke={3} /> Pago
+      </span>
+    )
+  }
+  if (status === 'parcial') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700">
+        <IconCoin size={10} stroke={2.5} /> Parcial
       </span>
     )
   }
@@ -186,6 +193,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [showVeiculoPicker, setShowVeiculoPicker] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [expandedMes, setExpandedMes] = useState<string | null>(null)
+  const [pagamentoParcela, setPagamentoParcela] = useState<Parcela | null>(null)
+  const [loadingPagamento, setLoadingPagamento] = useState(false)
 
   // Filtros da lista
   const [search, setSearch] = useState('')
@@ -216,15 +225,15 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const todasParcelas = useMemo(() => cobrancas.flatMap((c) => c.parcelas), [cobrancas])
 
   const totalRecebido = useMemo(
-    () => todasParcelas.filter((p) => p.pago).reduce((a, p) => a + p.valorParcela, 0),
+    () => todasParcelas.reduce((a, p) => a + p.valorPago, 0),
     [todasParcelas],
   )
   const totalPendente = useMemo(
-    () => todasParcelas.filter((p) => !p.pago).reduce((a, p) => a + p.valorParcela, 0),
+    () => todasParcelas.filter((p) => !p.pago).reduce((a, p) => a + p.valorRestante, 0),
     [todasParcelas],
   )
   const totalAtrasado = useMemo(
-    () => todasParcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorParcela, 0),
+    () => todasParcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorRestante, 0),
     [todasParcelas],
   )
   const totalGeral = useMemo(
@@ -232,7 +241,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
     [cobrancas],
   )
   const totalPagoGeral = useMemo(
-    () => cobrancas.reduce((a, c) => a + (c.parcelas.filter((p) => p.pago).reduce((s, p) => s + p.valorParcela, 0)), 0),
+    () => cobrancas.reduce((a, c) => a + c.parcelas.reduce((s, p) => s + p.valorPago, 0), 0),
     [cobrancas],
   )
   const percentualGeralRecebido = totalGeral > 0 ? Math.min((totalPagoGeral / totalGeral) * 100, 100) : 0
@@ -303,9 +312,9 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       .map(([mes, parcelas]) => ({
         mes,
         parcelas,
-        totalPago: parcelas.filter((p) => p.pago).reduce((a, p) => a + p.valorParcela, 0),
-        totalPendente: parcelas.filter((p) => !p.pago).reduce((a, p) => a + p.valorParcela, 0),
-        totalAtrasado: parcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorParcela, 0),
+        totalPago: parcelas.reduce((a, p) => a + p.valorPago, 0),
+        totalPendente: parcelas.filter((p) => !p.pago).reduce((a, p) => a + p.valorRestante, 0),
+        totalAtrasado: parcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorRestante, 0),
       }))
   }, [todasParcelas])
 
@@ -383,17 +392,58 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
     }
   }
 
-  const handleToggle = useCallback(
-    (parcelaId: string, pagoAtual: boolean) => {
-      startTransition(async () => {
-        const result = await toggleParcela(parcelaId, !pagoAtual)
+  const handleAbrirPagamento = useCallback((parcela: Parcela) => {
+    setPagamentoParcela(parcela)
+  }, [])
+
+  const handleFecharPagamento = useCallback(() => {
+    if (loadingPagamento) return
+    setPagamentoParcela(null)
+  }, [loadingPagamento])
+
+  const handleSubmitPagamento = useCallback(
+    async (valor: number, data: string) => {
+      if (!pagamentoParcela) return
+      setLoadingPagamento(true)
+      try {
+        const result = await registrarPagamento(pagamentoParcela.id, valor, data)
         if (result.error) {
           toast.error(result.error)
         } else {
-          toast.success(
-            pagoAtual ? 'Parcela desmarcada.' : 'Parcela marcada como paga!',
-            undefined,
-          )
+          toast.success(result.success || 'Pagamento registrado!')
+          setPagamentoParcela(null)
+          router.refresh()
+        }
+      } finally {
+        setLoadingPagamento(false)
+      }
+    },
+    [pagamentoParcela, router, toast],
+  )
+
+  const handleDesfazerParcela = useCallback(
+    (parcelaId: string) => {
+      startTransition(async () => {
+        const result = await resetParcela(parcelaId)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Pagamentos da parcela removidos.')
+          router.refresh()
+        }
+      })
+    },
+    [router, toast],
+  )
+
+  const handleRemoverPagamento = useCallback(
+    (pagamentoId: string) => {
+      startTransition(async () => {
+        const result = await removerPagamento(pagamentoId)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success('Pagamento removido.')
           router.refresh()
         }
       })
@@ -534,16 +584,21 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                     </p>
                     <p className="truncate text-[11px] text-neutral-500">
                       Vence {formatDate(p.dataVencimento)}
+                      {p.status === 'parcial' && (
+                        <span className="ml-1 font-semibold text-sky-600">
+                          · pago {formatCurrency(p.valorPago)} de {formatCurrency(p.valorParcela)}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <span className="shrink-0 text-sm font-bold tabular-nums text-neutral-900">
-                    {formatCurrency(p.valorParcela)}
+                    {formatCurrency(p.valorRestante)}
                   </span>
                   <button
                     type="button"
-                    onClick={() => handleToggle(p.id, p.pago)}
+                    onClick={() => handleAbrirPagamento(p)}
                     disabled={isPending}
-                    aria-label="Marcar como paga"
+                    aria-label="Registrar pagamento"
                     className="inline-flex h-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 px-2.5 text-white shadow-xs transition-colors hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
                   >
                     <IconCheck size={14} stroke={2.5} />
@@ -701,7 +756,9 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 isExpanded={expandedId === c.id}
                 onToggleExpand={() => setExpandedId((curr) => (curr === c.id ? null : c.id))}
                 onRequestDelete={() => setDeleteId(c.id)}
-                onToggleParcela={handleToggle}
+                onPagar={handleAbrirPagamento}
+                onDesfazer={handleDesfazerParcela}
+                onRemoverPagamento={handleRemoverPagamento}
                 pendingId={null}
                 isToggling={isPending}
               />
@@ -791,7 +848,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                         mes={mes}
                         parcelas={parcelas}
                         cobrancas={cobrancas}
-                        onToggle={handleToggle}
+                        onPagar={handleAbrirPagamento}
                         isPending={isPending}
                       />
                     </div>
@@ -849,6 +906,17 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
         value={veiculoId || null}
         onSelect={setVeiculoId}
       />
+
+      {/* Modal de registro de pagamento (total ou parcial) */}
+      {pagamentoParcela && (
+        <PagamentoModal
+          parcela={pagamentoParcela}
+          cliente={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.clienteNome ?? null}
+          loading={loadingPagamento}
+          onClose={handleFecharPagamento}
+          onSubmit={handleSubmitPagamento}
+        />
+      )}
 
       {/* Confirmação de exclusão — com nome do cliente */}
       {cobrancaParaExcluir && typeof document !== 'undefined' &&
@@ -1004,7 +1072,9 @@ function CobrancaCard({
   isExpanded,
   onToggleExpand,
   onRequestDelete,
-  onToggleParcela,
+  onPagar,
+  onDesfazer,
+  onRemoverPagamento,
   isToggling,
 }: {
   cobranca: Cobranca
@@ -1012,12 +1082,14 @@ function CobrancaCard({
   isExpanded: boolean
   onToggleExpand: () => void
   onRequestDelete: () => void
-  onToggleParcela: (id: string, pagoAtual: boolean) => void
+  onPagar: (parcela: Parcela) => void
+  onDesfazer: (parcelaId: string) => void
+  onRemoverPagamento: (pagamentoId: string) => void
   pendingId: string | null
   isToggling: boolean
 }) {
   const totalPago = useMemo(
-    () => c.parcelas.filter((p) => p.pago).reduce((a, p) => a + p.valorParcela, 0),
+    () => c.parcelas.reduce((a, p) => a + p.valorPago, 0),
     [c.parcelas],
   )
   const pagas = c.parcelas.filter((p) => p.pago).length
@@ -1182,7 +1254,9 @@ function CobrancaCard({
           <ParcelasList
             parcelas={c.parcelas}
             canEdit={canEdit}
-            onToggle={onToggleParcela}
+            onPagar={onPagar}
+            onDesfazer={onDesfazer}
+            onRemoverPagamento={onRemoverPagamento}
             isToggling={isToggling}
           />
         </div>
@@ -1193,15 +1267,57 @@ function CobrancaCard({
 
 // ─── Lista de Parcelas ─────────────────────────────────────────────────────
 
+function PagamentosMini({
+  pagamentos,
+  canEdit,
+  onRemover,
+}: {
+  pagamentos: Pagamento[]
+  canEdit: boolean
+  onRemover: (pagamentoId: string) => void
+}) {
+  if (pagamentos.length === 0) return null
+  return (
+    <ul className="mt-1.5 space-y-1">
+      {pagamentos.map((pg) => (
+        <li
+          key={pg.id}
+          className="flex items-center gap-1.5 text-[10px] text-neutral-500"
+        >
+          <IconCoin size={10} className="shrink-0 text-sky-500" />
+          <span>
+            {formatCurrency(pg.valor)} em {formatDate(pg.data)}
+          </span>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => onRemover(pg.id)}
+              aria-label="Remover este pagamento"
+              title="Remover este pagamento"
+              className="ml-0.5 rounded p-0.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
+            >
+              <IconX size={10} stroke={2.5} />
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function ParcelasList({
   parcelas,
   canEdit,
-  onToggle,
+  onPagar,
+  onDesfazer,
+  onRemoverPagamento,
   isToggling,
 }: {
   parcelas: Parcela[]
   canEdit: boolean
-  onToggle: (id: string, pagoAtual: boolean) => void
+  onPagar: (parcela: Parcela) => void
+  onDesfazer: (parcelaId: string) => void
+  onRemoverPagamento: (pagamentoId: string) => void
   isToggling: boolean
 }) {
   const hoje = new Date()
@@ -1218,7 +1334,13 @@ function ParcelasList({
             <div
               key={p.id}
               className={`flex items-center gap-3 px-4 py-3 ${
-                p.pago ? 'bg-emerald-50/30' : p.status === 'atrasado' ? 'bg-rose-50/30' : ''
+                p.pago
+                  ? 'bg-emerald-50/30'
+                  : p.status === 'atrasado'
+                    ? 'bg-rose-50/30'
+                    : p.status === 'parcial'
+                      ? 'bg-sky-50/30'
+                      : ''
               }`}
             >
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-[11px] font-bold text-neutral-700">
@@ -1243,21 +1365,32 @@ function ParcelasList({
                       · {Math.abs(dias)} dia{Math.abs(dias) === 1 ? '' : 's'} atrasado
                     </span>
                   )}
+                  {!p.pago && p.valorPago > 0 && (
+                    <span className="ml-1 font-semibold text-sky-600">
+                      · falta {formatCurrency(p.valorRestante)}
+                    </span>
+                  )}
                 </p>
+                <PagamentosMini
+                  pagamentos={p.pagamentos}
+                  canEdit={canEdit}
+                  onRemover={onRemoverPagamento}
+                />
               </div>
               {canEdit && (
                 <button
                   type="button"
                   disabled={isToggling}
-                  onClick={() => onToggle(p.id, p.pago)}
-                  aria-label={p.pago ? 'Desmarcar parcela' : 'Marcar parcela como paga'}
+                  onClick={() => (p.pago ? onDesfazer(p.id) : onPagar(p))}
+                  aria-label={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
+                  title={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
                   className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-50 cursor-pointer ${
                     p.pago
                       ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                       : 'bg-emerald-600 text-white hover:bg-emerald-700'
                   }`}
                 >
-                  <IconCheck size={14} stroke={2.5} />
+                  {p.pago ? <IconX size={14} stroke={2.5} /> : <IconCheck size={14} stroke={2.5} />}
                 </button>
               )}
             </div>
@@ -1287,28 +1420,42 @@ function ParcelasList({
                       ? 'bg-emerald-50/30'
                       : p.status === 'atrasado'
                         ? 'bg-rose-50/30'
-                        : ''
+                        : p.status === 'parcial'
+                          ? 'bg-sky-50/30'
+                          : ''
                   }`}
                 >
-                  <td className="px-5 py-3 font-bold text-neutral-700">
+                  <td className="px-5 py-3 font-bold text-neutral-700 align-top">
                     {p.numeroParcela}ª
                   </td>
-                  <td className="px-5 py-3 text-neutral-600">
+                  <td className="px-5 py-3 text-neutral-600 align-top">
                     {formatDate(p.dataVencimento)}
                   </td>
-                  <td className="px-5 py-3 font-bold text-neutral-900">
-                    {formatCurrency(p.valorParcela)}
+                  <td className="px-5 py-3 align-top">
+                    <p className="font-bold text-neutral-900">
+                      {formatCurrency(p.valorParcela)}
+                    </p>
+                    {!p.pago && p.valorPago > 0 && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
+                        pago {formatCurrency(p.valorPago)} · falta {formatCurrency(p.valorRestante)}
+                      </p>
+                    )}
+                    <PagamentosMini
+                      pagamentos={p.pagamentos}
+                      canEdit={canEdit}
+                      onRemover={onRemoverPagamento}
+                    />
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 align-top">
                     <StatusBadge status={p.status} />
                   </td>
-                  <td className="px-5 py-3 text-center">
+                  <td className="px-5 py-3 text-center align-top">
                     {canEdit && (
                       <button
                         type="button"
                         disabled={isToggling}
-                        onClick={() => onToggle(p.id, p.pago)}
-                        title={p.pago ? 'Marcar como não pago' : 'Marcar como pago'}
+                        onClick={() => (p.pago ? onDesfazer(p.id) : onPagar(p))}
+                        title={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
                         className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer ${
                           p.pago
                             ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
@@ -1317,11 +1464,11 @@ function ParcelasList({
                       >
                         {p.pago ? (
                           <>
-                            <IconX size={11} stroke={2.5} /> Desmarcar
+                            <IconX size={11} stroke={2.5} /> Desfazer
                           </>
                         ) : (
                           <>
-                            <IconCheck size={11} stroke={2.5} /> Pago
+                            <IconCheck size={11} stroke={2.5} /> {p.valorPago > 0 ? 'Pagar resto' : 'Pagar'}
                           </>
                         )}
                       </button>
@@ -1343,13 +1490,13 @@ function ExtratoMesDetalhes({
   mes: _mes,
   parcelas,
   cobrancas,
-  onToggle,
+  onPagar,
   isPending,
 }: {
   mes: string
   parcelas: Parcela[]
   cobrancas: Cobranca[]
-  onToggle: (id: string, pagoAtual: boolean) => void
+  onPagar: (parcela: Parcela) => void
   isPending: boolean
 }) {
   void _mes
@@ -1361,9 +1508,7 @@ function ExtratoMesDetalhes({
             Recebido
           </p>
           <p className="text-base font-bold text-emerald-700">
-            {formatCurrency(
-              parcelas.filter((p) => p.pago).reduce((a, p) => a + p.valorParcela, 0),
-            )}
+            {formatCurrency(parcelas.reduce((a, p) => a + p.valorPago, 0))}
           </p>
         </div>
         <div>
@@ -1372,7 +1517,9 @@ function ExtratoMesDetalhes({
           </p>
           <p className="text-base font-bold text-amber-600">
             {formatCurrency(
-              parcelas.filter((p) => !p.pago && p.status !== 'atrasado').reduce((a, p) => a + p.valorParcela, 0),
+              parcelas
+                .filter((p) => !p.pago && p.status !== 'atrasado')
+                .reduce((a, p) => a + p.valorRestante, 0),
             )}
           </p>
         </div>
@@ -1382,7 +1529,7 @@ function ExtratoMesDetalhes({
           </p>
           <p className="text-base font-bold text-rose-600">
             {formatCurrency(
-              parcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorParcela, 0),
+              parcelas.filter((p) => p.status === 'atrasado').reduce((a, p) => a + p.valorRestante, 0),
             )}
           </p>
         </div>
@@ -1413,22 +1560,25 @@ function ExtratoMesDetalhes({
                   </p>
                   <p className="truncate text-[10px] text-neutral-500">
                     {formatDate(p.dataVencimento)} · {formatCurrency(p.valorParcela)}
+                    {!p.pago && p.valorPago > 0 && (
+                      <span className="ml-1 font-semibold text-sky-600">
+                        · falta {formatCurrency(p.valorRestante)}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <StatusBadge status={p.status} />
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => onToggle(p.id, p.pago)}
-                  className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-50 cursor-pointer ${
-                    p.pago
-                      ? 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  }`}
-                  aria-label={p.pago ? 'Desmarcar' : 'Marcar como pago'}
-                >
-                  <IconCheck size={12} stroke={2.5} />
-                </button>
+                {!p.pago && (
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => onPagar(p)}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    aria-label="Registrar pagamento"
+                  >
+                    <IconCheck size={12} stroke={2.5} />
+                  </button>
+                )}
               </li>
             )
           })}
@@ -1786,6 +1936,176 @@ function NovaCobrancaModal({
               <>
                 <IconCheck size={14} stroke={2.5} />
                 Cadastrar
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Modal Registrar Pagamento (total ou parcial) ─────────────────────────
+
+function PagamentoModal({
+  parcela,
+  cliente,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  parcela: Parcela
+  cliente: string | null
+  loading: boolean
+  onClose: () => void
+  onSubmit: (valor: number, data: string) => void
+}) {
+  const [valor, setValor] = useState(() => maskMoney(String(Math.round(parcela.valorRestante * 100))))
+  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  if (typeof document === 'undefined') return null
+
+  const valorNum = parseMoney(valor)
+  const restanteAposPagamento = Math.max(round2(parcela.valorRestante - valorNum), 0)
+  const ehParcial = valorNum > 0 && valorNum < parcela.valorRestante - 0.01
+
+  function round2(n: number) {
+    return Math.round(n * 100) / 100
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
+    if (!valorNum || valorNum <= 0) {
+      setErrorMsg('Informe um valor válido.')
+      return
+    }
+    if (valorNum > parcela.valorRestante + 0.01) {
+      setErrorMsg(`O valor não pode ser maior que o saldo restante (${formatCurrency(parcela.valorRestante)}).`)
+      return
+    }
+    if (!data) {
+      setErrorMsg('Informe a data do pagamento.')
+      return
+    }
+    onSubmit(valorNum, data)
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose()
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-emerald-50 via-white to-white px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+              <IconCoin size={20} stroke={2} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-950">Registrar Pagamento</h2>
+              <p className="mt-0.5 text-xs text-neutral-600">
+                {cliente ?? 'Cliente'} · Parcela {parcela.numeroParcela}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            <IconX size={18} stroke={2} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-500">Valor da parcela</span>
+              <span className="font-bold text-neutral-900">{formatCurrency(parcela.valorParcela)}</span>
+            </div>
+            {parcela.valorPago > 0 && (
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-neutral-500">Já pago</span>
+                <span className="font-bold text-emerald-700">{formatCurrency(parcela.valorPago)}</span>
+              </div>
+            )}
+            <div className="mt-1 flex items-center justify-between text-xs">
+              <span className="text-neutral-500">Saldo restante</span>
+              <span className="font-bold text-rose-600">{formatCurrency(parcela.valorRestante)}</span>
+            </div>
+          </div>
+
+          <Input
+            id="valorPagamento"
+            label="Valor a pagar agora *"
+            value={valor}
+            onChange={(e) => setValor(maskMoney(e.target.value))}
+            placeholder="R$ 0,00"
+            inputMode="numeric"
+            leftIcon={<IconCurrencyDollar size={14} />}
+            required
+            autoFocus
+          />
+
+          <Input
+            id="dataPagamento"
+            label="Data do pagamento *"
+            type="date"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            leftIcon={<IconCalendar size={14} />}
+            required
+          />
+
+          {ehParcial && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-700">
+              Pagamento parcial — restarão {formatCurrency(restanteAposPagamento)} em aberto nesta parcela.
+            </p>
+          )}
+
+          {errorMsg && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <IconCheck size={14} stroke={2.5} />
+                Confirmar Pagamento
               </>
             )}
           </button>
