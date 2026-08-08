@@ -3,7 +3,7 @@
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { adminAuth } from '@/utils/firebase/admin'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 
 type LoginResult = { error?: string }
 
@@ -61,6 +61,58 @@ export async function login(_prev: LoginResult, formData: FormData): Promise<Log
 
   revalidatePath('/', 'layout')
   // Mantemos redirect aqui porque o sucesso invalida a página inteira.
+  redirect('/dashboard')
+}
+
+/**
+ * Login via Google (idToken já obtido no cliente com signInWithPopup).
+ *
+ * Nunca cria usuário novo: só cria a sessão se já existir um perfil em
+ * `profiles/{uid}` (provisionado por um admin em /dashboard/usuarios).
+ * Como o projeto Firebase usa "uma conta por e-mail", um e-mail que já
+ * tem conta com senha só resulta nesse mesmo uid depois de vinculado no
+ * cliente (linkWithCredential) — nunca em um uid/perfil duplicado.
+ * Se for um e-mail realmente novo (sem perfil), o usuário do Auth que o
+ * popup do Google acabou de criar é removido, para não sobrar cadastro
+ * órfão no banco.
+ */
+export async function loginWithGoogle(idToken: string): Promise<LoginResult> {
+  if (!idToken) {
+    return { error: 'Token do Google inválido.' }
+  }
+
+  try {
+    const decoded = await adminAuth.verifyIdToken(idToken)
+
+    const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+    if (!profileDoc.exists) {
+      await adminAuth.deleteUser(decoded.uid).catch((err) => {
+        console.error('Erro ao limpar conta Google não autorizada:', err)
+      })
+      return {
+        error:
+          'Esta conta Google ainda não tem acesso liberado. Peça a um administrador para cadastrar seu e-mail no sistema.',
+      }
+    }
+
+    const expiresIn = 60 * 60 * 24 * 5 * 1000
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn })
+
+    const cookieStore = await cookies()
+    cookieStore.set('session', sessionCookie, {
+      maxAge: expiresIn / 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      sameSite: 'lax',
+    })
+  } catch (error: unknown) {
+    console.error('Erro no login com Google:', error)
+    return { error: 'Não foi possível autenticar com o Google. Tente novamente.' }
+  }
+
+  revalidatePath('/', 'layout')
+  // Fora do try/catch: redirect() lança uma exceção de controle do Next.js.
   redirect('/dashboard')
 }
 
