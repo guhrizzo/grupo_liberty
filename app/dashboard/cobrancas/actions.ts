@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { processarLembretesCobranca } from '@/utils/cobrancas/processar-lembretes'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,11 +31,14 @@ export interface Parcela {
   valorPago: number // soma de todos os pagamentos registrados
   valorRestante: number // valorParcela - valorPago (nunca negativo)
   pagamentos: Pagamento[]
+  lembreteEnviadoEm: string | null // data (ISO) em que o e-mail de lembrete (antes do vencimento) foi enviado
+  avisoAtrasoEnviadoEm: string | null // data (ISO) em que o e-mail de cobrança em atraso foi enviado
 }
 
 export interface Cobranca {
   id: string
   clienteNome: string
+  clienteEmail: string | null
   veiculoId: string
   veiculoResumo: string
   valorTotal: number
@@ -42,6 +46,8 @@ export interface Cobranca {
   numeroParcelas: number
   diaVencimento: number
   tipo: TipoCobranca
+  diasAvisoAntecedencia: number | null // "cobrar quando faltar X dias" — dispara e-mail de lembrete
+  avisarAtraso: boolean // também avisar por e-mail quando a parcela vencer sem pagamento
   criadoEm: string
   criadoPorUid: string | null
   parcelas: Parcela[]
@@ -131,6 +137,8 @@ function serializeParcela(
     valorPago,
     valorRestante: Math.max(round2(valorParcela - valorPago), 0),
     pagamentos: pagamentosOrdenados,
+    lembreteEnviadoEm: data.lembreteEnviadoEm ?? null,
+    avisoAtrasoEnviadoEm: data.avisoAtrasoEnviadoEm ?? null,
   }
 }
 
@@ -179,6 +187,7 @@ export async function getCobrancas(): Promise<Cobranca[]> {
     return {
       id: doc.id,
       clienteNome: data.clienteNome,
+      clienteEmail: data.clienteEmail ?? null,
       veiculoId: data.veiculoId,
       veiculoResumo: data.veiculoResumo,
       valorTotal: data.valorTotal,
@@ -189,6 +198,11 @@ export async function getCobrancas(): Promise<Cobranca[]> {
       numeroParcelas: data.numeroParcelas,
       diaVencimento: data.diaVencimento,
       tipo: data.tipo,
+      diasAvisoAntecedencia:
+        typeof data.diasAvisoAntecedencia === 'number' && data.diasAvisoAntecedencia > 0
+          ? data.diasAvisoAntecedencia
+          : null,
+      avisarAtraso: Boolean(data.avisarAtraso),
       criadoEm: data.criadoEm,
       criadoPorUid: data.criadoPorUid ?? null,
       parcelas: parcelasPorCobranca.get(doc.id) ?? [],
@@ -207,6 +221,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
 
   try {
     const clienteNome = (formData.get('clienteNome') as string || '').trim()
+    const clienteEmailRaw = (formData.get('clienteEmail') as string || '').trim()
     const veiculoId = (formData.get('veiculoId') as string || '').trim()
     const veiculoResumo = (formData.get('veiculoResumo') as string || '').trim()
     const valorTotal = parseFloat(formData.get('valorTotal') as string || '0')
@@ -217,6 +232,10 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     const valorEntradaRaw = parseFloat(formData.get('valorEntrada') as string || '0')
     const valorEntrada =
       !isNaN(valorEntradaRaw) && valorEntradaRaw > 0 ? valorEntradaRaw : 0
+    const diasAvisoRaw = parseInt(formData.get('diasAvisoAntecedencia') as string || '', 10)
+    const diasAvisoAntecedencia =
+      !isNaN(diasAvisoRaw) && diasAvisoRaw > 0 ? Math.min(diasAvisoRaw, 60) : null
+    const avisarAtraso = (formData.get('avisarAtraso') as string) === 'true'
 
     if (!clienteNome) return { error: 'Informe o nome do cliente.' }
     if (!veiculoId) return { error: 'Selecione um veículo.' }
@@ -225,6 +244,12 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       return { error: 'O valor de entrada deve ser menor que o valor total.' }
     if (isNaN(numeroParcelas) || numeroParcelas < 1 || numeroParcelas > 300) return { error: 'Número de parcelas inválido (1–300).' }
     if (!primeiraParcela) return { error: 'Informe a data da primeira parcela.' }
+    if ((diasAvisoAntecedencia || avisarAtraso) && !clienteEmailRaw) {
+      return { error: 'Informe o e-mail do cliente para poder enviar os avisos.' }
+    }
+    if (clienteEmailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteEmailRaw)) {
+      return { error: 'E-mail do cliente inválido.' }
+    }
 
     const saldo = valorTotal - valorEntrada
     const valorParcela = Math.round((saldo / numeroParcelas) * 100) / 100
@@ -232,6 +257,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     // Criar documento da cobrança
     const cobrancaRef = await adminDb.collection('cobrancas').add({
       clienteNome,
+      clienteEmail: clienteEmailRaw || null,
       veiculoId,
       veiculoResumo,
       valorTotal,
@@ -239,6 +265,8 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       numeroParcelas,
       diaVencimento,
       tipo,
+      diasAvisoAntecedencia,
+      avisarAtraso,
       criadoEm: new Date().toISOString(),
       criadoPorUid: uid,
     })
@@ -282,6 +310,99 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
   } catch (err: any) {
     console.error('[criarCobranca]', err)
     return { error: 'Erro ao salvar. Tente novamente.' }
+  }
+}
+
+/**
+ * Atualiza o e-mail do cliente e/ou o aviso de vencimento ("cobrar quando
+ * faltar X dias") de uma cobrança já existente. Permite ligar o lembrete
+ * em cobranças criadas antes desse recurso, sem precisar recriá-las.
+ */
+export async function atualizarLembrete(
+  cobrancaId: string,
+  clienteEmail: string,
+  diasAvisoAntecedencia: number | null,
+  avisarAtraso: boolean,
+): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+    const emailLimpo = (clienteEmail || '').trim()
+    const dias =
+      diasAvisoAntecedencia != null && diasAvisoAntecedencia > 0
+        ? Math.min(Math.round(diasAvisoAntecedencia), 60)
+        : null
+
+    if ((dias || avisarAtraso) && !emailLimpo) {
+      return { error: 'Informe o e-mail do cliente para poder enviar os avisos.' }
+    }
+    if (emailLimpo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
+      return { error: 'E-mail do cliente inválido.' }
+    }
+
+    await adminDb.collection('cobrancas').doc(cobrancaId).update({
+      clienteEmail: emailLimpo || null,
+      diasAvisoAntecedencia: dias,
+      avisarAtraso: Boolean(avisarAtraso),
+    })
+
+    revalidatePath('/dashboard/cobrancas')
+    return {
+      success:
+        dias || avisarAtraso
+          ? 'Lembrete configurado.'
+          : 'Lembretes desativados.',
+    }
+  } catch (err: any) {
+    console.error('[atualizarLembrete]', err)
+    return { error: 'Erro ao salvar o lembrete.' }
+  }
+}
+
+export type TestarLembretesResponse = CobrancaResponse & {
+  verificados?: number
+  enviados?: number
+}
+
+/**
+ * Dispara manualmente a checagem de lembretes de vencimento — mesma lógica
+ * do cron diário (/api/cron/lembretes-cobranca). Existe para testar em
+ * ambiente local/dev, onde não há cron da Vercel rodando sozinho.
+ */
+export async function testarLembretes(): Promise<TestarLembretesResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    const { verificados, enviados, erros } = await processarLembretesCobranca()
+    revalidatePath('/dashboard/cobrancas')
+
+    if (erros.length > 0) {
+      return {
+        error: `${enviados} enviado(s), mas ${erros.length} lembrete(s) falharam ao enviar. Verifique os logs.`,
+        verificados,
+        enviados,
+      }
+    }
+    return {
+      success:
+        enviados > 0
+          ? `${enviados} lembrete${enviados === 1 ? '' : 's'} enviado${enviados === 1 ? '' : 's'} (${verificados} parcela${verificados === 1 ? '' : 's'} verificada${verificados === 1 ? '' : 's'}).`
+          : `Nenhum lembrete a enviar agora (${verificados} parcela${verificados === 1 ? '' : 's'} verificada${verificados === 1 ? '' : 's'}).`,
+      verificados,
+      enviados,
+    }
+  } catch (err: any) {
+    console.error('[testarLembretes]', err)
+    return { error: 'Erro ao processar lembretes.' }
   }
 }
 

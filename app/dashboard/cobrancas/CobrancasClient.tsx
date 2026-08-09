@@ -25,6 +25,10 @@ import {
   IconHash,
   IconChevronRight,
   IconStack2,
+  IconMail,
+  IconBell,
+  IconBellOff,
+  IconBellRinging,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -35,7 +39,15 @@ import {
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, parseMoney } from '@/utils/masks'
 import type { Cobranca, Parcela, Pagamento, TipoCobranca } from './actions'
-import { criarCobranca, registrarPagamento, removerPagamento, resetParcela, deletarCobranca } from './actions'
+import {
+  criarCobranca,
+  registrarPagamento,
+  removerPagamento,
+  resetParcela,
+  deletarCobranca,
+  atualizarLembrete,
+  testarLembretes,
+} from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -195,6 +207,9 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [expandedMes, setExpandedMes] = useState<string | null>(null)
   const [pagamentoParcela, setPagamentoParcela] = useState<Parcela | null>(null)
   const [loadingPagamento, setLoadingPagamento] = useState(false)
+  const [lembreteCobranca, setLembreteCobranca] = useState<Cobranca | null>(null)
+  const [loadingLembrete, setLoadingLembrete] = useState(false)
+  const [testandoLembretes, startTesteLembretes] = useTransition()
 
   // Filtros da lista
   const [search, setSearch] = useState('')
@@ -203,11 +218,14 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
 
   // Form
   const [clienteNome, setClienteNome] = useState('')
+  const [clienteEmail, setClienteEmail] = useState('')
   const [veiculoId, setVeiculoId] = useState('')
   const [valorTotal, setValorTotal] = useState('')
   const [valorEntrada, setValorEntrada] = useState('')
   const [numeroParcelas, setNumeroParcelas] = useState('1')
   const [diaVencimento, setDiaVencimento] = useState('1')
+  const [diasAvisoAntecedencia, setDiasAvisoAntecedencia] = useState('')
+  const [avisarAtraso, setAvisarAtraso] = useState(false)
   const [tipo, setTipo] = useState<TipoCobranca>('promissoria')
   const [primeiraParcela, setPrimeiraParcela] = useState(() => {
     return new Date().toISOString().split('T')[0]
@@ -322,11 +340,14 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
 
   const resetForm = useCallback(() => {
     setClienteNome('')
+    setClienteEmail('')
     setVeiculoId('')
     setValorTotal('')
     setValorEntrada('')
     setNumeroParcelas('1')
     setDiaVencimento('1')
+    setDiasAvisoAntecedencia('')
+    setAvisarAtraso(false)
     setTipo('promissoria')
     setPrimeiraParcela(new Date().toISOString().split('T')[0])
   }, [])
@@ -360,6 +381,10 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       toast.error('Informe a data da primeira parcela.', 'Campo obrigatório')
       return
     }
+    if ((diasAvisoAntecedencia.trim() || avisarAtraso) && !clienteEmail.trim()) {
+      toast.error('Informe o e-mail do cliente para poder enviar os avisos.', 'Campo obrigatório')
+      return
+    }
 
     setLoadingForm(true)
     try {
@@ -370,6 +395,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
 
       const fd = new FormData()
       fd.append('clienteNome', nome)
+      fd.append('clienteEmail', clienteEmail.trim())
       fd.append('veiculoId', veiculoId)
       fd.append('veiculoResumo', veiculoResumo)
       fd.append('valorTotal', String(parseMoney(valorTotal) || 0))
@@ -378,6 +404,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       fd.append('diaVencimento', diaVencimento)
       fd.append('tipo', tipo)
       fd.append('primeiraParcela', primeiraParcela)
+      fd.append('diasAvisoAntecedencia', diasAvisoAntecedencia.trim())
+      fd.append('avisarAtraso', String(avisarAtraso))
 
       const result = await criarCobranca(fd)
       if (result.error) {
@@ -451,6 +479,47 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
     [router, toast],
   )
 
+  const handleAbrirLembrete = useCallback((cobranca: Cobranca) => {
+    setLembreteCobranca(cobranca)
+  }, [])
+
+  const handleFecharLembrete = useCallback(() => {
+    if (loadingLembrete) return
+    setLembreteCobranca(null)
+  }, [loadingLembrete])
+
+  const handleSalvarLembrete = useCallback(
+    async (novoEmail: string, novosDias: number | null, novoAvisarAtraso: boolean) => {
+      if (!lembreteCobranca) return
+      setLoadingLembrete(true)
+      try {
+        const result = await atualizarLembrete(lembreteCobranca.id, novoEmail, novosDias, novoAvisarAtraso)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Lembrete salvo!')
+          setLembreteCobranca(null)
+          router.refresh()
+        }
+      } finally {
+        setLoadingLembrete(false)
+      }
+    },
+    [lembreteCobranca, router, toast],
+  )
+
+  const handleTestarLembretes = useCallback(() => {
+    startTesteLembretes(async () => {
+      const result = await testarLembretes()
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(result.success || 'Lembretes verificados.')
+      }
+      router.refresh()
+    })
+  }, [router, toast])
+
   const handleDelete = useCallback(async () => {
     if (!deleteId) return
     const cob = cobrancas.find((c) => c.id === deleteId)
@@ -503,16 +572,30 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
             Promissórias, quinzenais e aluguéis semanais — tudo em um só lugar.
           </p>
         </div>
-        {canEdit && (
-          <Button
-            variant="liberty"
-            leftIcon={<IconPlus size={16} stroke={2.5} />}
-            onClick={openModal}
-            className="shrink-0"
-          >
-            Nova Cobrança
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {currentRole === 'admin' && (
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<IconBellRinging size={14} stroke={2} />}
+              onClick={handleTestarLembretes}
+              loading={testandoLembretes}
+              loadingLabel="Verificando..."
+              title="Roda agora a checagem de lembretes de vencimento — útil para testar em ambiente local, onde não há cron automático."
+            >
+              Testar lembretes
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              variant="liberty"
+              leftIcon={<IconPlus size={16} stroke={2.5} />}
+              onClick={openModal}
+            >
+              Nova Cobrança
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* ─── KPIs principais ─── */}
@@ -756,6 +839,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 isExpanded={expandedId === c.id}
                 onToggleExpand={() => setExpandedId((curr) => (curr === c.id ? null : c.id))}
                 onRequestDelete={() => setDeleteId(c.id)}
+                onEditarLembrete={handleAbrirLembrete}
                 onPagar={handleAbrirPagamento}
                 onDesfazer={handleDesfazerParcela}
                 onRemoverPagamento={handleRemoverPagamento}
@@ -871,6 +955,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           setTipo={setTipo}
           clienteNome={clienteNome}
           setClienteNome={setClienteNome}
+          clienteEmail={clienteEmail}
+          setClienteEmail={setClienteEmail}
           veiculoId={veiculoId}
           setVeiculoId={setVeiculoId}
           veiculoSelecionado={veiculoSelecionado}
@@ -883,6 +969,10 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           setNumeroParcelas={setNumeroParcelas}
           diaVencimento={diaVencimento}
           setDiaVencimento={setDiaVencimento}
+          diasAvisoAntecedencia={diasAvisoAntecedencia}
+          setDiasAvisoAntecedencia={setDiasAvisoAntecedencia}
+          avisarAtraso={avisarAtraso}
+          setAvisarAtraso={setAvisarAtraso}
           primeiraParcela={primeiraParcela}
           setPrimeiraParcela={setPrimeiraParcela}
           preview={previewParcela}
@@ -915,6 +1005,16 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
           onSubmit={handleSubmitPagamento}
+        />
+      )}
+
+      {/* Modal de configuração do lembrete de vencimento */}
+      {lembreteCobranca && (
+        <LembreteModal
+          cobranca={lembreteCobranca}
+          loading={loadingLembrete}
+          onClose={handleFecharLembrete}
+          onSubmit={handleSalvarLembrete}
         />
       )}
 
@@ -1072,6 +1172,7 @@ function CobrancaCard({
   isExpanded,
   onToggleExpand,
   onRequestDelete,
+  onEditarLembrete,
   onPagar,
   onDesfazer,
   onRemoverPagamento,
@@ -1082,6 +1183,7 @@ function CobrancaCard({
   isExpanded: boolean
   onToggleExpand: () => void
   onRequestDelete: () => void
+  onEditarLembrete: (cobranca: Cobranca) => void
   onPagar: (parcela: Parcela) => void
   onDesfazer: (parcelaId: string) => void
   onRemoverPagamento: (pagamentoId: string) => void
@@ -1161,6 +1263,47 @@ function CobrancaCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {canEdit && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditarLembrete(c)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onEditarLembrete(c)
+                }
+              }}
+              aria-label={
+                c.diasAvisoAntecedencia || c.avisarAtraso
+                  ? 'Editar lembrete de vencimento'
+                  : 'Ativar lembrete de vencimento'
+              }
+              title={
+                [
+                  c.diasAvisoAntecedencia ? `Avisa ${c.diasAvisoAntecedencia} dia(s) antes do vencimento` : null,
+                  c.avisarAtraso ? 'Avisa quando atrasar' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'Ativar lembrete por e-mail'
+              }
+              className={`inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
+                c.diasAvisoAntecedencia || c.avisarAtraso
+                  ? 'text-liberty-deep hover:bg-liberty/10'
+                  : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
+              }`}
+            >
+              {c.diasAvisoAntecedencia || c.avisarAtraso ? (
+                <IconBellRinging size={15} stroke={2} />
+              ) : (
+                <IconBellOff size={15} stroke={2} />
+              )}
+            </span>
+          )}
           {canEdit && (
             <span
               role="button"
@@ -1598,6 +1741,8 @@ interface NovaCobrancaModalProps {
   setTipo: (t: TipoCobranca) => void
   clienteNome: string
   setClienteNome: (s: string) => void
+  clienteEmail: string
+  setClienteEmail: (s: string) => void
   veiculoId: string
   setVeiculoId: (s: string) => void
   veiculoSelecionado: Veiculo | undefined
@@ -1610,6 +1755,10 @@ interface NovaCobrancaModalProps {
   setNumeroParcelas: (s: string) => void
   diaVencimento: string
   setDiaVencimento: (s: string) => void
+  diasAvisoAntecedencia: string
+  setDiasAvisoAntecedencia: (s: string) => void
+  avisarAtraso: boolean
+  setAvisarAtraso: (b: boolean) => void
   primeiraParcela: string
   setPrimeiraParcela: (s: string) => void
   preview: { total: number; entrada: number; saldo: number; n: number; valorParcela: number; temEntrada: boolean }
@@ -1626,6 +1775,8 @@ function NovaCobrancaModal({
   setTipo,
   clienteNome,
   setClienteNome,
+  clienteEmail,
+  setClienteEmail,
   veiculoId,
   veiculoSelecionado,
   abrirVeiculoPicker,
@@ -1637,6 +1788,10 @@ function NovaCobrancaModal({
   setNumeroParcelas,
   diaVencimento,
   setDiaVencimento,
+  diasAvisoAntecedencia,
+  setDiasAvisoAntecedencia,
+  avisarAtraso,
+  setAvisarAtraso,
   primeiraParcela,
   setPrimeiraParcela,
   preview,
@@ -1708,6 +1863,19 @@ function NovaCobrancaModal({
               autoComplete="off"
               leftIcon={<IconUser size={14} />}
               required
+            />
+
+            <Input
+              id="clienteEmail"
+              label="E-mail do Cliente"
+              type="email"
+              value={clienteEmail}
+              onChange={(e) => setClienteEmail(e.target.value)}
+              placeholder="cliente@email.com"
+              autoComplete="off"
+              inputMode="email"
+              leftIcon={<IconMail size={14} />}
+              hint="Necessário para enviar o lembrete de vencimento por e-mail."
             />
 
             <div>
@@ -1859,6 +2027,53 @@ function NovaCobrancaModal({
                 required
               />
             </div>
+          </section>
+
+          {/* ── Lembrete de vencimento ── */}
+          <section className="space-y-3">
+            <p className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+              <IconBellRinging size={11} /> Lembrete por E-mail
+            </p>
+            <Input
+              id="diasAvisoAntecedencia"
+              label="Cobrar quando faltar (dias)"
+              type="number"
+              min="1"
+              max="60"
+              value={diasAvisoAntecedencia}
+              onChange={(e) => setDiasAvisoAntecedencia(e.target.value)}
+              placeholder="Ex.: 3"
+              leftIcon={<IconBell size={14} />}
+              hint={
+                clienteEmail.trim()
+                  ? 'Avisamos o cliente por e-mail quando faltar esse tanto de dias para o vencimento de cada parcela.'
+                  : 'Deixe em branco para não enviar lembretes. Preencha o e-mail do cliente acima para ativar.'
+              }
+            />
+
+            <label
+              className={
+                'flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition-colors ' +
+                (avisarAtraso
+                  ? 'border-rose-300 bg-rose-50/50'
+                  : 'border-neutral-200 bg-white hover:border-rose-200')
+              }
+            >
+              <input
+                type="checkbox"
+                checked={avisarAtraso}
+                onChange={(e) => setAvisarAtraso(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-rose-600 focus:ring-rose-500"
+              />
+              <span className="min-w-0">
+                <span className="block text-xs font-bold text-neutral-900">
+                  Também avisar quando atrasar
+                </span>
+                <span className="mt-0.5 block text-[11px] text-neutral-500">
+                  Envia um e-mail de cobrança assim que uma parcela vencer sem pagamento (uma vez por parcela).
+                </span>
+              </span>
+            </label>
           </section>
 
           {/* ── Preview ── */}
@@ -2106,6 +2321,178 @@ function PagamentoModal({
               <>
                 <IconCheck size={14} stroke={2.5} />
                 Confirmar Pagamento
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Modal Lembrete de Vencimento ("cobrar quando faltar X dias") ─────────
+
+function LembreteModal({
+  cobranca,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  cobranca: Cobranca
+  loading: boolean
+  onClose: () => void
+  onSubmit: (email: string, dias: number | null, avisarAtraso: boolean) => void
+}) {
+  const [email, setEmail] = useState(cobranca.clienteEmail ?? '')
+  const [dias, setDias] = useState(
+    cobranca.diasAvisoAntecedencia ? String(cobranca.diasAvisoAntecedencia) : '',
+  )
+  const [avisarAtraso, setAvisarAtraso] = useState(cobranca.avisarAtraso)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  if (typeof document === 'undefined') return null
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
+
+    const emailLimpo = email.trim()
+    const diasNum = dias.trim() ? parseInt(dias, 10) : null
+
+    if ((diasNum || avisarAtraso) && !emailLimpo) {
+      setErrorMsg('Informe o e-mail do cliente para poder enviar os avisos.')
+      return
+    }
+    if (emailLimpo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
+      setErrorMsg('E-mail inválido.')
+      return
+    }
+
+    onSubmit(emailLimpo, diasNum, avisarAtraso)
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose()
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty text-white shadow-sm">
+              <IconBellRinging size={20} stroke={2} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-950">Lembrete de Vencimento</h2>
+              <p className="mt-0.5 text-xs text-neutral-600">{cobranca.clienteNome}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            <IconX size={18} stroke={2} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <p className="text-xs text-neutral-600 leading-relaxed">
+            Quando faltar o número de dias abaixo para o vencimento de cada parcela em aberto,
+            enviamos automaticamente um e-mail avisando o cliente.
+          </p>
+
+          <Input
+            id="lembreteEmail"
+            label="E-mail do Cliente"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="cliente@email.com"
+            autoComplete="off"
+            inputMode="email"
+            leftIcon={<IconMail size={14} />}
+            autoFocus
+          />
+
+          <Input
+            id="lembreteDias"
+            label="Cobrar quando faltar (dias)"
+            type="number"
+            min="1"
+            max="60"
+            value={dias}
+            onChange={(e) => setDias(e.target.value)}
+            placeholder="Ex.: 3"
+            leftIcon={<IconBell size={14} />}
+            hint="Deixe em branco para desativar o lembrete desta cobrança."
+          />
+
+          <label
+            className={
+              'flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition-colors ' +
+              (avisarAtraso
+                ? 'border-rose-300 bg-rose-50/50'
+                : 'border-neutral-200 bg-white hover:border-rose-200')
+            }
+          >
+            <input
+              type="checkbox"
+              checked={avisarAtraso}
+              onChange={(e) => setAvisarAtraso(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-rose-600 focus:ring-rose-500"
+            />
+            <span className="min-w-0">
+              <span className="block text-xs font-bold text-neutral-900">
+                Também avisar quando atrasar
+              </span>
+              <span className="mt-0.5 block text-[11px] text-neutral-500">
+                Envia um e-mail de cobrança assim que uma parcela vencer sem pagamento (uma vez por parcela).
+              </span>
+            </span>
+          </label>
+
+          {errorMsg && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <IconCheck size={14} stroke={2.5} />
+                Salvar Lembrete
               </>
             )}
           </button>
