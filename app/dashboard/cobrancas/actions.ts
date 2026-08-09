@@ -31,8 +31,12 @@ export interface Parcela {
   valorPago: number // soma de todos os pagamentos registrados
   valorRestante: number // valorParcela - valorPago (nunca negativo)
   pagamentos: Pagamento[]
-  lembreteEnviadoEm: string | null // data (ISO) em que o e-mail de lembrete (antes do vencimento) foi enviado
-  avisoAtrasoEnviadoEm: string | null // data (ISO) em que o e-mail de cobrança em atraso foi enviado
+  // Marcadores dos 3 momentos fixos de envio de e-mail
+  lembrete3dEnviadoEm: string | null // e-mail enviado 3 dias antes do vencimento
+  lembrete0dEnviadoEm: string | null // e-mail enviado no dia do vencimento
+  avisoAtrasoEnviadoEm: string | null // e-mail enviado 1 dia após o vencimento
+  /** @deprecated use lembrete3dEnviadoEm — mantido por compatibilidade com registros antigos */
+  lembreteEnviadoEm: string | null
 }
 
 export interface Cobranca {
@@ -46,8 +50,10 @@ export interface Cobranca {
   numeroParcelas: number
   diaVencimento: number
   tipo: TipoCobranca
-  diasAvisoAntecedencia: number | null // "cobrar quando faltar X dias" — dispara e-mail de lembrete
-  avisarAtraso: boolean // também avisar por e-mail quando a parcela vencer sem pagamento
+  /** @deprecated não é mais usado para controlar envios — mantido por compatibilidade */
+  diasAvisoAntecedencia: number | null
+  /** true = notificações por e-mail ativas (3 dias antes, no dia, 1 dia após) */
+  avisarAtraso: boolean
   criadoEm: string
   criadoPorUid: string | null
   parcelas: Parcela[]
@@ -137,8 +143,10 @@ function serializeParcela(
     valorPago,
     valorRestante: Math.max(round2(valorParcela - valorPago), 0),
     pagamentos: pagamentosOrdenados,
-    lembreteEnviadoEm: data.lembreteEnviadoEm ?? null,
+    lembrete3dEnviadoEm: data.lembrete3dEnviadoEm ?? null,
+    lembrete0dEnviadoEm: data.lembrete0dEnviadoEm ?? null,
     avisoAtrasoEnviadoEm: data.avisoAtrasoEnviadoEm ?? null,
+    lembreteEnviadoEm: data.lembreteEnviadoEm ?? null,
   }
 }
 
@@ -314,14 +322,12 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
 }
 
 /**
- * Atualiza o e-mail do cliente e/ou o aviso de vencimento ("cobrar quando
- * faltar X dias") de uma cobrança já existente. Permite ligar o lembrete
- * em cobranças criadas antes desse recurso, sem precisar recriá-las.
+ * Toggle de notificações de uma cobrança.
+ * Ativa ou desativa os 3 e-mails automáticos (3d antes, no dia, 1d após).
+ * Requer que a cobrança já tenha um e-mail cadastrado para ativar.
  */
 export async function atualizarLembrete(
   cobrancaId: string,
-  clienteEmail: string,
-  diasAvisoAntecedencia: number | null,
   avisarAtraso: boolean,
 ): Promise<CobrancaResponse> {
   try {
@@ -332,35 +338,83 @@ export async function atualizarLembrete(
 
   try {
     if (!cobrancaId) return { error: 'Cobrança inválida.' }
-    const emailLimpo = (clienteEmail || '').trim()
-    const dias =
-      diasAvisoAntecedencia != null && diasAvisoAntecedencia > 0
-        ? Math.min(Math.round(diasAvisoAntecedencia), 60)
-        : null
 
-    if ((dias || avisarAtraso) && !emailLimpo) {
-      return { error: 'Informe o e-mail do cliente para poder enviar os avisos.' }
-    }
-    if (emailLimpo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
-      return { error: 'E-mail do cliente inválido.' }
+    if (avisarAtraso) {
+      // Verifica se a cobrança tem e-mail antes de ativar
+      const doc = await adminDb.collection('cobrancas').doc(cobrancaId).get()
+      if (!doc.exists) return { error: 'Cobrança não encontrada.' }
+      const email = (doc.data()?.clienteEmail as string | null) || ''
+      if (!email.trim()) {
+        return { error: 'Adicione o e-mail do cliente antes de ativar as notificações.' }
+      }
     }
 
     await adminDb.collection('cobrancas').doc(cobrancaId).update({
-      clienteEmail: emailLimpo || null,
-      diasAvisoAntecedencia: dias,
       avisarAtraso: Boolean(avisarAtraso),
     })
 
     revalidatePath('/dashboard/cobrancas')
     return {
-      success:
-        dias || avisarAtraso
-          ? 'Lembrete configurado.'
-          : 'Lembretes desativados.',
+      success: avisarAtraso ? 'Notificações ativadas.' : 'Notificações desativadas.',
     }
   } catch (err: any) {
     console.error('[atualizarLembrete]', err)
-    return { error: 'Erro ao salvar o lembrete.' }
+    return { error: 'Erro ao salvar as notificações.' }
+  }
+}
+
+/**
+ * Edita dados básicos de uma cobrança existente.
+ * Campos imutáveis (tipo, numeroParcelas, valorTotal, parcelas) não são alterados.
+ */
+export async function editarCobranca(
+  cobrancaId: string,
+  dados: {
+    clienteNome: string
+    clienteEmail: string
+    veiculoId: string
+    veiculoResumo: string
+  },
+): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+
+    const nome = (dados.clienteNome || '').trim()
+    const email = (dados.clienteEmail || '').trim()
+    const veiculoId = (dados.veiculoId || '').trim()
+    const veiculoResumo = (dados.veiculoResumo || '').trim()
+
+    if (!nome) return { error: 'Informe o nome do cliente.' }
+    if (!veiculoId) return { error: 'Selecione um veículo.' }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { error: 'E-mail inválido.' }
+    }
+
+    const updateData: Record<string, unknown> = {
+      clienteNome: nome,
+      clienteEmail: email || null,
+      veiculoId,
+      veiculoResumo,
+    }
+
+    // Se o e-mail foi removido, desativa automaticamente as notificações
+    if (!email) {
+      updateData.avisarAtraso = false
+    }
+
+    await adminDb.collection('cobrancas').doc(cobrancaId).update(updateData)
+
+    revalidatePath('/dashboard/cobrancas')
+    return { success: 'Cobrança atualizada.' }
+  } catch (err: any) {
+    console.error('[editarCobranca]', err)
+    return { error: 'Erro ao salvar as alterações.' }
   }
 }
 

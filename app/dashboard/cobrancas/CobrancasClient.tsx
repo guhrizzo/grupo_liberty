@@ -29,6 +29,8 @@ import {
   IconBell,
   IconBellOff,
   IconBellRinging,
+  IconPencil,
+  IconLoader2,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -46,6 +48,7 @@ import {
   resetParcela,
   deletarCobranca,
   atualizarLembrete,
+  editarCobranca,
   testarLembretes,
 } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
@@ -210,6 +213,9 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [lembreteCobranca, setLembreteCobranca] = useState<Cobranca | null>(null)
   const [loadingLembrete, setLoadingLembrete] = useState(false)
   const [testandoLembretes, startTesteLembretes] = useTransition()
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [editarCobrancaData, setEditarCobrancaData] = useState<Cobranca | null>(null)
+  const [loadingEditar, setLoadingEditar] = useState(false)
 
   // Filtros da lista
   const [search, setSearch] = useState('')
@@ -224,8 +230,6 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [valorEntrada, setValorEntrada] = useState('')
   const [numeroParcelas, setNumeroParcelas] = useState('1')
   const [diaVencimento, setDiaVencimento] = useState('1')
-  const [diasAvisoAntecedencia, setDiasAvisoAntecedencia] = useState('')
-  const [avisarAtraso, setAvisarAtraso] = useState(false)
   const [tipo, setTipo] = useState<TipoCobranca>('promissoria')
   const [primeiraParcela, setPrimeiraParcela] = useState(() => {
     return new Date().toISOString().split('T')[0]
@@ -346,8 +350,6 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
     setValorEntrada('')
     setNumeroParcelas('1')
     setDiaVencimento('1')
-    setDiasAvisoAntecedencia('')
-    setAvisarAtraso(false)
     setTipo('promissoria')
     setPrimeiraParcela(new Date().toISOString().split('T')[0])
   }, [])
@@ -381,10 +383,6 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       toast.error('Informe a data da primeira parcela.', 'Campo obrigatório')
       return
     }
-    if ((diasAvisoAntecedencia.trim() || avisarAtraso) && !clienteEmail.trim()) {
-      toast.error('Informe o e-mail do cliente para poder enviar os avisos.', 'Campo obrigatório')
-      return
-    }
 
     setLoadingForm(true)
     try {
@@ -404,8 +402,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       fd.append('diaVencimento', diaVencimento)
       fd.append('tipo', tipo)
       fd.append('primeiraParcela', primeiraParcela)
-      fd.append('diasAvisoAntecedencia', diasAvisoAntecedencia.trim())
-      fd.append('avisarAtraso', String(avisarAtraso))
+      fd.append('diasAvisoAntecedencia', '')
+      fd.append('avisarAtraso', String(Boolean(clienteEmail.trim())))
 
       const result = await criarCobranca(fd)
       if (result.error) {
@@ -493,14 +491,24 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       if (!lembreteCobranca) return
       setLoadingLembrete(true)
       try {
-        const result = await atualizarLembrete(lembreteCobranca.id, novoEmail, novosDias, novoAvisarAtraso)
+        // Atualiza o e-mail via editarCobranca (mantém nome e veículo)
+        const result = await editarCobranca(lembreteCobranca.id, {
+          clienteNome: lembreteCobranca.clienteNome,
+          clienteEmail: novoEmail,
+          veiculoId: lembreteCobranca.veiculoId,
+          veiculoResumo: lembreteCobranca.veiculoResumo,
+        })
         if (result.error) {
           toast.error(result.error)
-        } else {
-          toast.success(result.success || 'Lembrete salvo!')
-          setLembreteCobranca(null)
-          router.refresh()
+          return
         }
+        // Se o e-mail foi salvo com sucesso e o avisarAtraso mudou, atualiza o toggle
+        if (novoAvisarAtraso !== lembreteCobranca.avisarAtraso && novoEmail.trim()) {
+          await atualizarLembrete(lembreteCobranca.id, novoAvisarAtraso)
+        }
+        toast.success('Lembrete salvo!')
+        setLembreteCobranca(null)
+        router.refresh()
       } finally {
         setLoadingLembrete(false)
       }
@@ -519,6 +527,61 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       router.refresh()
     })
   }, [router, toast])
+
+  // Toggle direto do sino — ativa/desativa notificações sem abrir modal
+  const handleToggleSino = useCallback(
+    async (cobranca: Cobranca) => {
+      if (togglingId) return
+      if (!cobranca.clienteEmail) {
+        // Não deve acontecer (sino fica disabled sem e-mail), mas por segurança:
+        toast.error('Adicione o e-mail do cliente antes de ativar as notificações.')
+        return
+      }
+      setTogglingId(cobranca.id)
+      try {
+        const result = await atualizarLembrete(cobranca.id, !cobranca.avisarAtraso)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Notificações atualizadas.')
+          router.refresh()
+        }
+      } finally {
+        setTogglingId(null)
+      }
+    },
+    [togglingId, router, toast],
+  )
+
+  // Abre o modal de edição da cobrança
+  const handleAbrirEditar = useCallback((cobranca: Cobranca) => {
+    setEditarCobrancaData(cobranca)
+  }, [])
+
+  const handleFecharEditar = useCallback(() => {
+    if (loadingEditar) return
+    setEditarCobrancaData(null)
+  }, [loadingEditar])
+
+  const handleSalvarEditar = useCallback(
+    async (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string }) => {
+      if (!editarCobrancaData) return
+      setLoadingEditar(true)
+      try {
+        const result = await editarCobranca(editarCobrancaData.id, dados)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Cobrança atualizada!')
+          setEditarCobrancaData(null)
+          router.refresh()
+        }
+      } finally {
+        setLoadingEditar(false)
+      }
+    },
+    [editarCobrancaData, router, toast],
+  )
 
   const handleDelete = useCallback(async () => {
     if (!deleteId) return
@@ -840,11 +903,14 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 onToggleExpand={() => setExpandedId((curr) => (curr === c.id ? null : c.id))}
                 onRequestDelete={() => setDeleteId(c.id)}
                 onEditarLembrete={handleAbrirLembrete}
+                onToggleSino={handleToggleSino}
+                onEditar={handleAbrirEditar}
                 onPagar={handleAbrirPagamento}
                 onDesfazer={handleDesfazerParcela}
                 onRemoverPagamento={handleRemoverPagamento}
                 pendingId={null}
                 isToggling={isPending}
+                togglingId={togglingId}
               />
             ))}
           </ul>
@@ -969,10 +1035,6 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           setNumeroParcelas={setNumeroParcelas}
           diaVencimento={diaVencimento}
           setDiaVencimento={setDiaVencimento}
-          diasAvisoAntecedencia={diasAvisoAntecedencia}
-          setDiasAvisoAntecedencia={setDiasAvisoAntecedencia}
-          avisarAtraso={avisarAtraso}
-          setAvisarAtraso={setAvisarAtraso}
           primeiraParcela={primeiraParcela}
           setPrimeiraParcela={setPrimeiraParcela}
           preview={previewParcela}
@@ -1008,13 +1070,24 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
         />
       )}
 
-      {/* Modal de configuração do lembrete de vencimento */}
+      {/* Modal de configuração do lembrete de vencimento (e-mail) */}
       {lembreteCobranca && (
         <LembreteModal
           cobranca={lembreteCobranca}
           loading={loadingLembrete}
           onClose={handleFecharLembrete}
           onSubmit={handleSalvarLembrete}
+        />
+      )}
+
+      {/* Modal de edição de cobrança (nome, e-mail, veículo) */}
+      {editarCobrancaData && (
+        <EditarCobrancaModal
+          cobranca={editarCobrancaData}
+          veiculos={veiculos}
+          loading={loadingEditar}
+          onClose={handleFecharEditar}
+          onSubmit={handleSalvarEditar}
         />
       )}
 
@@ -1173,10 +1246,13 @@ function CobrancaCard({
   onToggleExpand,
   onRequestDelete,
   onEditarLembrete,
+  onToggleSino,
+  onEditar,
   onPagar,
   onDesfazer,
   onRemoverPagamento,
   isToggling,
+  togglingId,
 }: {
   cobranca: Cobranca
   canEdit: boolean
@@ -1184,11 +1260,14 @@ function CobrancaCard({
   onToggleExpand: () => void
   onRequestDelete: () => void
   onEditarLembrete: (cobranca: Cobranca) => void
+  onToggleSino: (cobranca: Cobranca) => void
+  onEditar: (cobranca: Cobranca) => void
   onPagar: (parcela: Parcela) => void
   onDesfazer: (parcelaId: string) => void
   onRemoverPagamento: (pagamentoId: string) => void
   pendingId: string | null
   isToggling: boolean
+  togglingId: string | null
 }) {
   const totalPago = useMemo(
     () => c.parcelas.reduce((a, p) => a + p.valorPago, 0),
@@ -1263,45 +1342,82 @@ function CobrancaCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {canEdit && (() => {
+            const temEmail = Boolean(c.clienteEmail)
+            const isThisToggling = togglingId === c.id
+            const sinoAtivo = c.avisarAtraso
+
+            return (
+              <span
+                role={temEmail ? 'button' : undefined}
+                tabIndex={temEmail ? 0 : undefined}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (temEmail && !isThisToggling) onToggleSino(c)
+                }}
+                onKeyDown={(e) => {
+                  if (!temEmail || isThisToggling) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onToggleSino(c)
+                  }
+                }}
+                aria-label={
+                  !temEmail
+                    ? 'Sem e-mail — edite a cobrança para adicionar'
+                    : sinoAtivo
+                    ? 'Desativar notificações por e-mail'
+                    : 'Ativar notificações por e-mail'
+                }
+                title={
+                  !temEmail
+                    ? 'Adicione o e-mail no ✏️ editar para ativar notificações'
+                    : sinoAtivo
+                    ? 'Notificações ativas (3d antes, no dia, 1d após) — clique para desativar'
+                    : 'Notificações desativadas — clique para ativar'
+                }
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                  !temEmail
+                    ? 'cursor-default text-neutral-300'
+                    : isThisToggling
+                    ? 'cursor-wait text-neutral-400'
+                    : sinoAtivo
+                    ? 'cursor-pointer text-liberty-deep hover:bg-liberty/10'
+                    : 'cursor-pointer text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
+                }`}
+              >
+                {isThisToggling ? (
+                  <IconLoader2 size={15} stroke={2} className="animate-spin" />
+                ) : sinoAtivo ? (
+                  <IconBellRinging size={15} stroke={2} />
+                ) : (
+                  <IconBellOff size={15} stroke={2} />
+                )}
+              </span>
+            )
+          })()}
+
           {canEdit && (
             <span
               role="button"
               tabIndex={0}
               onClick={(e) => {
                 e.stopPropagation()
-                onEditarLembrete(c)
+                onEditar(c)
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
                   e.stopPropagation()
-                  onEditarLembrete(c)
+                  onEditar(c)
                 }
               }}
-              aria-label={
-                c.diasAvisoAntecedencia || c.avisarAtraso
-                  ? 'Editar lembrete de vencimento'
-                  : 'Ativar lembrete de vencimento'
-              }
-              title={
-                [
-                  c.diasAvisoAntecedencia ? `Avisa ${c.diasAvisoAntecedencia} dia(s) antes do vencimento` : null,
-                  c.avisarAtraso ? 'Avisa quando atrasar' : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || 'Ativar lembrete por e-mail'
-              }
-              className={`inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-colors ${
-                c.diasAvisoAntecedencia || c.avisarAtraso
-                  ? 'text-liberty-deep hover:bg-liberty/10'
-                  : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
-              }`}
+              aria-label="Editar cobrança"
+              title="Editar nome, e-mail e veículo"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
             >
-              {c.diasAvisoAntecedencia || c.avisarAtraso ? (
-                <IconBellRinging size={15} stroke={2} />
-              ) : (
-                <IconBellOff size={15} stroke={2} />
-              )}
+              <IconPencil size={14} stroke={2} />
             </span>
           )}
           {canEdit && (
@@ -1334,6 +1450,7 @@ function CobrancaCard({
           </span>
         </div>
       </button>
+
 
       {/* Mobile resumo */}
       <div className="grid grid-cols-2 gap-3 border-t border-neutral-100 bg-neutral-50/40 px-4 py-3 md:hidden">
@@ -1755,10 +1872,6 @@ interface NovaCobrancaModalProps {
   setNumeroParcelas: (s: string) => void
   diaVencimento: string
   setDiaVencimento: (s: string) => void
-  diasAvisoAntecedencia: string
-  setDiasAvisoAntecedencia: (s: string) => void
-  avisarAtraso: boolean
-  setAvisarAtraso: (b: boolean) => void
   primeiraParcela: string
   setPrimeiraParcela: (s: string) => void
   preview: { total: number; entrada: number; saldo: number; n: number; valorParcela: number; temEntrada: boolean }
@@ -1788,10 +1901,6 @@ function NovaCobrancaModal({
   setNumeroParcelas,
   diaVencimento,
   setDiaVencimento,
-  diasAvisoAntecedencia,
-  setDiasAvisoAntecedencia,
-  avisarAtraso,
-  setAvisarAtraso,
   primeiraParcela,
   setPrimeiraParcela,
   preview,
@@ -2027,53 +2136,6 @@ function NovaCobrancaModal({
                 required
               />
             </div>
-          </section>
-
-          {/* ── Lembrete de vencimento ── */}
-          <section className="space-y-3">
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-              <IconBellRinging size={11} /> Lembrete por E-mail
-            </p>
-            <Input
-              id="diasAvisoAntecedencia"
-              label="Cobrar quando faltar (dias)"
-              type="number"
-              min="1"
-              max="60"
-              value={diasAvisoAntecedencia}
-              onChange={(e) => setDiasAvisoAntecedencia(e.target.value)}
-              placeholder="Ex.: 3"
-              leftIcon={<IconBell size={14} />}
-              hint={
-                clienteEmail.trim()
-                  ? 'Avisamos o cliente por e-mail quando faltar esse tanto de dias para o vencimento de cada parcela.'
-                  : 'Deixe em branco para não enviar lembretes. Preencha o e-mail do cliente acima para ativar.'
-              }
-            />
-
-            <label
-              className={
-                'flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition-colors ' +
-                (avisarAtraso
-                  ? 'border-rose-300 bg-rose-50/50'
-                  : 'border-neutral-200 bg-white hover:border-rose-200')
-              }
-            >
-              <input
-                type="checkbox"
-                checked={avisarAtraso}
-                onChange={(e) => setAvisarAtraso(e.target.checked)}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-rose-600 focus:ring-rose-500"
-              />
-              <span className="min-w-0">
-                <span className="block text-xs font-bold text-neutral-900">
-                  Também avisar quando atrasar
-                </span>
-                <span className="mt-0.5 block text-[11px] text-neutral-500">
-                  Envia um e-mail de cobrança assim que uma parcela vencer sem pagamento (uma vez por parcela).
-                </span>
-              </span>
-            </label>
           </section>
 
           {/* ── Preview ── */}
@@ -2499,6 +2561,262 @@ function LembreteModal({
         </div>
       </form>
     </div>,
+    document.body,
+  )
+}
+
+// ─── Modal de Edição de Cobrança ──────────────────────────────────────────────
+
+function EditarCobrancaModal({
+  cobranca,
+  veiculos,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  cobranca: Cobranca
+  veiculos: Veiculo[]
+  loading: boolean
+  onClose: () => void
+  onSubmit: (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string }) => void
+}) {
+  const [nome, setNome] = useState(cobranca.clienteNome)
+  const [email, setEmail] = useState(cobranca.clienteEmail ?? '')
+  const [veiculoId, setVeiculoId] = useState(cobranca.veiculoId)
+  const [showPicker, setShowPicker] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const veiculoSelecionado = veiculos.find((v) => v.id === veiculoId)
+  const veiculoResumoAtual = veiculoSelecionado
+    ? `${veiculoSelecionado.marca} ${veiculoSelecionado.modelo} ${veiculoSelecionado.ano ?? ''}${veiculoSelecionado.placa ? ` • ${veiculoSelecionado.placa}` : ''}`.trim()
+    : cobranca.veiculoResumo
+
+  const emailFoiRemovido = !email.trim() && Boolean(cobranca.clienteEmail) && cobranca.avisarAtraso
+
+  if (typeof document === 'undefined') return null
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
+
+    const nomeLimpo = nome.trim()
+    const emailLimpo = email.trim()
+
+    if (!nomeLimpo) {
+      setErrorMsg('Informe o nome do cliente.')
+      return
+    }
+    if (!veiculoId) {
+      setErrorMsg('Selecione um veículo.')
+      return
+    }
+    if (emailLimpo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpo)) {
+      setErrorMsg('E-mail inválido.')
+      return
+    }
+
+    onSubmit({
+      clienteNome: nomeLimpo,
+      clienteEmail: emailLimpo,
+      veiculoId,
+      veiculoResumo: veiculoResumoAtual,
+    })
+  }
+
+  return createPortal(
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget && !loading) onClose()
+        }}
+      >
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-neutral-50 via-white to-white px-5 pt-5 pb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white shadow-sm">
+                <IconPencil size={20} stroke={2} />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-neutral-950">Editar Cobrança</h2>
+                <p className="mt-0.5 text-xs text-neutral-500">
+                  {periodicidadeLabel(cobranca.tipo)} · {cobranca.numeroParcelas} parcela{cobranca.numeroParcelas === 1 ? '' : 's'}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              aria-label="Fechar"
+              className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+            >
+              <IconX size={18} stroke={2} />
+            </button>
+          </div>
+
+          {/* Campos editáveis */}
+          <div className="space-y-4 px-5 py-5">
+            {/* Nome */}
+            <div className="space-y-1">
+              <label htmlFor="editNome" className="block text-xs font-bold text-neutral-700">
+                Nome do Cliente *
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <IconUser size={14} />
+                </span>
+                <input
+                  id="editNome"
+                  type="text"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  placeholder="Nome completo"
+                  autoFocus
+                  className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* E-mail */}
+            <div className="space-y-1">
+              <label htmlFor="editEmail" className="block text-xs font-bold text-neutral-700">
+                E-mail do Cliente
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+                  <IconMail size={14} />
+                </span>
+                <input
+                  id="editEmail"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="cliente@email.com (opcional)"
+                  inputMode="email"
+                  autoComplete="off"
+                  className="w-full rounded-lg border border-neutral-200 bg-white py-2.5 pl-9 pr-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none transition-colors"
+                />
+              </div>
+              {emailFoiRemovido && (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1">
+                  <IconAlertTriangle size={11} stroke={2} />
+                  Ao remover o e-mail, as notificações serão desativadas automaticamente.
+                </p>
+              )}
+              {!cobranca.clienteEmail && (
+                <p className="text-[11px] text-neutral-500">
+                  Adicione um e-mail para poder ativar o sino de notificações. 🔔
+                </p>
+              )}
+            </div>
+
+            {/* Veículo */}
+            <div className="space-y-1">
+              <span className="block text-xs font-bold text-neutral-700">Veículo *</span>
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="flex w-full items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 text-left transition-colors hover:border-neutral-400 hover:bg-neutral-50"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+                  <IconCar size={16} stroke={2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  {veiculoSelecionado ? (
+                    <>
+                      <span className="block truncate text-sm font-semibold text-neutral-900">
+                        {veiculoSelecionado.marca} {veiculoSelecionado.modelo}
+                      </span>
+                      <span className="block text-[11px] text-neutral-500">
+                        {veiculoSelecionado.ano ?? ''}{veiculoSelecionado.placa ? ` · ${veiculoSelecionado.placa}` : ''}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-neutral-400">Selecionar veículo...</span>
+                  )}
+                </span>
+                <IconChevronRight size={14} stroke={2} className="shrink-0 text-neutral-400" />
+              </button>
+            </div>
+
+            {/* Campos imutáveis — informativo */}
+            <div className="rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2.5">
+              <p className="mb-1 text-[10px] font-extrabold uppercase tracking-wider text-neutral-400">Imutável após criação</p>
+              <div className="flex flex-wrap gap-3 text-xs text-neutral-600">
+                <span className="flex items-center gap-1">
+                  <IconHash size={11} stroke={2} className="text-neutral-400" />
+                  {cobranca.numeroParcelas} parcela{cobranca.numeroParcelas === 1 ? '' : 's'}
+                </span>
+                <span className="flex items-center gap-1">
+                  <IconCalendar size={11} stroke={2} className="text-neutral-400" />
+                  {periodicidadeLabel(cobranca.tipo)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <IconCoin size={11} stroke={2} className="text-neutral-400" />
+                  {formatCurrency(cobranca.valorTotal)}
+                </span>
+              </div>
+            </div>
+
+            {errorMsg && (
+              <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+                {errorMsg}
+              </p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-neutral-900 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-neutral-700 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <IconLoader2 size={13} stroke={2} className="animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <IconCheck size={14} stroke={2.5} />
+                  Salvar Alterações
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* VeiculoPicker dentro do modal */}
+      <VeiculoPicker
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        veiculos={veiculos.map((v) => ({
+          id: v.id,
+          marca: v.marca,
+          modelo: v.modelo,
+          ano: v.ano ?? null,
+          placa: v.placa ?? null,
+          foto: Array.isArray(v.fotos) && v.fotos.length > 0 ? v.fotos[0] : null,
+        }))}
+        value={veiculoId || null}
+        onSelect={setVeiculoId}
+      />
+    </>,
     document.body,
   )
 }

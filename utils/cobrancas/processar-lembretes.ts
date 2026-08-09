@@ -3,21 +3,26 @@ import { adminDb } from '@/utils/firebase/admin'
 import { sendCobrancaLembreteEmail } from '@/utils/email/send-cobranca-lembrete-email'
 import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-email'
 
-// ─── "Cobrar quando faltar X dias" + "Avisar quando atrasar" ──────────────
-// Duas checagens independentes, cada uma com seu próprio marcador de "já
-// avisado" na parcela (nunca reenvia a mesma parcela duas vezes pelo mesmo
-// motivo):
+// ─── Envio automático em 3 momentos fixos ─────────────────────────────────
 //
-// 1. Pré-vencimento: cobrança com `diasAvisoAntecedencia` configurado — avisa
-//    quando faltar esse tanto de dias (ou menos) para o vencimento.
-//    Marca `lembreteEnviadoEm`.
-// 2. Atraso: cobrança com `avisarAtraso` ativado — avisa uma vez quando a
-//    parcela vence sem pagamento. Marca `avisoAtrasoEnviadoEm`.
+// Para cobranças com `avisarAtraso == true` (campo que agora significa
+// "notificações ativas"), enviamos e-mail em exatamente 3 momentos por parcela:
+//
+//  1. 3 dias antes do vencimento  → marcado em `lembrete3dEnviadoEm`
+//  2. No dia do vencimento         → marcado em `lembrete0dEnviadoEm`
+//  3. 1 dia após o vencimento      → marcado em `avisoAtrasoEnviadoEm`
+//
+// Cada marcador garante que o mesmo e-mail nunca seja reenviado para a mesma
+// parcela. Parcelas já quitadas são ignoradas.
+//
+// Compatibilidade: o campo antigo `lembreteEnviadoEm` e `diasAvisoAntecedencia`
+// podem existir no Firestore (cobranças antigas), mas o novo código não os usa
+// para controlar envios. Cobranças antigas sem `avisarAtraso` simplesmente
+// não são processadas.
 //
 // Usado por dois lugares:
-// - app/api/cron/lembretes-cobranca/route.ts (cron diário da Vercel, produção)
-// - app/dashboard/cobrancas/actions.ts → testarLembretes() (botão manual no
-//   dashboard, útil para testar em ambiente local/dev, onde não existe cron).
+// - app/api/cron/lembretes-cobranca/route.ts  (cron diário da Vercel, produção)
+// - app/dashboard/cobrancas/actions.ts → testarLembretes()  (botão manual)
 
 export interface ProcessarLembretesResult {
   verificados: number
@@ -30,7 +35,7 @@ function diasAte(hoje: Date, dataVencimento: string): number {
   return Math.round((venc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
 }
 
-/** Busca parcelas + pagamentos de uma cobrança e devolve o valor pago por parcela. */
+/** Busca pagamentos de uma cobrança e devolve o valor pago por parcela. */
 async function carregarValoresPagos(cobrancaId: string) {
   const [parcelasSnap, pagamentosSnap] = await Promise.all([
     adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
@@ -54,56 +59,13 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
   let enviados = 0
   const erros: string[] = []
 
-  // ── 1) Pré-vencimento ──────────────────────────────────────────────────
-  const preVencimentoSnap = await adminDb
+  // Busca apenas cobranças com notificações ativas e e-mail cadastrado
+  const cobrancasSnap = await adminDb
     .collection('cobrancas')
-    .where('diasAvisoAntecedencia', '>', 0)
+    .where('avisarAtraso', '==', true)
     .get()
 
-  for (const cobrancaDoc of preVencimentoSnap.docs) {
-    const cobranca = cobrancaDoc.data()
-    const clienteEmail = (cobranca.clienteEmail as string | null) || null
-    const diasAviso = cobranca.diasAvisoAntecedencia as number
-    if (!clienteEmail || !diasAviso) continue
-
-    const { parcelasSnap, pagoPorParcela } = await carregarValoresPagos(cobrancaDoc.id)
-
-    for (const parcelaDoc of parcelasSnap.docs) {
-      const parcela = parcelaDoc.data()
-      verificados++
-
-      if (parcela.lembreteEnviadoEm) continue // já avisado antes
-
-      const valorPago = pagoPorParcela.get(parcelaDoc.id) ?? 0
-      if (valorPago >= parcela.valorParcela - 0.01) continue // já quitada
-
-      const diasRestantes = diasAte(hoje, parcela.dataVencimento)
-      if (diasRestantes < 0 || diasRestantes > diasAviso) continue // fora da janela de aviso
-
-      const ok = await sendCobrancaLembreteEmail({
-        clienteNome: cobranca.clienteNome,
-        clienteEmail,
-        veiculoResumo: cobranca.veiculoResumo,
-        numeroParcela: parcela.numeroParcela,
-        numeroParcelas: cobranca.numeroParcelas,
-        valorParcela: parcela.valorParcela,
-        dataVencimento: parcela.dataVencimento,
-        diasRestantes,
-      })
-
-      if (ok) {
-        await parcelaDoc.ref.update({ lembreteEnviadoEm: new Date().toISOString() })
-        enviados++
-      } else {
-        erros.push(parcelaDoc.id)
-      }
-    }
-  }
-
-  // ── 2) Atraso ───────────────────────────────────────────────────────────
-  const atrasoSnap = await adminDb.collection('cobrancas').where('avisarAtraso', '==', true).get()
-
-  for (const cobrancaDoc of atrasoSnap.docs) {
+  for (const cobrancaDoc of cobrancasSnap.docs) {
     const cobranca = cobrancaDoc.data()
     const clienteEmail = (cobranca.clienteEmail as string | null) || null
     if (!clienteEmail) continue
@@ -114,31 +76,73 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
       const parcela = parcelaDoc.data()
       verificados++
 
-      if (parcela.avisoAtrasoEnviadoEm) continue // já avisado antes
-
       const valorPago = pagoPorParcela.get(parcelaDoc.id) ?? 0
       const valorRestante = Math.max(Math.round((parcela.valorParcela - valorPago) * 100) / 100, 0)
-      if (valorRestante <= 0.01) continue // já quitada
+      if (valorRestante <= 0.01) continue // parcela já quitada
 
       const diasRestantes = diasAte(hoje, parcela.dataVencimento)
-      if (diasRestantes >= 0) continue // ainda não venceu
 
-      const ok = await sendCobrancaAtrasoEmail({
-        clienteNome: cobranca.clienteNome,
-        clienteEmail,
-        veiculoResumo: cobranca.veiculoResumo,
-        numeroParcela: parcela.numeroParcela,
-        numeroParcelas: cobranca.numeroParcelas,
-        valorRestante,
-        dataVencimento: parcela.dataVencimento,
-        diasAtraso: Math.abs(diasRestantes),
-      })
+      // ── Momento 1: 3 dias antes ───────────────────────────────────────────
+      if (diasRestantes === 3 && !parcela.lembrete3dEnviadoEm) {
+        const ok = await sendCobrancaLembreteEmail({
+          clienteNome: cobranca.clienteNome,
+          clienteEmail,
+          veiculoResumo: cobranca.veiculoResumo,
+          numeroParcela: parcela.numeroParcela,
+          numeroParcelas: cobranca.numeroParcelas,
+          valorParcela: parcela.valorParcela,
+          dataVencimento: parcela.dataVencimento,
+          diasRestantes: 3,
+        })
 
-      if (ok) {
-        await parcelaDoc.ref.update({ avisoAtrasoEnviadoEm: new Date().toISOString() })
-        enviados++
-      } else {
-        erros.push(parcelaDoc.id)
+        if (ok) {
+          await parcelaDoc.ref.update({ lembrete3dEnviadoEm: new Date().toISOString() })
+          enviados++
+        } else {
+          erros.push(`${parcelaDoc.id}:3d`)
+        }
+      }
+
+      // ── Momento 2: no dia do vencimento ──────────────────────────────────
+      if (diasRestantes === 0 && !parcela.lembrete0dEnviadoEm) {
+        const ok = await sendCobrancaLembreteEmail({
+          clienteNome: cobranca.clienteNome,
+          clienteEmail,
+          veiculoResumo: cobranca.veiculoResumo,
+          numeroParcela: parcela.numeroParcela,
+          numeroParcelas: cobranca.numeroParcelas,
+          valorParcela: parcela.valorParcela,
+          dataVencimento: parcela.dataVencimento,
+          diasRestantes: 0,
+        })
+
+        if (ok) {
+          await parcelaDoc.ref.update({ lembrete0dEnviadoEm: new Date().toISOString() })
+          enviados++
+        } else {
+          erros.push(`${parcelaDoc.id}:0d`)
+        }
+      }
+
+      // ── Momento 3: 1 dia após o vencimento ───────────────────────────────
+      if (diasRestantes === -1 && !parcela.avisoAtrasoEnviadoEm) {
+        const ok = await sendCobrancaAtrasoEmail({
+          clienteNome: cobranca.clienteNome,
+          clienteEmail,
+          veiculoResumo: cobranca.veiculoResumo,
+          numeroParcela: parcela.numeroParcela,
+          numeroParcelas: cobranca.numeroParcelas,
+          valorRestante,
+          dataVencimento: parcela.dataVencimento,
+          diasAtraso: 1,
+        })
+
+        if (ok) {
+          await parcelaDoc.ref.update({ avisoAtrasoEnviadoEm: new Date().toISOString() })
+          enviados++
+        } else {
+          erros.push(`${parcelaDoc.id}:atraso`)
+        }
       }
     }
   }
