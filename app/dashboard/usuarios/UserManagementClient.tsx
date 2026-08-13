@@ -414,73 +414,153 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                 />
               ) : (
                 <div className="rounded-xl border border-neutral-200 overflow-hidden">
-                  <Table>
-                    <THead>
-                      <tr>
-                        <TH>Nome / E-mail</TH>
-                        <TH>Perfil (Cargo)</TH>
-                        <TH>Data de Cadastro</TH>
-                        <TH align="right">Ações</TH>
-                      </tr>
-                    </THead>
-                    <TBody>
-                      {visibleUsers.map((u) => {
-                        const isSelf = u.id === currentUser.id
-                        return (
-                          <TR key={u.id}>
-                            <TD>
-                              <div className="font-semibold text-neutral-900">{u.name || 'Sem Nome'}</div>
-                              <div className="text-xs text-neutral-500">{u.email}</div>
-                            </TD>
-                            <TD>
+                  {/* Mobile: cards (evita tabela com scroll horizontal e dropdown cortado) */}
+                  <div className="divide-y divide-neutral-200 md:hidden">
+                    {visibleUsers.map((u) => {
+                      const isSelf = u.id === currentUser.id
+                      return (
+                        <div key={u.id} className="p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-neutral-900">
+                                {u.name || 'Sem Nome'}
+                              </p>
+                              <p className="truncate text-xs text-neutral-500">{u.email}</p>
+                            </div>
+                            {isSelf && (
+                              <span className="shrink-0 rounded-full bg-liberty/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-liberty-deep">
+                                Você
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                Perfil
+                              </p>
                               <Select
                                 value={u.role || ''}
                                 onChange={(e) => handleUpdateRoleClick(u, e.target.value)}
                                 disabled={isSelf || currentRole !== 'admin' || loading}
                                 aria-label="Alterar perfil de acesso"
-                                className="!py-1 !text-xs uppercase font-medium"
+                                className="!py-1.5 !text-xs uppercase font-medium"
                               >
                                 <option value="admin">Administrador</option>
                                 <option value="vendedor">Vendedor</option>
                                 <option value="advogado">Advogado</option>
                                 <option value="suporte">Suporte</option>
                               </Select>
-                            </TD>
-                            <TD className="text-xs text-neutral-600">
-                              {formatDate(u.created_at)}
-                            </TD>
-                            <TD align="right">
-                              <div className="flex items-center justify-end gap-2">
-                                {/* Botão de Permissões */}
-                                {currentRole === 'admin' && !isSelf && (
+                            </div>
+                            <div>
+                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+                                Cadastro
+                              </p>
+                              <p className="pt-1.5 text-xs font-semibold text-neutral-700">
+                                {formatDate(u.created_at)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
+                            {currentRole === 'admin' && !isSelf && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleOpenPermModal(u)}
+                                disabled={loading}
+                                leftIcon={<IconKey size={12} />}
+                                className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50 flex-1"
+                              >
+                                Permissões
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleDeleteClick(u)}
+                              disabled={isSelf || currentRole !== 'admin' || loading}
+                              leftIcon={<IconTrash size={12} />}
+                              className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50 flex-1"
+                            >
+                              Excluir
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Desktop: tabela */}
+                  <div className="hidden md:block">
+                    <Table>
+                      <THead>
+                        <tr>
+                          <TH>Nome / E-mail</TH>
+                          <TH>Perfil (Cargo)</TH>
+                          <TH>Data de Cadastro</TH>
+                          <TH align="right">Ações</TH>
+                        </tr>
+                      </THead>
+                      <TBody>
+                        {visibleUsers.map((u) => {
+                          const isSelf = u.id === currentUser.id
+                          return (
+                            <TR key={u.id}>
+                              <TD>
+                                <div className="font-semibold text-neutral-900">{u.name || 'Sem Nome'}</div>
+                                <div className="text-xs text-neutral-500">{u.email}</div>
+                              </TD>
+                              <TD>
+                                <Select
+                                  value={u.role || ''}
+                                  onChange={(e) => handleUpdateRoleClick(u, e.target.value)}
+                                  disabled={isSelf || currentRole !== 'admin' || loading}
+                                  aria-label="Alterar perfil de acesso"
+                                  className="!py-1 !text-xs uppercase font-medium"
+                                >
+                                  <option value="admin">Administrador</option>
+                                  <option value="vendedor">Vendedor</option>
+                                  <option value="advogado">Advogado</option>
+                                  <option value="suporte">Suporte</option>
+                                </Select>
+                              </TD>
+                              <TD className="text-xs text-neutral-600">
+                                {formatDate(u.created_at)}
+                              </TD>
+                              <TD align="right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {/* Botão de Permissões */}
+                                  {currentRole === 'admin' && !isSelf && (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      onClick={() => handleOpenPermModal(u)}
+                                      disabled={loading}
+                                      leftIcon={<IconKey size={12} />}
+                                      className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50"
+                                    >
+                                      Permissões
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
                                     variant="secondary"
-                                    onClick={() => handleOpenPermModal(u)}
-                                    disabled={loading}
-                                    leftIcon={<IconKey size={12} />}
-                                    className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50"
+                                    onClick={() => handleDeleteClick(u)}
+                                    disabled={isSelf || currentRole !== 'admin' || loading}
+                                    leftIcon={<IconTrash size={12} />}
+                                    className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
                                   >
-                                    Permissões
+                                    Excluir
                                   </Button>
-                                )}
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  onClick={() => handleDeleteClick(u)}
-                                  disabled={isSelf || currentRole !== 'admin' || loading}
-                                  leftIcon={<IconTrash size={12} />}
-                                  className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
-                                >
-                                  Excluir
-                                </Button>
-                              </div>
-                            </TD>
-                          </TR>
-                        )
-                      })}
-                    </TBody>
-                  </Table>
+                                </div>
+                              </TD>
+                            </TR>
+                          )
+                        })}
+                      </TBody>
+                    </Table>
+                  </div>
 
                   {totalPages > 1 && (
                     <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-neutral-200 bg-neutral-50/60">
@@ -518,12 +598,12 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
       {/* Modal de Permissões */}
       {permModalUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={(e) => { if (e.target === e.currentTarget) handleClosePermModal() }}
         >
-          <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+          <div className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4">
+            <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-6 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50">
                   <IconShield size={18} className="text-indigo-600" />
@@ -545,7 +625,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             </div>
 
             {/* Conteúdo */}
-            <div className="px-6 py-5">
+            <div className="overflow-y-auto px-6 py-5">
               <p className="mb-1 text-xs text-neutral-500">
                 Cargo atual: <span className="font-medium text-neutral-700 uppercase">{permModalUser.role || '—'}</span>
               </p>
@@ -609,7 +689,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-neutral-100 px-6 py-4">
               <Button variant="secondary" onClick={handleClosePermModal} disabled={savingPerms}>
                 Cancelar
               </Button>
