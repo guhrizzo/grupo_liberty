@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 export interface SessionUser {
   uid: string
   email: string | null
+  name: string | null
   role: string | null
   permissions: UserPermissions
 }
@@ -37,10 +38,15 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
     const profile = profileDoc.data() as { role?: string; permissions?: UserPermissions } | undefined
+    const name =
+      ((decoded as unknown) as { name?: string; displayName?: string }).name ||
+      ((decoded as unknown) as { name?: string; displayName?: string }).displayName ||
+      null
 
     return {
       uid: decoded.uid,
       email: decoded.email ?? null,
+      name,
       role: profile?.role ?? null,
       permissions: profile?.permissions ?? {},
     }

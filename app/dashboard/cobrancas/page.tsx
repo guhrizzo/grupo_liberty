@@ -19,5 +19,14 @@ export default async function CobrancasPage() {
     getVehicles(),
   ])
 
-  return <CobrancasClient cobrancas={cobrancas} veiculos={veiculos} currentRole={user.role} />
+  const currentUserName = user.name || user.email || 'Usuário'
+
+  return (
+    <CobrancasClient
+      cobrancas={cobrancas}
+      veiculos={veiculos}
+      currentRole={user.role}
+      currentUserName={currentUserName}
+    />
+  )
 }

@@ -39,6 +39,11 @@ export interface Parcela {
   avisoAtrasoEnviadoEm: string | null // e-mail enviado 1 dia após o vencimento
   /** @deprecated use lembrete3dEnviadoEm — mantido por compatibilidade com registros antigos */
   lembreteEnviadoEm: string | null
+  // Edição manual do valor da parcela (marca a parcela como "editada")
+  valorOriginal: number | null // valor antes da primeira edição manual
+  valorEditadoPor: string | null // nome de quem fez a alteração
+  valorEditadoMotivo: string | null // motivo informado (opcional)
+  valorEditadoEm: string | null // data/hora da última edição
 }
 
 export interface Cobranca {
@@ -149,6 +154,10 @@ function serializeParcela(
     lembrete0dEnviadoEm: data.lembrete0dEnviadoEm ?? null,
     avisoAtrasoEnviadoEm: data.avisoAtrasoEnviadoEm ?? null,
     lembreteEnviadoEm: data.lembreteEnviadoEm ?? null,
+    valorOriginal: data.valorOriginal ?? null,
+    valorEditadoPor: data.valorEditadoPor ?? null,
+    valorEditadoMotivo: data.valorEditadoMotivo ?? null,
+    valorEditadoEm: data.valorEditadoEm ?? null,
   }
 }
 
@@ -632,6 +641,85 @@ export async function registrarPagamento(
   } catch (err: any) {
     console.error('[registrarPagamento]', err)
     return { error: 'Erro ao registrar pagamento.' }
+  }
+}
+
+/**
+ * Edita manualmente o valor de uma parcela (ex.: renegociação, desconto,
+ * correção). Exige o nome de quem está fazendo a alteração; o motivo é
+ * opcional. A parcela fica marcada como "editada" (guarda o valor original,
+ * quem editou, o motivo e quando) e o valor total da cobrança é ajustado
+ * pela diferença para manter os totais/progresso corretos.
+ */
+export async function editarValorParcela(
+  parcelaId: string,
+  novoValor: number,
+  editadoPor: string,
+  motivo?: string,
+): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!parcelaId) return { error: 'Parcela inválida.' }
+    if (typeof novoValor !== 'number' || isNaN(novoValor) || novoValor <= 0) {
+      return { error: 'Informe um valor válido.' }
+    }
+    const nome = (editadoPor || '').trim()
+    if (!nome) return { error: 'Informe o nome de quem está editando o valor.' }
+
+    const parcelaRef = adminDb.collection('cobranca_parcelas').doc(parcelaId)
+    const parcelaDoc = await parcelaRef.get()
+    if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
+    const parcelaData = parcelaDoc.data()!
+
+    const pagamentosSnap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('parcelaId', '==', parcelaId)
+      .get()
+    const totalPago = round2(
+      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
+    )
+
+    const valorArredondado = round2(novoValor)
+    if (valorArredondado < totalPago - EPSILON) {
+      return {
+        error: `O novo valor não pode ser menor que o já pago (R$ ${totalPago.toFixed(2).replace('.', ',')}).`,
+      }
+    }
+
+    const valorAntigo = parcelaData.valorParcela as number
+    const motivoTrim = (motivo || '').trim()
+
+    await parcelaRef.update({
+      valorParcela: valorArredondado,
+      // Preserva o valor original da 1ª edição — reedições não sobrescrevem.
+      valorOriginal: parcelaData.valorOriginal ?? valorAntigo,
+      valorEditadoPor: nome,
+      valorEditadoMotivo: motivoTrim || null,
+      valorEditadoEm: new Date().toISOString(),
+    })
+
+    // Ajusta o valorTotal da cobrança pela diferença, para manter o
+    // progresso/totais exibidos consistentes com a soma das parcelas.
+    const diferenca = round2(valorArredondado - valorAntigo)
+    if (Math.abs(diferenca) > EPSILON) {
+      const cobrancaRef = adminDb.collection('cobrancas').doc(parcelaData.cobrancaId)
+      const cobrancaDoc = await cobrancaRef.get()
+      if (cobrancaDoc.exists) {
+        const valorTotalAtual = (cobrancaDoc.data()?.valorTotal as number) || 0
+        await cobrancaRef.update({ valorTotal: round2(valorTotalAtual + diferenca) })
+      }
+    }
+
+    revalidatePath('/dashboard/cobrancas')
+    return { success: 'Valor da parcela atualizado.' }
+  } catch (err: any) {
+    console.error('[editarValorParcela]', err)
+    return { error: 'Erro ao editar o valor da parcela.' }
   }
 }
 

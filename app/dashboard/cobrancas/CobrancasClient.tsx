@@ -32,6 +32,8 @@ import {
   IconPencil,
   IconLoader2,
   IconSend,
+  IconEdit,
+  IconHistory,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -52,6 +54,7 @@ import {
   editarCobranca,
   testarLembretes,
   enviarEmailCobranca,
+  editarValorParcela,
 } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
@@ -62,6 +65,7 @@ interface CobrancasClientProps {
   cobrancas: Cobranca[]
   veiculos: Veiculo[]
   currentRole: string | null
+  currentUserName: string
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -195,7 +199,7 @@ function MoneyHint({ value }: { value: string }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function CobrancasClient({ cobrancas, veiculos, currentRole }: CobrancasClientProps) {
+export default function CobrancasClient({ cobrancas, veiculos, currentRole, currentUserName }: CobrancasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -217,6 +221,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [testandoLembretes, startTesteLembretes] = useTransition()
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [enviandoEmailId, setEnviandoEmailId] = useState<string | null>(null)
+  const [editarValorParcelaData, setEditarValorParcelaData] = useState<Parcela | null>(null)
+  const [loadingEditarValor, setLoadingEditarValor] = useState(false)
   const [editarCobrancaData, setEditarCobrancaData] = useState<Cobranca | null>(null)
   const [loadingEditar, setLoadingEditar] = useState(false)
 
@@ -478,6 +484,40 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       })
     },
     [router, toast],
+  )
+
+  const handleAbrirEditarValor = useCallback((parcela: Parcela) => {
+    setEditarValorParcelaData(parcela)
+  }, [])
+
+  const handleFecharEditarValor = useCallback(() => {
+    if (loadingEditarValor) return
+    setEditarValorParcelaData(null)
+  }, [loadingEditarValor])
+
+  const handleSalvarEditarValor = useCallback(
+    async (novoValor: number, motivo: string) => {
+      if (!editarValorParcelaData) return
+      setLoadingEditarValor(true)
+      try {
+        const result = await editarValorParcela(
+          editarValorParcelaData.id,
+          novoValor,
+          currentUserName,
+          motivo,
+        )
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Valor da parcela atualizado!')
+          setEditarValorParcelaData(null)
+          router.refresh()
+        }
+      } finally {
+        setLoadingEditarValor(false)
+      }
+    },
+    [editarValorParcelaData, currentUserName, router, toast],
   )
 
   const handleAbrirLembrete = useCallback((cobranca: Cobranca) => {
@@ -935,6 +975,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 onDesfazer={handleDesfazerParcela}
                 onRemoverPagamento={handleRemoverPagamento}
                 onEnviarEmail={handleEnviarEmail}
+                onEditarValor={handleAbrirEditarValor}
                 pendingId={null}
                 isToggling={isPending}
                 togglingId={togglingId}
@@ -1095,6 +1136,17 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
           onSubmit={handleSubmitPagamento}
+        />
+      )}
+
+      {/* Modal de edição do valor de uma parcela */}
+      {editarValorParcelaData && (
+        <EditarValorParcelaModal
+          parcela={editarValorParcelaData}
+          editorName={currentUserName}
+          loading={loadingEditarValor}
+          onClose={handleFecharEditarValor}
+          onSubmit={handleSalvarEditarValor}
         />
       )}
 
@@ -1280,6 +1332,7 @@ function CobrancaCard({
   onDesfazer,
   onRemoverPagamento,
   onEnviarEmail,
+  onEditarValor,
   isToggling,
   togglingId,
   enviandoEmailId,
@@ -1296,6 +1349,7 @@ function CobrancaCard({
   onDesfazer: (parcelaId: string) => void
   onRemoverPagamento: (pagamentoId: string) => void
   onEnviarEmail: (cobranca: Cobranca) => void
+  onEditarValor: (parcela: Parcela) => void
   pendingId: string | null
   isToggling: boolean
   togglingId: string | null
@@ -1596,6 +1650,7 @@ function CobrancaCard({
             onPagar={onPagar}
             onDesfazer={onDesfazer}
             onRemoverPagamento={onRemoverPagamento}
+            onEditarValor={onEditarValor}
             isToggling={isToggling}
           />
         </div>
@@ -1644,12 +1699,34 @@ function PagamentosMini({
   )
 }
 
+function ParcelaValorEditadoBadge({ parcela }: { parcela: Parcela }) {
+  if (!parcela.valorEditadoPor) return null
+  const detalhes = [
+    `Editado por ${parcela.valorEditadoPor}`,
+    parcela.valorOriginal != null ? `Valor original: ${formatCurrency(parcela.valorOriginal)}` : null,
+    parcela.valorEditadoMotivo ? `Motivo: ${parcela.valorEditadoMotivo}` : null,
+    parcela.valorEditadoEm ? `Em ${formatDate(parcela.valorEditadoEm.slice(0, 10))}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <span
+      title={detalhes}
+      className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700"
+    >
+      <IconHistory size={9} stroke={2.5} />
+      Editado
+    </span>
+  )
+}
+
 function ParcelasList({
   parcelas,
   canEdit,
   onPagar,
   onDesfazer,
   onRemoverPagamento,
+  onEditarValor,
   isToggling,
 }: {
   parcelas: Parcela[]
@@ -1657,6 +1734,7 @@ function ParcelasList({
   onPagar: (parcela: Parcela) => void
   onDesfazer: (parcelaId: string) => void
   onRemoverPagamento: (pagamentoId: string) => void
+  onEditarValor: (parcela: Parcela) => void
   isToggling: boolean
 }) {
   const hoje = new Date()
@@ -1686,11 +1764,23 @@ function ParcelasList({
                 {p.numeroParcela}ª
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <p className="text-sm font-bold text-neutral-900">
                     {formatCurrency(p.valorParcela)}
                   </p>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onEditarValor(p)}
+                      aria-label="Editar valor da parcela"
+                      title="Editar valor da parcela"
+                      className="rounded p-0.5 text-liberty hover:bg-liberty/10 hover:text-liberty-deep cursor-pointer"
+                    >
+                      <IconEdit size={12} stroke={2} />
+                    </button>
+                  )}
                   <StatusBadge status={p.status} />
+                  <ParcelaValorEditadoBadge parcela={p} />
                 </div>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
                   Vence {formatDate(p.dataVencimento)}
@@ -1771,9 +1861,23 @@ function ParcelasList({
                     {formatDate(p.dataVencimento)}
                   </td>
                   <td className="px-5 py-3 align-top">
-                    <p className="font-bold text-neutral-900">
-                      {formatCurrency(p.valorParcela)}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <p className="font-bold text-neutral-900">
+                        {formatCurrency(p.valorParcela)}
+                      </p>
+                      {canEdit && (
+                        <button
+                          type="button"
+                          onClick={() => onEditarValor(p)}
+                          aria-label="Editar valor da parcela"
+                          title="Editar valor da parcela"
+                          className="rounded p-0.5 text-liberty hover:bg-liberty/10 hover:text-liberty-deep cursor-pointer"
+                        >
+                          <IconEdit size={12} stroke={2} />
+                        </button>
+                      )}
+                      <ParcelaValorEditadoBadge parcela={p} />
+                    </div>
                     {!p.pago && p.valorPago > 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
                         pago {formatCurrency(p.valorPago)} · falta {formatCurrency(p.valorRestante)}
@@ -2462,6 +2566,171 @@ function PagamentoModal({
               <>
                 <IconCheck size={14} stroke={2.5} />
                 Confirmar Pagamento
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Modal Editar Valor da Parcela ────────────────────────────────────────
+
+function EditarValorParcelaModal({
+  parcela,
+  editorName,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  parcela: Parcela
+  editorName: string
+  loading: boolean
+  onClose: () => void
+  onSubmit: (novoValor: number, motivo: string) => void
+}) {
+  const [valor, setValor] = useState(() => maskMoney(String(Math.round(parcela.valorParcela * 100))))
+  const [motivo, setMotivo] = useState('')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  if (typeof document === 'undefined') return null
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
+
+    const valorNum = parseMoney(valor)
+    if (!valorNum || valorNum <= 0) {
+      setErrorMsg('Informe um valor válido.')
+      return
+    }
+    if (parcela.valorPago > 0 && valorNum < parcela.valorPago - 0.01) {
+      setErrorMsg(`O novo valor não pode ser menor que o já pago (${formatCurrency(parcela.valorPago)}).`)
+      return
+    }
+
+    onSubmit(valorNum, motivo.trim())
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose()
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty text-white shadow-sm">
+              <IconEdit size={20} stroke={2} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-950">Editar Valor da Parcela</h2>
+              <p className="mt-0.5 text-xs text-neutral-600">Parcela {parcela.numeroParcela}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            <IconX size={18} stroke={2} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-500">Valor atual</span>
+              <span className="font-bold text-neutral-900">{formatCurrency(parcela.valorParcela)}</span>
+            </div>
+            {parcela.valorPago > 0 && (
+              <div className="mt-1 flex items-center justify-between text-xs">
+                <span className="text-neutral-500">Já pago</span>
+                <span className="font-bold text-emerald-700">{formatCurrency(parcela.valorPago)}</span>
+              </div>
+            )}
+            {parcela.valorEditadoPor && (
+              <div className="mt-2 border-t border-neutral-200 pt-2 text-[11px] text-neutral-500">
+                Última edição por <strong className="text-neutral-700">{parcela.valorEditadoPor}</strong>
+                {parcela.valorEditadoMotivo ? ` — ${parcela.valorEditadoMotivo}` : ''}
+              </div>
+            )}
+          </div>
+
+          <Input
+            id="novoValorParcela"
+            label="Novo valor da parcela *"
+            value={valor}
+            onChange={(e) => setValor(maskMoney(e.target.value))}
+            placeholder="R$ 0,00"
+            inputMode="numeric"
+            leftIcon={<IconCurrencyDollar size={14} />}
+            required
+            autoFocus
+          />
+
+          <div className="flex items-center gap-2 rounded-lg border border-liberty/30 bg-liberty/10 px-3 py-2">
+            <IconUser size={14} className="shrink-0 text-liberty-deep" />
+            <p className="text-[11px] font-semibold text-liberty-deep">
+              Editando como <span className="font-bold">{editorName}</span>
+            </p>
+          </div>
+
+          <Input
+            id="motivoEdicao"
+            label="Motivo (opcional)"
+            value={motivo}
+            onChange={(e) => setMotivo(e.target.value)}
+            placeholder="Ex: Renegociação, desconto..."
+            leftIcon={<IconPencil size={14} />}
+          />
+
+          <p className="rounded-lg border border-liberty/30 bg-liberty/10 px-3 py-2 text-[11px] font-semibold text-liberty-deep">
+            A parcela ficará marcada como "Editada" e o histórico da alteração fica visível para a equipe.
+          </p>
+
+          {errorMsg && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Salvando...
+              </>
+            ) : (
+              <>
+                <IconCheck size={14} stroke={2.5} />
+                Salvar Valor
               </>
             )}
           </button>
