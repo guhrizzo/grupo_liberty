@@ -873,3 +873,38 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   }
 }
 
+/**
+ * Alterna a visibilidade pública de um veículo isoladamente, sem passar
+ * pelas validações dos demais campos do cadastro (placa, renavam, CPF,
+ * telefones, preços etc.). Existe porque o toggle Público/Privado, ao ser
+ * salvo junto do formulário inteiro em `updateVehicle`, ficava bloqueado
+ * sempre que algum outro campo do veículo tinha dado legado que não passa
+ * mais nas validações atuais — mesmo sem relação nenhuma com visibilidade.
+ */
+export async function setVeiculoPublico(id: string, publico: boolean): Promise<VeiculoResponse> {
+  try {
+    await assertPodeGerenciarVeiculos()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  try {
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+
+    if (!doc.exists) {
+      return { error: 'Veículo não encontrado.' }
+    }
+
+    const now = new Date().toISOString()
+    await docRef.update({ publico, updated_at: now })
+
+    revalidatePath('/dashboard/veiculos')
+    return {
+      success: publico ? 'Veículo agora está público.' : 'Veículo agora está privado.',
+    }
+  } catch (error: any) {
+    return { error: `Erro ao atualizar visibilidade: ${error.message}` }
+  }
+}
+

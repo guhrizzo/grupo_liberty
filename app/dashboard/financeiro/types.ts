@@ -26,7 +26,9 @@ export const TRANSACAO_CATEGORIAS: TransacaoCategoria[] = [
 export interface Transacao {
   id: string
   descricao: string
-  categoria: TransacaoCategoria
+  // Pode ser uma das categorias predefinidas ou um nome customizado
+  // informado pelo usuário quando a categoria selecionada é "Outros".
+  categoria: TransacaoCategoria | (string & {})
   tipo: TransacaoTipo
   valor: number
   data: string

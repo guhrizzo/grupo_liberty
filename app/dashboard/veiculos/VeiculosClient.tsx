@@ -31,6 +31,7 @@ import {
   updateVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
+  setVeiculoPublico,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
@@ -183,7 +184,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deletePending, startDeleteTransition] = useTransition()
 
-  const MAX_PHOTOS = 10
+  const MAX_PHOTOS = 20
+
+  // Salva o toggle Público/Privado isoladamente (ver setVeiculoPublico em
+  // actions.ts) quando editando um veículo já existente.
+  const [publicoSaving, setPublicoSaving] = useState(false)
 
   // ─── Photo handling ──────────────────────────────────────────────────────
 
@@ -534,6 +539,37 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     }
   }
 
+  // Alterna Público/Privado. Se o veículo já existe, salva na hora (sem
+  // depender da validade dos outros campos do formulário); se é um veículo
+  // novo ainda não salvo, só ajusta o estado local — vai junto no create.
+  const handleTogglePublico = async () => {
+    const novoValor = !publico
+
+    if (!editingId) {
+      setPublico(novoValor)
+      return
+    }
+
+    setPublico(novoValor)
+    setPublicoSaving(true)
+    setMessage(null)
+    try {
+      const result = await setVeiculoPublico(editingId, novoValor)
+      if (result.error) {
+        setPublico(!novoValor) // reverte o toggle
+        setMessage({ type: 'error', text: result.error })
+      } else {
+        setMessage({ type: 'success', text: result.success || 'Visibilidade atualizada!' })
+        router.refresh()
+      }
+    } catch (err: any) {
+      setPublico(!novoValor)
+      setMessage({ type: 'error', text: err.message || 'Erro ao atualizar visibilidade.' })
+    } finally {
+      setPublicoSaving(false)
+    }
+  }
+
   // ─── Delete ──────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -794,11 +830,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     role="switch"
                     aria-checked={publico}
                     aria-label={`Visibilidade do veículo. Atual: ${publico ? 'Público' : 'Privado'}.`}
-                    onClick={() => setPublico((prev) => !prev)}
+                    onClick={handleTogglePublico}
+                    disabled={publicoSaving}
                     className={[
                       'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
                       'transition-colors duration-200 ease-out',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
+                      'disabled:cursor-wait disabled:opacity-70',
                       publico ? 'bg-emerald-500' : 'bg-neutral-300',
                     ].join(' ')}
                   >
@@ -821,6 +859,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   >
                     {publico ? 'Público' : 'Privado'}
                   </span>
+                  {publicoSaving && (
+                    <span className="text-xs text-neutral-400">Salvando…</span>
+                  )}
                 </div>
 
                 {/* Linha 3: Valor da Venda, Câmbio, Combustível */}

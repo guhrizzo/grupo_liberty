@@ -54,6 +54,7 @@ export default function FinanceiroClient({
   // Form fields
   const [descricao, setDescricao] = useState('')
   const [categoria, setCategoria] = useState<TransacaoCategoria>('Venda de Veículo')
+  const [categoriaOutrosNome, setCategoriaOutrosNome] = useState('')
   const [tipo, setTipo] = useState<TransacaoTipo>('receita')
   const [valor, setValor] = useState('')
   const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
@@ -93,6 +94,7 @@ export default function FinanceiroClient({
     setDescricao('')
     setValor('')
     setCategoria('Venda de Veículo')
+    setCategoriaOutrosNome('')
     setTipo('receita')
     setData(new Date().toISOString().split('T')[0])
     setStatus('concluido')
@@ -107,7 +109,15 @@ export default function FinanceiroClient({
   function openEdit(t: Transacao) {
     setEditing(t)
     setDescricao(t.descricao)
-    setCategoria(t.categoria)
+    // Categorias que não estão na lista predefinida foram salvas como um
+    // nome customizado de "Outros" — reabre o formulário nesse estado.
+    if (TRANSACAO_CATEGORIAS.includes(t.categoria as TransacaoCategoria)) {
+      setCategoria(t.categoria as TransacaoCategoria)
+      setCategoriaOutrosNome('')
+    } else {
+      setCategoria('Outros')
+      setCategoriaOutrosNome(t.categoria)
+    }
     setTipo(t.tipo)
     setValor(moneyFromNumber(t.valor))
     setData(t.data || new Date().toISOString().split('T')[0])
@@ -126,9 +136,14 @@ export default function FinanceiroClient({
     if (submitting) return
     setSubmitting(true)
 
+    const categoriaFinal =
+      categoria === 'Outros' && categoriaOutrosNome.trim()
+        ? categoriaOutrosNome.trim()
+        : categoria
+
     const fd = new FormData()
     fd.append('descricao', descricao.trim())
-    fd.append('categoria', categoria)
+    fd.append('categoria', categoriaFinal)
     fd.append('tipo', tipo)
     fd.append('valor', String(parseMoneyIntuitivo(valor)))
     fd.append('data', data)
@@ -375,9 +390,9 @@ export default function FinanceiroClient({
       {/* Modal Criar / Editar */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 p-6 max-w-lg w-full space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 p-8 max-w-2xl w-full space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
-              <h3 className="text-base font-bold text-neutral-900">
+              <h3 className="text-lg font-bold text-neutral-900">
                 {editing ? 'Editar Lançamento' : 'Novo Lançamento Financeiro'}
               </h3>
               <button
@@ -388,7 +403,7 @@ export default function FinanceiroClient({
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <Input
                 label="Descrição *"
                 value={descricao}
@@ -397,7 +412,7 @@ export default function FinanceiroClient({
                 required
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <Select
                   label="Tipo *"
                   value={tipo}
@@ -417,19 +432,30 @@ export default function FinanceiroClient({
                 />
               </div>
 
-              <Select
-                label="Categoria *"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value as TransacaoCategoria)}
-              >
-                {TRANSACAO_CATEGORIAS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <Select
+                  label="Categoria *"
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value as TransacaoCategoria)}
+                >
+                  {TRANSACAO_CATEGORIAS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
 
-              <div className="grid grid-cols-2 gap-3">
+                {categoria === 'Outros' && (
+                  <Input
+                    label="Nome (opcional)"
+                    value={categoriaOutrosNome}
+                    onChange={(e) => setCategoriaOutrosNome(e.target.value)}
+                    placeholder="Ex: Doação, Multa, Aluguel..."
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <Input
                   label="Data"
                   type="date"

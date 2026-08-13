@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { processarLembretesCobranca } from '@/utils/cobrancas/processar-lembretes'
+import { sendCobrancaLembreteEmail } from '@/utils/email/send-cobranca-lembrete-email'
+import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-email'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -457,6 +459,111 @@ export async function testarLembretes(): Promise<TestarLembretesResponse> {
   } catch (err: any) {
     console.error('[testarLembretes]', err)
     return { error: 'Erro ao processar lembretes.' }
+  }
+}
+
+/**
+ * Envia manualmente, agora, um e-mail de cobrança para o cliente de UMA
+ * cobrança específica — diferente de `testarLembretes` (que processa todas
+ * as cobranças respeitando os 3 momentos fixos de envio). Aqui o envio é
+ * imediato, independente de data: escolhe a parcela em aberto mais urgente
+ * (a mais atrasada, ou se não houver atraso, a próxima a vencer) e dispara
+ * o e-mail correspondente (lembrete ou aviso de atraso).
+ */
+export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+
+    const cobrancaDoc = await adminDb.collection('cobrancas').doc(cobrancaId).get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    const cobranca = cobrancaDoc.data()!
+
+    const clienteEmail = ((cobranca.clienteEmail as string | null) || '').trim()
+    if (!clienteEmail) {
+      return { error: 'Este cliente não tem e-mail cadastrado. Edite a cobrança para adicionar.' }
+    }
+
+    const [parcelasSnap, pagamentosSnap] = await Promise.all([
+      adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
+      adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
+    ])
+
+    const pagoPorParcela = new Map<string, number>()
+    for (const doc of pagamentosSnap.docs) {
+      const data = doc.data()
+      pagoPorParcela.set(data.parcelaId, (pagoPorParcela.get(data.parcelaId) ?? 0) + (data.valor || 0))
+    }
+
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    // Escolhe a parcela em aberto mais urgente (menor `diasRestantes`,
+    // negativo = atrasada). Parcelas já quitadas são ignoradas.
+    let alvo: {
+      parcela: FirebaseFirestore.DocumentData
+      valorRestante: number
+      diasRestantes: number
+    } | null = null
+
+    for (const parcelaDoc of parcelasSnap.docs) {
+      const parcela = parcelaDoc.data()
+      const valorPago = pagoPorParcela.get(parcelaDoc.id) ?? 0
+      const valorRestante = round2(Math.max(parcela.valorParcela - valorPago, 0))
+      if (valorRestante <= EPSILON) continue // já quitada
+
+      const venc = new Date(parcela.dataVencimento + 'T00:00:00')
+      const diasRestantes = Math.round((venc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+
+      if (!alvo || diasRestantes < alvo.diasRestantes) {
+        alvo = { parcela, valorRestante, diasRestantes }
+      }
+    }
+
+    if (!alvo) {
+      return { error: 'Este cliente não possui parcelas em aberto.' }
+    }
+
+    const clienteNome = cobranca.clienteNome
+    const veiculoResumo = cobranca.veiculoResumo
+    const numeroParcelas = cobranca.numeroParcelas
+
+    const ok =
+      alvo.diasRestantes < 0
+        ? await sendCobrancaAtrasoEmail({
+            clienteNome,
+            clienteEmail,
+            veiculoResumo,
+            numeroParcela: alvo.parcela.numeroParcela,
+            numeroParcelas,
+            valorRestante: alvo.valorRestante,
+            dataVencimento: alvo.parcela.dataVencimento,
+            diasAtraso: Math.abs(alvo.diasRestantes),
+          })
+        : await sendCobrancaLembreteEmail({
+            clienteNome,
+            clienteEmail,
+            veiculoResumo,
+            numeroParcela: alvo.parcela.numeroParcela,
+            numeroParcelas,
+            valorParcela: alvo.parcela.valorParcela,
+            dataVencimento: alvo.parcela.dataVencimento,
+            diasRestantes: alvo.diasRestantes,
+          })
+
+    if (!ok) {
+      return { error: 'Falha ao enviar o e-mail. Verifique se o RESEND_API_KEY está configurado.' }
+    }
+
+    return { success: `E-mail enviado para ${clienteEmail}.` }
+  } catch (err: any) {
+    console.error('[enviarEmailCobranca]', err)
+    return { error: 'Erro ao enviar o e-mail.' }
   }
 }
 

@@ -31,6 +31,7 @@ import {
   IconBellRinging,
   IconPencil,
   IconLoader2,
+  IconSend,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -50,6 +51,7 @@ import {
   atualizarLembrete,
   editarCobranca,
   testarLembretes,
+  enviarEmailCobranca,
 } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
@@ -214,6 +216,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
   const [loadingLembrete, setLoadingLembrete] = useState(false)
   const [testandoLembretes, startTesteLembretes] = useTransition()
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [enviandoEmailId, setEnviandoEmailId] = useState<string | null>(null)
   const [editarCobrancaData, setEditarCobrancaData] = useState<Cobranca | null>(null)
   const [loadingEditar, setLoadingEditar] = useState(false)
 
@@ -551,6 +554,29 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
       }
     },
     [togglingId, router, toast],
+  )
+
+  // Envia agora, manualmente, um e-mail de cobrança para este cliente
+  const handleEnviarEmail = useCallback(
+    async (cobranca: Cobranca) => {
+      if (enviandoEmailId) return
+      if (!cobranca.clienteEmail) {
+        toast.error('Adicione o e-mail do cliente antes de enviar.')
+        return
+      }
+      setEnviandoEmailId(cobranca.id)
+      try {
+        const result = await enviarEmailCobranca(cobranca.id)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'E-mail enviado!')
+        }
+      } finally {
+        setEnviandoEmailId(null)
+      }
+    },
+    [enviandoEmailId, toast],
   )
 
   // Abre o modal de edição da cobrança
@@ -908,9 +934,11 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole }: Co
                 onPagar={handleAbrirPagamento}
                 onDesfazer={handleDesfazerParcela}
                 onRemoverPagamento={handleRemoverPagamento}
+                onEnviarEmail={handleEnviarEmail}
                 pendingId={null}
                 isToggling={isPending}
                 togglingId={togglingId}
+                enviandoEmailId={enviandoEmailId}
               />
             ))}
           </ul>
@@ -1251,8 +1279,10 @@ function CobrancaCard({
   onPagar,
   onDesfazer,
   onRemoverPagamento,
+  onEnviarEmail,
   isToggling,
   togglingId,
+  enviandoEmailId,
 }: {
   cobranca: Cobranca
   canEdit: boolean
@@ -1265,9 +1295,11 @@ function CobrancaCard({
   onPagar: (parcela: Parcela) => void
   onDesfazer: (parcelaId: string) => void
   onRemoverPagamento: (pagamentoId: string) => void
+  onEnviarEmail: (cobranca: Cobranca) => void
   pendingId: string | null
   isToggling: boolean
   togglingId: string | null
+  enviandoEmailId: string | null
 }) {
   const totalPago = useMemo(
     () => c.parcelas.reduce((a, p) => a + p.valorPago, 0),
@@ -1342,6 +1374,53 @@ function CobrancaCard({
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
+          {canEdit && (() => {
+            const temEmail = Boolean(c.clienteEmail)
+            const isSendingEmail = enviandoEmailId === c.id
+
+            return (
+              <span
+                role={temEmail ? 'button' : undefined}
+                tabIndex={temEmail ? 0 : undefined}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (temEmail && !isSendingEmail) onEnviarEmail(c)
+                }}
+                onKeyDown={(e) => {
+                  if (!temEmail || isSendingEmail) return
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onEnviarEmail(c)
+                  }
+                }}
+                aria-label={
+                  !temEmail
+                    ? 'Sem e-mail — edite a cobrança para adicionar'
+                    : `Enviar e-mail de cobrança agora para ${c.clienteNome}`
+                }
+                title={
+                  !temEmail
+                    ? 'Adicione o e-mail no ✏️ editar para poder enviar'
+                    : 'Enviar agora um e-mail de cobrança para este cliente'
+                }
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                  !temEmail
+                    ? 'cursor-default text-neutral-300'
+                    : isSendingEmail
+                    ? 'cursor-wait text-neutral-400'
+                    : 'cursor-pointer text-neutral-400 hover:bg-liberty/10 hover:text-liberty-deep'
+                }`}
+              >
+                {isSendingEmail ? (
+                  <IconLoader2 size={15} stroke={2} className="animate-spin" />
+                ) : (
+                  <IconSend size={15} stroke={2} />
+                )}
+              </span>
+            )
+          })()}
+
           {canEdit && (() => {
             const temEmail = Boolean(c.clienteEmail)
             const isThisToggling = togglingId === c.id

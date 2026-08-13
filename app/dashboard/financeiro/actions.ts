@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import {
-  TRANSACAO_CATEGORIAS,
   type Transacao,
   type TransacaoCategoria,
   type TransacaoFieldErrors,
@@ -113,11 +112,9 @@ export async function createTransacao(formData: FormData): Promise<TransacaoResp
 
   const descricao = ((formData.get('descricao') as string) || '').trim()
   const categoriaRaw = ((formData.get('categoria') as string) || '').trim()
-  const categoria: TransacaoCategoria = TRANSACAO_CATEGORIAS.includes(
-    categoriaRaw as TransacaoCategoria,
-  )
-    ? (categoriaRaw as TransacaoCategoria)
-    : 'Outros'
+  // Aceita as categorias predefinidas ou um nome customizado (quando o
+  // usuário escolhe "Outros" e informa um nome específico no formulário).
+  const categoria: TransacaoCategoria = (categoriaRaw || 'Outros') as TransacaoCategoria
   const tipo: TransacaoTipo = (formData.get('tipo') as string) === 'despesa' ? 'despesa' : 'receita'
   const valorRaw = (formData.get('valor') as string) || ''
   const valor = parseValor(valorRaw)
@@ -179,11 +176,9 @@ export async function updateTransacao(
 
   const descricao = ((formData.get('descricao') as string) || '').trim()
   const categoriaRaw = ((formData.get('categoria') as string) || '').trim()
-  const categoria: TransacaoCategoria = TRANSACAO_CATEGORIAS.includes(
-    categoriaRaw as TransacaoCategoria,
-  )
-    ? (categoriaRaw as TransacaoCategoria)
-    : 'Outros'
+  // Aceita as categorias predefinidas ou um nome customizado (quando o
+  // usuário escolhe "Outros" e informa um nome específico no formulário).
+  const categoria: TransacaoCategoria = (categoriaRaw || 'Outros') as TransacaoCategoria
   const tipo: TransacaoTipo = (formData.get('tipo') as string) === 'despesa' ? 'despesa' : 'receita'
   const valorRaw = (formData.get('valor') as string) || ''
   const valor = parseValor(valorRaw)
