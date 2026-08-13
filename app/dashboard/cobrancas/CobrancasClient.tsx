@@ -38,6 +38,7 @@ import {
 import {
   Breadcrumb,
   Button,
+  ConfirmDialog,
   Input,
   useToast,
 } from '@/app/components/ui'
@@ -83,6 +84,27 @@ function ehVendedor(role: string | null): boolean {
 /** Cobrança quite = todas as parcelas já pagas (fila terminada). */
 function isCobrancaQuite(c: Cobranca): boolean {
   return c.parcelas.length > 0 && c.parcelas.every((p) => p.pago)
+}
+
+/** Parcela em aberto com o vencimento mais próximo (a mesma que o envio de e-mail alveja). */
+function getParcelaMaisUrgente(c: Cobranca): Parcela | null {
+  const abertas = c.parcelas.filter((p) => !p.pago)
+  if (abertas.length === 0) return null
+  return abertas.reduce((min, p) => (p.dataVencimento < min.dataVencimento ? p : min))
+}
+
+/**
+ * Cobranças semanais (aluguel) só podem ter o e-mail enviado no dia do
+ * vencimento da parcela — mesma regra do envio automático. Retorna o motivo
+ * do bloqueio (para exibir numa mensagem), ou `null` se pode enviar.
+ */
+function motivoBloqueioEnvioSemanal(c: Cobranca): string | null {
+  if (c.tipo !== 'aluguel') return null
+  const alvo = getParcelaMaisUrgente(c)
+  if (!alvo) return null
+  const hoje = new Date().toISOString().split('T')[0]
+  if (alvo.dataVencimento === hoje) return null
+  return `Cobrança semanal — o envio só é liberado no dia do vencimento (${formatDate(alvo.dataVencimento)}).`
 }
 
 function labelParcelas(tipo: TipoCobranca): string {
@@ -471,13 +493,13 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
   )
 
   const handleDesfazerParcela = useCallback(
-    (parcelaId: string) => {
+    (parcelaId: string, removerVinculo: boolean = false) => {
       startTransition(async () => {
-        const result = await resetParcela(parcelaId)
+        const result = await resetParcela(parcelaId, removerVinculo)
         if (result.error) {
           toast.error(result.error)
         } else {
-          toast.success('Pagamentos da parcela removidos.')
+          toast.success(result.success || 'Pagamentos da parcela removidos.')
           router.refresh()
         }
       })
@@ -486,19 +508,65 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
   )
 
   const handleRemoverPagamento = useCallback(
-    (pagamentoId: string) => {
+    (pagamentoId: string, removerVinculo: boolean = false) => {
       startTransition(async () => {
-        const result = await removerPagamento(pagamentoId)
+        const result = await removerPagamento(pagamentoId, removerVinculo)
         if (result.error) {
           toast.error(result.error)
         } else {
-          toast.success('Pagamento removido.')
+          toast.success(result.success || 'Pagamento removido.')
           router.refresh()
         }
       })
     },
     [router, toast],
   )
+
+  // Confirmação: pagamentos vinculados a uma receita no financeiro pedem
+  // confirmação antes de remover (com opção de remover a receita também).
+  // Pagamentos sem vínculo continuam removendo direto, sem modal.
+  const [confirmRemocaoPagamento, setConfirmRemocaoPagamento] = useState<Pagamento | null>(null)
+  const [confirmRemocaoParcela, setConfirmRemocaoParcela] = useState<Parcela | null>(null)
+  const [removerVinculoFinanceiro, setRemoverVinculoFinanceiro] = useState(false)
+
+  const handleRemoverPagamentoClick = useCallback(
+    (pagamento: Pagamento) => {
+      if (pagamento.transacaoId) {
+        setConfirmRemocaoPagamento(pagamento)
+        setRemoverVinculoFinanceiro(false)
+      } else {
+        handleRemoverPagamento(pagamento.id, false)
+      }
+    },
+    [handleRemoverPagamento],
+  )
+
+  const handleDesfazerClick = useCallback(
+    (parcela: Parcela) => {
+      const temVinculo = parcela.pagamentos.some((pg) => pg.transacaoId)
+      if (temVinculo) {
+        setConfirmRemocaoParcela(parcela)
+        setRemoverVinculoFinanceiro(false)
+      } else {
+        handleDesfazerParcela(parcela.id, false)
+      }
+    },
+    [handleDesfazerParcela],
+  )
+
+  const handleConfirmRemocaoPagamento = useCallback(() => {
+    if (!confirmRemocaoPagamento) return
+    handleRemoverPagamento(confirmRemocaoPagamento.id, removerVinculoFinanceiro)
+    setConfirmRemocaoPagamento(null)
+    setRemoverVinculoFinanceiro(false)
+  }, [confirmRemocaoPagamento, removerVinculoFinanceiro, handleRemoverPagamento])
+
+  const handleConfirmRemocaoParcela = useCallback(() => {
+    if (!confirmRemocaoParcela) return
+    handleDesfazerParcela(confirmRemocaoParcela.id, removerVinculoFinanceiro)
+    setConfirmRemocaoParcela(null)
+    setRemoverVinculoFinanceiro(false)
+  }, [confirmRemocaoParcela, removerVinculoFinanceiro, handleDesfazerParcela])
 
   const handleAbrirEditarValor = useCallback((parcela: Parcela) => {
     setEditarValorParcelaData(parcela)
@@ -986,8 +1054,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
                 onToggleSino={handleToggleSino}
                 onEditar={handleAbrirEditar}
                 onPagar={handleAbrirPagamento}
-                onDesfazer={handleDesfazerParcela}
-                onRemoverPagamento={handleRemoverPagamento}
+                onDesfazer={handleDesfazerClick}
+                onRemoverPagamento={handleRemoverPagamentoClick}
                 onEnviarEmail={handleEnviarEmail}
                 onEditarValor={handleAbrirEditarValor}
                 pendingId={null}
@@ -1163,6 +1231,92 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
           onSubmit={handleSalvarEditarValor}
         />
       )}
+
+      {/* Confirmação: remover 1 pagamento que gerou receita no financeiro */}
+      <ConfirmDialog
+        open={!!confirmRemocaoPagamento}
+        onClose={() => {
+          setConfirmRemocaoPagamento(null)
+          setRemoverVinculoFinanceiro(false)
+        }}
+        onConfirm={handleConfirmRemocaoPagamento}
+        title="Remover pagamento?"
+        description={
+          confirmRemocaoPagamento ? (
+            <>
+              <p>
+                Remover o pagamento de{' '}
+                <strong>{formatCurrency(confirmRemocaoPagamento.valor)}</strong> em{' '}
+                {formatDate(confirmRemocaoPagamento.data)}?
+              </p>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-liberty/30 bg-liberty/10 p-3">
+                <input
+                  type="checkbox"
+                  checked={removerVinculoFinanceiro}
+                  onChange={(e) => setRemoverVinculoFinanceiro(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-liberty focus:ring-liberty"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-liberty-deep">
+                    Também remover a receita no financeiro
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-neutral-600">
+                    Este pagamento gerou um lançamento em /dashboard/financeiro. Marque para
+                    remover os dois juntos — se deixar desmarcado, o lançamento fica lá, só
+                    desvinculado.
+                  </span>
+                </span>
+              </label>
+            </>
+          ) : null
+        }
+        confirmLabel="Remover"
+        tone="danger"
+        loading={isPending}
+      />
+
+      {/* Confirmação: desfazer parcela com pagamento(s) vinculado(s) ao financeiro */}
+      <ConfirmDialog
+        open={!!confirmRemocaoParcela}
+        onClose={() => {
+          setConfirmRemocaoParcela(null)
+          setRemoverVinculoFinanceiro(false)
+        }}
+        onConfirm={handleConfirmRemocaoParcela}
+        title="Desfazer pagamentos da parcela?"
+        description={
+          confirmRemocaoParcela ? (
+            <>
+              <p>
+                Isso remove <strong>{confirmRemocaoParcela.pagamentos.length}</strong> pagamento
+                {confirmRemocaoParcela.pagamentos.length === 1 ? '' : 's'} da parcela{' '}
+                {confirmRemocaoParcela.numeroParcela}, voltando ela para pendente.
+              </p>
+              <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-liberty/30 bg-liberty/10 p-3">
+                <input
+                  type="checkbox"
+                  checked={removerVinculoFinanceiro}
+                  onChange={(e) => setRemoverVinculoFinanceiro(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-liberty focus:ring-liberty"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-bold text-liberty-deep">
+                    Também remover as receitas no financeiro
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-neutral-600">
+                    Um ou mais desses pagamentos geraram lançamentos em /dashboard/financeiro.
+                    Marque para remover junto — se deixar desmarcado, os lançamentos ficam lá, só
+                    desvinculados.
+                  </span>
+                </span>
+              </label>
+            </>
+          ) : null
+        }
+        confirmLabel="Desfazer"
+        tone="danger"
+        loading={isPending}
+      />
 
       {/* Modal de configuração do lembrete de vencimento (e-mail) */}
       {lembreteCobranca && (
@@ -1360,8 +1514,8 @@ function CobrancaCard({
   onToggleSino: (cobranca: Cobranca) => void
   onEditar: (cobranca: Cobranca) => void
   onPagar: (parcela: Parcela) => void
-  onDesfazer: (parcelaId: string) => void
-  onRemoverPagamento: (pagamentoId: string) => void
+  onDesfazer: (parcela: Parcela) => void
+  onRemoverPagamento: (pagamento: Pagamento) => void
   onEnviarEmail: (cobranca: Cobranca) => void
   onEditarValor: (parcela: Parcela) => void
   pendingId: string | null
@@ -1445,17 +1599,19 @@ function CobrancaCard({
           {canEdit && (() => {
             const temEmail = Boolean(c.clienteEmail)
             const isSendingEmail = enviandoEmailId === c.id
+            const motivoBloqueio = temEmail ? motivoBloqueioEnvioSemanal(c) : null
+            const podeEnviar = temEmail && !motivoBloqueio
 
             return (
               <span
-                role={temEmail ? 'button' : undefined}
-                tabIndex={temEmail ? 0 : undefined}
+                role={podeEnviar ? 'button' : undefined}
+                tabIndex={podeEnviar ? 0 : undefined}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (temEmail && !isSendingEmail) onEnviarEmail(c)
+                  if (podeEnviar && !isSendingEmail) onEnviarEmail(c)
                 }}
                 onKeyDown={(e) => {
-                  if (!temEmail || isSendingEmail) return
+                  if (!podeEnviar || isSendingEmail) return
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
                     e.stopPropagation()
@@ -1465,15 +1621,19 @@ function CobrancaCard({
                 aria-label={
                   !temEmail
                     ? 'Sem e-mail — edite a cobrança para adicionar'
+                    : motivoBloqueio
+                    ? motivoBloqueio
                     : `Enviar e-mail de cobrança agora para ${c.clienteNome}`
                 }
                 title={
                   !temEmail
                     ? 'Adicione o e-mail no ✏️ editar para poder enviar'
+                    : motivoBloqueio
+                    ? motivoBloqueio
                     : 'Enviar agora um e-mail de cobrança para este cliente'
                 }
                 className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                  !temEmail
+                  !podeEnviar
                     ? 'cursor-default text-neutral-300'
                     : isSendingEmail
                     ? 'cursor-wait text-neutral-400'
@@ -1682,7 +1842,7 @@ function PagamentosMini({
 }: {
   pagamentos: Pagamento[]
   canEdit: boolean
-  onRemover: (pagamentoId: string) => void
+  onRemover: (pagamento: Pagamento) => void
 }) {
   if (pagamentos.length === 0) return null
   return (
@@ -1699,7 +1859,7 @@ function PagamentosMini({
           {canEdit && (
             <button
               type="button"
-              onClick={() => onRemover(pg.id)}
+              onClick={() => onRemover(pg)}
               aria-label="Remover este pagamento"
               title="Remover este pagamento"
               className="ml-0.5 rounded p-0.5 text-neutral-400 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
@@ -1746,8 +1906,8 @@ function ParcelasList({
   parcelas: Parcela[]
   canEdit: boolean
   onPagar: (parcela: Parcela) => void
-  onDesfazer: (parcelaId: string) => void
-  onRemoverPagamento: (pagamentoId: string) => void
+  onDesfazer: (parcela: Parcela) => void
+  onRemoverPagamento: (pagamento: Pagamento) => void
   onEditarValor: (parcela: Parcela) => void
   isToggling: boolean
 }) {
@@ -1824,7 +1984,7 @@ function ParcelasList({
                 <button
                   type="button"
                   disabled={isToggling}
-                  onClick={() => (p.pago ? onDesfazer(p.id) : onPagar(p))}
+                  onClick={() => (p.pago ? onDesfazer(p) : onPagar(p))}
                   aria-label={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
                   title={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
                   className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-50 cursor-pointer ${
@@ -1911,7 +2071,7 @@ function ParcelasList({
                       <button
                         type="button"
                         disabled={isToggling}
-                        onClick={() => (p.pago ? onDesfazer(p.id) : onPagar(p))}
+                        onClick={() => (p.pago ? onDesfazer(p) : onPagar(p))}
                         title={p.pago ? 'Desfazer pagamento' : 'Registrar pagamento'}
                         className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold transition-colors disabled:opacity-50 cursor-pointer ${
                           p.pago

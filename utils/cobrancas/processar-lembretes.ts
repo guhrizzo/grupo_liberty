@@ -12,6 +12,9 @@ import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-emai
 //  2. No dia do vencimento         → marcado em `lembrete0dEnviadoEm`
 //  3. 1 dia após o vencimento      → marcado em `avisoAtrasoEnviadoEm`
 //
+// Exceção: cobranças semanais (tipo `aluguel`) só recebem e-mail no momento 2
+// (dia do vencimento) — sem lembrete antecipado nem aviso de atraso.
+//
 // Cada marcador garante que o mesmo e-mail nunca seja reenviado para a mesma
 // parcela. Parcelas já quitadas são ignoradas.
 //
@@ -82,8 +85,12 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
 
       const diasRestantes = diasAte(hoje, parcela.dataVencimento)
 
+      // Cobranças semanais (aluguel) só recebem e-mail no dia do vencimento —
+      // sem lembrete 3 dias antes nem aviso de atraso 1 dia depois.
+      const ehSemanal = cobranca.tipo === 'aluguel'
+
       // ── Momento 1: 3 dias antes ───────────────────────────────────────────
-      if (diasRestantes === 3 && !parcela.lembrete3dEnviadoEm) {
+      if (!ehSemanal && diasRestantes === 3 && !parcela.lembrete3dEnviadoEm) {
         const ok = await sendCobrancaLembreteEmail({
           clienteNome: cobranca.clienteNome,
           clienteEmail,
@@ -125,7 +132,7 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
       }
 
       // ── Momento 3: 1 dia após o vencimento ───────────────────────────────
-      if (diasRestantes === -1 && !parcela.avisoAtrasoEnviadoEm) {
+      if (!ehSemanal && diasRestantes === -1 && !parcela.avisoAtrasoEnviadoEm) {
         const ok = await sendCobrancaAtrasoEmail({
           clienteNome: cobranca.clienteNome,
           clienteEmail,

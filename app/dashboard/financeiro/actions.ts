@@ -88,6 +88,9 @@ export async function getTransacoes(): Promise<Transacao[]> {
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
+        origemPagamentoId: data.origemPagamentoId ?? null,
+        origemCobrancaId: data.origemCobrancaId ?? null,
+        origemParcelaId: data.origemParcelaId ?? null,
       })
     })
 
@@ -225,9 +228,14 @@ export async function updateTransacao(
 
 /**
  * Remove uma transação financeira.
+ * @param removerPagamentoVinculado Se o lançamento veio de um pagamento de
+ * cobrança (`origemPagamentoId`), controla o que fazer com esse pagamento:
+ * `true` remove ele também (em /dashboard/cobrancas); `false` (padrão) mantém
+ * o pagamento intacto, só removendo o lançamento do financeiro.
  */
 export async function deleteTransacao(
   id: string,
+  removerPagamentoVinculado: boolean = false,
 ): Promise<{ success?: string; error?: string }> {
   try {
     await assertAdmin()
@@ -242,9 +250,31 @@ export async function deleteTransacao(
     const doc = await docRef.get()
     if (!doc.exists) return { error: 'Lançamento não encontrado.' }
 
-    await docRef.delete()
+    const origemPagamentoId = doc.data()?.origemPagamentoId as string | null | undefined
+
+    const batch = adminDb.batch()
+    batch.delete(docRef)
+    if (origemPagamentoId) {
+      const pagamentoRef = adminDb.collection('cobranca_pagamentos').doc(origemPagamentoId)
+      if (removerPagamentoVinculado) {
+        batch.delete(pagamentoRef)
+      } else {
+        // Mantém o pagamento na cobrança, só desvincula (o lançamento de
+        // origem deixará de existir).
+        batch.update(pagamentoRef, { transacaoId: null })
+      }
+    }
+    await batch.commit()
+
     revalidatePath('/dashboard/financeiro')
-    return { success: 'Lançamento removido com sucesso!' }
+    if (origemPagamentoId) revalidatePath('/dashboard/cobrancas')
+
+    return {
+      success:
+        origemPagamentoId && removerPagamentoVinculado
+          ? 'Lançamento removido e pagamento correspondente removido da cobrança!'
+          : 'Lançamento removido com sucesso!',
+    }
   } catch (error: any) {
     return { error: `Erro ao remover lançamento: ${error.message}` }
   }

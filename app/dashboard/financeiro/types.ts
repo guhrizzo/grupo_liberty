@@ -36,6 +36,12 @@ export interface Transacao {
   created_at: string
   updated_at: string
   created_by: string | null
+  // Vínculo com um pagamento de cobrança (quando o lançamento foi criado
+  // automaticamente a partir de um pagamento registrado em /dashboard/cobrancas).
+  // null/undefined = lançamento avulso, sem vínculo (ou vínculo já desfeito).
+  origemPagamentoId?: string | null
+  origemCobrancaId?: string | null
+  origemParcelaId?: string | null
 }
 
 export type TransacaoFieldErrors = {

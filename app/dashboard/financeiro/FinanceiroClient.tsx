@@ -62,6 +62,7 @@ export default function FinanceiroClient({
 
   // Confirmação de exclusão
   const [confirmDelete, setConfirmDelete] = useState<Transacao | null>(null)
+  const [removerPagamentoVinculado, setRemoverPagamentoVinculado] = useState(false)
 
   const totalReceitas = useMemo(
     () =>
@@ -173,13 +174,15 @@ export default function FinanceiroClient({
     if (submitting) return
     setSubmitting(true)
     const target = t
+    const removerVinculo = removerPagamentoVinculado
     setConfirmDelete(null)
+    setRemoverPagamentoVinculado(false)
 
     // otimista
     setTransacoes((prev) => prev.filter((x) => x.id !== target.id))
 
     try {
-      const result = await deleteTransacao(target.id)
+      const result = await deleteTransacao(target.id, removerVinculo)
       if (result.error) {
         toast.error(result.error)
         router.refresh()
@@ -372,7 +375,10 @@ export default function FinanceiroClient({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setConfirmDelete(t)}
+                          onClick={() => {
+                            setConfirmDelete(t)
+                            setRemoverPagamentoVinculado(false)
+                          }}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                         >
                           <IconTrash size={12} /> Remover
@@ -499,15 +505,41 @@ export default function FinanceiroClient({
 
       <ConfirmDialog
         open={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
+        onClose={() => {
+          setConfirmDelete(null)
+          setRemoverPagamentoVinculado(false)
+        }}
         onConfirm={() => confirmDelete && handleDelete(confirmDelete)}
         title="Remover lançamento?"
         description={
           confirmDelete ? (
             <>
-              Esta ação é definitiva e não pode ser desfeita. Tem certeza que deseja remover o
-              lançamento <strong>{confirmDelete.descricao}</strong> de{' '}
-              <strong>{formatCurrency(confirmDelete.valor)}</strong>?
+              <p>
+                Esta ação é definitiva e não pode ser desfeita. Tem certeza que deseja remover o
+                lançamento <strong>{confirmDelete.descricao}</strong> de{' '}
+                <strong>{formatCurrency(confirmDelete.valor)}</strong>?
+              </p>
+
+              {confirmDelete.origemPagamentoId && (
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl border border-liberty/30 bg-liberty/10 p-3">
+                  <input
+                    type="checkbox"
+                    checked={removerPagamentoVinculado}
+                    onChange={(e) => setRemoverPagamentoVinculado(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-liberty focus:ring-liberty"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-bold text-liberty-deep">
+                      Também remover o pagamento em Cobranças
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-neutral-600">
+                      Este lançamento veio de um pagamento registrado em /dashboard/cobrancas.
+                      Marque para remover os dois juntos — se deixar desmarcado, o pagamento
+                      continua lá, só o lançamento aqui é removido.
+                    </span>
+                  </span>
+                </label>
+              )}
             </>
           ) : null
         }

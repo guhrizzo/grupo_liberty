@@ -19,6 +19,9 @@ export interface Pagamento {
   valor: number
   data: string // YYYY-MM-DD — data em que o pagamento foi/será feito
   criadoEm: string
+  // Id da receita lançada automaticamente em /dashboard/financeiro para este
+  // pagamento (null se nunca teve, ou se o vínculo já foi desfeito).
+  transacaoId: string | null
 }
 
 export interface Parcela {
@@ -123,6 +126,7 @@ function serializePagamento(id: string, data: FirebaseFirestore.DocumentData): P
     valor: data.valor,
     data: data.data,
     criadoEm: data.criadoEm,
+    transacaoId: data.transacaoId ?? null,
   }
 }
 
@@ -168,6 +172,51 @@ async function assertAuthorized() {
     throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
   }
   return user
+}
+
+// ─── Integração com /dashboard/financeiro ─────────────────────────────────
+//
+// Todo pagamento de parcela recebido vira automaticamente uma receita
+// (entrada) em /dashboard/financeiro. Grava direto na coleção `transacoes`
+// (não passa por `createTransacao`, que exige admin — pagamentos podem ser
+// registrados por vendedores também). O vínculo é bidirecional:
+//   - o pagamento guarda `transacaoId` (id do lançamento no financeiro)
+//   - o lançamento guarda `origemPagamentoId`/`origemCobrancaId`/`origemParcelaId`
+// Isso permite perguntar ao usuário, na hora de remover de um lado, se quer
+// remover do outro também (em vez de cascatear silenciosamente).
+
+async function registrarReceitaCobranca(params: {
+  descricao: string
+  valor: number
+  data: string
+  uid: string | null
+  pagamentoId: string
+  cobrancaId: string
+  parcelaId: string
+}): Promise<string | null> {
+  try {
+    const now = new Date().toISOString()
+    const docRef = adminDb.collection('transacoes').doc()
+    await docRef.set({
+      descricao: params.descricao,
+      categoria: 'Venda de Veículo',
+      tipo: 'receita',
+      valor: params.valor,
+      data: params.data,
+      status: 'concluido',
+      created_by: params.uid,
+      created_at: now,
+      updated_at: now,
+      origem: 'cobranca', // marca lançamentos gerados automaticamente por pagamentos
+      origemPagamentoId: params.pagamentoId,
+      origemCobrancaId: params.cobrancaId,
+      origemParcelaId: params.parcelaId,
+    })
+    return docRef.id
+  } catch (err) {
+    console.error('[registrarReceitaCobranca]', err)
+    return null
+  }
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -478,6 +527,10 @@ export async function testarLembretes(): Promise<TestarLembretesResponse> {
  * imediato, independente de data: escolhe a parcela em aberto mais urgente
  * (a mais atrasada, ou se não houver atraso, a próxima a vencer) e dispara
  * o e-mail correspondente (lembrete ou aviso de atraso).
+ *
+ * Exceção: cobranças semanais (tipo `aluguel`) só podem ser enviadas no dia
+ * do vencimento da parcela — mesma regra do envio automático. Fora do dia,
+ * retorna erro explicando o motivo em vez de enviar.
  */
 export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaResponse> {
   try {
@@ -538,6 +591,18 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
       return { error: 'Este cliente não possui parcelas em aberto.' }
     }
 
+    // Cobranças semanais (aluguel) só podem ter o e-mail enviado (manual ou
+    // automático) no dia do vencimento da parcela — sem antecipar nem atrasar.
+    if (cobranca.tipo === 'aluguel' && alvo.diasRestantes !== 0) {
+      const dataFormatada = new Date(alvo.parcela.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR')
+      return {
+        error:
+          alvo.diasRestantes > 0
+            ? `Cobrança semanal: o envio só é liberado no dia do vencimento (${dataFormatada}, em ${alvo.diasRestantes} dia${alvo.diasRestantes === 1 ? '' : 's'}).`
+            : `Cobrança semanal: o envio só é liberado no dia do vencimento. A parcela mais próxima já venceu em ${dataFormatada}.`,
+      }
+    }
+
     const clienteNome = cobranca.clienteNome
     const veiculoResumo = cobranca.veiculoResumo
     const numeroParcelas = cobranca.numeroParcelas
@@ -587,8 +652,10 @@ export async function registrarPagamento(
   valor: number,
   data: string,
 ): Promise<CobrancaResponse> {
+  let uid: string | null = null
   try {
-    await assertAuthorized()
+    const user = await assertAuthorized()
+    uid = user.uid
   } catch (err: unknown) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }
@@ -622,20 +689,42 @@ export async function registrarPagamento(
       }
     }
 
-    await adminDb.collection('cobranca_pagamentos').add({
+    // Busca dados da cobrança para descrever a receita no financeiro.
+    const cobrancaDoc = await adminDb.collection('cobrancas').doc(parcelaData.cobrancaId).get()
+    const cobranca = cobrancaDoc.data()
+
+    // Gera o id do pagamento antes de gravar (sem custo de rede) para poder
+    // guardar o vínculo dos dois lados desde a criação.
+    const pagamentoRef = adminDb.collection('cobranca_pagamentos').doc()
+
+    const transacaoId = await registrarReceitaCobranca({
+      descricao: cobranca
+        ? `Parcela ${parcelaData.numeroParcela}/${cobranca.numeroParcelas} — ${cobranca.clienteNome} (${cobranca.veiculoResumo})`
+        : `Parcela ${parcelaData.numeroParcela} — cobrança`,
+      valor: valorArredondado,
+      data,
+      uid,
+      pagamentoId: pagamentoRef.id,
+      cobrancaId: parcelaData.cobrancaId,
+      parcelaId,
+    })
+
+    await pagamentoRef.set({
       parcelaId,
       cobrancaId: parcelaData.cobrancaId,
       valor: valorArredondado,
       data,
       criadoEm: new Date().toISOString(),
+      transacaoId: transacaoId ?? null,
     })
 
     revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/financeiro')
     const restante = round2(saldo - valorArredondado)
     return {
       success:
         restante <= EPSILON
-          ? 'Parcela quitada!'
+          ? 'Parcela quitada! Lançado como entrada no financeiro.'
           : `Pagamento registrado. Saldo restante: R$ ${restante.toFixed(2).replace('.', ',')}.`,
     }
   } catch (err: any) {
@@ -723,8 +812,17 @@ export async function editarValorParcela(
   }
 }
 
-/** Remove um pagamento específico (estorno/correção de lançamento). */
-export async function removerPagamento(pagamentoId: string): Promise<CobrancaResponse> {
+/**
+ * Remove um pagamento específico (estorno/correção de lançamento).
+ * @param removerTransacaoVinculada Se `true` e o pagamento tiver gerado uma
+ * receita automática no financeiro, remove ela também. Se `false`, o
+ * lançamento no financeiro é mantido, mas desvinculado (deixa de "achar" que
+ * tem um pagamento de origem).
+ */
+export async function removerPagamento(
+  pagamentoId: string,
+  removerTransacaoVinculada: boolean = false,
+): Promise<CobrancaResponse> {
   try {
     await assertAuthorized()
   } catch (err: unknown) {
@@ -732,17 +830,52 @@ export async function removerPagamento(pagamentoId: string): Promise<CobrancaRes
   }
 
   try {
-    await adminDb.collection('cobranca_pagamentos').doc(pagamentoId).delete()
+    const pagamentoRef = adminDb.collection('cobranca_pagamentos').doc(pagamentoId)
+    const pagamentoDoc = await pagamentoRef.get()
+    const transacaoId = pagamentoDoc.data()?.transacaoId as string | null | undefined
+
+    const batch = adminDb.batch()
+    batch.delete(pagamentoRef)
+    if (transacaoId) {
+      if (removerTransacaoVinculada) {
+        // Estorna a receita lançada automaticamente no financeiro.
+        batch.delete(adminDb.collection('transacoes').doc(transacaoId))
+      } else {
+        // Mantém o lançamento no financeiro, mas desvincula (o pagamento de
+        // origem deixará de existir).
+        batch.update(adminDb.collection('transacoes').doc(transacaoId), {
+          origemPagamentoId: null,
+          origemCobrancaId: null,
+          origemParcelaId: null,
+        })
+      }
+    }
+    await batch.commit()
+
     revalidatePath('/dashboard/cobrancas')
-    return { success: 'Pagamento removido.' }
+    revalidatePath('/dashboard/financeiro')
+    return {
+      success:
+        transacaoId && removerTransacaoVinculada
+          ? 'Pagamento removido e receita correspondente removida do financeiro.'
+          : 'Pagamento removido.',
+    }
   } catch (err: any) {
     console.error('[removerPagamento]', err)
     return { error: 'Erro ao remover pagamento.' }
   }
 }
 
-/** Desfaz todos os pagamentos de uma parcela, voltando ela para "pendente". */
-export async function resetParcela(parcelaId: string): Promise<CobrancaResponse> {
+/**
+ * Desfaz todos os pagamentos de uma parcela, voltando ela para "pendente".
+ * @param removerTransacoesVinculadas Se `true`, remove também as receitas
+ * automáticas geradas no financeiro por esses pagamentos. Se `false`, os
+ * lançamentos são mantidos (só desvinculados).
+ */
+export async function resetParcela(
+  parcelaId: string,
+  removerTransacoesVinculadas: boolean = false,
+): Promise<CobrancaResponse> {
   try {
     await assertAuthorized()
   } catch (err: unknown) {
@@ -756,11 +889,33 @@ export async function resetParcela(parcelaId: string): Promise<CobrancaResponse>
       .get()
 
     const batch = adminDb.batch()
-    for (const doc of snap.docs) batch.delete(doc.ref)
+    let vinculosRemovidos = 0
+    for (const doc of snap.docs) {
+      batch.delete(doc.ref)
+      const transacaoId = doc.data()?.transacaoId as string | null | undefined
+      if (transacaoId) {
+        if (removerTransacoesVinculadas) {
+          batch.delete(adminDb.collection('transacoes').doc(transacaoId))
+          vinculosRemovidos++
+        } else {
+          batch.update(adminDb.collection('transacoes').doc(transacaoId), {
+            origemPagamentoId: null,
+            origemCobrancaId: null,
+            origemParcelaId: null,
+          })
+        }
+      }
+    }
     await batch.commit()
 
     revalidatePath('/dashboard/cobrancas')
-    return { success: 'Pagamentos da parcela removidos.' }
+    revalidatePath('/dashboard/financeiro')
+    return {
+      success:
+        vinculosRemovidos > 0
+          ? `Pagamentos da parcela removidos e ${vinculosRemovidos} receita${vinculosRemovidos === 1 ? '' : 's'} removida${vinculosRemovidos === 1 ? '' : 's'} do financeiro.`
+          : 'Pagamentos da parcela removidos.',
+    }
   } catch (err: any) {
     console.error('[resetParcela]', err)
     return { error: 'Erro ao desfazer pagamentos.' }
@@ -784,6 +939,9 @@ export async function deletarCobranca(cobrancaId: string): Promise<CobrancaRespo
     const batch = adminDb.batch()
     for (const doc of pagamentosSnap.docs) {
       batch.delete(doc.ref)
+      // Estorna as receitas lançadas automaticamente no financeiro.
+      const transacaoId = doc.data()?.transacaoId as string | null | undefined
+      if (transacaoId) batch.delete(adminDb.collection('transacoes').doc(transacaoId))
     }
     for (const doc of parcelasSnap.docs) {
       batch.delete(doc.ref)
@@ -792,6 +950,7 @@ export async function deletarCobranca(cobrancaId: string): Promise<CobrancaRespo
     await batch.commit()
 
     revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/financeiro')
     return { success: 'Cobrança removida.' }
   } catch (err: any) {
     console.error('[deletarCobranca]', err)
