@@ -80,6 +80,11 @@ function ehVendedor(role: string | null): boolean {
   return role === 'admin' || role === 'vendedor'
 }
 
+/** Cobrança quite = todas as parcelas já pagas (fila terminada). */
+function isCobrancaQuite(c: Cobranca): boolean {
+  return c.parcelas.length > 0 && c.parcelas.every((p) => p.pago)
+}
+
 function labelParcelas(tipo: TipoCobranca): string {
   if (tipo === 'aluguel') return 'Nº de Semanas *'
   if (tipo === 'quinzenal') return 'Nº de Parcelas Quinzenais *'
@@ -323,7 +328,16 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
         return true
       })
     }
-    return out
+
+    // Quem já quitou todas as parcelas vai para o final da fila, em ordem
+    // alfabética entre si. As demais mantêm a ordem original (sort é estável).
+    return [...out].sort((a, b) => {
+      const aQuite = isCobrancaQuite(a)
+      const bQuite = isCobrancaQuite(b)
+      if (aQuite !== bQuite) return aQuite ? 1 : -1
+      if (aQuite && bQuite) return a.clienteNome.localeCompare(b.clienteNome, 'pt-BR')
+      return 0
+    })
   }, [cobrancas, search, filterTipo, filterStatus])
 
   const filtrosAtivos = filterTipo !== 'todos' || filterStatus !== 'todas' || search.length > 0
