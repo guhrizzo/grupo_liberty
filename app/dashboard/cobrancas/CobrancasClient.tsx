@@ -1540,11 +1540,17 @@ function CobrancaCard({
         temAtraso ? 'border-rose-200' : 'border-neutral-200'
       }`}
     >
-      {/* Cabeçalho */}
+      {/* Cabeçalho.
+          No mobile ficam até 5 ícones de ação (enviar e-mail, sino, editar,
+          remover, chevron) somados ao avatar — sem `flex-wrap` eles disputavam
+          largura com o nome do cliente e cortavam nomes mais longos. O
+          `w-full` no grupo de ícones (mais abaixo) força esse grupo pra uma
+          segunda linha só no mobile, sem afetar o layout em uma linha só do
+          md pra cima, onde já há espaço de sobra. */}
       <button
         type="button"
         onClick={onToggleExpand}
-        className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-neutral-50 cursor-pointer md:p-5"
+        className="flex w-full flex-wrap items-center gap-3 p-4 text-left transition-colors hover:bg-neutral-50 cursor-pointer md:flex-nowrap md:p-5"
         aria-expanded={isExpanded}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600 md:h-12 md:w-12">
@@ -1595,7 +1601,7 @@ function CobrancaCard({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex w-full shrink-0 items-center justify-end gap-1 md:w-auto md:justify-start">
           {canEdit && (() => {
             const temEmail = Boolean(c.clienteEmail)
             const isSendingEmail = enviandoEmailId === c.id
