@@ -4,7 +4,7 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        'rounded-md bg-neutral-200/80 neon-theme:bg-[var(--color-bg-3)] animate-pulse',
+        'rounded-md bg-neutral-200/80 neon-theme:bg-[var(--color-bg-3)] adobe-dark:bg-adobe-bg-3 animate-pulse',
         className,
       )}
     />
@@ -13,7 +13,7 @@ export function Skeleton({ className }: { className?: string }) {
 
 export function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+    <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
       <Skeleton className="aspect-video w-full mb-3" />
       <Skeleton className="h-4 w-2/3 mb-2" />
       <Skeleton className="h-3 w-1/2 mb-3" />

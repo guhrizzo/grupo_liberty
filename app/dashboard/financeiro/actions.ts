@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { ehMesValido, hojeNoFuso, intervaloDoMes } from './periodo'
 import {
   type Transacao,
   type TransacaoCategoria,
@@ -65,14 +66,31 @@ function parseValor(raw: unknown): number {
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
 /**
- * Lista todas as transações, mais recentes primeiro.
+ * Lista as transações de um mês (`YYYY-MM`), mais recentes primeiro.
+ *
+ * Sem `mes`, devolve a collection inteira — comportamento antigo, mantido para
+ * chamadas que precisem do histórico completo.
+ *
+ * O filtro é um range no próprio campo `data`, que é gravado como string
+ * `YYYY-MM-DD`; nesse formato a ordem lexicográfica é igual à cronológica, então
+ * o range é exato. Como o range e o `orderBy` são no mesmo campo, o índice
+ * automático de campo único do Firestore já atende — não precisa de índice
+ * composto. Auditei a collection antes de trocar a consulta: os 64 documentos
+ * existentes têm `data` string no formato certo, então nenhum lançamento fica
+ * fora do filtro.
  */
-export async function getTransacoes(): Promise<Transacao[]> {
+export async function getTransacoes(mes?: string): Promise<Transacao[]> {
   try {
-    const snapshot = await adminDb
-      .collection('transacoes')
-      .orderBy('data', 'desc')
-      .get()
+    const colecao = adminDb.collection('transacoes')
+
+    const consulta = ehMesValido(mes)
+      ? (() => {
+          const { inicio, fim } = intervaloDoMes(mes)
+          return colecao.where('data', '>=', inicio).where('data', '<=', fim)
+        })()
+      : colecao
+
+    const snapshot = await consulta.orderBy('data', 'desc').get()
 
     const items: Transacao[] = []
     snapshot.forEach((doc: any) => {
@@ -102,6 +120,40 @@ export async function getTransacoes(): Promise<Transacao[]> {
 }
 
 /**
+ * Mês do lançamento mais antigo e do mais recente (`YYYY-MM`), para delimitar o
+ * seletor de período.
+ *
+ * Custa 2 leituras de documento (uma ponta cada) — a lista de meses é derivada
+ * daí no cliente, sem varrer a collection. O limite superior existe porque um
+ * lançamento pendente pode ter data futura; sem ele, esses meses ficariam
+ * inalcançáveis pelo seletor.
+ */
+export async function getIntervaloDeMeses(): Promise<{
+  primeiro: string | null
+  ultimo: string | null
+}> {
+  const mesDaPonta = async (direcao: 'asc' | 'desc') => {
+    const snapshot = await adminDb
+      .collection('transacoes')
+      .orderBy('data', direcao)
+      .limit(1)
+      .get()
+
+    if (snapshot.empty) return null
+    const data = snapshot.docs[0].data()?.data
+    return typeof data === 'string' && data.length >= 7 ? data.slice(0, 7) : null
+  }
+
+  try {
+    const [primeiro, ultimo] = await Promise.all([mesDaPonta('asc'), mesDaPonta('desc')])
+    return { primeiro, ultimo }
+  } catch (error) {
+    console.error('Erro ao buscar o intervalo de meses:', error)
+    return { primeiro: null, ultimo: null }
+  }
+}
+
+/**
  * Cadastra uma nova transação financeira.
  */
 export async function createTransacao(formData: FormData): Promise<TransacaoResponse> {
@@ -121,7 +173,10 @@ export async function createTransacao(formData: FormData): Promise<TransacaoResp
   const tipo: TransacaoTipo = (formData.get('tipo') as string) === 'despesa' ? 'despesa' : 'receita'
   const valorRaw = (formData.get('valor') as string) || ''
   const valor = parseValor(valorRaw)
-  const data = ((formData.get('data') as string) || '').trim() || new Date().toISOString().split('T')[0]
+  // `hojeNoFuso()` e não `toISOString()`: em UTC, um lançamento salvo entre
+  // 21:00 e 23:59 do último dia do mês cairia no dia 1 do mês seguinte e
+  // sumiria da tela onde acabou de ser criado.
+  const data = ((formData.get('data') as string) || '').trim() || hojeNoFuso()
   const status: TransacaoStatus =
     (formData.get('status') as string) === 'pendente' ? 'pendente' : 'concluido'
 
@@ -185,7 +240,10 @@ export async function updateTransacao(
   const tipo: TransacaoTipo = (formData.get('tipo') as string) === 'despesa' ? 'despesa' : 'receita'
   const valorRaw = (formData.get('valor') as string) || ''
   const valor = parseValor(valorRaw)
-  const data = ((formData.get('data') as string) || '').trim() || new Date().toISOString().split('T')[0]
+  // `hojeNoFuso()` e não `toISOString()`: em UTC, um lançamento salvo entre
+  // 21:00 e 23:59 do último dia do mês cairia no dia 1 do mês seguinte e
+  // sumiria da tela onde acabou de ser criado.
+  const data = ((formData.get('data') as string) || '').trim() || hojeNoFuso()
   const status: TransacaoStatus =
     (formData.get('status') as string) === 'pendente' ? 'pendente' : 'concluido'
 

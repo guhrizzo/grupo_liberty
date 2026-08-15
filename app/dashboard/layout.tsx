@@ -47,7 +47,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex">
+    <div className="min-h-screen bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
       <DashboardShell
         email={user.email ?? ''}
         role={role}

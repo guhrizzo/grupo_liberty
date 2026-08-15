@@ -131,7 +131,7 @@ export function Modal({
             aria-describedby={description ? descId : undefined}
             tabIndex={-1}
             className={cn(
-              'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)]',
+              'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)] adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2',
               sizeMap[size],
               className,
             )}
@@ -145,13 +145,13 @@ export function Modal({
                   {title && (
                     <h2
                       id={titleId}
-                      className="text-lg font-bold text-neutral-950 neon-theme:text-white"
+                      className="text-lg font-bold text-neutral-950 neon-theme:text-white adobe-dark:text-adobe-text-hi"
                     >
                       {title}
                     </h2>
                   )}
                   {description && (
-                    <p id={descId} className="mt-1 text-sm text-neutral-600 neon-theme:text-text-md">
+                    <p id={descId} className="mt-1 text-sm text-neutral-600 neon-theme:text-text-md adobe-dark:text-adobe-text-md">
                       {description}
                     </p>
                   )}
@@ -161,7 +161,7 @@ export function Modal({
                     type="button"
                     onClick={onClose}
                     aria-label="Fechar"
-                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white"
+                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer neon-theme:text-text-lo neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white adobe-dark:text-adobe-text-lo adobe-dark:hover:bg-adobe-bg-3 adobe-dark:hover:text-adobe-text-hi"
                   >
                     <IconX size={18} stroke={2} />
                   </button>

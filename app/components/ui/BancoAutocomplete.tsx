@@ -110,7 +110,7 @@ export function BancoAutocomplete({
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo mb-1.5"
+          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo mb-1.5"
         >
           {label}
         </label>
@@ -119,7 +119,7 @@ export function BancoAutocomplete({
       <div className="relative">
         <span
           aria-hidden
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 neon-theme:text-text-lo pointer-events-none"
+          className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo pointer-events-none"
         >
           <IconBuildingBank size={14} />
         </span>
@@ -151,10 +151,12 @@ export function BancoAutocomplete({
           onKeyDown={handleKeyDown}
           className={cn(
             'w-full rounded-xl border text-sm transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5 pl-10 pr-9',
-            'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo',
+            'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo adobe-dark:placeholder:text-adobe-text-lo',
             'focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15',
+            'adobe-dark:focus:border-adobe-accent adobe-dark:focus:ring-adobe-accent/15',
             'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-300',
             'neon-theme:bg-[var(--color-bg-2)] neon-theme:text-text-hi neon-theme:border-[var(--color-line)]',
+            'adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-hi adobe-dark:border-adobe-line adobe-dark:hover:border-adobe-bg-4',
             error
               ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
               : '',
@@ -187,6 +189,7 @@ export function BancoAutocomplete({
               'animate-zoom-in-95 backdrop-blur-md',
               'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/10',
               'neon-theme:bg-[var(--color-bg-1)]/95 neon-theme:border-[var(--color-line)] neon-theme:text-text-hi neon-theme:shadow-black/50',
+              'adobe-dark:bg-adobe-bg-2/95 adobe-dark:border-adobe-line adobe-dark:text-adobe-text-hi adobe-dark:shadow-black/50',
             )}
           >
             {filtered.length > 0 ? (
@@ -206,22 +209,22 @@ export function BancoAutocomplete({
                       className={cn(
                         'w-full flex items-center justify-between gap-3 px-3 py-2 text-xs rounded-lg text-left transition-ui-fast cursor-pointer',
                         isHighlighted || isSelected
-                          ? 'bg-liberty/10 text-liberty-deep font-extrabold'
-                          : 'hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 font-semibold',
-                        'neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white',
+                          ? 'bg-liberty/10 text-liberty-deep font-extrabold adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft'
+                          : 'hover:bg-neutral-100 text-neutral-700 hover:text-neutral-900 font-semibold adobe-dark:text-adobe-text-md adobe-dark:hover:text-adobe-text-hi',
+                        'neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white adobe-dark:hover:bg-adobe-bg-3',
                         (isHighlighted || isSelected) &&
                           'neon-theme:bg-[var(--color-neon)]/15 neon-theme:text-neon-soft',
                       )}
                     >
                       <span className="truncate">{b.nome}</span>
-                      <span className="shrink-0 text-[10px] font-bold text-neutral-500 neon-theme:text-text-lo">
+                      <span className="shrink-0 text-[10px] font-bold text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo">
                         {b.quitacaoPercent != null ? `Quit. ${b.quitacaoPercent}%` : '—'}
                         {b.descontoPercent != null ? ` · Desc. ${b.descontoPercent}%` : ''}
                       </span>
                       {isSelected && (
                         <IconCheck
                           size={14}
-                          className="shrink-0 text-liberty neon-theme:text-neon-soft"
+                          className="shrink-0 text-liberty neon-theme:text-neon-soft adobe-dark:text-adobe-accent-soft"
                         />
                       )}
                     </button>
@@ -229,7 +232,7 @@ export function BancoAutocomplete({
                 })}
               </div>
             ) : (
-              <p className="px-3 py-2.5 text-xs text-neutral-500 neon-theme:text-text-lo">
+              <p className="px-3 py-2.5 text-xs text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo">
                 Nenhum banco encontrado. Será salvo como texto livre: &quot;{value.trim()}&quot;.
               </p>
             )}
@@ -242,7 +245,7 @@ export function BancoAutocomplete({
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo">
+        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo">
           {hint}
         </p>
       ) : value.trim() ? (

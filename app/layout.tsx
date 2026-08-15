@@ -4,6 +4,7 @@ import RouteLoadingBar from "./components/RouteLoadingBar";
 import MotionProvider from "./components/MotionProvider";
 import { ToastProvider } from "./components/ui";
 import PublicLayoutWrapper from "./components/PublicLayoutWrapper";
+import { DashboardThemeProvider } from "./components/DashboardThemeProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -34,13 +35,19 @@ export default function RootLayout({
       className={`${inter.variable} ${poppins.variable} h-full antialiased`}
     >
 
-      <body className="min-h-full flex flex-col">
-        <RouteLoadingBar />
-        <MotionProvider>
-          <ToastProvider>
-            <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
-          </ToastProvider>
-        </MotionProvider>
+      {/* `suppressHydrationWarning`: o script anti-flash do
+          DashboardThemeProvider adiciona `adobe-dark` ao <body> antes da
+          hidratação, então a classe do cliente diverge da do servidor de
+          propósito. Sem isso o React acusa mismatch a cada carregamento. */}
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        <DashboardThemeProvider>
+          <RouteLoadingBar />
+          <MotionProvider>
+            <ToastProvider>
+              <PublicLayoutWrapper>{children}</PublicLayoutWrapper>
+            </ToastProvider>
+          </MotionProvider>
+        </DashboardThemeProvider>
       </body>
     </html>
   );

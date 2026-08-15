@@ -10,12 +10,12 @@ export type BadgeTone =
   | 'liberty'
 
 const tones: Record<BadgeTone, string> = {
-  neutral: 'bg-neutral-100 text-neutral-700 border-neutral-200',
-  success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  warning: 'bg-amber-50 text-amber-800 border-amber-200',
-  danger: 'bg-rose-50 text-rose-700 border-rose-200',
-  info: 'bg-sky-50 text-sky-700 border-sky-200',
-  liberty: 'bg-liberty/10 text-liberty-deep border-liberty/30',
+  neutral: 'bg-neutral-100 text-neutral-700 border-neutral-200 adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md adobe-dark:border-adobe-line',
+  success: 'bg-emerald-50 text-emerald-700 border-emerald-200 adobe-dark:bg-emerald-500/15 adobe-dark:text-emerald-300 adobe-dark:border-emerald-500/30',
+  warning: 'bg-amber-50 text-amber-800 border-amber-200 adobe-dark:bg-amber-500/15 adobe-dark:text-amber-300 adobe-dark:border-amber-500/30',
+  danger: 'bg-rose-50 text-rose-700 border-rose-200 adobe-dark:bg-rose-500/15 adobe-dark:text-rose-300 adobe-dark:border-rose-500/30',
+  info: 'bg-sky-50 text-sky-700 border-sky-200 adobe-dark:bg-sky-500/15 adobe-dark:text-sky-300 adobe-dark:border-sky-500/30',
+  liberty: 'bg-liberty/10 text-liberty-deep border-liberty/30 adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft adobe-dark:border-adobe-accent/30',
 }
 
 export interface StatusBadgeProps {

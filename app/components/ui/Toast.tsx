@@ -68,27 +68,27 @@ const tones: Record<
   { ring: string; bg: string; icon: ReactNode; defaultTitle: string }
 > = {
   success: {
-    ring: 'border-emerald-200/80',
-    bg: 'bg-emerald-50/95 neon-theme:bg-emerald-950/80',
-    icon: <IconCheck size={18} className="text-emerald-600 neon-theme:text-emerald-400" />,
+    ring: 'border-emerald-200/80 adobe-dark:border-emerald-500/30',
+    bg: 'bg-emerald-50/95 neon-theme:bg-emerald-950/80 adobe-dark:bg-emerald-950/80',
+    icon: <IconCheck size={18} className="text-emerald-600 neon-theme:text-emerald-400 adobe-dark:text-emerald-400" />,
     defaultTitle: 'Sucesso',
   },
   error: {
-    ring: 'border-rose-200/80',
-    bg: 'bg-rose-50/95 neon-theme:bg-rose-950/80',
-    icon: <IconAlertTriangle size={18} className="text-rose-600 neon-theme:text-rose-400" />,
+    ring: 'border-rose-200/80 adobe-dark:border-rose-500/30',
+    bg: 'bg-rose-50/95 neon-theme:bg-rose-950/80 adobe-dark:bg-rose-950/80',
+    icon: <IconAlertTriangle size={18} className="text-rose-600 neon-theme:text-rose-400 adobe-dark:text-rose-400" />,
     defaultTitle: 'Erro',
   },
   info: {
-    ring: 'border-sky-200/80',
-    bg: 'bg-sky-50/95 neon-theme:bg-sky-950/80',
-    icon: <IconInfoCircle size={18} className="text-sky-600 neon-theme:text-sky-400" />,
+    ring: 'border-sky-200/80 adobe-dark:border-sky-500/30',
+    bg: 'bg-sky-50/95 neon-theme:bg-sky-950/80 adobe-dark:bg-sky-950/80',
+    icon: <IconInfoCircle size={18} className="text-sky-600 neon-theme:text-sky-400 adobe-dark:text-sky-400" />,
     defaultTitle: 'Informação',
   },
   warning: {
-    ring: 'border-amber-200/80',
-    bg: 'bg-amber-50/95 neon-theme:bg-amber-950/80',
-    icon: <IconAlertTriangle size={18} className="text-amber-600 neon-theme:text-amber-400" />,
+    ring: 'border-amber-200/80 adobe-dark:border-amber-500/30',
+    bg: 'bg-amber-50/95 neon-theme:bg-amber-950/80 adobe-dark:bg-amber-950/80',
+    icon: <IconAlertTriangle size={18} className="text-amber-600 neon-theme:text-amber-400 adobe-dark:text-amber-400" />,
     defaultTitle: 'Atenção',
   },
 }
@@ -186,16 +186,16 @@ function ToastViewport({
           >
             <div className="mt-0.5 shrink-0">{tones[t.type].icon}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-neutral-900 neon-theme:text-white">{t.title}</p>
+              <p className="text-sm font-bold text-neutral-900 neon-theme:text-white adobe-dark:text-adobe-text-hi">{t.title}</p>
               {t.description && (
-                <p className="mt-0.5 text-xs text-neutral-700 neon-theme:text-text-md">{t.description}</p>
+                <p className="mt-0.5 text-xs text-neutral-700 neon-theme:text-text-md adobe-dark:text-adobe-text-md">{t.description}</p>
               )}
             </div>
             <button
               type="button"
               aria-label="Fechar notificação"
               onClick={() => onDismiss(t.id)}
-              className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 transition-ui-fast cursor-pointer"
+              className="rounded-md p-1 text-neutral-500 hover:bg-black/5 neon-theme:hover:bg-white/10 adobe-dark:hover:bg-white/10 transition-ui-fast cursor-pointer"
             >
               <IconX size={14} />
             </button>

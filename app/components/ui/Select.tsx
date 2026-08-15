@@ -161,7 +161,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo mb-1.5"
+          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo mb-1.5"
         >
           {label}
         </label>
@@ -210,12 +210,16 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             'neon-theme:bg-[var(--color-bg-2)] neon-theme:text-text-hi neon-theme:border-[var(--color-line)]',
             'neon-theme:hover:border-[var(--color-neon)]/50 neon-theme:hover:shadow-[0_0_15px_-3px_rgba(0,212,255,0.15)]',
             'neon-theme:focus:border-[var(--color-neon)] neon-theme:focus:ring-[rgba(0,212,255,0.18)]',
+            // dark mode dashboard (estilo Adobe)
+            'adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-hi adobe-dark:border-adobe-line',
+            'adobe-dark:hover:border-adobe-bg-4 adobe-dark:hover:shadow-none',
+            'adobe-dark:focus:border-adobe-accent adobe-dark:focus:ring-adobe-accent/15',
             // erro
             error
               ? 'border-rose-500 focus:border-rose-500 focus:ring-rose-500/20'
               : '',
             isOpen &&
-              'border-liberty ring-4 ring-liberty/15 neon-theme:border-[var(--color-neon)] neon-theme:ring-[rgba(0,212,255,0.18)]',
+              'border-liberty ring-4 ring-liberty/15 neon-theme:border-[var(--color-neon)] neon-theme:ring-[rgba(0,212,255,0.18)] adobe-dark:border-adobe-accent adobe-dark:ring-adobe-accent/15',
             className,
           )}
         >
@@ -226,8 +230,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
             size={18}
             className={cn(
               'shrink-0 text-neutral-400 transition-transform duration-300 ease-out',
-              'neon-theme:text-text-lo',
-              isOpen && 'rotate-180 text-liberty neon-theme:text-neon-soft',
+              'neon-theme:text-text-lo adobe-dark:text-adobe-text-lo',
+              isOpen && 'rotate-180 text-liberty neon-theme:text-neon-soft adobe-dark:text-adobe-accent-soft',
             )}
           />
         </button>
@@ -242,6 +246,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/10',
               // tema escuro
               'neon-theme:bg-[var(--color-bg-1)]/95 neon-theme:border-[var(--color-line)] neon-theme:text-text-hi neon-theme:shadow-black/50',
+              // dark mode dashboard (estilo Adobe)
+              'adobe-dark:bg-adobe-bg-2/95 adobe-dark:border-adobe-line adobe-dark:text-adobe-text-hi adobe-dark:shadow-black/50',
             )}
           >
             {options.map((opt) => {
@@ -261,13 +267,17 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
                     'neon-theme:hover:bg-[var(--color-bg-3)] neon-theme:hover:text-white',
                     isSelected &&
                       'neon-theme:bg-[var(--color-neon)]/15 neon-theme:text-neon-soft neon-theme:font-extrabold',
+                    // dark mode dashboard (estilo Adobe)
+                    'adobe-dark:hover:bg-adobe-bg-3 adobe-dark:hover:text-adobe-text-hi',
+                    isSelected &&
+                      'adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft adobe-dark:font-extrabold',
                   )}
                 >
                   <span className="truncate">{opt.label}</span>
                   {isSelected && (
                     <IconCheck
                       size={14}
-                      className="shrink-0 text-liberty neon-theme:text-neon-soft"
+                      className="shrink-0 text-liberty neon-theme:text-neon-soft adobe-dark:text-adobe-accent-soft"
                     />
                   )}
                 </button>
@@ -282,7 +292,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo">
+        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo">
           {hint}
         </p>
       ) : null}

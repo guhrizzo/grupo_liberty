@@ -4,6 +4,12 @@
    de um container `.neon-theme` (site público dark). */
 @custom-variant neon-theme (&:where(.neon-theme, .neon-theme *));
 
+/* Variante custom: aplica estilos quando o componente está dentro
+   de um container `.adobe-dark` (dark mode do dashboard, estilo
+   Adobe Photoshop/Premiere/After Effects). Ativado via toggle na
+   sidebar — ver DashboardThemeProvider.tsx. */
+@custom-variant adobe-dark (&:where(.adobe-dark, .adobe-dark *));
+
 /* =========================================================
    Liberty Car — Dark Neon Design System
    As cores/efeitos ficam em variáveis CSS no @theme.
@@ -42,6 +48,36 @@
   --color-liberty-soft: #38bff0;
   --color-liberty-deep: #006fa3;
   --color-liberty-glow: #00a3e033;
+
+  /* Paleta — Dashboard Dark Mode (estilo Adobe Photoshop/Premiere/After
+     Effects: cinzas neutros escuros + azul de destaque tipo Photoshop). */
+  --color-adobe-bg-0: #1b1b1b; /* chrome do app / sidebar */
+  --color-adobe-bg-1: #212121; /* fundo de página */
+  --color-adobe-bg-2: #2b2b2b; /* cards / painéis */
+  --color-adobe-bg-3: #363636; /* superfície elevada / hover / toolbars */
+  --color-adobe-bg-4: #434343; /* superfície ativa / selecionada */
+  --color-adobe-bg-5: #525252; /* borda forte / hover de superfície ativa */
+
+  --color-adobe-line: #3f3f3f;
+  --color-adobe-line-soft: #333333;
+  --color-adobe-line-strong: #565656;
+
+  /* Escala de texto calibrada para contraste AA sobre bg-2 (#2b2b2b).
+     text-lo/mute são usados em legendas e ícones, por isso não descem
+     abaixo de ~3:1 — abaixo disso o texto some no fundo escuro. */
+  --color-adobe-text-hi: #f2f2f2; /* 14.6:1 */
+  --color-adobe-text-md: #cacaca; /* 9.7:1  */
+  --color-adobe-text-lo: #a4a4a4; /* 6.0:1  */
+  --color-adobe-text-mute: #8a8a8a; /* 4.1:1  */
+
+  --color-adobe-accent: #31a8ff; /* azul Photoshop */
+  --color-adobe-accent-soft: #6dc3ff;
+  --color-adobe-accent-deep: #0d8ce0;
+  --color-adobe-accent-glow: #31a8ff33;
+
+  --color-adobe-success: #3dd68c;
+  --color-adobe-danger: #ff5c5c;
+  --color-adobe-warn: #ffb443; /* laranja render-bar Premiere/AE */
 
   /* Tipografia */
   --font-sans: var(--font-inter), system-ui, sans-serif;
@@ -294,6 +330,549 @@ body {
 .neon-theme select option {
   background: var(--color-bg-2);
   color: var(--color-text-hi);
+}
+
+/* =========================================================
+   Escopo do dark mode do dashboard (estilo Adobe): aplique
+   `.adobe-dark` no container raiz do dashboard para ativar.
+   ========================================================= */
+
+.adobe-dark {
+  background: var(--color-adobe-bg-1);
+  color: var(--color-adobe-text-md);
+  color-scheme: dark;
+}
+
+/* A classe vive no <body>, mas quem pinta a área de overscroll (e o fundo
+   abaixo do conteúdo, quando a página é mais curta que a viewport) é o
+   <html> — que senão fica com o #f8fafc do tema claro e aparece como uma
+   faixa branca na base. O `color-scheme` aqui também escurece as barras de
+   rolagem nativas, que o seletor no <body> não alcança. */
+html:has(> body.adobe-dark) {
+  background: var(--color-adobe-bg-1);
+  color-scheme: dark;
+}
+
+.adobe-dark ::selection {
+  background: var(--color-adobe-accent);
+  color: #0a1720;
+}
+
+.adobe-dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+.adobe-dark ::-webkit-scrollbar-track { background: var(--color-adobe-bg-1); }
+.adobe-dark ::-webkit-scrollbar-thumb {
+  background: var(--color-adobe-bg-4);
+  border-radius: 999px;
+  border: 2px solid var(--color-adobe-bg-1);
+}
+.adobe-dark ::-webkit-scrollbar-thumb:hover { background: #565656; }
+
+.adobe-dark input,
+.adobe-dark select,
+.adobe-dark textarea {
+  background: var(--color-adobe-bg-2);
+  color: var(--color-adobe-text-hi);
+  border-color: var(--color-adobe-line);
+}
+.adobe-dark input::placeholder,
+.adobe-dark textarea::placeholder { color: var(--color-adobe-text-lo); }
+.adobe-dark input:focus,
+.adobe-dark select:focus,
+.adobe-dark textarea:focus {
+  outline: none;
+  border-color: var(--color-adobe-accent);
+  box-shadow: 0 0 0 3px var(--color-adobe-accent-glow);
+}
+
+.adobe-dark select option {
+  background: var(--color-adobe-bg-2);
+  color: var(--color-adobe-text-hi);
+}
+
+/* Padrões de elemento (título sem classe de cor herdaria o cinza de corpo).
+   Vão em `@layer base` de propósito: assim qualquer utilitário de cor
+   aplicado no elemento continua ganhando — inclusive `text-liberty` num
+   <h2>. Fora de layer, estas regras venceriam os utilitários. */
+@layer base {
+  .adobe-dark :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--color-adobe-text-hi);
+  }
+
+  .adobe-dark hr {
+    border-color: var(--color-adobe-line);
+  }
+}
+
+/* Sombras claras não existem no escuro — o que dá profundidade é a borda.
+   Neutraliza o "halo cinza" que sombras coloridas deixam sobre fundo escuro. */
+.adobe-dark :is(.shadow-xs, .shadow-sm, .shadow, .shadow-md):not([class*="adobe-dark:shadow-"]) {
+  --tw-shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+/* =========================================================
+   Troca de tema (claro <-> escuro)
+
+   O toggle troca uma classe no <body>, o que repinta a tela inteira
+   de uma vez. Para não ficar seco, a troca é mascarada por um
+   círculo que cresce a partir do próprio botão — ver
+   DashboardThemeProvider.tsx, que dirige a animação via JS.
+
+   Aqui só desligamos o cross-fade padrão da View Transition: os dois
+   snapshots ficam parados e sobrepostos, e o novo é revelado pelo
+   clip-path animado. Sem isso, o fade nativo lava o efeito.
+   ========================================================= */
+
+/* Reveal circular: os dois snapshots ficam parados e sobrepostos, e o novo
+   é revelado pelo clip-path animado via JS. As regras são escopadas em
+   `.theme-sweep` porque `animation: none` mataria também o cross-fade
+   nativo, que é justamente o caminho usado em prefers-reduced-motion. */
+:root.theme-sweep::view-transition-old(root),
+:root.theme-sweep::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root.theme-sweep::view-transition-old(root) {
+  z-index: 1;
+}
+
+:root.theme-sweep::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* Caminho para quem pediu menos movimento: cross-fade puro, sem varredura
+   nem deslocamento — opacidade não dispara desconforto vestibular, e a
+   troca continua mascarada. Duração explícita para não depender do padrão
+   do navegador nem ser zerada pela regra global de reduced-motion. */
+:root.theme-fade::view-transition-old(root),
+:root.theme-fade::view-transition-new(root) {
+  animation-duration: 260ms !important;
+  animation-timing-function: ease;
+}
+
+/* Fallback para navegadores sem View Transitions: a classe é ligada
+   no <html> só durante a troca e desligada logo depois, para não
+   deixar transição de cor pendurada em hover/focus do resto do app. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition:
+    background-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    fill 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 420ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 420ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* =========================================================
+   Camada de compatibilidade do dark mode do dashboard.
+
+   O painel foi escrito inteiro com a paleta clara do Tailwind
+   (bg-white, text-neutral-500, border-neutral-200…). Em vez de
+   anotar `adobe-dark:` em cada uma das ~1.400 ocorrências
+   espalhadas por 20 telas, remapeamos as classes claras para a
+   paleta Adobe dentro do escopo `.adobe-dark`.
+
+   Como funciona:
+   - Estas regras ficam FORA de qualquer @layer, então vencem os
+     utilitários do Tailwind (que vivem em `@layer utilities`)
+     independentemente de especificidade.
+   - O guarda `:not([class*="adobe-dark:<prop>-"])` é a válvula de
+     escape: qualquer elemento que já declare explicitamente a
+     variante (ex.: `adobe-dark:bg-adobe-bg-3`) fica de fora e
+     mantém o tratamento manual. É assim que os componentes já
+     convertidos (Button, Card, Table, StatusBadge, DashboardShell…)
+     continuam mandando na própria aparência.
+
+   Ou seja: o default automático cobre a tela toda, e o ajuste fino
+   continua sendo feito com `adobe-dark:` no componente.
+   ========================================================= */
+
+/* ---------- Marca Liberty ----------
+   O painel usa o azul Liberty como cor de ação (~200 ocorrências).
+   O #00a3e0 foi escolhido para fundo branco: no escuro ele apaga, e o
+   `liberty-deep` (#006fa3) vira azul-marinho sobre cinza — ilegível.
+   Redefinir os tokens no escopo escuro reaproveita todas as ocorrências
+   de uma vez, inclusive as com alpha (`bg-liberty/10`), porque o
+   Tailwind v4 as compila como color-mix sobre a própria variável. */
+.adobe-dark {
+  --color-liberty: var(--color-adobe-accent);
+  --color-liberty-soft: var(--color-adobe-accent-soft);
+  --color-liberty-deep: var(--color-adobe-accent-deep);
+  --color-liberty-glow: var(--color-adobe-accent-glow);
+}
+
+/* `text-liberty-deep` é rótulo/ícone, não fundo: precisa subir de tom
+   em vez de descer (o `-deep` só faz sentido no tema claro). */
+.adobe-dark
+  :is(
+    .text-liberty-deep,
+    .text-liberty-deep\/70,
+    .hover\:text-liberty-deep:hover,
+    .group-hover\:text-liberty-deep
+  ):not([class*='adobe-dark:text-']) {
+  color: var(--color-adobe-accent-soft);
+}
+
+/* Texto branco sobre o azul de ação fica em ~2.7:1. Sobre o azul mais
+   claro do escuro, tinta escura resolve — é o mesmo par usado no
+   Button/DashboardShell. */
+.adobe-dark
+  :is(.bg-liberty, .hover\:bg-liberty:hover, .hover\:bg-liberty-deep:hover).text-white:not(
+    [class*='adobe-dark:text-']
+  ),
+.adobe-dark .group:hover .group-hover\:bg-liberty.group-hover\:text-white:not([class*='adobe-dark:group-hover:text-']) {
+  color: #0a1720;
+}
+
+/* ---------- Superfícies neutras ---------- */
+
+.adobe-dark .bg-white:not([class*='adobe-dark:bg-']) {
+  background-color: var(--color-adobe-bg-2);
+}
+
+/* Brancos translúcidos são headers sticky / faixas sobre conteúdo:
+   mantêm a translucidez para o blur continuar fazendo sentido. */
+.adobe-dark :is(.bg-white\/95, .bg-white\/80):not([class*='adobe-dark:bg-']) {
+  background-color: rgba(43, 43, 43, 0.92);
+}
+.adobe-dark :is(.bg-white\/70, .bg-white\/60):not([class*='adobe-dark:bg-']) {
+  background-color: rgba(43, 43, 43, 0.72);
+}
+
+.adobe-dark
+  :is(
+    .bg-neutral-50,
+    .bg-neutral-50\/80,
+    .bg-neutral-50\/60,
+    .bg-neutral-50\/50,
+    .bg-neutral-50\/40,
+    .bg-neutral-100,
+    .bg-slate-50,
+    .bg-gray-50,
+    .bg-slate-100,
+    .bg-gray-100
+  ):not([class*='adobe-dark:bg-']) {
+  background-color: var(--color-adobe-bg-3);
+}
+
+.adobe-dark
+  :is(.bg-neutral-200, .bg-neutral-200\/80, .bg-neutral-200\/60):not([class*='adobe-dark:bg-']) {
+  background-color: var(--color-adobe-bg-4);
+}
+
+.adobe-dark :is(.bg-neutral-300):not([class*='adobe-dark:bg-']) {
+  background-color: var(--color-adobe-bg-5);
+}
+
+/* Blocos "invertidos" do tema claro (pílula/botão preto sobre branco).
+   No escuro precisam virar superfície elevada, senão somem no fundo. */
+.adobe-dark
+  :is(.bg-neutral-900, .bg-neutral-950, .bg-neutral-900\/80):not([class*='adobe-dark:bg-']) {
+  background-color: var(--color-adobe-bg-4);
+}
+
+/* Hover de superfícies neutras. */
+.adobe-dark
+  :is(.hover\:bg-neutral-50, .hover\:bg-neutral-50\/80, .hover\:bg-neutral-50\/60, .hover\:bg-neutral-100):hover:not(
+    [class*='adobe-dark:hover:bg-']
+  ) {
+  background-color: var(--color-adobe-bg-3);
+}
+
+.adobe-dark
+  :is(.hover\:bg-neutral-200, .hover\:bg-neutral-200\/80, .hover\:bg-neutral-800, .hover\:bg-neutral-700):hover:not(
+    [class*='adobe-dark:hover:bg-']
+  ) {
+  background-color: var(--color-adobe-bg-4);
+}
+
+.adobe-dark .group:hover :is(.group-hover\:bg-neutral-50, .group-hover\:bg-neutral-100):not([class*='adobe-dark:group-hover:bg-']) {
+  background-color: var(--color-adobe-bg-3);
+}
+
+/* Estados de formulário. */
+.adobe-dark .focus\:bg-white:focus:not([class*='adobe-dark:focus:bg-']) {
+  background-color: var(--color-adobe-bg-2);
+}
+
+.adobe-dark .disabled\:bg-neutral-50:disabled:not([class*='adobe-dark:disabled:bg-']) {
+  background-color: var(--color-adobe-bg-1);
+}
+
+.adobe-dark .ring-offset-white:not([class*='adobe-dark:ring-offset-']) {
+  --tw-ring-offset-color: var(--color-adobe-bg-1);
+}
+
+/* ---------- Texto neutro ---------- */
+
+.adobe-dark
+  :is(.text-neutral-950, .text-neutral-900, .text-neutral-800, .text-slate-900, .text-gray-900):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: var(--color-adobe-text-hi);
+}
+
+.adobe-dark
+  :is(.text-neutral-700, .text-neutral-600, .text-slate-700, .text-gray-700):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: var(--color-adobe-text-md);
+}
+
+.adobe-dark :is(.text-neutral-500, .text-slate-500, .text-gray-500):not([class*='adobe-dark:text-']) {
+  color: var(--color-adobe-text-lo);
+}
+
+.adobe-dark
+  :is(.text-neutral-450, .text-neutral-400, .text-slate-400, .text-gray-400, .placeholder\:text-neutral-400):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: var(--color-adobe-text-mute);
+}
+
+.adobe-dark .disabled\:text-neutral-400:disabled:not([class*='adobe-dark:disabled:text-']) {
+  color: var(--color-adobe-text-mute);
+}
+
+.adobe-dark
+  :is(.hover\:text-neutral-900, .hover\:text-neutral-800, .hover\:text-neutral-700, .hover\:text-neutral-600):hover:not(
+    [class*='adobe-dark:hover:text-']
+  ) {
+  color: var(--color-adobe-text-hi);
+}
+
+.adobe-dark .group:hover :is(.group-hover\:text-neutral-900, .group-hover\:text-neutral-700):not([class*='adobe-dark:group-hover:text-']) {
+  color: var(--color-adobe-text-hi);
+}
+
+/* ---------- Bordas e divisórias ---------- */
+
+.adobe-dark
+  :is(.border-neutral-100, .border-slate-100, .border-gray-100):not(
+    [class*='adobe-dark:border-']
+  ) {
+  border-color: var(--color-adobe-line-soft);
+}
+
+.adobe-dark
+  :is(
+    .border-neutral-200,
+    .border-neutral-200\/80,
+    .border-slate-200,
+    .border-gray-200,
+    .border-white
+  ):not([class*='adobe-dark:border-']) {
+  border-color: var(--color-adobe-line);
+}
+
+.adobe-dark
+  :is(.border-neutral-300, .border-neutral-400, .border-neutral-700, .border-neutral-800, .border-neutral-900):not(
+    [class*='adobe-dark:border-']
+  ) {
+  border-color: var(--color-adobe-line-strong);
+}
+
+.adobe-dark
+  :is(.hover\:border-neutral-300, .hover\:border-neutral-400):hover:not(
+    [class*='adobe-dark:hover:border-']
+  ) {
+  border-color: var(--color-adobe-line-strong);
+}
+
+.adobe-dark .focus\:border-neutral-950:focus:not([class*='adobe-dark:focus:border-']) {
+  border-color: var(--color-adobe-accent);
+}
+
+/* `divide-*` marca o pai; a cor cai nos filhos. Aplicamos em todos os
+   filhos — só aparece em quem o Tailwind já deu border-width. */
+.adobe-dark :is(.divide-neutral-100, .divide-slate-100):not([class*='adobe-dark:divide-']) > * {
+  border-color: var(--color-adobe-line-soft);
+}
+
+.adobe-dark :is(.divide-neutral-200, .divide-slate-200):not([class*='adobe-dark:divide-']) > * {
+  border-color: var(--color-adobe-line);
+}
+
+/* ---------- Gradientes que terminam em branco/cinza claro ---------- */
+
+.adobe-dark :is(.from-white, .from-neutral-50):not([class*='adobe-dark:from-']) {
+  --tw-gradient-from: var(--color-adobe-bg-2);
+}
+.adobe-dark .from-neutral-100:not([class*='adobe-dark:from-']) {
+  --tw-gradient-from: var(--color-adobe-bg-3);
+}
+.adobe-dark .via-white:not([class*='adobe-dark:via-']) {
+  --tw-gradient-via: var(--color-adobe-bg-2);
+}
+.adobe-dark .to-white:not([class*='adobe-dark:to-']) {
+  --tw-gradient-to: var(--color-adobe-bg-2);
+}
+.adobe-dark .to-neutral-200:not([class*='adobe-dark:to-']) {
+  --tw-gradient-to: var(--color-adobe-bg-4);
+}
+.adobe-dark :is(.from-neutral-900, .via-neutral-900, .to-neutral-800):not([class*='adobe-dark:from-']) {
+  --tw-gradient-from: var(--color-adobe-bg-3);
+  --tw-gradient-via: var(--color-adobe-bg-3);
+  --tw-gradient-to: var(--color-adobe-bg-2);
+}
+
+/* ---------- Cores semânticas (sucesso / erro / alerta / info) ----------
+   Os tons -50/-100 do Tailwind são fundos quase brancos: viram tinta
+   translúcida da própria matiz. Os textos -600…-950 são escuros demais
+   sobre fundo escuro: sobem para o tom -300. */
+
+.adobe-dark
+  :is(
+    .bg-emerald-50,
+    .bg-emerald-50\/95,
+    .bg-emerald-50\/40,
+    .bg-emerald-50\/30,
+    .bg-emerald-100,
+    .bg-emerald-100\/60,
+    .bg-green-50
+  ):not([class*='adobe-dark:bg-']) {
+  background-color: rgba(16, 185, 129, 0.16);
+}
+.adobe-dark
+  :is(.text-emerald-950, .text-emerald-800, .text-emerald-700, .text-emerald-600):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: #6ee7b7;
+}
+.adobe-dark
+  :is(.border-emerald-100, .border-emerald-200, .border-emerald-200\/80):not(
+    [class*='adobe-dark:border-']
+  ) {
+  border-color: rgba(16, 185, 129, 0.34);
+}
+.adobe-dark .from-emerald-50:not([class*='adobe-dark:from-']) {
+  --tw-gradient-from: rgba(16, 185, 129, 0.16);
+}
+.adobe-dark
+  :is(.hover\:bg-emerald-50, .hover\:bg-emerald-500\/10):hover:not(
+    [class*='adobe-dark:hover:bg-']
+  ) {
+  background-color: rgba(16, 185, 129, 0.24);
+}
+
+.adobe-dark
+  :is(
+    .bg-rose-50,
+    .bg-rose-50\/95,
+    .bg-rose-50\/60,
+    .bg-rose-50\/50,
+    .bg-rose-50\/40,
+    .bg-rose-50\/30,
+    .bg-rose-100,
+    .bg-red-50
+  ):not([class*='adobe-dark:bg-']) {
+  background-color: rgba(244, 63, 94, 0.16);
+}
+.adobe-dark
+  :is(.text-rose-800, .text-rose-700, .text-rose-600, .text-rose-500, .text-red-600):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: #fda4af;
+}
+.adobe-dark
+  :is(.border-rose-100, .border-rose-200, .border-rose-200\/80, .border-rose-300, .border-red-400):not(
+    [class*='adobe-dark:border-']
+  ) {
+  border-color: rgba(244, 63, 94, 0.34);
+}
+.adobe-dark
+  :is(.hover\:bg-rose-50, .hover\:bg-rose-500\/10, .hover\:bg-red-500\/20):hover:not(
+    [class*='adobe-dark:hover:bg-']
+  ) {
+  background-color: rgba(244, 63, 94, 0.24);
+}
+.adobe-dark
+  :is(.hover\:text-rose-700, .hover\:text-rose-600):hover:not([class*='adobe-dark:hover:text-']) {
+  color: #fecdd3;
+}
+.adobe-dark .hover\:border-rose-200:hover:not([class*='adobe-dark:hover:border-']) {
+  border-color: rgba(244, 63, 94, 0.5);
+}
+
+.adobe-dark
+  :is(.bg-amber-50, .bg-amber-50\/95, .bg-amber-50\/40, .bg-amber-100, .bg-yellow-50):not(
+    [class*='adobe-dark:bg-']
+  ) {
+  background-color: rgba(245, 158, 11, 0.16);
+}
+.adobe-dark
+  :is(
+    .text-amber-950,
+    .text-amber-900,
+    .text-amber-900\/70,
+    .text-amber-900\/60,
+    .text-amber-800,
+    .text-amber-700,
+    .text-amber-600,
+    .text-amber-500
+  ):not([class*='adobe-dark:text-']) {
+  color: #fcd34d;
+}
+.adobe-dark
+  :is(
+    .border-amber-100,
+    .border-amber-200,
+    .border-amber-200\/80,
+    .border-amber-200\/50,
+    .border-amber-300
+  ):not([class*='adobe-dark:border-']) {
+  border-color: rgba(245, 158, 11, 0.34);
+}
+.adobe-dark :is(.from-amber-50):not([class*='adobe-dark:from-']) {
+  --tw-gradient-from: rgba(245, 158, 11, 0.16);
+}
+.adobe-dark :is(.to-orange-50\/50):not([class*='adobe-dark:to-']) {
+  --tw-gradient-to: rgba(249, 115, 22, 0.12);
+}
+
+.adobe-dark
+  :is(.bg-sky-50, .bg-sky-50\/95, .bg-sky-50\/30, .bg-sky-100, .bg-blue-50):not(
+    [class*='adobe-dark:bg-']
+  ) {
+  background-color: rgba(14, 165, 233, 0.16);
+}
+.adobe-dark
+  :is(.text-sky-800, .text-sky-700, .text-sky-600, .text-sky-500):not(
+    [class*='adobe-dark:text-']
+  ) {
+  color: #7dd3fc;
+}
+.adobe-dark
+  :is(.border-sky-200, .border-sky-200\/80):not([class*='adobe-dark:border-']) {
+  border-color: rgba(14, 165, 233, 0.34);
+}
+
+.adobe-dark :is(.bg-indigo-50, .bg-indigo-100):not([class*='adobe-dark:bg-']) {
+  background-color: rgba(99, 102, 241, 0.16);
+}
+.adobe-dark :is(.text-indigo-600, .text-indigo-500):not([class*='adobe-dark:text-']) {
+  color: #a5b4fc;
+}
+.adobe-dark :is(.border-indigo-200):not([class*='adobe-dark:border-']) {
+  border-color: rgba(99, 102, 241, 0.34);
+}
+.adobe-dark .hover\:bg-indigo-50\/30:hover:not([class*='adobe-dark:hover:bg-']) {
+  background-color: rgba(99, 102, 241, 0.24);
+}
+.adobe-dark .hover\:border-indigo-100:hover:not([class*='adobe-dark:hover:border-']) {
+  border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* Overlays de modal: no escuro precisam de mais densidade para separar
+   o diálogo do fundo (que já é escuro). */
+.adobe-dark
+  :is(.bg-neutral-950\/70, .bg-neutral-950\/60, .bg-neutral-950\/40, .bg-black\/60, .bg-black\/50, .bg-black\/40):not(
+    [class*='adobe-dark:bg-']
+  ) {
+  background-color: rgba(0, 0, 0, 0.72);
 }
 
 /* =========================================================

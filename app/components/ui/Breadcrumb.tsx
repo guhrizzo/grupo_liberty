@@ -16,7 +16,7 @@ export function Breadcrumb({
   className?: string
 }) {
   return (
-    <nav aria-label="Breadcrumb" className={cn('flex items-center gap-2 text-sm text-neutral-500', className)}>
+    <nav aria-label="Breadcrumb" className={cn('flex items-center gap-2 text-sm text-neutral-500 adobe-dark:text-adobe-text-lo', className)}>
       <ol className="flex items-center gap-2 flex-wrap">
         {items.map((it, i) => {
           const last = i === items.length - 1
@@ -25,7 +25,7 @@ export function Breadcrumb({
               {it.href && !last ? (
                 <Link
                   href={it.href}
-                  className="hover:text-neutral-900 hover:underline transition-colors"
+                  className="hover:text-neutral-900 hover:underline transition-colors adobe-dark:hover:text-adobe-text-hi"
                 >
                   {it.label}
                 </Link>
@@ -33,7 +33,7 @@ export function Breadcrumb({
                 <span
                   className={cn(
                     'font-medium',
-                    last ? 'text-neutral-900' : 'text-neutral-500',
+                    last ? 'text-neutral-900 adobe-dark:text-adobe-text-hi' : 'text-neutral-500 adobe-dark:text-adobe-text-lo',
                   )}
                   aria-current={last ? 'page' : undefined}
                 >
@@ -44,7 +44,7 @@ export function Breadcrumb({
                 <IconChevronRight
                   size={12}
                   stroke={2}
-                  className="text-neutral-400"
+                  className="text-neutral-400 adobe-dark:text-adobe-text-mute"
                   aria-hidden
                 />
               )}

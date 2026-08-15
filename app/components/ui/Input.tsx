@@ -44,7 +44,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo mb-1.5"
+          className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo mb-1.5"
         >
           {label}
         </label>
@@ -53,7 +53,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         {leftIcon && (
           <span
             aria-hidden
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 neon-theme:text-text-lo pointer-events-none"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo pointer-events-none"
           >
             {leftIcon}
           </span>
@@ -74,13 +74,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           className={cn(
             // base
             'w-full rounded-xl border text-sm transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] py-2.5',
-            'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo',
+            'placeholder:text-neutral-400 neon-theme:placeholder:text-text-lo adobe-dark:placeholder:text-adobe-text-lo',
             'focus:outline-none focus:border-liberty focus:ring-4 focus:ring-liberty/15',
+            'adobe-dark:focus:border-adobe-accent adobe-dark:focus:ring-adobe-accent/15',
             'disabled:opacity-60 disabled:cursor-not-allowed',
             // light (default — dashboard)
             'bg-white text-neutral-900 border-neutral-200 hover:border-neutral-300',
             // dark (neon-theme — site público)
             'neon-theme:bg-[var(--color-bg-2)] neon-theme:text-text-hi neon-theme:border-[var(--color-line)]',
+            // dark (adobe-dark — dashboard escuro)
+            'adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-hi adobe-dark:border-adobe-line adobe-dark:hover:border-adobe-bg-4',
             // padding
             leftIcon ? 'pl-10' : 'pl-3.5',
             rightAdornment ? 'pr-12' : 'pr-3.5',
@@ -102,7 +105,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           {error}
         </p>
       ) : hint ? (
-        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo">
+        <p id={hintId} className="mt-1.5 text-xs text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo">
           {hint}
         </p>
       ) : null}

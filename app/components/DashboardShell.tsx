@@ -20,9 +20,12 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconWorld,
+  IconSun,
+  IconMoon,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
 import { ConfirmDialog, useToast } from './ui'
+import { useDashboardTheme } from './DashboardThemeProvider'
 
 type NavItem = {
   href: string
@@ -168,6 +171,7 @@ export default function DashboardShell({
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
   const toast = useToast()
+  const { theme, toggleTheme } = useDashboardTheme()
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
@@ -244,19 +248,19 @@ export default function DashboardShell({
   const SidebarContent = (
     <div className="flex h-full flex-col">
       {/* Brand Header */}
-      <div className="px-4 py-5 border-b border-neutral-200 flex items-center justify-between min-h-[73px]">
+      <div className="px-4 py-5 border-b border-neutral-200 flex items-center justify-between min-h-[73px] adobe-dark:border-[var(--color-adobe-line)]">
         {collapsed ? (
           <>
             {/* Mobile (exibe o logo completo se o drawer estiver aberto) */}
             <div className="flex md:hidden items-center gap-2.5 min-w-0">
-              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
+              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]">
                 <IconCar size={20} stroke={2.2} />
               </div>
               <div className="flex flex-col leading-none min-w-0">
-                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
+                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate adobe-dark:text-[var(--color-adobe-text-hi)]">
                   LIBERTY CAR
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno
                 </span>
               </div>
@@ -267,7 +271,7 @@ export default function DashboardShell({
               <button
                 type="button"
                 onClick={toggleCollapse}
-                className="h-9 w-9 rounded-lg grid place-items-center bg-neutral-100 hover:bg-liberty/10 hover:text-liberty-deep text-neutral-600 transition-ui cursor-pointer"
+                className="h-9 w-9 rounded-lg grid place-items-center bg-neutral-100 hover:bg-liberty/10 hover:text-liberty-deep text-neutral-600 transition-ui cursor-pointer adobe-dark:bg-[var(--color-adobe-bg-3)] adobe-dark:text-[var(--color-adobe-text-md)] adobe-dark:hover:bg-[var(--color-adobe-accent)]/15 adobe-dark:hover:text-[var(--color-adobe-accent-soft)]"
                 title="Expandir menu lateral"
                 aria-label="Expandir menu lateral"
               >
@@ -279,14 +283,14 @@ export default function DashboardShell({
           /* Quando expandido: marca + botão de recolher */
           <>
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0">
+              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]">
                 <IconCar size={20} stroke={2.2} />
               </div>
               <div className="flex flex-col leading-none min-w-0">
-                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate">
+                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate adobe-dark:text-[var(--color-adobe-text-hi)]">
                   LIBERTY CAR
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno
                 </span>
               </div>
@@ -294,7 +298,7 @@ export default function DashboardShell({
             <button
               type="button"
               onClick={toggleCollapse}
-              className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer shrink-0"
+              className="hidden md:inline-flex items-center justify-center h-8 w-8 rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer shrink-0 adobe-dark:text-[var(--color-adobe-text-lo)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:text-[var(--color-adobe-text-hi)]"
               title="Recolher menu lateral"
               aria-label="Recolher menu lateral"
             >
@@ -308,12 +312,12 @@ export default function DashboardShell({
       <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navegação principal">
         <ul className="space-y-1">
           {/* Ver site */}
-          <li className="pb-1 mb-1 border-b border-neutral-100">
+          <li className="pb-1 mb-1 border-b border-neutral-100 adobe-dark:border-[var(--color-adobe-line-soft)]">
             <Link
               href="/"
               onClick={() => setOpen(false)}
               title="Ver site"
-              className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-[background-color,color] duration-200 ease-out text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${
+              className={`relative flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-[background-color,color] duration-200 ease-out text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 adobe-dark:text-[var(--color-adobe-text-md)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:text-[var(--color-adobe-text-hi)] ${
                 collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
               }`}
             >
@@ -337,14 +341,21 @@ export default function DashboardShell({
                     collapsed ? 'md:justify-center md:px-2 px-3' : 'px-3'
                   } ${
                     active
-                      ? 'bg-neutral-950 text-white shadow-xs'
-                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900'
+                      ? 'bg-neutral-950 text-white shadow-xs adobe-dark:bg-[var(--color-adobe-accent)] adobe-dark:text-[#0a1720]'
+                      : 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 adobe-dark:text-[var(--color-adobe-text-md)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:text-[var(--color-adobe-text-hi)]'
                   }`}
                 >
                   {active && (
                     <span
                       aria-hidden
-                      className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-0.5 rounded-r-full bg-liberty"
+                      // No claro o pill ativo é preto, então a barrinha usa o azul
+                      // Liberty pra dar destaque. No dark mode o pill ativo já é o
+                      // azul de destaque (adobe-accent) — uma barra branca em cima
+                      // dele ficava um traço solto e branco na sidebar. Em vez
+                      // disso usa o mesmo tom escuro do texto sobre o azul
+                      // (#0a1720), como um filete mais escuro — dá profundidade
+                      // sem introduzir uma cor nova.
+                      className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-0.5 rounded-r-full bg-liberty adobe-dark:bg-[#0a1720]/40"
                     />
                   )}
                   <NavIcon name={item.icon} />
@@ -368,32 +379,46 @@ export default function DashboardShell({
       </nav>
 
       {/* User */}
-      <div className={`border-t border-neutral-200 p-4 ${collapsed ? 'md:p-2.5' : ''}`}>
+      <div className={`border-t border-neutral-200 p-4 adobe-dark:border-[var(--color-adobe-line)] ${collapsed ? 'md:p-2.5' : ''}`}>
         <div className={`flex items-center gap-3 mb-3 ${collapsed ? 'md:justify-center md:mb-2' : ''}`}>
           <div
-            className="relative h-10 w-10 rounded-full bg-liberty/10 text-liberty-deep flex items-center justify-center font-bold text-sm shrink-0"
+            className="relative h-10 w-10 rounded-full bg-liberty/10 text-liberty-deep flex items-center justify-center font-bold text-sm shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]"
             aria-hidden
             title={displayName || email}
           >
             {initials}
-            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-liberty border-2 border-white" />
+            <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-liberty border-2 border-white adobe-dark:bg-[var(--color-adobe-accent)] adobe-dark:border-[var(--color-adobe-bg-0)]" />
           </div>
           <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>
-            <p className="text-sm font-semibold text-neutral-900 truncate">
+            <p className="text-sm font-semibold text-neutral-900 truncate adobe-dark:text-[var(--color-adobe-text-hi)]">
               {displayName || email}
             </p>
-            <p className="text-[11px] text-neutral-500 truncate">{email}</p>
-            <span className="mt-1.5 inline-block rounded-full bg-liberty/10 text-liberty-deep border border-liberty/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+            <p className="text-[11px] text-neutral-500 truncate adobe-dark:text-[var(--color-adobe-text-lo)]">{email}</p>
+            <span className="mt-1.5 inline-block rounded-full bg-liberty/10 text-liberty-deep border border-liberty/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)] adobe-dark:border-[var(--color-adobe-accent)]/30">
               {roleLabel}
             </span>
           </div>
         </div>
         <button
           type="button"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro (estilo Adobe)'}
+          aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
+          className={`w-full mb-2 inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-out cursor-pointer adobe-dark:border-[var(--color-adobe-line)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:border-[var(--color-adobe-bg-4)] ${
+            collapsed ? 'md:px-0 md:py-2.5' : 'px-3'
+          }`}
+        >
+          {theme === 'dark' ? <IconSun size={16} stroke={2} /> : <IconMoon size={16} stroke={2} />}
+          <span className={collapsed ? 'md:hidden' : ''}>
+            {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+          </span>
+        </button>
+        <button
+          type="button"
           onClick={() => setConfirmLogout(true)}
           disabled={isLoggingOut}
           title={isLoggingOut ? 'Saindo...' : 'Sair da conta'}
-          className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-out cursor-pointer disabled:opacity-50 ${
+          className={`w-full inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-out cursor-pointer disabled:opacity-50 adobe-dark:border-[var(--color-adobe-line)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:border-[var(--color-adobe-bg-4)] ${
             collapsed ? 'md:px-0 md:py-2.5' : 'px-3'
           }`}
         >
@@ -413,7 +438,7 @@ export default function DashboardShell({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="md:hidden fixed top-3 left-3 z-50 inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white p-2 shadow-xs cursor-pointer hover:bg-neutral-50"
+        className="md:hidden fixed top-3 left-3 z-50 inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white p-2 shadow-xs cursor-pointer hover:bg-neutral-50 adobe-dark:border-[var(--color-adobe-line)] adobe-dark:bg-[var(--color-adobe-bg-2)] adobe-dark:text-[var(--color-adobe-text-hi)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)]"
         aria-label={open ? 'Fechar menu' : 'Abrir menu'}
         aria-expanded={open}
         aria-controls="dashboard-sidebar"
@@ -425,7 +450,7 @@ export default function DashboardShell({
       <aside
         id="dashboard-sidebar"
         ref={drawerRef}
-        className={`fixed md:static z-40 inset-y-0 left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 ${
+        className={`fixed md:static z-40 inset-y-0 left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 adobe-dark:bg-[var(--color-adobe-bg-0)] adobe-dark:border-[var(--color-adobe-line)] ${
           open ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-64 md:w-[70px]' : 'w-64 md:w-64'}`}
         aria-label="Menu lateral"
