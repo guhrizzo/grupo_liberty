@@ -47,6 +47,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo mb-1.5"
         >
           {label}
+          {rest.required && <span className="text-rose-500 ml-0.5">*</span>}
         </label>
       )}
       <div className="relative">

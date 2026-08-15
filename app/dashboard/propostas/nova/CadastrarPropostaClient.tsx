@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -29,6 +29,8 @@ import {
   IconReceipt,
   IconAlertTriangle,
   IconCalculator,
+  IconSearch,
+  IconLoader2,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -97,6 +99,10 @@ interface FormData {
 
 const TODAY_DATE = () => new Date().toISOString().slice(0, 10)
 const generateFileSuffix = () => Date.now().toString(36).toUpperCase()
+
+// Mesmo padrão usado em /dashboard/consulta-fipe (Mercosul ou tradicional).
+const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
+const placaSemMascara = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 const maskCpfCnpj = (raw: string) => {
   const d = onlyDigits(raw).slice(0, 11)
@@ -212,6 +218,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
   const [creating, setCreating] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  const [searchingPlaca, setSearchingPlaca] = useState(false)
 
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
     () => new Set<SectionKey>(['cliente', 'veiculo']),
@@ -287,6 +294,72 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     },
     [],
   )
+
+  // Placa já consultada com sucesso ou já tentada — evita repetir a mesma
+  // chamada a cada re-render enquanto o usuário mexe em outros campos.
+  const placaJaBuscadaRef = useRef<string>('')
+
+  const buscarDadosPlaca = useCallback(
+    async (placaLimpa: string) => {
+      setSearchingPlaca(true)
+      try {
+        const res = await fetch(`/api/consulta-placa?placa=${placaLimpa}`)
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || 'Não encontramos registro para a placa informada.')
+        }
+
+        const data = await res.json()
+        setFormData((prev) => ({
+          ...prev,
+          veiculo_marca: data.marca || prev.veiculo_marca,
+          veiculo_modelo: data.modelo || prev.veiculo_modelo,
+          veiculo_ano: data.anoModelo ? String(data.anoModelo) : prev.veiculo_ano,
+          veiculo_valor_fipe: data.valorFipe
+            ? numberToMoneyString(data.valorFipe)
+            : prev.veiculo_valor_fipe,
+        }))
+        setFormErrors((prev) => {
+          if (!prev.veiculo_marca && !prev.veiculo_modelo) return prev
+          const next = { ...prev }
+          delete next.veiculo_marca
+          delete next.veiculo_modelo
+          return next
+        })
+        toast.success(
+          'Marca, modelo, ano e valor FIPE preenchidos automaticamente.',
+          'Placa encontrada',
+        )
+      } catch (err: any) {
+        // Permite tentar de novo assim que o campo mudar (mesmo que volte pro
+        // mesmo valor), já que essa tentativa falhou.
+        placaJaBuscadaRef.current = ''
+        toast.error(err.message || 'Erro ao consultar a placa.', 'Falha na busca')
+      } finally {
+        setSearchingPlaca(false)
+      }
+    },
+    [toast],
+  )
+
+  // Assim que a placa fica completa e válida, busca sozinha — sem precisar
+  // clicar em nada. Debounce de 600ms pra não disparar a cada tecla enquanto
+  // o usuário ainda está digitando/corrigindo.
+  useEffect(() => {
+    const placaLimpa = placaSemMascara(formData.veiculo_placa)
+    if (!PLACA_REGEX.test(placaLimpa)) {
+      placaJaBuscadaRef.current = ''
+      return
+    }
+    if (placaJaBuscadaRef.current === placaLimpa) return
+
+    const timer = setTimeout(() => {
+      placaJaBuscadaRef.current = placaLimpa
+      buscarDadosPlaca(placaLimpa)
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [formData.veiculo_placa, buscarDadosPlaca])
 
   const handleEscolherPasta = async () => {
     try {
@@ -914,14 +987,34 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                   error={formErrors.veiculo_modelo}
                   required
                 />
-                <Input
-                  label="Placa"
-                  name="veiculo_placa"
-                  placeholder="ABC-1D23"
-                  value={formData.veiculo_placa}
-                  onChange={(e) => setField('veiculo_placa', maskPlate(e.target.value))}
-                  leftIcon={<IconReceipt size={14} />}
-                />
+                <div>
+                  <Input
+                    label="Placa"
+                    name="veiculo_placa"
+                    placeholder="ABC-1D23"
+                    value={formData.veiculo_placa}
+                    onChange={(e) => setField('veiculo_placa', maskPlate(e.target.value))}
+                    leftIcon={<IconReceipt size={14} />}
+                    rightAdornment={
+                      searchingPlaca ? (
+                        <IconLoader2 size={16} className="animate-spin text-liberty" />
+                      ) : PLACA_REGEX.test(placaSemMascara(formData.veiculo_placa)) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            placaJaBuscadaRef.current = ''
+                            buscarDadosPlaca(placaSemMascara(formData.veiculo_placa))
+                          }}
+                          title="Buscar novamente"
+                          className="text-neutral-400 hover:text-liberty transition-colors cursor-pointer"
+                        >
+                          <IconSearch size={15} stroke={2.2} />
+                        </button>
+                      ) : undefined
+                    }
+                    hint="Completando a placa, marca, modelo, ano e FIPE são preenchidos sozinhos."
+                  />
+                </div>
                 <Input
                   label="Ano do Veículo"
                   name="veiculo_ano"
