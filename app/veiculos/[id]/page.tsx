@@ -271,7 +271,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <Spec
                         icon={<IconCash size={16} />}
-                        label="Acessória"
+                        label="Assessoria de Cobrança"
                         value={
                           veiculo.telefoneAcessoria
                             ? veiculo.telefoneAcessoria
