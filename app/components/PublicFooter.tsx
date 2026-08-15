@@ -76,7 +76,7 @@ export default function PublicFooter() {
               </svg>
             </a>
             <a
-              href="https://wa.me/5514998420710"
+              href="https://wa.me/5514998659046"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="WhatsApp"
