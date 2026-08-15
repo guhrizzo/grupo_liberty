@@ -1259,7 +1259,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               {/* ─── Acessória ──────────────────────────────────────── */}
               <div>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
-                  Acessória
+                Assessoria de Cobrança
                 </h3>
                 <div className="grid gap-4">
                   <Input
