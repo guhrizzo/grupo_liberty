@@ -116,7 +116,7 @@ export default function PropostaForm({
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="nomeCliente"
-            label="Seu Nome Completo *"
+            label="Seu Nome Completo"
             type="text"
             required
             value={nome}
@@ -127,7 +127,7 @@ export default function PropostaForm({
 
           <Input
             id="cpfCliente"
-            label="Seu CPF *"
+            label="Seu CPF"
             type="text"
             required
             value={cpf}
@@ -141,7 +141,7 @@ export default function PropostaForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               id="telefoneCliente"
-              label="Telefone / WhatsApp *"
+              label="Telefone / WhatsApp"
               type="tel"
               required
               value={telefone}
@@ -152,7 +152,7 @@ export default function PropostaForm({
 
             <Input
               id="emailCliente"
-              label="E-mail de Contato *"
+              label="E-mail de Contato"
               type="email"
               required
               value={email}

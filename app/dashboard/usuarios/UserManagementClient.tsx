@@ -300,7 +300,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
 
                   <Input
                     id="email"
-                    label="E-mail *"
+                    label="E-mail"
                     type="email"
                     required
                     value={email}
@@ -324,7 +324,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
 
                   <Input
                     id="password"
-                    label="Senha *"
+                    label="Senha"
                     type="password"
                     required
                     minLength={6}
@@ -336,7 +336,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
 
                   <Input
                     id="confirmPassword"
-                    label="Confirmar Senha *"
+                    label="Confirmar Senha"
                     type="password"
                     required
                     minLength={6}

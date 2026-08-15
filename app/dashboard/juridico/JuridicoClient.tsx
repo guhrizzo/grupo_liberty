@@ -245,7 +245,7 @@ export default function JuridicoClient({
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Título *"
+              label="Título"
               name="titulo"
               required
               defaultValue={editing?.titulo}
@@ -254,7 +254,7 @@ export default function JuridicoClient({
             />
 
             <Input
-              label="Cliente *"
+              label="Cliente"
               name="cliente"
               required
               defaultValue={editing?.cliente}
@@ -292,7 +292,7 @@ export default function JuridicoClient({
             </Select>
 
             <Input
-              label="Responsável *"
+              label="Responsável"
               name="responsavel"
               required
               defaultValue={editing?.responsavel}

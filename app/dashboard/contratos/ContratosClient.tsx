@@ -339,7 +339,7 @@ export default function ContratosClient({
             </div>
 
             <Input
-              label="Nome do Comprador *"
+              label="Nome do Comprador"
               name="clienteNome"
               required
               autoComplete="name"
@@ -348,7 +348,7 @@ export default function ContratosClient({
             />
 
             <Input
-              label="CPF / CNPJ *"
+              label="CPF / CNPJ"
               name="clienteCpfCnpj"
               required
               value={clienteCpfCnpj}
@@ -360,7 +360,7 @@ export default function ContratosClient({
             />
 
             <Input
-              label="Endereço Completo *"
+              label="Endereço Completo"
               name="clienteEndereco"
               required
               autoComplete="street-address"
@@ -389,7 +389,7 @@ export default function ContratosClient({
             />
 
             <Input
-              label="Valor Total (R$) *"
+              label="Valor Total (R$)"
               type="text"
               inputMode="decimal"
               required
@@ -399,7 +399,7 @@ export default function ContratosClient({
             />
 
             <Input
-              label="Forma de Pagamento *"
+              label="Forma de Pagamento"
               name="formaPagamento"
               required
               defaultValue="À vista via Pix / Transferência"
@@ -692,7 +692,7 @@ export default function ContratosClient({
           </Select>
 
           <Input
-            label="Arquivo PDF do Contrato *"
+            label="Arquivo PDF do Contrato"
             name="pdf"
             type="file"
             accept="application/pdf"

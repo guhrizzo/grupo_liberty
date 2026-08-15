@@ -610,7 +610,7 @@ export default function FinanceiroClient({
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <Input
-                label="Descrição *"
+                label="Descrição"
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 placeholder="Ex: Venda de Veículo ou Comissão"
@@ -628,7 +628,7 @@ export default function FinanceiroClient({
                 </Select>
 
                 <Input
-                  label="Valor (R$) *"
+                  label="Valor (R$)"
                   value={valor}
                   onChange={(e) => setValor(maskMoneyIntuitivo(e.target.value))}
                   placeholder="0,00"

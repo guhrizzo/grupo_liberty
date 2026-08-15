@@ -108,9 +108,9 @@ function motivoBloqueioEnvioSemanal(c: Cobranca): string | null {
 }
 
 function labelParcelas(tipo: TipoCobranca): string {
-  if (tipo === 'aluguel') return 'Nº de Semanas *'
-  if (tipo === 'quinzenal') return 'Nº de Parcelas Quinzenais *'
-  return 'Nº de Parcelas Mensais *'
+  if (tipo === 'aluguel') return 'Nº de Semanas'
+  if (tipo === 'quinzenal') return 'Nº de Parcelas Quinzenais'
+  return 'Nº de Parcelas Mensais'
 }
 
 function labelPrimeiraParcela(tipo: TipoCobranca): string {
@@ -2328,7 +2328,7 @@ function NovaCobrancaModal({
 
             <Input
               id="clienteNome"
-              label="Nome do Cliente *"
+              label="Nome do Cliente"
               value={clienteNome}
               onChange={(e) => setClienteNome(e.target.value)}
               placeholder="Nome completo"
@@ -2430,7 +2430,7 @@ function NovaCobrancaModal({
               <div>
                 <Input
                   id="valorTotal"
-                  label="Valor Total *"
+                  label="Valor Total"
                   value={valorTotal}
                   onChange={(e) => setValorTotal(maskMoney(e.target.value))}
                   placeholder="R$ 0,00"
@@ -2478,7 +2478,7 @@ function NovaCobrancaModal({
               {tipo === 'promissoria' && (
                 <Input
                   id="diaVencimento"
-                  label="Dia do Vencimento *"
+                  label="Dia do Vencimento"
                   type="number"
                   min="1"
                   max="31"
@@ -2687,7 +2687,7 @@ function PagamentoModal({
 
           <Input
             id="valorPagamento"
-            label="Valor a pagar agora *"
+            label="Valor a pagar agora"
             value={valor}
             onChange={(e) => setValor(maskMoney(e.target.value))}
             placeholder="R$ 0,00"
@@ -2699,7 +2699,7 @@ function PagamentoModal({
 
           <Input
             id="dataPagamento"
-            label="Data do pagamento *"
+            label="Data do pagamento"
             type="date"
             value={data}
             onChange={(e) => setData(e.target.value)}
@@ -2848,7 +2848,7 @@ function EditarValorParcelaModal({
 
           <Input
             id="novoValorParcela"
-            label="Novo valor da parcela *"
+            label="Novo valor da parcela"
             value={valor}
             onChange={(e) => setValor(maskMoney(e.target.value))}
             placeholder="R$ 0,00"

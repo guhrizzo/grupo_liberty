@@ -402,7 +402,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             </Select>
 
             <Input
-              label="Oficina *"
+              label="Oficina"
               name="oficina"
               required
               defaultValue={editing?.oficina}
@@ -411,7 +411,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             />
 
             <Input
-              label="Responsável *"
+              label="Responsável"
               name="responsavel"
               required
               defaultValue={editing?.responsavel}
@@ -431,7 +431,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             />
 
             <Input
-              label="Data agendada *"
+              label="Data agendada"
               name="dataAgendada"
               type="date"
               required

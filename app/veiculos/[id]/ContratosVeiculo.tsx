@@ -213,7 +213,7 @@ export default function ContratosVeiculo({
           className="mt-2 space-y-4"
         >
           <Input
-            label="Arquivo PDF *"
+            label="Arquivo PDF"
             name="pdf"
             type="file"
             accept="application/pdf"

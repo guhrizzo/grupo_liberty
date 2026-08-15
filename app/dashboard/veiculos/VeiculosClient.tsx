@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar, IconCash } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2 } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
 import {
   Breadcrumb,
@@ -17,7 +17,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { formatCurrency, formatKm } from '@/utils/format'
-import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits } from '@/utils/masks'
+import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
 import {
@@ -48,6 +48,25 @@ interface PhotoPreview {
   file?: File
   url: string
   isExisting?: boolean
+}
+
+// Mesmo padrão usado em /dashboard/consulta-fipe e /dashboard/propostas/nova
+// (Mercosul ou tradicional).
+const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
+const placaSemMascara = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+// O Sistema Puxa Placa devolve o combustível em texto livre (ex.: "Flex",
+// "Gasolina/Álcool") — normaliza pro value que o <Select> de combustível espera.
+function normalizarCombustivel(raw?: string): string | null {
+  if (!raw) return null
+  const s = raw.toLowerCase()
+  if (s.includes('flex') || s.includes('álcool/gas') || s.includes('alcool/gas')) return 'flex'
+  if (s.includes('híbrid') || s.includes('hibrid')) return 'hibrido'
+  if (s.includes('elétric') || s.includes('eletric')) return 'eletrico'
+  if (s.includes('diesel')) return 'diesel'
+  if (s.includes('etanol') || s.includes('álcool') || s.includes('alcool')) return 'etanol'
+  if (s.includes('gasolina')) return 'gasolina'
+  return null
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -81,6 +100,7 @@ function ClearMoneyButton({
 
 export default function VeiculosClient({ currentUser, veiculos }: VeiculosClientProps) {
   const router = useRouter()
+  const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentRole = currentUser?.role
   const canEdit =
@@ -112,6 +132,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [combustivel, setCombustivel] = useState('flex')
   const [placa, setPlaca] = useState('')
   const [renavam, setRenavam] = useState('')
+  const [searchingPlaca, setSearchingPlaca] = useState(false)
   const [descricao, setDescricao] = useState('')
   const [localizacaoSelect, setLocalizacaoSelect] = useState<'jau' | 'bauru' | 'outro'>('jau')
   const [outraCidade, setOutraCidade] = useState('')
@@ -328,6 +349,78 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     })
     setPhotos([])
   }
+
+  // ─── Busca automática por placa (Sistema Puxa Placa) ────────────────────
+  // Mesmo endpoint usado em /dashboard/consulta-fipe e /dashboard/propostas/nova.
+
+  // Placa já consultada com sucesso ou já tentada — evita repetir a mesma
+  // chamada a cada re-render enquanto o usuário mexe em outros campos.
+  const placaJaBuscadaRef = useRef<string>('')
+
+  const buscarDadosPlaca = useCallback(
+    async (placaLimpa: string) => {
+      setSearchingPlaca(true)
+      try {
+        const res = await fetch(`/api/consulta-placa?placa=${placaLimpa}`)
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          throw new Error(errData.error || 'Não encontramos registro para a placa informada.')
+        }
+
+        const data = await res.json()
+        if (data.marca) setMarca(data.marca)
+        if (data.modelo) setModelo(data.modelo)
+        if (data.anoModelo) setAno(String(data.anoModelo))
+        if (data.cor) setCor(data.cor)
+        if (data.renavam) setRenavam(maskRenavam(data.renavam))
+        if (data.valorFipe) setTabelaFipe(moneyFromNumber(data.valorFipe))
+        const combustivelNormalizado = normalizarCombustivel(data.combustivel)
+        if (combustivelNormalizado) setCombustivel(combustivelNormalizado)
+
+        if (data.rouboFurto && data.rouboFurto !== 'NAO' && data.rouboFurto !== '') {
+          toast.error(
+            `Status retornado: ${data.rouboFurto}. Proceda com cautela antes de cadastrar.`,
+            '⚠️ Ocorrência de roubo/furto',
+          )
+        } else {
+          toast.success(
+            'Marca, modelo, ano, cor, combustível, FIPE e Renavam preenchidos automaticamente.',
+            'Placa encontrada',
+          )
+        }
+      } catch (err: any) {
+        // Permite tentar de novo assim que o campo mudar (mesmo que volte pro
+        // mesmo valor), já que essa tentativa falhou.
+        placaJaBuscadaRef.current = ''
+        toast.error(err.message || 'Erro ao consultar a placa.', 'Falha na busca')
+      } finally {
+        setSearchingPlaca(false)
+      }
+    },
+    [toast],
+  )
+
+  // Assim que a placa fica completa e válida, busca sozinha — sem precisar
+  // clicar em nada. Debounce de 600ms pra não disparar a cada tecla enquanto
+  // o usuário ainda está digitando/corrigindo. Só roda ao cadastrar um veículo
+  // novo — em edição (`editingId` setado) os dados já salvos não devem ser
+  // sobrescritos silenciosamente por uma consulta externa.
+  useEffect(() => {
+    if (editingId) return
+    const placaLimpa = placaSemMascara(placa)
+    if (!PLACA_REGEX.test(placaLimpa)) {
+      placaJaBuscadaRef.current = ''
+      return
+    }
+    if (placaJaBuscadaRef.current === placaLimpa) return
+
+    const timer = setTimeout(() => {
+      placaJaBuscadaRef.current = placaLimpa
+      buscarDadosPlaca(placaLimpa)
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [placa, editingId, buscarDadosPlaca])
 
   const handleEdit = useCallback((veiculo: Veiculo) => {
     setEditingId(veiculo.id)
@@ -745,7 +838,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <div className="grid gap-4 sm:grid-cols-3">
                   <Input
                     id="marca"
-                    label="Marca *"
+                    label="Marca"
                     required
                     value={marca}
                     onChange={(e) => setMarca(e.target.value)}
@@ -755,7 +848,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                   <Input
                     id="modelo"
-                    label="Modelo *"
+                    label="Modelo"
                     required
                     value={modelo}
                     onChange={(e) => setModelo(e.target.value)}
@@ -765,7 +858,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                   <Input
                     id="ano"
-                    label="Ano *"
+                    label="Ano"
                     type="number"
                     required
                     min="1900"
@@ -950,6 +1043,24 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     placeholder="ABC-1D23"
                     autoComplete="off"
                     error={fieldErrors.placa}
+                    rightAdornment={
+                      editingId ? undefined : searchingPlaca ? (
+                        <IconLoader2 size={16} className="animate-spin text-liberty" />
+                      ) : PLACA_REGEX.test(placaSemMascara(placa)) ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            placaJaBuscadaRef.current = ''
+                            buscarDadosPlaca(placaSemMascara(placa))
+                          }}
+                          title="Buscar novamente"
+                          className="text-neutral-400 hover:text-liberty transition-colors cursor-pointer"
+                        >
+                          <IconSearch size={15} stroke={2.2} />
+                        </button>
+                      ) : undefined
+                    }
+                    hint={editingId ? undefined : 'Completando a placa, marca, modelo, ano, cor, combustível e FIPE são preenchidos sozinhos.'}
                   />
                   <Input
                     id="renavam"
@@ -978,7 +1089,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   <div className="mt-4 max-w-md">
                     <Input
                       id="outraCidade"
-                      label="Nome da Cidade *"
+                      label="Nome da Cidade"
                       required
                       value={outraCidade}
                       onChange={(e) => setOutraCidade(e.target.value)}
