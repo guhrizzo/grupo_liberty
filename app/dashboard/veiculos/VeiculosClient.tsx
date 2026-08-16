@@ -4,8 +4,9 @@ import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2 } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
+import PhotoLightbox from '../../components/PhotoLightbox'
 import {
   Breadcrumb,
   Button,
@@ -140,6 +141,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [publico, setPublico] = useState(true)
   const [filtroCidade, setFiltroCidade] = useState<string>('')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
+
+  // Zoom nas fotos do estoque (lightbox em tela cheia ao clicar na miniatura do card).
+  const [lightbox, setLightbox] = useState<{ fotos: string[]; alt: string; index: number } | null>(null)
 
   // Financiamento
   const [banco, setBanco] = useState('')
@@ -1751,13 +1755,27 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-neutral-100">
                     {v.fotos?.length > 0 ? (
-                      <Image
-                        src={v.fotos[0]}
-                        alt={`${v.marca} ${v.modelo}`}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLightbox({ fotos: v.fotos, alt: `${v.marca} ${v.modelo}`, index: 0 })
+                        }
+                        aria-label={`Ampliar fotos de ${v.marca} ${v.modelo}`}
+                        className="group/zoom absolute inset-0 cursor-zoom-in"
+                      >
+                        <Image
+                          src={v.fotos[0]}
+                          alt={`${v.marca} ${v.modelo}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors duration-300 group-hover/zoom:bg-black/20">
+                          <span className="rounded-full bg-white/90 p-2 text-neutral-700 opacity-0 shadow-sm transition-opacity duration-300 group-hover/zoom:opacity-100">
+                            <IconArrowsMaximize size={18} stroke={2} />
+                          </span>
+                        </div>
+                      </button>
                     ) : (
                     <div className="flex h-full items-center justify-center">
                       <IconCar size={40} stroke={1.5} className="text-neutral-300" />
@@ -1885,6 +1903,16 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             </div>
           </div>
         </div>
+      )}
+
+      {/* Zoom nas fotos do estoque */}
+      {lightbox && (
+        <PhotoLightbox
+          fotos={lightbox.fotos}
+          alt={lightbox.alt}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
       )}
 
     </div>
