@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getProcessos } from './actions'
+import { getProcessos, getClientesPorVeiculo } from './actions'
+import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import JuridicoClient from './JuridicoClient'
 
 export const metadata = {
@@ -16,12 +17,18 @@ export default async function JuridicoPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const initialProcessos = await getProcessos()
+  const [initialProcessos, veiculos, clientesPorVeiculo] = await Promise.all([
+    getProcessos(),
+    getVehicles(),
+    getClientesPorVeiculo(),
+  ])
 
   return (
     <JuridicoClient
       currentRole={user.role ?? ''}
       initialProcessos={initialProcessos}
+      veiculos={veiculos}
+      clientesPorVeiculo={clientesPorVeiculo}
     />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   IconPlus,
@@ -9,6 +9,7 @@ import {
   IconTrash,
   IconCalendar,
   IconUser,
+  IconCar,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -32,6 +33,8 @@ import { formatDate } from '@/utils/format'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
 import { createProcesso, updateProcesso, deleteProcesso } from './actions'
 import type { Processo, ProcessoStatus } from './types'
+import type { Veiculo } from '@/app/dashboard/veiculos/actions'
+import { VeiculoPicker } from './VeiculoPicker'
 
 type Status = ProcessoStatus
 
@@ -63,9 +66,13 @@ const PAGE_SIZE = 12
 export default function JuridicoClient({
   currentRole,
   initialProcessos,
+  veiculos,
+  clientesPorVeiculo,
 }: {
   currentRole: string
   initialProcessos: Processo[]
+  veiculos: Veiculo[]
+  clientesPorVeiculo: Record<string, string>
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
@@ -80,13 +87,30 @@ export default function JuridicoClient({
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
 
+  // Veículo vinculado ao processo (opcional) — ao selecionar, tenta
+  // preencher automaticamente o campo "Cliente" a partir do contrato do
+  // veículo, quando existir.
+  const [showVeiculoPicker, setShowVeiculoPicker] = useState(false)
+  const [formVeiculoId, setFormVeiculoId] = useState('')
+  const [formVeiculoResumo, setFormVeiculoResumo] = useState('')
+  const [formCliente, setFormCliente] = useState('')
+  const [formTitulo, setFormTitulo] = useState('')
+
   function openCreate() {
     setEditing(null)
+    setFormVeiculoId('')
+    setFormVeiculoResumo('')
+    setFormCliente('')
+    setFormTitulo('')
     setShowForm(true)
   }
 
   function openEdit(p: Processo) {
     setEditing(p)
+    setFormVeiculoId(p.veiculoId ?? '')
+    setFormVeiculoResumo(p.veiculoResumo ?? '')
+    setFormCliente(p.cliente)
+    setFormTitulo(p.titulo)
     setShowForm(true)
   }
 
@@ -94,6 +118,29 @@ export default function JuridicoClient({
     setShowForm(false)
     setEditing(null)
   }
+
+  const handleSelectVeiculo = useCallback(
+    (id: string) => {
+      const v = veiculos.find((x) => x.id === id)
+      const nomeVeiculo = v ? `${v.marca} ${v.modelo}${v.ano ? ` ${v.ano}` : ''}` : ''
+      const resumo = v ? `${nomeVeiculo}${v.placa ? ` • ${v.placa}` : ''}` : ''
+      setFormVeiculoId(id)
+      setFormVeiculoResumo(resumo)
+      if (nomeVeiculo) setFormTitulo(nomeVeiculo)
+
+      const nome = clientesPorVeiculo[id]
+      if (nome) {
+        setFormCliente(nome)
+        toast.success(`Cliente preenchido a partir do contrato: ${nome}`)
+      }
+    },
+    [veiculos, clientesPorVeiculo, toast],
+  )
+
+  const handleRemoverVeiculo = useCallback(() => {
+    setFormVeiculoId('')
+    setFormVeiculoResumo('')
+  }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -248,7 +295,8 @@ export default function JuridicoClient({
               label="Título"
               name="titulo"
               required
-              defaultValue={editing?.titulo}
+              value={formTitulo}
+              onChange={(e) => setFormTitulo(e.target.value)}
               placeholder="Ex: Contrato - Cliente X"
               containerClassName="sm:col-span-2"
             />
@@ -257,10 +305,57 @@ export default function JuridicoClient({
               label="Cliente"
               name="cliente"
               required
-              defaultValue={editing?.cliente}
+              value={formCliente}
+              onChange={(e) => setFormCliente(e.target.value)}
               placeholder="Nome do cliente"
               autoComplete="name"
             />
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-neutral-700">
+                Veículo vinculado
+              </label>
+              {formVeiculoId ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <IconCar size={16} className="shrink-0 text-liberty-deep" />
+                    <span className="truncate text-sm font-medium text-neutral-800">
+                      {formVeiculoResumo}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowVeiculoPicker(true)}
+                      className="text-xs font-semibold text-liberty-deep hover:underline cursor-pointer"
+                    >
+                      Trocar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoverVeiculo}
+                      className="text-xs font-semibold text-neutral-400 hover:text-rose-600 cursor-pointer"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowVeiculoPicker(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-2.5 text-xs font-semibold text-neutral-500 transition-colors hover:border-liberty/40 hover:text-liberty-deep cursor-pointer"
+                >
+                  <IconCar size={14} stroke={2} />
+                  Selecionar veículo (opcional)
+                </button>
+              )}
+              <p className="mt-1 text-[11px] text-neutral-400">
+                Ao selecionar, o nome do cliente é preenchido automaticamente se houver contrato vinculado.
+              </p>
+              <input type="hidden" name="veiculoId" value={formVeiculoId} />
+              <input type="hidden" name="veiculoResumo" value={formVeiculoResumo} />
+            </div>
 
             <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
               <option value="" disabled>
@@ -333,6 +428,21 @@ export default function JuridicoClient({
         </div>
       )}
 
+      <VeiculoPicker
+        open={showVeiculoPicker}
+        onClose={() => setShowVeiculoPicker(false)}
+        veiculos={veiculos.map((v) => ({
+          id: v.id,
+          marca: v.marca,
+          modelo: v.modelo,
+          ano: v.ano ?? null,
+          placa: v.placa ?? null,
+          cliente: clientesPorVeiculo[v.id] ?? null,
+        }))}
+        value={formVeiculoId || null}
+        onSelect={handleSelectVeiculo}
+      />
+
       {visible.length === 0 ? (
         <EmptyState
           icon={<IconScale size={24} />}
@@ -360,6 +470,12 @@ export default function JuridicoClient({
                     <div className="text-xs text-neutral-500">
                       {p.cliente} • {p.numero || 's/ número'}
                     </div>
+                    {p.veiculoResumo && (
+                      <div className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-400">
+                        <IconCar size={11} stroke={2} />
+                        {p.veiculoResumo}
+                      </div>
+                    )}
                   </TD>
                   <TD>{p.tipo}</TD>
                   <TD>{p.responsavel}</TD>

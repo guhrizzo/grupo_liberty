@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { assertJuridicoAccess } from '@/utils/permissions'
 import {
   PROCESSO_STATUS,
   type Processo,
@@ -69,6 +70,8 @@ export async function getProcessos(): Promise<Processo[]> {
         responsavel: data.responsavel || '',
         prazo: data.prazo || null,
         observacoes: data.observacoes || null,
+        veiculoId: data.veiculoId || null,
+        veiculoResumo: data.veiculoResumo || null,
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -107,6 +110,8 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
   const responsavel = ((formData.get('responsavel') as string) || '').trim()
   const prazo = ((formData.get('prazo') as string) || '').trim() || null
   const observacoes = ((formData.get('observacoes') as string) || '').trim() || null
+  const veiculoId = ((formData.get('veiculoId') as string) || '').trim() || null
+  const veiculoResumo = ((formData.get('veiculoResumo') as string) || '').trim() || null
 
   const fieldErrors: ProcessoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe o título do processo.'
@@ -131,6 +136,8 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
       responsavel,
       prazo,
       observacoes,
+      veiculoId,
+      veiculoResumo,
       created_by: user.uid,
       created_at: now,
       updated_at: now,
@@ -176,6 +183,8 @@ export async function updateProcesso(
   const responsavel = ((formData.get('responsavel') as string) || '').trim()
   const prazo = ((formData.get('prazo') as string) || '').trim() || null
   const observacoes = ((formData.get('observacoes') as string) || '').trim() || null
+  const veiculoId = ((formData.get('veiculoId') as string) || '').trim() || null
+  const veiculoResumo = ((formData.get('veiculoResumo') as string) || '').trim() || null
 
   const fieldErrors: ProcessoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe o título do processo.'
@@ -202,6 +211,8 @@ export async function updateProcesso(
       responsavel,
       prazo,
       observacoes,
+      veiculoId,
+      veiculoResumo,
       updated_at: now,
     }
 
@@ -241,5 +252,49 @@ export async function deleteProcesso(
     return { success: 'Processo removido com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao remover processo: ${error.message}` }
+  }
+}
+
+/**
+ * Mapa veiculoId -> nome do cliente, a partir dos contratos cadastrados.
+ * Usado para exibir o cliente de cada veículo no seletor de veículos do
+ * processo e para sugerir automaticamente o campo "Cliente" ao selecionar
+ * um veículo. Para veículos com mais de um contrato, prioriza o com status
+ * 'ativo'; na ausência, usa o mais recente. Retorna mapa vazio se o usuário
+ * não tiver acesso ao jurídico ou em caso de erro.
+ */
+export async function getClientesPorVeiculo(): Promise<Record<string, string>> {
+  try {
+    await assertJuridicoAccess()
+  } catch {
+    return {}
+  }
+
+  try {
+    const snapshot = await adminDb.collection('contratos').get()
+
+    const porVeiculo = new Map<string, FirebaseFirestore.DocumentData[]>()
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      const veiculoId = data.veiculoId as string | undefined
+      if (!veiculoId) continue
+      const lista = porVeiculo.get(veiculoId) ?? []
+      lista.push(data)
+      porVeiculo.set(veiculoId, lista)
+    }
+
+    const mapa: Record<string, string> = {}
+    for (const [veiculoId, contratos] of porVeiculo) {
+      const ordenados = [...contratos].sort((a, b) =>
+        (b.criadoEm || '').localeCompare(a.criadoEm || ''),
+      )
+      const escolhido = ordenados.find((c) => c.status === 'ativo') || ordenados[0]
+      if (escolhido?.clienteNome) mapa[veiculoId] = escolhido.clienteNome as string
+    }
+
+    return mapa
+  } catch (error) {
+    console.error('Erro ao buscar clientes por veículo:', error)
+    return {}
   }
 }

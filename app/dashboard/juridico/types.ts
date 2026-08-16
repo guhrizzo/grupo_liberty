@@ -21,6 +21,11 @@ export interface Processo {
   responsavel: string
   prazo: string | null
   observacoes: string | null
+  // Veículo opcional vinculado ao processo. Ao selecionar, o nome do
+  // cliente é sugerido automaticamente a partir do contrato do veículo
+  // (quando existir).
+  veiculoId: string | null
+  veiculoResumo: string | null
   created_at: string
   updated_at: string
   created_by: string | null
