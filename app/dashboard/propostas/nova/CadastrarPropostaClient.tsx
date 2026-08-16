@@ -1172,7 +1172,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
                 <div>
                   {formData.valor_parcela.trim() && formData.parcelas_atrasadas.trim() && (
                     <p className="mt-6 text-[11px] font-semibold text-rose-600">
-                      Saldo devedor (parcelas × atrasadas):{' '}
+                      Saldo em Atraso (Valor da parcela x parcelas em atraso):{' '}
                       {formatCurrency(
                         parseMoney(formData.valor_parcela) *
                           Number(formData.parcelas_atrasadas || '0'),
