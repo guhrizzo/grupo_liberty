@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { assertJuridicoAccess } from '@/utils/permissions'
+import { encrypt, decrypt } from '@/utils/crypto'
 import {
   PROCESSO_STATUS,
   type Processo,
@@ -13,6 +14,17 @@ import {
 } from './types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Descriptografa um CPF salvo. Registros gravados antes da criptografia
+ * (texto plano, sem o separador ':' do formato 'ivHex:encryptedHex') caem no
+ * fallback e retornam o valor bruto, para não quebrar processos já cadastrados.
+ */
+function decryptCpfOrRaw(value: string | null | undefined): string {
+  if (!value) return ''
+  if (!value.includes(':')) return value
+  return decrypt(value) || value
+}
 
 async function getSessionUser() {
   const cookieStore = await cookies()
@@ -64,6 +76,7 @@ export async function getProcessos(): Promise<Processo[]> {
         id: doc.id,
         titulo: data.titulo || '',
         cliente: data.cliente || '',
+        clienteCpf: decryptCpfOrRaw(data.clienteCpf) || null,
         tipo: data.tipo || '',
         numero: data.numero || null,
         status: (data.status as ProcessoStatus) || 'em_andamento',
@@ -99,6 +112,7 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
 
   const titulo = ((formData.get('titulo') as string) || '').trim()
   const cliente = ((formData.get('cliente') as string) || '').trim()
+  const clienteCpf = ((formData.get('clienteCpf') as string) || '').trim()
   const tipo = ((formData.get('tipo') as string) || '').trim()
   const numero = ((formData.get('numero') as string) || '').trim() || null
   const statusRaw = ((formData.get('status') as string) || '').trim()
@@ -116,6 +130,9 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
   const fieldErrors: ProcessoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe o título do processo.'
   if (!cliente) fieldErrors.cliente = 'Informe o cliente.'
+  if (clienteCpf && clienteCpf.replace(/\D/g, '').length < 11) {
+    fieldErrors.clienteCpf = 'CPF incompleto.'
+  }
   if (!tipo) fieldErrors.tipo = 'Selecione o tipo.'
   if (!responsavel) fieldErrors.responsavel = 'Informe o responsável.'
 
@@ -130,6 +147,7 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
     const novo = {
       titulo,
       cliente,
+      clienteCpf: clienteCpf ? encrypt(clienteCpf) : null,
       tipo,
       numero,
       status,
@@ -172,6 +190,7 @@ export async function updateProcesso(
 
   const titulo = ((formData.get('titulo') as string) || '').trim()
   const cliente = ((formData.get('cliente') as string) || '').trim()
+  const clienteCpf = ((formData.get('clienteCpf') as string) || '').trim()
   const tipo = ((formData.get('tipo') as string) || '').trim()
   const numero = ((formData.get('numero') as string) || '').trim() || null
   const statusRaw = ((formData.get('status') as string) || '').trim()
@@ -189,6 +208,9 @@ export async function updateProcesso(
   const fieldErrors: ProcessoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe o título do processo.'
   if (!cliente) fieldErrors.cliente = 'Informe o cliente.'
+  if (clienteCpf && clienteCpf.replace(/\D/g, '').length < 11) {
+    fieldErrors.clienteCpf = 'CPF incompleto.'
+  }
   if (!tipo) fieldErrors.tipo = 'Selecione o tipo.'
   if (!responsavel) fieldErrors.responsavel = 'Informe o responsável.'
 
@@ -205,6 +227,7 @@ export async function updateProcesso(
     const atualizacao = {
       titulo,
       cliente,
+      clienteCpf: clienteCpf ? encrypt(clienteCpf) : null,
       tipo,
       numero,
       status,
@@ -255,15 +278,22 @@ export async function deleteProcesso(
   }
 }
 
+export interface ClienteVeiculoInfo {
+  nome: string
+  cpf: string | null
+}
+
 /**
- * Mapa veiculoId -> nome do cliente, a partir dos contratos cadastrados.
- * Usado para exibir o cliente de cada veículo no seletor de veículos do
- * processo e para sugerir automaticamente o campo "Cliente" ao selecionar
- * um veículo. Para veículos com mais de um contrato, prioriza o com status
- * 'ativo'; na ausência, usa o mais recente. Retorna mapa vazio se o usuário
- * não tiver acesso ao jurídico ou em caso de erro.
+ * Mapa veiculoId -> { nome, cpf } do cliente, a partir dos contratos
+ * cadastrados (CPF/CNPJ do contrato é salvo em texto plano — ver
+ * app/dashboard/contratos/actions.ts). Usado para exibir o cliente de cada
+ * veículo no seletor de veículos do processo e para sugerir automaticamente
+ * os campos "Cliente" e "CPF do cliente" ao selecionar um veículo. Para
+ * veículos com mais de um contrato, prioriza o com status 'ativo'; na
+ * ausência, usa o mais recente. Retorna mapa vazio se o usuário não tiver
+ * acesso ao jurídico ou em caso de erro.
  */
-export async function getClientesPorVeiculo(): Promise<Record<string, string>> {
+export async function getClientesPorVeiculo(): Promise<Record<string, ClienteVeiculoInfo>> {
   try {
     await assertJuridicoAccess()
   } catch {
@@ -283,13 +313,18 @@ export async function getClientesPorVeiculo(): Promise<Record<string, string>> {
       porVeiculo.set(veiculoId, lista)
     }
 
-    const mapa: Record<string, string> = {}
+    const mapa: Record<string, ClienteVeiculoInfo> = {}
     for (const [veiculoId, contratos] of porVeiculo) {
       const ordenados = [...contratos].sort((a, b) =>
         (b.criadoEm || '').localeCompare(a.criadoEm || ''),
       )
       const escolhido = ordenados.find((c) => c.status === 'ativo') || ordenados[0]
-      if (escolhido?.clienteNome) mapa[veiculoId] = escolhido.clienteNome as string
+      if (escolhido?.clienteNome) {
+        mapa[veiculoId] = {
+          nome: escolhido.clienteNome as string,
+          cpf: (escolhido.clienteCpfCnpj as string) || null,
+        }
+      }
     }
 
     return mapa

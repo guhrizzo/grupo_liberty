@@ -15,6 +15,9 @@ export interface Processo {
   id: string
   titulo: string
   cliente: string
+  // CPF do cliente. Persistido criptografado (AES-256-CBC, ver utils/crypto)
+  // — este campo já vem descriptografado quando lido via getProcessos().
+  clienteCpf: string | null
   tipo: string
   numero: string | null
   status: ProcessoStatus
@@ -34,6 +37,7 @@ export interface Processo {
 export type ProcessoFieldErrors = {
   titulo?: string
   cliente?: string
+  clienteCpf?: string
   tipo?: string
   responsavel?: string
 }

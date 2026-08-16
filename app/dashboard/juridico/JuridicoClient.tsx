@@ -30,9 +30,11 @@ import {
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatDate } from '@/utils/format'
+import { maskCPFCNPJ } from '@/utils/masks'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
 import { createProcesso, updateProcesso, deleteProcesso } from './actions'
 import type { Processo, ProcessoStatus } from './types'
+import type { ClienteVeiculoInfo } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { VeiculoPicker } from './VeiculoPicker'
 
@@ -72,7 +74,7 @@ export default function JuridicoClient({
   currentRole: string
   initialProcessos: Processo[]
   veiculos: Veiculo[]
-  clientesPorVeiculo: Record<string, string>
+  clientesPorVeiculo: Record<string, ClienteVeiculoInfo>
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
@@ -94,6 +96,7 @@ export default function JuridicoClient({
   const [formVeiculoId, setFormVeiculoId] = useState('')
   const [formVeiculoResumo, setFormVeiculoResumo] = useState('')
   const [formCliente, setFormCliente] = useState('')
+  const [formClienteCpf, setFormClienteCpf] = useState('')
   const [formTitulo, setFormTitulo] = useState('')
 
   function openCreate() {
@@ -101,6 +104,7 @@ export default function JuridicoClient({
     setFormVeiculoId('')
     setFormVeiculoResumo('')
     setFormCliente('')
+    setFormClienteCpf('')
     setFormTitulo('')
     setShowForm(true)
   }
@@ -110,6 +114,7 @@ export default function JuridicoClient({
     setFormVeiculoId(p.veiculoId ?? '')
     setFormVeiculoResumo(p.veiculoResumo ?? '')
     setFormCliente(p.cliente)
+    setFormClienteCpf(p.clienteCpf ?? '')
     setFormTitulo(p.titulo)
     setShowForm(true)
   }
@@ -128,11 +133,17 @@ export default function JuridicoClient({
       setFormVeiculoResumo(resumo)
       if (nomeVeiculo) setFormTitulo(nomeVeiculo)
 
-      const nome = clientesPorVeiculo[id]
+      // Prioriza o comprador de um contrato de venda já emitido (dado mais
+      // recente); na ausência, usa o vendedor/consignante cadastrado nos
+      // "Dados do Vendedor" do próprio veículo. CPF acompanha o mesmo par.
+      const contratoInfo = clientesPorVeiculo[id]
+      const nome = contratoInfo?.nome || v?.sellerName || null
+      const cpf = contratoInfo?.cpf || v?.sellerCpf || null
       if (nome) {
         setFormCliente(nome)
-        toast.success(`Cliente preenchido a partir do contrato: ${nome}`)
+        toast.success(`Cliente preenchido: ${nome}`)
       }
+      if (cpf) setFormClienteCpf(maskCPFCNPJ(cpf))
     },
     [veiculos, clientesPorVeiculo, toast],
   )
@@ -311,6 +322,16 @@ export default function JuridicoClient({
               autoComplete="name"
             />
 
+            <Input
+              label="CPF do cliente"
+              name="clienteCpf"
+              value={formClienteCpf}
+              onChange={(e) => setFormClienteCpf(maskCPFCNPJ(e.target.value))}
+              placeholder="000.000.000-00"
+              autoComplete="off"
+              inputMode="numeric"
+            />
+
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-neutral-700">
                 Veículo vinculado
@@ -437,7 +458,7 @@ export default function JuridicoClient({
           modelo: v.modelo,
           ano: v.ano ?? null,
           placa: v.placa ?? null,
-          cliente: clientesPorVeiculo[v.id] ?? null,
+          cliente: clientesPorVeiculo[v.id]?.nome || v.sellerName || null,
         }))}
         value={formVeiculoId || null}
         onSelect={handleSelectVeiculo}
