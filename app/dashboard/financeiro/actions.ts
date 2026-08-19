@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { ehMesValido, hojeNoFuso, intervaloDoMes } from './periodo'
 import {
   type Transacao,
   type TransacaoCategoria,
+  type TransacaoComprovante,
+  type TransacaoComprovanteResponse,
   type TransacaoFieldErrors,
   type TransacaoResponse,
   type TransacaoStatus,
@@ -109,6 +111,7 @@ export async function getTransacoes(mes?: string): Promise<Transacao[]> {
         origemPagamentoId: data.origemPagamentoId ?? null,
         origemCobrancaId: data.origemCobrancaId ?? null,
         origemParcelaId: data.origemParcelaId ?? null,
+        comprovante: data.comprovante ?? null,
       })
     })
 
@@ -309,6 +312,7 @@ export async function deleteTransacao(
     if (!doc.exists) return { error: 'Lançamento não encontrado.' }
 
     const origemPagamentoId = doc.data()?.origemPagamentoId as string | null | undefined
+    const comprovante = doc.data()?.comprovante as { storagePath?: string } | null | undefined
 
     const batch = adminDb.batch()
     batch.delete(docRef)
@@ -324,6 +328,19 @@ export async function deleteTransacao(
     }
     await batch.commit()
 
+    // Best-effort: remove também o comprovante anexado a este lançamento
+    // (Storage). Não bloqueia a exclusão principal se falhar.
+    if (comprovante?.storagePath) {
+      try {
+        const bucket = adminStorage.bucket()
+        const fileRef = bucket.file(comprovante.storagePath)
+        const [exists] = await fileRef.exists()
+        if (exists) await fileRef.delete()
+      } catch (storageErr) {
+        console.error('Erro ao remover comprovante do Storage:', storageErr)
+      }
+    }
+
     revalidatePath('/dashboard/financeiro')
     if (origemPagamentoId) revalidatePath('/dashboard/cobrancas')
 
@@ -335,5 +352,179 @@ export async function deleteTransacao(
     }
   } catch (error: any) {
     return { error: `Erro ao remover lançamento: ${error.message}` }
+  }
+}
+
+// ─── Comprovante (nota fiscal ou recibo em PDF/imagem) ──────────────────────
+// Um único arquivo por lançamento: anexar um novo substitui o anterior
+// (remove o antigo do Storage antes de gravar o novo).
+
+const MAX_COMPROVANTE_SIZE = 10 * 1024 * 1024 // 10MB
+const COMPROVANTE_TIPOS_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
+function sanitizeFileName(name: string): string {
+  return (
+    name
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z0-9-_ .]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 120) || 'comprovante'
+  )
+}
+
+function extensaoPorTipo(contentType: string, fileName: string): string {
+  switch (contentType) {
+    case 'application/pdf':
+      return 'pdf'
+    case 'image/png':
+      return 'png'
+    case 'image/webp':
+      return 'webp'
+    case 'image/jpeg':
+      return 'jpg'
+    default: {
+      const match = fileName.match(/\.([a-zA-Z0-9]+)$/)
+      return match ? match[1].toLowerCase() : 'bin'
+    }
+  }
+}
+
+/**
+ * Anexa (ou substitui) o comprovante de um lançamento. Recebe FormData com:
+ * - transacaoId: string
+ * - arquivo: File (application/pdf, image/jpeg, image/png ou image/webp — máx. 10MB)
+ *
+ * Só um comprovante por lançamento: se já existir um, o arquivo antigo é
+ * removido do Storage antes de gravar o novo.
+ */
+export async function anexarComprovanteTransacao(
+  formData: FormData,
+): Promise<TransacaoComprovanteResponse> {
+  let user: any
+  try {
+    const res = await assertAdmin()
+    user = res.user
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  const transacaoId = ((formData.get('transacaoId') as string) || '').trim()
+  const file = formData.get('arquivo')
+
+  if (!transacaoId) return { error: 'Lançamento não especificado.' }
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: 'Selecione um arquivo (PDF, JPG, PNG ou WEBP).' }
+  }
+  if (file.size > MAX_COMPROVANTE_SIZE) {
+    return { error: 'Arquivo excede o limite de 10MB.' }
+  }
+  if (!COMPROVANTE_TIPOS_PERMITIDOS.includes(file.type)) {
+    return { error: 'Formato não suportado. Envie um PDF, JPG, PNG ou WEBP.' }
+  }
+
+  try {
+    const transacaoRef = adminDb.collection('transacoes').doc(transacaoId)
+    const transacaoDoc = await transacaoRef.get()
+    if (!transacaoDoc.exists) return { error: 'Lançamento não encontrado.' }
+
+    const bucket = adminStorage.bucket()
+
+    // Remove o comprovante anterior, se houver — só um por lançamento.
+    const comprovanteAnterior = transacaoDoc.data()?.comprovante as
+      | { storagePath?: string }
+      | null
+      | undefined
+    if (comprovanteAnterior?.storagePath) {
+      try {
+        const fileRefAnterior = bucket.file(comprovanteAnterior.storagePath)
+        const [exists] = await fileRefAnterior.exists()
+        if (exists) await fileRefAnterior.delete()
+      } catch (storageErr) {
+        console.error('Erro ao remover comprovante anterior do Storage:', storageErr)
+      }
+    }
+
+    const contentType = file.type
+    const ext = extensaoPorTipo(contentType, file.name)
+    // Nome com timestamp: evita colisão com o cache do arquivo antigo (mesmo
+    // storagePath reaproveitado logo após a exclusão acima).
+    const storagePath = `transacoes/${transacaoId}/comprovante_${Date.now()}.${ext}`
+    const fileName = sanitizeFileName(file.name)
+    const now = new Date().toISOString()
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const fileRef = bucket.file(storagePath)
+
+    await fileRef.save(buffer, {
+      metadata: {
+        contentType,
+        metadata: {
+          transacaoId,
+          uploadedBy: user.uid,
+        },
+      },
+    })
+
+    const comprovante: TransacaoComprovante = {
+      fileName,
+      contentType,
+      size: file.size,
+      storagePath,
+      uploadedByUid: user.uid,
+      uploadedByEmail: user.email ?? null,
+      uploadedAt: now,
+    }
+
+    await transacaoRef.update({ comprovante })
+
+    revalidatePath('/dashboard/financeiro')
+    return { success: 'Comprovante anexado com sucesso.', comprovante }
+  } catch (error: any) {
+    return { error: `Erro ao anexar comprovante: ${error.message}` }
+  }
+}
+
+/**
+ * Remove o comprovante anexado a um lançamento.
+ */
+export async function removerComprovanteTransacao(
+  transacaoId: string,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  if (!transacaoId) return { error: 'ID inválido.' }
+
+  try {
+    const transacaoRef = adminDb.collection('transacoes').doc(transacaoId)
+    const doc = await transacaoRef.get()
+    if (!doc.exists) return { error: 'Lançamento não encontrado.' }
+
+    const comprovante = doc.data()?.comprovante as { storagePath?: string } | null | undefined
+    if (!comprovante) return { error: 'Este lançamento não tem comprovante anexado.' }
+
+    if (comprovante.storagePath) {
+      try {
+        const bucket = adminStorage.bucket()
+        const fileRef = bucket.file(comprovante.storagePath)
+        const [exists] = await fileRef.exists()
+        if (exists) await fileRef.delete()
+      } catch (storageErr) {
+        console.error('Erro ao remover comprovante do Storage:', storageErr)
+      }
+    }
+
+    await transacaoRef.update({ comprovante: null })
+    revalidatePath('/dashboard/financeiro')
+
+    return { success: 'Comprovante removido com sucesso.' }
+  } catch (error: any) {
+    return { error: `Erro ao remover comprovante: ${error.message}` }
   }
 }

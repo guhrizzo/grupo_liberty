@@ -23,6 +23,18 @@ export const TRANSACAO_CATEGORIAS: TransacaoCategoria[] = [
   'Outros',
 ]
 
+// Comprovante (nota fiscal ou recibo, em PDF ou imagem) anexado a um
+// lançamento. Só um por lançamento — anexar um novo substitui o anterior.
+export interface TransacaoComprovante {
+  fileName: string
+  contentType: string
+  size: number
+  storagePath: string
+  uploadedByUid: string
+  uploadedByEmail: string | null
+  uploadedAt: string
+}
+
 export interface Transacao {
   id: string
   descricao: string
@@ -42,6 +54,8 @@ export interface Transacao {
   origemPagamentoId?: string | null
   origemCobrancaId?: string | null
   origemParcelaId?: string | null
+  // Comprovante (nota fiscal/recibo) anexado — null/undefined = nenhum ainda.
+  comprovante?: TransacaoComprovante | null
 }
 
 export type TransacaoFieldErrors = {
@@ -54,4 +68,10 @@ export type TransacaoResponse = {
   error?: string
   fieldErrors?: TransacaoFieldErrors
   transacao?: Transacao
+}
+
+export type TransacaoComprovanteResponse = {
+  success?: string
+  error?: string
+  comprovante?: TransacaoComprovante
 }

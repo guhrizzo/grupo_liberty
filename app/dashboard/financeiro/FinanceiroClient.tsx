@@ -21,6 +21,8 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconCalendarMonth,
+  IconPaperclip,
+  IconCircleCheck,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -37,6 +39,7 @@ import {
   moneyFromNumber,
 } from './money'
 import { createTransacao, updateTransacao, deleteTransacao } from './actions'
+import ComprovanteTransacao from './ComprovanteTransacao'
 import {
   deslocarMes,
   hojeNoFuso,
@@ -50,6 +53,7 @@ import {
   TRANSACAO_CATEGORIAS,
   type Transacao,
   type TransacaoCategoria,
+  type TransacaoComprovante,
   type TransacaoResponse,
   type TransacaoStatus,
   type TransacaoTipo,
@@ -102,6 +106,19 @@ export default function FinanceiroClient({
   // Confirmação de exclusão
   const [confirmDelete, setConfirmDelete] = useState<Transacao | null>(null)
   const [removerPagamentoVinculado, setRemoverPagamentoVinculado] = useState(false)
+
+  // Comprovante (nota fiscal / recibo em PDF ou imagem) do lançamento.
+  const [comprovanteDe, setComprovanteDe] = useState<Transacao | null>(null)
+  // Sobrepõe o `comprovante` vindo do servidor assim que anexar/remover é
+  // confirmado, para a linha da tabela mudar na hora — sem esperar um
+  // `router.refresh()` reidratar as props do servidor.
+  const [comprovanteOverrides, setComprovanteOverrides] = useState<
+    Record<string, TransacaoComprovante | null>
+  >({})
+
+  function getComprovante(t: Transacao): TransacaoComprovante | null {
+    return t.id in comprovanteOverrides ? comprovanteOverrides[t.id] : (t.comprovante ?? null)
+  }
 
   const totalReceitas = useMemo(
     () =>
@@ -517,7 +534,9 @@ export default function FinanceiroClient({
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 font-medium text-neutral-700 adobe-dark:divide-adobe-line adobe-dark:text-adobe-text-md">
-                {filteredTransacoes.map((t) => (
+                {filteredTransacoes.map((t) => {
+                  const comprovante = getComprovante(t)
+                  return (
                   <tr key={t.id} className="hover:bg-neutral-50/60 transition-colors adobe-dark:hover:bg-adobe-bg-3/60">
                     <td className="px-6 py-4 font-bold text-neutral-900 adobe-dark:text-adobe-text-hi">
                       <div className="flex items-center gap-2.5">
@@ -567,6 +586,27 @@ export default function FinanceiroClient({
                       <div className="inline-flex gap-2">
                         <button
                           type="button"
+                          onClick={() => setComprovanteDe(t)}
+                          title={
+                            comprovante
+                              ? `Comprovante anexado: ${comprovante.fileName}`
+                              : 'Anexar comprovante (nota fiscal / recibo)'
+                          }
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer ${
+                            comprovante
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 adobe-dark:border-emerald-500/30 adobe-dark:bg-emerald-500/15 adobe-dark:text-emerald-300 adobe-dark:hover:bg-emerald-500/20'
+                              : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
+                          }`}
+                        >
+                          {comprovante ? (
+                            <IconCircleCheck size={12} />
+                          ) : (
+                            <IconPaperclip size={12} />
+                          )}
+                          Comprovante
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEdit(t)}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50 transition-colors cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3"
                         >
@@ -585,7 +625,8 @@ export default function FinanceiroClient({
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -744,6 +785,22 @@ export default function FinanceiroClient({
         }
         confirmLabel="Remover"
         tone="danger"
+      />
+
+      <ComprovanteTransacao
+        transacao={
+          comprovanteDe
+            ? {
+                id: comprovanteDe.id,
+                descricao: comprovanteDe.descricao,
+                comprovante: getComprovante(comprovanteDe),
+              }
+            : null
+        }
+        onClose={() => setComprovanteDe(null)}
+        onChange={(transacaoId, comprovante) =>
+          setComprovanteOverrides((prev) => ({ ...prev, [transacaoId]: comprovante }))
+        }
       />
     </div>
   )
