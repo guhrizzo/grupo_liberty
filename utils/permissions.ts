@@ -69,8 +69,9 @@ export async function assertJuridicoAccess(): Promise<SessionUser> {
 }
 
 /**
- * Garante permissão para criar/baixar contratos.
- * Admin sempre pode. Demais roles precisam da flag
+ * Garante permissão para visualizar/criar/baixar contratos.
+ * Admin e advogado sempre podem (o advogado tem acesso à aba de
+ * contratos por padrão). Demais roles precisam da flag
  * `permissions.contratos = true` no perfil.
  */
 export async function assertPodeGerarContratos(): Promise<SessionUser> {
@@ -78,9 +79,12 @@ export async function assertPodeGerarContratos(): Promise<SessionUser> {
   if (!user) throw new Error('Não autenticado.')
 
   const isAdmin = user.role === 'admin'
+  // Advogado tem acesso por padrão, a não ser que o admin tenha
+  // desativado explicitamente a permissão de contratos no perfil.
+  const isAdvogado = user.role === 'advogado' && user.permissions?.contratos !== false
   const hasFlag = user.permissions?.contratos === true
 
-  if (!isAdmin && !hasFlag) {
+  if (!isAdmin && !isAdvogado && !hasFlag) {
     throw new Error('Acesso negado. Você não tem permissão para gerenciar contratos.')
   }
 
@@ -94,7 +98,11 @@ export async function assertPodeGerarContratos(): Promise<SessionUser> {
  */
 export function canManageContratos(user: SessionUser | null | undefined): boolean {
   if (!user) return false
-  return user.role === 'admin' || user.permissions?.contratos === true
+  return (
+    user.role === 'admin' ||
+    (user.role === 'advogado' && user.permissions?.contratos !== false) ||
+    user.permissions?.contratos === true
+  )
 }
 
 /**
