@@ -87,6 +87,7 @@ export default function ContratosClient({
   const [clienteTelefone, setClienteTelefone] = useState('')
 
   const [anexarModalOpen, setAnexarModalOpen] = useState(false)
+  const [enviarJuridico, setEnviarJuridico] = useState(false)
   const [isUploading, startUpload] = useTransition()
   const toast = useToast()
 
@@ -100,6 +101,7 @@ export default function ContratosClient({
       return
     }
     formData.set('veiculoId', selectedVeiculoId)
+    formData.set('enviarJuridico', enviarJuridico ? 'true' : 'false')
 
     const file = formData.get('pdf') as File | null
     if (!file || file.size === 0) {
@@ -155,8 +157,12 @@ export default function ContratosClient({
           atualizadoEm: res.contrato.uploadedAt,
         }
         setContratos((prev) => [novoContrato, ...prev])
+        if (enviarJuridico) {
+          toast.success('Contrato também enviado para a aba Jurídico.')
+        }
         setAnexarModalOpen(false)
         setSelectedVeiculoId('')
+        setEnviarJuridico(false)
         form.reset()
       }
     })
@@ -668,7 +674,11 @@ export default function ContratosClient({
       {/* Modal de Anexar Contrato */}
       <Modal
         open={anexarModalOpen}
-        onClose={() => !isUploading && setAnexarModalOpen(false)}
+        onClose={() => {
+          if (isUploading) return
+          setAnexarModalOpen(false)
+          setEnviarJuridico(false)
+        }}
         title="Anexar Contrato ao Veículo"
         description="Selecione o veículo comercializado e envie o arquivo PDF do contrato (compra/venda, aditivo ou termo)."
         size="md"
@@ -709,11 +719,37 @@ export default function ContratosClient({
             disabled={isUploading}
           />
 
+          <label
+            className={`flex items-start gap-3 rounded-lg border p-3 text-sm transition-colors cursor-pointer ${
+              enviarJuridico
+                ? 'border-liberty/40 bg-liberty/5'
+                : 'border-neutral-200 hover:bg-neutral-50'
+            }`}
+          >
+            <input
+              type="checkbox"
+              name="enviarJuridico"
+              checked={enviarJuridico}
+              onChange={(e) => setEnviarJuridico(e.target.checked)}
+              disabled={isUploading}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-liberty-deep focus:ring-liberty/40 cursor-pointer"
+            />
+            <span className="flex flex-col">
+              <span className="font-semibold text-neutral-800">Adicionar ao Jurídico</span>
+              <span className="text-xs text-neutral-500">
+                O contrato também aparecerá na aba Jurídico, marcado como vindo do setor de Contratos.
+              </span>
+            </span>
+          </label>
+
           <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setAnexarModalOpen(false)}
+              onClick={() => {
+                setAnexarModalOpen(false)
+                setEnviarJuridico(false)
+              }}
               disabled={isUploading}
             >
               Cancelar

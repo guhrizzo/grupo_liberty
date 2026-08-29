@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { assertJuridicoAccess } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
+import type { VeiculoContrato } from '@/app/veiculos/[id]/actions'
 import {
   PROCESSO_STATUS,
   ANOTACAO_MARCADORES,
@@ -132,6 +133,10 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
   const observacoes = ((formData.get('observacoes') as string) || '').trim() || null
   const veiculoId = ((formData.get('veiculoId') as string) || '').trim() || null
   const veiculoResumo = ((formData.get('veiculoResumo') as string) || '').trim() || null
+  // Quando o processo nasce da conversão de um contrato anexado
+  // ("Registrar como processo" na aba Jurídico), guardamos o id do
+  // contrato de origem para vinculá-lo depois.
+  const contratoOrigemId = ((formData.get('contratoOrigemId') as string) || '').trim() || null
 
   const fieldErrors: ProcessoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe o título do processo.'
@@ -168,6 +173,19 @@ export async function createProcesso(formData: FormData): Promise<ProcessoRespon
     }
 
     await docRef.set(novo)
+
+    // Vincula o contrato de origem, se houver, para que a aba Jurídico
+    // mostre "Registrado como processo" em vez do botão de conversão.
+    if (contratoOrigemId) {
+      try {
+        await adminDb.collection('veiculo_contratos').doc(contratoOrigemId).update({
+          processoId: docRef.id,
+          convertidoEmProcessoEm: now,
+        })
+      } catch (linkErr) {
+        console.error('Erro ao vincular contrato ao processo criado:', linkErr)
+      }
+    }
 
     revalidatePath('/dashboard/juridico')
     return {
@@ -337,6 +355,53 @@ export async function getClientesPorVeiculo(): Promise<Record<string, ClienteVei
   } catch (error) {
     console.error('Erro ao buscar clientes por veículo:', error)
     return {}
+  }
+}
+
+/**
+ * Lista os contratos (PDFs anexados na aba Contratos) que foram marcados
+ * com "Adicionar ao Jurídico" no momento do upload. São exibidos na aba
+ * Jurídico com um selo indicando que vieram do setor de Contratos.
+ * Gate: assertJuridicoAccess (admin ou advogado).
+ */
+export async function getContratosEnviadosJuridico(): Promise<VeiculoContrato[]> {
+  try {
+    await assertJuridicoAccess()
+  } catch {
+    return []
+  }
+
+  try {
+    const snapshot = await adminDb
+      .collection('veiculo_contratos')
+      .where('enviarJuridico', '==', true)
+      .get()
+
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          veiculoId: data.veiculoId,
+          fileName: data.fileName,
+          descricao: data.descricao ?? null,
+          storagePath: data.storagePath,
+          contentType: data.contentType,
+          size: typeof data.size === 'number' ? data.size : Number(data.size) || 0,
+          uploadedByUid: data.uploadedByUid,
+          uploadedByEmail: data.uploadedByEmail ?? null,
+          uploadedAt: data.uploadedAt,
+          enviarJuridico: true,
+          processoId: data.processoId ?? null,
+          convertidoEmProcessoEm: data.convertidoEmProcessoEm ?? null,
+        } as VeiculoContrato
+      })
+      .sort(
+        (a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+      )
+  } catch (error) {
+    console.error('Erro ao buscar contratos enviados ao jurídico:', error)
+    return []
   }
 }
 

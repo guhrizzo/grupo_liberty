@@ -1,6 +1,11 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getProcessos, getClientesPorVeiculo, getAnotacoesContagem } from './actions'
+import {
+  getProcessos,
+  getClientesPorVeiculo,
+  getAnotacoesContagem,
+  getContratosEnviadosJuridico,
+} from './actions'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import JuridicoClient from './JuridicoClient'
 
@@ -17,13 +22,19 @@ export default async function JuridicoPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const [initialProcessos, veiculos, clientesPorVeiculo, initialContagem] =
-    await Promise.all([
-      getProcessos(),
-      getVehicles(),
-      getClientesPorVeiculo(),
-      getAnotacoesContagem(),
-    ])
+  const [
+    initialProcessos,
+    veiculos,
+    clientesPorVeiculo,
+    initialContagem,
+    contratosJuridico,
+  ] = await Promise.all([
+    getProcessos(),
+    getVehicles(),
+    getClientesPorVeiculo(),
+    getAnotacoesContagem(),
+    getContratosEnviadosJuridico(),
+  ])
 
   return (
     <JuridicoClient
@@ -33,6 +44,7 @@ export default async function JuridicoPage() {
       veiculos={veiculos}
       clientesPorVeiculo={clientesPorVeiculo}
       initialContagem={initialContagem}
+      contratosJuridico={contratosJuridico}
     />
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   IconPlus,
@@ -11,6 +11,8 @@ import {
   IconUser,
   IconCar,
   IconNotes,
+  IconFileText,
+  IconFileDownload,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -37,12 +39,14 @@ import {
   createProcesso,
   updateProcesso,
   deleteProcesso,
+  getProcessos,
   getAnotacoesGerais,
   getAnotacoesProcesso,
 } from './actions'
 import type { Processo, ProcessoStatus, AnotacoesContagem, Anotacao } from './types'
 import type { ClienteVeiculoInfo } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
+import type { VeiculoContrato } from '@/app/veiculos/[id]/actions'
 import { VeiculoPicker } from './VeiculoPicker'
 import AnotacoesModal from './AnotacoesModal'
 
@@ -73,6 +77,34 @@ const TIPOS = [
 
 const PAGE_SIZE = 12
 
+/**
+ * Scroll suave forçado via JS (requestAnimationFrame + easing).
+ * Não usa `scroll-behavior: smooth` nem `scrollIntoView({ behavior })`
+ * porque esses respeitam "reduzir movimento" do SO / modo de desempenho
+ * do Windows e caem para um salto seco. Aqui a animação é manual, então
+ * sempre roda suave.
+ */
+function smoothScrollToY(targetY: number, duration = 550) {
+  if (typeof window === 'undefined') return
+  const startY = window.scrollY
+  const maxY = document.documentElement.scrollHeight - window.innerHeight
+  const destY = Math.max(0, Math.min(targetY, maxY))
+  const diff = destY - startY
+  if (Math.abs(diff) < 2) return
+
+  const easeInOutQuad = (t: number) =>
+    t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+  let startTime: number | null = null
+  const step = (now: number) => {
+    if (startTime === null) startTime = now
+    const progress = Math.min((now - startTime) / duration, 1)
+    window.scrollTo(0, startY + diff * easeInOutQuad(progress))
+    if (progress < 1) window.requestAnimationFrame(step)
+  }
+  window.requestAnimationFrame(step)
+}
+
 export default function JuridicoClient({
   currentRole,
   currentUid,
@@ -80,6 +112,7 @@ export default function JuridicoClient({
   veiculos,
   clientesPorVeiculo,
   initialContagem,
+  contratosJuridico,
 }: {
   currentRole: string
   currentUid: string
@@ -87,9 +120,23 @@ export default function JuridicoClient({
   veiculos: Veiculo[]
   clientesPorVeiculo: Record<string, ClienteVeiculoInfo>
   initialContagem: AnotacoesContagem
+  contratosJuridico: VeiculoContrato[]
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
+
+  // Resumo legível de cada veículo (marca modelo ano • placa) para exibir
+  // junto dos contratos enviados pelo setor de Contratos.
+  const veiculoResumoPorId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const v of veiculos) {
+      map.set(
+        v.id,
+        `${v.marca} ${v.modelo}${v.ano ? ` ${v.ano}` : ''}${v.placa ? ` • ${v.placa}` : ''}`,
+      )
+    }
+    return map
+  }, [veiculos])
 
   // ─── Anotações (mural geral + por processo) ────────────────────────────────
   // A página carrega apenas a contagem; as listas são buscadas ao abrir cada
@@ -160,9 +207,29 @@ export default function JuridicoClient({
   const [formCliente, setFormCliente] = useState('')
   const [formClienteCpf, setFormClienteCpf] = useState('')
   const [formTitulo, setFormTitulo] = useState('')
+  // Contrato (PDF anexado) que está sendo transformado em processo real.
+  const [convertingContrato, setConvertingContrato] = useState<VeiculoContrato | null>(null)
+  const formRef = useRef<HTMLDivElement>(null)
+
+  // Sobe a página até o formulário (que fica no fim, abaixo do bloco de
+  // contratos) com scroll suave forçado. Espera o form montar via rAF.
+  const scrollToForm = useCallback(() => {
+    let tries = 0
+    const tick = () => {
+      const el = formRef.current
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.scrollY - 88
+        smoothScrollToY(top)
+      } else if (tries++ < 10) {
+        window.requestAnimationFrame(tick)
+      }
+    }
+    window.requestAnimationFrame(tick)
+  }, [])
 
   function openCreate() {
     setEditing(null)
+    setConvertingContrato(null)
     setFormVeiculoId('')
     setFormVeiculoResumo('')
     setFormCliente('')
@@ -173,6 +240,7 @@ export default function JuridicoClient({
 
   function openEdit(p: Processo) {
     setEditing(p)
+    setConvertingContrato(null)
     setFormVeiculoId(p.veiculoId ?? '')
     setFormVeiculoResumo(p.veiculoResumo ?? '')
     setFormCliente(p.cliente)
@@ -181,9 +249,24 @@ export default function JuridicoClient({
     setShowForm(true)
   }
 
+  function openConverterContrato(c: VeiculoContrato) {
+    const cli = clientesPorVeiculo[c.veiculoId]
+    const resumo = veiculoResumoPorId.get(c.veiculoId) ?? c.fileName
+    setEditing(null)
+    setConvertingContrato(c)
+    setFormVeiculoId(c.veiculoId)
+    setFormVeiculoResumo(resumo)
+    setFormCliente(cli?.nome ?? '')
+    setFormClienteCpf(cli?.cpf ? maskCPFCNPJ(cli.cpf) : '')
+    setFormTitulo(cli?.nome ? `Contrato - ${cli.nome}` : `Contrato - ${resumo}`)
+    setShowForm(true)
+    scrollToForm()
+  }
+
   function closeForm() {
     setShowForm(false)
     setEditing(null)
+    setConvertingContrato(null)
   }
 
   const handleSelectVeiculo = useCallback(
@@ -232,6 +315,10 @@ export default function JuridicoClient({
       return
     }
 
+    if (convertingContrato) {
+      form.set('contratoOrigemId', convertingContrato.id)
+    }
+
     try {
       const result = editing
         ? await updateProcesso(editing.id, form)
@@ -242,9 +329,34 @@ export default function JuridicoClient({
         return
       }
 
-      toast.success(result.success || (editing ? 'Processo atualizado.' : 'Processo cadastrado.'))
-      router.refresh()
+      toast.success(
+        result.success ||
+          (editing
+            ? 'Processo atualizado.'
+            : convertingContrato
+              ? 'Contrato registrado como processo.'
+              : 'Processo cadastrado.'),
+      )
       closeForm()
+      if (!editing) setPage(1)
+
+      // Atualiza a lista na hora. O `processos` vive em useState e não
+      // reidrata sozinho com o router.refresh(), então recarregamos os
+      // dados (getProcessos já devolve o CPF descriptografado).
+      try {
+        setProcessos(await getProcessos())
+      } catch {
+        // fallback: pelo menos insere/atualiza otimisticamente
+        if (result.processo) {
+          const novo = result.processo
+          setProcessos((prev) =>
+            editing
+              ? prev.map((p) => (p.id === novo.id ? novo : p))
+              : [novo, ...prev],
+          )
+        }
+      }
+      router.refresh()
     } catch (err: any) {
       toast.error(err?.message || 'Erro inesperado.')
     } finally {
@@ -371,12 +483,40 @@ export default function JuridicoClient({
       </div>
 
       {showForm && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-5 flex items-center gap-2">
+        <div
+          ref={formRef}
+          className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs scroll-mt-24"
+        >
+          <h2
+            className={`text-lg font-semibold text-neutral-900 flex items-center gap-2 ${
+              convertingContrato ? 'mb-1' : 'mb-5'
+            }`}
+          >
             <IconScale size={20} className="text-liberty-deep" />
-            {editing ? 'Editar Processo' : 'Cadastrar Processo'}
+            {editing
+              ? 'Editar Processo'
+              : convertingContrato
+                ? 'Registrar Contrato como Processo'
+                : 'Cadastrar Processo'}
           </h2>
-          <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+          {convertingContrato && (
+            <p className="mb-5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+              <IconFileText size={13} className="text-liberty-deep" />
+              A partir do documento{' '}
+              <strong className="text-neutral-700">
+                {convertingContrato.descricao || convertingContrato.fileName}
+              </strong>
+              . Complete os campos e salve para criar o registro.
+            </p>
+          )}
+          <form
+            key={editing?.id ?? convertingContrato?.id ?? 'novo'}
+            onSubmit={handleSubmit}
+            className="grid gap-4 sm:grid-cols-2"
+          >
+            {convertingContrato && (
+              <input type="hidden" name="contratoOrigemId" value={convertingContrato.id} />
+            )}
             <Input
               label="Título"
               name="titulo"
@@ -453,7 +593,15 @@ export default function JuridicoClient({
               <input type="hidden" name="veiculoResumo" value={formVeiculoResumo} />
             </div>
 
-            <Select label="Tipo *" name="tipo" required defaultValue={editing?.tipo ?? ''}>
+            <Select
+              label="Tipo *"
+              name="tipo"
+              required
+              defaultValue={
+                editing?.tipo ??
+                (convertingContrato ? 'Contrato de compra e venda' : '')
+              }
+            >
               <option value="" disabled>
                 Selecione
               </option>
@@ -503,7 +651,14 @@ export default function JuridicoClient({
               label="Observações"
               name="observacoes"
               rows={3}
-              defaultValue={editing?.observacoes ?? ''}
+              defaultValue={
+                editing?.observacoes ??
+                (convertingContrato
+                  ? `Registro criado a partir do contrato anexado "${
+                      convertingContrato.descricao || convertingContrato.fileName
+                    }" (enviado por ${convertingContrato.uploadedByEmail || 'usuário'}).`
+                  : '')
+              }
               placeholder="Anotações internas, próximos passos..."
               containerClassName="sm:col-span-2"
             />
@@ -517,7 +672,9 @@ export default function JuridicoClient({
                   ? 'Salvando...'
                   : editing
                     ? 'Salvar Alterações'
-                    : 'Cadastrar'}
+                    : convertingContrato
+                      ? 'Criar Processo'
+                      : 'Cadastrar'}
               </Button>
             </div>
           </form>
@@ -645,6 +802,92 @@ export default function JuridicoClient({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {contratosJuridico.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-liberty/30 bg-liberty/[0.03] shadow-xs">
+          <div className="flex items-center gap-2 border-b border-liberty/20 bg-liberty/5 px-4 py-3">
+            <IconFileText size={18} className="shrink-0 text-liberty-deep" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-neutral-900">
+                Contratos enviados pelo setor de Contratos
+              </h2>
+              <p className="text-[11px] text-neutral-500">
+                Contratos anexados na aba Contratos e marcados como “Adicionar ao Jurídico”.
+              </p>
+            </div>
+            <span className="ml-auto inline-flex min-w-[22px] items-center justify-center rounded-full bg-liberty/15 px-2 text-xs font-bold text-liberty-deep">
+              {contratosJuridico.length}
+            </span>
+          </div>
+          <Table>
+            <THead>
+              <tr>
+                <TH>Documento / Veículo</TH>
+                <TH>Enviado por</TH>
+                <TH>Data</TH>
+                <TH align="right">Ações</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {contratosJuridico.map((c) => (
+                <TR key={c.id}>
+                  <TD>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-neutral-900">
+                        {c.descricao || c.fileName}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-liberty/30 bg-liberty/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-liberty-deep">
+                        <IconFileText size={11} /> via Contratos
+                      </span>
+                      {c.processoId && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                          <IconScale size={11} /> registrado como processo
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-400">
+                      <IconCar size={11} stroke={2} />
+                      {veiculoResumoPorId.get(c.veiculoId) || c.veiculoId}
+                    </div>
+                  </TD>
+                  <TD className="text-xs text-neutral-600">{c.uploadedByEmail || '—'}</TD>
+                  <TD className="text-xs text-neutral-600 whitespace-nowrap">
+                    {formatDate(c.uploadedAt)}
+                  </TD>
+                  <TD align="right" className="whitespace-nowrap">
+                    <div className="inline-flex items-center gap-2">
+                      <a
+                        href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 cursor-pointer"
+                      >
+                        <IconFileDownload size={14} />
+                        Ver PDF
+                      </a>
+                      {c.processoId ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                          <IconScale size={14} />
+                          Processo criado
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="liberty"
+                          onClick={() => openConverterContrato(c)}
+                          leftIcon={<IconScale size={14} />}
+                        >
+                          Registrar como processo
+                        </Button>
+                      )}
+                    </div>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
         </div>
       )}
 

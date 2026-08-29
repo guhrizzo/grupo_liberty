@@ -229,7 +229,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const contratoInputRef = useRef<HTMLInputElement>(null)
   const [contratosExistentes, setContratosExistentes] = useState<VeiculoContrato[]>([])
   const [contratosLoading, setContratosLoading] = useState(false)
-  const [novosContratos, setNovosContratos] = useState<{ file: File; descricao: string }[]>([])
+  const [novosContratos, setNovosContratos] = useState<
+    { file: File; descricao: string; enviarJuridico: boolean }[]
+  >([])
   const [contratosUploadProgress, setContratosUploadProgress] = useState(false)
   const [removendoContratoId, setRemovendoContratoId] = useState<string | null>(null)
 
@@ -315,7 +317,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // ─── Contratos (PDFs) ───────────────────────────────────────────────────
 
   const addContratos = useCallback((files: FileList | File[]) => {
-    const aceitos: { file: File; descricao: string }[] = []
+    const aceitos: { file: File; descricao: string; enviarJuridico: boolean }[] = []
     for (const file of Array.from(files)) {
       const isPdf =
         file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -327,7 +329,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         toast.error(`"${file.name}" excede o limite de 10MB.`)
         continue
       }
-      aceitos.push({ file, descricao: '' })
+      aceitos.push({ file, descricao: '', enviarJuridico: false })
     }
     if (aceitos.length > 0) {
       setNovosContratos((prev) => [...prev, ...aceitos])
@@ -341,6 +343,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const setNovoContratoDescricao = (index: number, descricao: string) => {
     setNovosContratos((prev) =>
       prev.map((c, i) => (i === index ? { ...c, descricao } : c)),
+    )
+  }
+
+  const setNovoContratoEnviarJuridico = (index: number, enviarJuridico: boolean) => {
+    setNovosContratos((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, enviarJuridico } : c)),
     )
   }
 
@@ -722,11 +730,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         if (novosContratos.length > 0 && vehicleId) {
           setContratosUploadProgress(true)
           let falhas = 0
-          for (const { file, descricao } of novosContratos) {
+          for (const { file, descricao, enviarJuridico } of novosContratos) {
             const fd = new FormData()
             fd.set('veiculoId', vehicleId)
             fd.set('pdf', file)
             if (descricao.trim()) fd.set('descricao', descricao.trim())
+            fd.set('enviarJuridico', enviarJuridico ? 'true' : 'false')
             const res = await anexarContratoVeiculoAction(fd)
             if (res.error) falhas++
           }
@@ -1909,6 +1918,30 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                             placeholder="Descrição (opcional)"
                             className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
                           />
+                          <label
+                            className={`mt-2 flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors cursor-pointer ${
+                              c.enviarJuridico
+                                ? 'border-liberty/40 bg-liberty/5'
+                                : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={c.enviarJuridico}
+                              onChange={(e) =>
+                                setNovoContratoEnviarJuridico(index, e.target.checked)
+                              }
+                              className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-neutral-300 text-liberty-deep focus:ring-liberty/40 cursor-pointer"
+                            />
+                            <span className="flex flex-col">
+                              <span className="font-semibold text-neutral-800">
+                                Adicionar ao Jurídico
+                              </span>
+                              <span className="text-[11px] text-neutral-500">
+                                Também aparece na aba Jurídico, marcado como vindo de Contratos.
+                              </span>
+                            </span>
+                          </label>
                         </li>
                       ))}
                     </ul>

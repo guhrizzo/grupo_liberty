@@ -123,6 +123,20 @@ export interface VeiculoContrato {
   uploadedByUid: string
   uploadedByEmail: string | null
   uploadedAt: string
+  /**
+   * Marcado no upload ("Adicionar ao Jurídico"). Quando true, o contrato
+   * também aparece na aba /dashboard/juridico com um selo indicando que
+   * veio do setor de Contratos.
+   */
+  enviarJuridico?: boolean
+  /**
+   * Preenchido quando o contrato é transformado em um processo real no
+   * módulo Jurídico ("Registrar como processo"). Guarda o id do processo
+   * criado na coleção `processos`.
+   */
+  processoId?: string | null
+  /** Data ISO em que o contrato foi convertido em processo. */
+  convertidoEmProcessoEm?: string | null
   /** Origem do contrato: 'contrato_gerado' (Novo Contrato) ou undefined (anexado manualmente). */
   origem?: 'contrato_gerado'
   /** ID do contrato na coleção `contratos` quando origem === 'contrato_gerado'. */
@@ -151,6 +165,9 @@ function serializeVeiculoContrato(
     uploadedByUid: data.uploadedByUid,
     uploadedByEmail: data.uploadedByEmail ?? null,
     uploadedAt: data.uploadedAt,
+    enviarJuridico: data.enviarJuridico === true,
+    processoId: data.processoId ?? null,
+    convertidoEmProcessoEm: data.convertidoEmProcessoEm ?? null,
   }
 }
 
@@ -249,6 +266,11 @@ export async function anexarContratoVeiculoAction(
   const veiculoId = sanitizeString(formData.get('veiculoId'), 200)
   const file = formData.get('pdf')
   const descricao = sanitizeOptional(formData.get('descricao'), 500)
+  const enviarJuridicoRaw = formData.get('enviarJuridico')
+  const enviarJuridico =
+    enviarJuridicoRaw === 'on' ||
+    enviarJuridicoRaw === 'true' ||
+    enviarJuridicoRaw === '1'
 
   if (!veiculoId) return { error: 'Veículo não especificado.' }
   if (!(file instanceof File) || file.size === 0) {
@@ -307,11 +329,13 @@ export async function anexarContratoVeiculoAction(
         uploadedByUid: user.uid,
         uploadedByEmail: user.email,
         uploadedAt: now,
+        enviarJuridico,
       }
 
       await contratoRef.set(contrato)
 
       revalidatePath(`/veiculos/${veiculoId}`)
+      if (enviarJuridico) revalidatePath('/dashboard/juridico')
       return { success: 'Contrato anexado com sucesso.', contrato }
     } catch (innerErr: unknown) {
       // Cleanup: se o upload no Storage sucedeu mas o set no Firestore falhou,
@@ -379,6 +403,7 @@ export async function removerContratoVeiculoAction(
 
     await docRef.delete()
     revalidatePath(`/veiculos/${veiculoId}`)
+    revalidatePath('/dashboard/juridico')
     return { success: 'Contrato removido com sucesso.' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao remover contrato.'
