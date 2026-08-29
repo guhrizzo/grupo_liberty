@@ -5,10 +5,8 @@ import { adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
 import ShareButton from '@/app/components/ShareButton'
-import ContratosVeiculo from './ContratosVeiculo'
 import { Button } from '@/app/components/ui'
-import { canManageContratos, getSessionUser } from '@/utils/permissions'
-import { listarContratosVeiculoAction, listarContratosGeradosVeiculoAction } from './actions'
+import { getSessionUser } from '@/utils/permissions'
 import type { Metadata } from 'next'
 
 const formatCurrency = (value: number) =>
@@ -98,24 +96,6 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   if (!isPublic && !showInternalInfo) {
     notFound()
   }
-
-  // Permissão específica para gerenciar contratos anexados.
-  const canManage = canManageContratos(session)
-  // Combina contratos anexados manualmente + contratos gerados via
-  // "Novo Contrato" no painel, ordenando por data de upload/criação.
-  const initialContratos = canManage
-    ? (
-        await Promise.all([
-          listarContratosVeiculoAction(veiculo.id),
-          listarContratosGeradosVeiculoAction(veiculo.id),
-        ])
-      )
-        .flat()
-        .sort(
-          (a, b) =>
-            new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
-        )
-    : []
 
   return (
     <div className="flex-1 overflow-x-clip flex flex-col">
@@ -300,15 +280,6 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   </div>
                 )}
 
-                {/* Contratos do Veículo — visível só para quem pode gerenciar contratos. */}
-                {canManage && (
-                  <div className="border-t border-neutral-200 pt-6 mt-6">
-                    <ContratosVeiculo
-                      veiculoId={veiculo.id}
-                      initialContratos={initialContratos}
-                    />
-                  </div>
-                )}
               </div>
             </div>
 

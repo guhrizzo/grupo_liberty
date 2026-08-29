@@ -450,7 +450,7 @@ export default function DashboardShell({
       <aside
         id="dashboard-sidebar"
         ref={drawerRef}
-        className={`fixed md:static z-40 inset-y-0 left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 adobe-dark:bg-[var(--color-adobe-bg-0)] adobe-dark:border-[var(--color-adobe-line)] ${
+        className={`fixed md:sticky z-40 inset-y-0 md:top-0 md:bottom-auto md:self-start md:h-screen left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 adobe-dark:bg-[var(--color-adobe-bg-0)] adobe-dark:border-[var(--color-adobe-line)] ${
           open ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-64 md:w-[70px]' : 'w-64 md:w-64'}`}
         aria-label="Menu lateral"

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
 import PhotoLightbox from '../../components/PhotoLightbox'
 import {
@@ -17,7 +17,7 @@ import {
   Textarea,
   useToast,
 } from '../../components/ui'
-import { formatCurrency, formatKm } from '@/utils/format'
+import { formatCurrency, formatKm, formatDateTime } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
@@ -37,6 +37,12 @@ import {
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
 } from './actions'
+import {
+  listarContratosVeiculoAction,
+  anexarContratoVeiculoAction,
+  removerContratoVeiculoAction,
+  type VeiculoContrato,
+} from '@/app/veiculos/[id]/actions'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +74,15 @@ function normalizarCombustivel(raw?: string): string | null {
   if (s.includes('etanol') || s.includes('álcool') || s.includes('alcool')) return 'etanol'
   if (s.includes('gasolina')) return 'gasolina'
   return null
+}
+
+// ─── Contratos (PDFs anexados ao veículo) ────────────────────────────────────
+const MAX_CONTRATO_PDF_SIZE = 10 * 1024 * 1024 // 10MB
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -204,6 +219,20 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const dragIndexRef = useRef<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
+  // Contratos (PDFs anexados ao veículo) — ficam abaixo das fotos no formulário.
+  // Em cadastro os PDFs ficam pendentes e sobem após o veículo ser criado;
+  // em edição já lista os contratos existentes e permite remover na hora.
+  const canManageContratos =
+    currentRole === 'admin' ||
+    (currentRole === 'advogado' && currentUser?.permissions?.contratos !== false) ||
+    currentUser?.permissions?.contratos === true
+  const contratoInputRef = useRef<HTMLInputElement>(null)
+  const [contratosExistentes, setContratosExistentes] = useState<VeiculoContrato[]>([])
+  const [contratosLoading, setContratosLoading] = useState(false)
+  const [novosContratos, setNovosContratos] = useState<{ file: File; descricao: string }[]>([])
+  const [contratosUploadProgress, setContratosUploadProgress] = useState(false)
+  const [removendoContratoId, setRemovendoContratoId] = useState<string | null>(null)
+
   // Delete
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -283,6 +312,57 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setDragOverIndex(null)
   }
 
+  // ─── Contratos (PDFs) ───────────────────────────────────────────────────
+
+  const addContratos = useCallback((files: FileList | File[]) => {
+    const aceitos: { file: File; descricao: string }[] = []
+    for (const file of Array.from(files)) {
+      const isPdf =
+        file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      if (!isPdf) {
+        toast.error(`"${file.name}" não é um PDF.`)
+        continue
+      }
+      if (file.size > MAX_CONTRATO_PDF_SIZE) {
+        toast.error(`"${file.name}" excede o limite de 10MB.`)
+        continue
+      }
+      aceitos.push({ file, descricao: '' })
+    }
+    if (aceitos.length > 0) {
+      setNovosContratos((prev) => [...prev, ...aceitos])
+    }
+  }, [toast])
+
+  const removeNovoContrato = (index: number) => {
+    setNovosContratos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const setNovoContratoDescricao = (index: number, descricao: string) => {
+    setNovosContratos((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, descricao } : c)),
+    )
+  }
+
+  const handleRemoverContratoExistente = async (contratoId: string) => {
+    if (!editingId) return
+    setRemovendoContratoId(contratoId)
+    try {
+      const fd = new FormData()
+      fd.set('veiculoId', editingId)
+      fd.set('contratoId', contratoId)
+      const res = await removerContratoVeiculoAction(fd)
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+      setContratosExistentes((prev) => prev.filter((c) => c.id !== contratoId))
+      toast.success('Contrato removido.')
+    } finally {
+      setRemovendoContratoId(null)
+    }
+  }
+
   // ─── Drag & Drop ────────────────────────────────────────────────────────
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -352,6 +432,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       if (!p.isExisting) URL.revokeObjectURL(p.url)
     })
     setPhotos([])
+    setContratosExistentes([])
+    setContratosLoading(false)
+    setNovosContratos([])
   }
 
   // ─── Busca automática por placa (Sistema Puxa Placa) ────────────────────
@@ -508,8 +591,19 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     }))
     setPhotos(loadedPhotos)
 
+    // Contratos (PDFs) já anexados a este veículo.
+    setNovosContratos([])
+    setContratosExistentes([])
+    if (canManageContratos) {
+      setContratosLoading(true)
+      listarContratosVeiculoAction(veiculo.id)
+        .then((lista) => setContratosExistentes(lista))
+        .catch(() => setContratosExistentes([]))
+        .finally(() => setContratosLoading(false))
+    }
+
     window.scrollTo({ top: 0, behavior: 'smooth' })
-  }, [])
+  }, [canManageContratos])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -623,6 +717,27 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         }
         setMessage({ type: 'error', text: result.error })
       } else {
+        // 3. Anexar contratos (PDFs) pendentes agora que o veículo existe.
+        const vehicleId = editingId || result.veiculo?.id
+        if (novosContratos.length > 0 && vehicleId) {
+          setContratosUploadProgress(true)
+          let falhas = 0
+          for (const { file, descricao } of novosContratos) {
+            const fd = new FormData()
+            fd.set('veiculoId', vehicleId)
+            fd.set('pdf', file)
+            if (descricao.trim()) fd.set('descricao', descricao.trim())
+            const res = await anexarContratoVeiculoAction(fd)
+            if (res.error) falhas++
+          }
+          setContratosUploadProgress(false)
+          if (falhas > 0) {
+            toast.error(
+              `${falhas} contrato(s) não puderam ser anexados. O veículo foi salvo — tente anexá-los novamente na edição.`,
+            )
+          }
+        }
+
         setMessage({ type: 'success', text: result.success || (editingId ? 'Veículo atualizado!' : 'Veículo cadastrado!') })
         resetForm()
         setShowForm(false)
@@ -633,6 +748,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     } finally {
       setLoading(false)
       setUploadProgress(false)
+      setContratosUploadProgress(false)
     }
   }
 
@@ -1663,6 +1779,143 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 )}
               </div>
 
+              {/* ─── Contratos do Veículo (PDFs) ────────────────────── */}
+              {canManageContratos && (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2">
+                    Contratos do Veículo
+                  </label>
+                  <p className="text-xs text-neutral-500 mb-2">
+                    Anexe PDFs de contrato de compra/venda, aditivos ou termos
+                    relacionados a este veículo.
+                    {!editingId && ' Os arquivos são enviados após salvar o veículo.'}
+                  </p>
+
+                  {/* Área de Drop */}
+                  <div
+                    onClick={() => contratoInputRef.current?.click()}
+                    className="relative cursor-pointer rounded-lg border-2 border-dashed border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 p-6 text-center transition-[background-color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                  >
+                    <input
+                      ref={contratoInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files) addContratos(e.target.files)
+                        e.target.value = ''
+                      }}
+                    />
+                    <IconFileText className="mx-auto mb-2 text-neutral-400" size={32} stroke={1.5} />
+                    <p className="text-sm text-neutral-600 font-medium">
+                      Clique para selecionar os PDFs
+                    </p>
+                    <p className="text-xs text-neutral-400 mt-1">
+                      Apenas PDF • Máximo 10MB por arquivo
+                    </p>
+                  </div>
+
+                  {/* Contratos já anexados (edição) */}
+                  {contratosLoading && (
+                    <p className="mt-3 flex items-center gap-2 text-xs text-neutral-500">
+                      <IconLoader2 size={14} className="animate-spin" stroke={2.2} />
+                      Carregando contratos anexados…
+                    </p>
+                  )}
+                  {!contratosLoading && editingId && contratosExistentes.length === 0 && (
+                    <p className="mt-3 text-xs text-neutral-400">
+                      Nenhum contrato anexado a este veículo ainda.
+                    </p>
+                  )}
+                  {contratosExistentes.length > 0 && (
+                    <ul className="mt-4 space-y-2">
+                      {contratosExistentes.map((c) => (
+                        <li
+                          key={c.id}
+                          className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500">
+                            <IconFileText size={16} stroke={2.2} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-neutral-900" title={c.fileName}>
+                              {c.fileName}
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-neutral-500">
+                              {formatDateTime(c.uploadedAt)} · {formatBytes(c.size)}
+                            </p>
+                            {c.descricao && (
+                              <p className="mt-0.5 text-xs italic text-neutral-500">{c.descricao}</p>
+                            )}
+                          </div>
+                          <a
+                            href={`/api/veiculos/${editingId}/contratos/${c.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 hover:bg-neutral-100 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition-colors"
+                          >
+                            Baixar
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoverContratoExistente(c.id)}
+                            disabled={removendoContratoId === c.id}
+                            aria-label={`Remover ${c.fileName}`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {removendoContratoId === c.id
+                              ? <IconLoader2 size={14} className="animate-spin" stroke={2.2} />
+                              : <IconTrash size={14} stroke={2.2} />}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Novos contratos pendentes de envio */}
+                  {novosContratos.length > 0 && (
+                    <ul className="mt-4 space-y-2">
+                      {novosContratos.map((c, index) => (
+                        <li
+                          key={`${c.file.name}-${index}`}
+                          className="rounded-lg border border-neutral-200 bg-neutral-50 p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-neutral-500 border border-neutral-200">
+                              <IconFileText size={16} stroke={2.2} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-neutral-900" title={c.file.name}>
+                                {c.file.name}
+                              </p>
+                              <p className="mt-0.5 text-[11px] text-neutral-500">
+                                {formatBytes(c.file.size)} · pendente de envio
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeNovoContrato(index)}
+                              aria-label={`Remover ${c.file.name}`}
+                              className="inline-flex items-center rounded-lg border border-neutral-200 hover:bg-neutral-100 p-1.5 text-neutral-500 transition-colors cursor-pointer"
+                            >
+                              <IconX size={14} stroke={2.5} />
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={c.descricao}
+                            onChange={(e) => setNovoContratoDescricao(index, e.target.value)}
+                            placeholder="Descrição (opcional)"
+                            className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
               {/* Botão Submit */}
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
@@ -1677,7 +1930,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           disabled={loading}
           className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-ui shadow-xs disabled:opacity-50 cursor-pointer"
         >
-          {uploadProgress ? 'Enviando fotos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
+          {uploadProgress ? 'Enviando fotos...' : contratosUploadProgress ? 'Enviando contratos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
         </button>
       </div>
       {loading && <LoadingBar className="h-0.5" />}
