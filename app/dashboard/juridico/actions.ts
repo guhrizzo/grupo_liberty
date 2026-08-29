@@ -7,10 +7,16 @@ import { assertJuridicoAccess } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import {
   PROCESSO_STATUS,
+  ANOTACAO_MARCADORES,
   type Processo,
   type ProcessoFieldErrors,
   type ProcessoResponse,
   type ProcessoStatus,
+  type Anotacao,
+  type AnotacaoEscopo,
+  type AnotacaoMarcador,
+  type AnotacaoResponse,
+  type AnotacoesContagem,
 } from './types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -331,5 +337,272 @@ export async function getClientesPorVeiculo(): Promise<Record<string, ClienteVei
   } catch (error) {
     console.error('Erro ao buscar clientes por veículo:', error)
     return {}
+  }
+}
+
+// ─── Anotações do módulo jurídico ────────────────────────────────────────────
+
+const ANOTACOES_COLLECTION = 'juridico_anotacoes'
+const ANOTACAO_MAX_LEN = 5000
+
+function anotacaoErro(err: unknown, fallback: string): string {
+  return err instanceof Error && err.message ? err.message : fallback
+}
+
+function serializeAnotacao(id: string, data: FirebaseFirestore.DocumentData): Anotacao {
+  const escopo: AnotacaoEscopo = data.escopo === 'processo' ? 'processo' : 'geral'
+  const marcador = ANOTACAO_MARCADORES.includes(data.marcador)
+    ? (data.marcador as AnotacaoMarcador)
+    : null
+  return {
+    id,
+    escopo,
+    processoId: escopo === 'processo' ? (data.processoId ?? null) : null,
+    texto: typeof data.texto === 'string' ? data.texto : '',
+    marcador,
+    autorUid: data.autorUid ?? '',
+    autorNome: data.autorNome || data.autorEmail || 'Usuário',
+    created_at: data.created_at,
+    updated_at: data.updated_at ?? data.created_at,
+  }
+}
+
+/** Ordena por created_at desc em memória (fallback quando não há índice composto). */
+function ordenarAnotacoes(itens: Anotacao[]): Anotacao[] {
+  return itens.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
+}
+
+/**
+ * Lista as anotações gerais (mural do setor jurídico), mais recentes primeiro.
+ * Gate: assertJuridicoAccess (admin ou advogado).
+ */
+export async function getAnotacoesGerais(): Promise<Anotacao[]> {
+  try {
+    await assertJuridicoAccess()
+  } catch {
+    return []
+  }
+
+  try {
+    const snapshot = await adminDb
+      .collection(ANOTACOES_COLLECTION)
+      .where('escopo', '==', 'geral')
+      .get()
+    return ordenarAnotacoes(snapshot.docs.map((d) => serializeAnotacao(d.id, d.data())))
+  } catch (error) {
+    console.error('Erro ao buscar anotações gerais:', error)
+    return []
+  }
+}
+
+/**
+ * Lista as anotações vinculadas a um processo, mais recentes primeiro.
+ * Gate: assertJuridicoAccess (admin ou advogado).
+ */
+export async function getAnotacoesProcesso(processoId: string): Promise<Anotacao[]> {
+  try {
+    await assertJuridicoAccess()
+  } catch {
+    return []
+  }
+
+  const id = (processoId || '').trim()
+  if (!id) return []
+
+  try {
+    const snapshot = await adminDb
+      .collection(ANOTACOES_COLLECTION)
+      .where('escopo', '==', 'processo')
+      .where('processoId', '==', id)
+      .get()
+    return ordenarAnotacoes(snapshot.docs.map((d) => serializeAnotacao(d.id, d.data())))
+  } catch (error) {
+    console.error('Erro ao buscar anotações do processo:', error)
+    return []
+  }
+}
+
+/**
+ * Contagem de anotações (geral + por processo) para exibir badges na tela
+ * sem precisar carregar as listas completas.
+ */
+export async function getAnotacoesContagem(): Promise<AnotacoesContagem> {
+  const vazio: AnotacoesContagem = { geral: 0, porProcesso: {} }
+  try {
+    await assertJuridicoAccess()
+  } catch {
+    return vazio
+  }
+
+  try {
+    const snapshot = await adminDb.collection(ANOTACOES_COLLECTION).get()
+    const contagem: AnotacoesContagem = { geral: 0, porProcesso: {} }
+    for (const doc of snapshot.docs) {
+      const data = doc.data()
+      if (data.escopo === 'processo' && data.processoId) {
+        contagem.porProcesso[data.processoId] =
+          (contagem.porProcesso[data.processoId] ?? 0) + 1
+      } else {
+        contagem.geral += 1
+      }
+    }
+    return contagem
+  } catch (error) {
+    console.error('Erro ao contar anotações:', error)
+    return vazio
+  }
+}
+
+/**
+ * Cria uma anotação. Recebe FormData com:
+ * - escopo: 'geral' | 'processo'
+ * - processoId: string (obrigatório quando escopo === 'processo')
+ * - texto: string
+ * - marcador: string opcional
+ * Gate: assertJuridicoAccess (admin ou advogado — ambos podem criar).
+ */
+export async function createAnotacao(formData: FormData): Promise<AnotacaoResponse> {
+  let user
+  try {
+    user = await assertJuridicoAccess()
+  } catch (err) {
+    return { error: anotacaoErro(err, 'Acesso negado.') }
+  }
+
+  const escopo: AnotacaoEscopo =
+    (formData.get('escopo') as string) === 'processo' ? 'processo' : 'geral'
+  const processoId = ((formData.get('processoId') as string) || '').trim() || null
+  const texto = ((formData.get('texto') as string) || '').trim()
+  const marcadorRaw = ((formData.get('marcador') as string) || '').trim()
+  const marcador: AnotacaoMarcador | null = ANOTACAO_MARCADORES.includes(
+    marcadorRaw as AnotacaoMarcador,
+  )
+    ? (marcadorRaw as AnotacaoMarcador)
+    : null
+
+  if (!texto) return { error: 'Escreva o texto da anotação.' }
+  if (texto.length > ANOTACAO_MAX_LEN) {
+    return { error: `A anotação excede o limite de ${ANOTACAO_MAX_LEN} caracteres.` }
+  }
+  if (escopo === 'processo' && !processoId) {
+    return { error: 'Processo não especificado.' }
+  }
+
+  try {
+    if (escopo === 'processo' && processoId) {
+      const processoDoc = await adminDb.collection('processos').doc(processoId).get()
+      if (!processoDoc.exists) return { error: 'Processo não encontrado.' }
+    }
+
+    const now = new Date().toISOString()
+    const docRef = adminDb.collection(ANOTACOES_COLLECTION).doc()
+    const novo = {
+      escopo,
+      processoId: escopo === 'processo' ? processoId : null,
+      texto,
+      marcador,
+      autorUid: user.uid,
+      autorNome: user.name || user.email || 'Usuário',
+      autorEmail: user.email ?? null,
+      created_at: now,
+      updated_at: now,
+    }
+    await docRef.set(novo)
+
+    revalidatePath('/dashboard/juridico')
+    return {
+      success: 'Anotação adicionada.',
+      anotacao: serializeAnotacao(docRef.id, novo),
+    }
+  } catch (error) {
+    return { error: `Erro ao salvar anotação: ${anotacaoErro(error, 'erro inesperado')}` }
+  }
+}
+
+/**
+ * Edita uma anotação. Permitido apenas ao autor ou a um admin.
+ * Recebe FormData com: texto, marcador (opcional).
+ */
+export async function updateAnotacao(
+  id: string,
+  formData: FormData,
+): Promise<AnotacaoResponse> {
+  let user
+  try {
+    user = await assertJuridicoAccess()
+  } catch (err) {
+    return { error: anotacaoErro(err, 'Acesso negado.') }
+  }
+
+  if (!id) return { error: 'ID inválido.' }
+
+  const texto = ((formData.get('texto') as string) || '').trim()
+  const marcadorRaw = ((formData.get('marcador') as string) || '').trim()
+  const marcador: AnotacaoMarcador | null = ANOTACAO_MARCADORES.includes(
+    marcadorRaw as AnotacaoMarcador,
+  )
+    ? (marcadorRaw as AnotacaoMarcador)
+    : null
+
+  if (!texto) return { error: 'Escreva o texto da anotação.' }
+  if (texto.length > ANOTACAO_MAX_LEN) {
+    return { error: `A anotação excede o limite de ${ANOTACAO_MAX_LEN} caracteres.` }
+  }
+
+  try {
+    const docRef = adminDb.collection(ANOTACOES_COLLECTION).doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Anotação não encontrada.' }
+
+    const data = doc.data() as { autorUid?: string }
+    if (data.autorUid !== user.uid && user.role !== 'admin') {
+      return { error: 'Você só pode editar suas próprias anotações.' }
+    }
+
+    const now = new Date().toISOString()
+    await docRef.update({ texto, marcador, updated_at: now })
+
+    revalidatePath('/dashboard/juridico')
+    return {
+      success: 'Anotação atualizada.',
+      anotacao: serializeAnotacao(id, { ...doc.data(), texto, marcador, updated_at: now }),
+    }
+  } catch (error) {
+    return { error: `Erro ao atualizar anotação: ${anotacaoErro(error, 'erro inesperado')}` }
+  }
+}
+
+/**
+ * Remove uma anotação. Permitido ao autor ou a um admin.
+ */
+export async function deleteAnotacao(
+  id: string,
+): Promise<{ success?: string; error?: string }> {
+  let user
+  try {
+    user = await assertJuridicoAccess()
+  } catch (err) {
+    return { error: anotacaoErro(err, 'Acesso negado.') }
+  }
+
+  if (!id) return { error: 'ID inválido.' }
+
+  try {
+    const docRef = adminDb.collection(ANOTACOES_COLLECTION).doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Anotação não encontrada.' }
+
+    const data = doc.data() as { autorUid?: string }
+    if (data.autorUid !== user.uid && user.role !== 'admin') {
+      return { error: 'Você só pode remover suas próprias anotações.' }
+    }
+
+    await docRef.delete()
+    revalidatePath('/dashboard/juridico')
+    return { success: 'Anotação removida.' }
+  } catch (error) {
+    return { error: `Erro ao remover anotação: ${anotacaoErro(error, 'erro inesperado')}` }
   }
 }

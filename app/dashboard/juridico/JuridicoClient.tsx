@@ -10,6 +10,7 @@ import {
   IconCalendar,
   IconUser,
   IconCar,
+  IconNotes,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -32,11 +33,18 @@ import { useDebounce } from '@/utils/useDebounce'
 import { formatDate } from '@/utils/format'
 import { maskCPFCNPJ } from '@/utils/masks'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
-import { createProcesso, updateProcesso, deleteProcesso } from './actions'
-import type { Processo, ProcessoStatus } from './types'
+import {
+  createProcesso,
+  updateProcesso,
+  deleteProcesso,
+  getAnotacoesGerais,
+  getAnotacoesProcesso,
+} from './actions'
+import type { Processo, ProcessoStatus, AnotacoesContagem, Anotacao } from './types'
 import type { ClienteVeiculoInfo } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { VeiculoPicker } from './VeiculoPicker'
+import AnotacoesModal from './AnotacoesModal'
 
 type Status = ProcessoStatus
 
@@ -67,17 +75,71 @@ const PAGE_SIZE = 12
 
 export default function JuridicoClient({
   currentRole,
+  currentUid,
   initialProcessos,
   veiculos,
   clientesPorVeiculo,
+  initialContagem,
 }: {
   currentRole: string
+  currentUid: string
   initialProcessos: Processo[]
   veiculos: Veiculo[]
   clientesPorVeiculo: Record<string, ClienteVeiculoInfo>
+  initialContagem: AnotacoesContagem
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
+
+  // ─── Anotações (mural geral + por processo) ────────────────────────────────
+  // A página carrega apenas a contagem; as listas são buscadas ao abrir cada
+  // painel (mesmo padrão dos demais módulos: sem fetch dentro de efeito).
+  const [contagem, setContagem] = useState<AnotacoesContagem>(initialContagem)
+
+  const [muralOpen, setMuralOpen] = useState(false)
+  const [muralAnotacoes, setMuralAnotacoes] = useState<Anotacao[]>([])
+  const [muralLoading, setMuralLoading] = useState(false)
+
+  const [anotProcesso, setAnotProcesso] = useState<Processo | null>(null)
+  const [procAnotacoes, setProcAnotacoes] = useState<Anotacao[]>([])
+  const [procLoading, setProcLoading] = useState(false)
+
+  const carregarMural = useCallback(async () => {
+    setMuralLoading(true)
+    try {
+      const lista = await getAnotacoesGerais()
+      setMuralAnotacoes(lista)
+      setContagem((c) => ({ ...c, geral: lista.length }))
+    } finally {
+      setMuralLoading(false)
+    }
+  }, [])
+
+  const carregarProc = useCallback(async (processoId: string) => {
+    setProcLoading(true)
+    try {
+      const lista = await getAnotacoesProcesso(processoId)
+      setProcAnotacoes(lista)
+      setContagem((c) => ({
+        ...c,
+        porProcesso: { ...c.porProcesso, [processoId]: lista.length },
+      }))
+    } finally {
+      setProcLoading(false)
+    }
+  }, [])
+
+  function abrirMural() {
+    setMuralAnotacoes([])
+    setMuralOpen(true)
+    void carregarMural()
+  }
+
+  function abrirAnotProcesso(p: Processo) {
+    setProcAnotacoes([])
+    setAnotProcesso(p)
+    void carregarProc(p.id)
+  }
   const [processos, setProcessos] = useState<Processo[]>(initialProcessos)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Processo | null>(null)
@@ -250,14 +312,27 @@ export default function JuridicoClient({
           </p>
         </div>
 
-        <Button
-          variant="liberty"
-          onClick={openCreate}
-          leftIcon={<IconPlus size={16} stroke={2.5} />}
-          className="self-start sm:self-auto"
-        >
-          Novo Processo
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="secondary"
+            onClick={abrirMural}
+            leftIcon={<IconNotes size={16} stroke={2.5} />}
+          >
+            Anotações
+            {contagem.geral > 0 && (
+              <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-liberty/15 px-1.5 text-[11px] font-bold text-liberty-deep">
+                {contagem.geral}
+              </span>
+            )}
+          </Button>
+          <Button
+            variant="liberty"
+            onClick={openCreate}
+            leftIcon={<IconPlus size={16} stroke={2.5} />}
+          >
+            Novo Processo
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -511,6 +586,19 @@ export default function JuridicoClient({
                       <Button
                         size="sm"
                         variant="secondary"
+                        onClick={() => abrirAnotProcesso(p)}
+                        leftIcon={<IconNotes size={12} />}
+                      >
+                        Anotações
+                        {(contagem.porProcesso[p.id] ?? 0) > 0 && (
+                          <span className="ml-1 inline-flex min-w-[16px] items-center justify-center rounded-full bg-liberty/15 px-1 text-[10px] font-bold text-liberty-deep">
+                            {contagem.porProcesso[p.id]}
+                          </span>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => openEdit(p)}
                         leftIcon={<IconPencil size={12} />}
                       >
@@ -564,6 +652,34 @@ export default function JuridicoClient({
         <p className="text-[11px] text-neutral-400">
           Você está logado como advogado. Apenas administradores podem cadastrar novos usuários no sistema.
         </p>
+      )}
+
+      {muralOpen && (
+        <AnotacoesModal
+          open
+          onClose={() => setMuralOpen(false)}
+          escopo="geral"
+          anotacoes={muralAnotacoes}
+          loading={muralLoading}
+          currentUid={currentUid}
+          isAdmin={isAdmin}
+          onMutated={carregarMural}
+        />
+      )}
+
+      {anotProcesso && (
+        <AnotacoesModal
+          open
+          onClose={() => setAnotProcesso(null)}
+          escopo="processo"
+          processoId={anotProcesso.id}
+          processoTitulo={anotProcesso.titulo}
+          anotacoes={procAnotacoes}
+          loading={procLoading}
+          currentUid={currentUid}
+          isAdmin={isAdmin}
+          onMutated={() => carregarProc(anotProcesso.id)}
+        />
       )}
 
       <ConfirmDialog
