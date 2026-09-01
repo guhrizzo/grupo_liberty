@@ -1,6 +1,7 @@
 import 'server-only'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { OWNER_EMAIL } from '@/constants/feedback'
 
 export interface SessionUser {
   uid: string
@@ -146,6 +147,16 @@ export async function assertPodeGerenciarVeiculos(): Promise<SessionUser> {
 export function canManageVeiculos(user: SessionUser | null | undefined): boolean {
   if (!user) return false
   return user.role === 'admin' || user.permissions?.veiculos === true
+}
+
+/**
+ * Gate do "dono do sistema" — a única pessoa que faz a triagem de feedback
+ * (mudar status, escrever atualizações, excluir reports). Comparação
+ * case-insensitive contra `OWNER_EMAIL`.
+ */
+export function isOwner(user: SessionUser | null | undefined): boolean {
+  const email = user?.email?.toLowerCase().trim()
+  return !!email && email === OWNER_EMAIL.toLowerCase()
 }
 
 /**
