@@ -171,6 +171,7 @@ export default function ReciboPagamentoDocument(props: ReciboPagamentoDocumentPr
     valorParcela,
     valorPagoAgora,
     dataPagamento,
+    dataVencimento,
     valorPagoAcumulado,
     valorRestante,
     quitada,
@@ -230,6 +231,10 @@ export default function ReciboPagamentoDocument(props: ReciboPagamentoDocumentPr
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Valor da parcela</Text>
             <Text style={styles.rowValue}>{fmtMoney(valorParcela)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Vencimento</Text>
+            <Text style={styles.rowValue}>{fmtDateOnly(dataVencimento)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Data do pagamento</Text>
