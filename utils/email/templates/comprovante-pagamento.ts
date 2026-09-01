@@ -7,6 +7,7 @@ export interface ComprovantePagamentoData {
   /** Valor deste pagamento específico. */
   valorPagoAgora: number
   dataPagamento: string // YYYY-MM-DD
+  dataVencimento: string // YYYY-MM-DD — vencimento da parcela
   /** Soma de todos os pagamentos já registrados nesta parcela (inclui este). */
   valorPagoAcumulado: number
   /** Saldo em aberto na parcela após este pagamento — 0 quando quitada. */
@@ -48,6 +49,7 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
     valorParcela,
     valorPagoAgora,
     dataPagamento,
+    dataVencimento,
     valorPagoAcumulado,
     valorRestante,
     quitada,
@@ -59,9 +61,12 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
   const badgeColor = quitada ? '#047857' : '#b45309'
   const valorDestaque = quitada ? '#047857' : '#b45309'
 
-  const saudacao = quitada
-    ? 'Recebemos o pagamento que quita esta parcela. Segue o comprovante — o recibo em PDF está anexado a este e-mail.'
-    : 'Recebemos seu pagamento. Segue o comprovante — o recibo em PDF está anexado a este e-mail.'
+  const parcelaRef = `${numeroParcela}/${numeroParcelas}`
+  const vencFmt = formatDateBR(dataVencimento)
+
+  const mensagem = quitada
+    ? `Olá, ${clienteNome}! O pagamento da sua parcela ${parcelaRef}, com vencimento em ${vencFmt}, foi recebido com sucesso e esta parcela está quitada. O recibo detalhado está anexado a este e-mail em PDF.`
+    : `Olá, ${clienteNome}! Recebemos o pagamento de ${formatCurrencyBR(valorPagoAgora)} referente à sua parcela ${parcelaRef}, com vencimento em ${vencFmt}. Ainda restam ${formatCurrencyBR(valorRestante)} em aberto nesta parcela. O recibo detalhado está anexado a este e-mail em PDF.`
 
   const linhaSaldo = quitada
     ? `
@@ -157,10 +162,10 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
           <tr>
             <td style="padding:0 40px 24px;background-color:#ffffff;">
               <h1 style="margin:0 0 12px;font-size:26px;font-weight:800;color:#09090b;line-height:1.2;">
-                Olá, ${clienteNome}!
+                Recebemos seu pagamento
               </h1>
               <p style="margin:0;font-size:15px;color:#52525b;line-height:1.7;">
-                ${saudacao}
+                ${mensagem}
               </p>
             </td>
           </tr>
@@ -211,8 +216,18 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
                       </tr>
                       <tr>
                         <td style="border-top:1px solid #e4e4e7;padding-top:14px;">
-                          <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Valor da parcela</p>
-                          <p style="margin:0;font-size:16px;font-weight:800;color:#09090b;">${formatCurrencyBR(valorParcela)}</p>
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            <tr>
+                              <td width="50%" style="vertical-align:top;">
+                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Valor da parcela</p>
+                                <p style="margin:0;font-size:16px;font-weight:800;color:#09090b;">${formatCurrencyBR(valorParcela)}</p>
+                              </td>
+                              <td width="50%" style="vertical-align:top;">
+                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Vencimento</p>
+                                <p style="margin:0;font-size:16px;font-weight:800;color:#09090b;">${vencFmt}</p>
+                              </td>
+                            </tr>
+                          </table>
                         </td>
                       </tr>${linhaSaldo}
                     </table>
