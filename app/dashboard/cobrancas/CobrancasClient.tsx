@@ -43,6 +43,7 @@ import {
   useToast,
 } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
+import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import { maskMoney, parseMoney } from '@/utils/masks'
 import type { Cobranca, Parcela, Pagamento, TipoCobranca } from './actions'
 import {
@@ -56,6 +57,7 @@ import {
   testarLembretes,
   enviarEmailCobranca,
   editarValorParcela,
+  enviarComprovantePagamento,
 } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
@@ -102,7 +104,7 @@ function motivoBloqueioEnvioSemanal(c: Cobranca): string | null {
   if (c.tipo !== 'aluguel') return null
   const alvo = getParcelaMaisUrgente(c)
   if (!alvo) return null
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeNoFuso()
   if (alvo.dataVencimento === hoje) return null
   return `Cobrança semanal — o envio só é liberado no dia do vencimento (${formatDate(alvo.dataVencimento)}).`
 }
@@ -243,6 +245,12 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
   const [expandedMes, setExpandedMes] = useState<string | null>(null)
   const [pagamentoParcela, setPagamentoParcela] = useState<Parcela | null>(null)
   const [loadingPagamento, setLoadingPagamento] = useState(false)
+  const [comprovanteEmailData, setComprovanteEmailData] = useState<{
+    pagamentoId: string
+    quitada: boolean
+    numeroParcela: number
+  } | null>(null)
+  const [loadingComprovanteEmail, setLoadingComprovanteEmail] = useState(false)
   const [lembreteCobranca, setLembreteCobranca] = useState<Cobranca | null>(null)
   const [loadingLembrete, setLoadingLembrete] = useState(false)
   const [testandoLembretes, startTesteLembretes] = useTransition()
@@ -267,9 +275,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
   const [numeroParcelas, setNumeroParcelas] = useState('1')
   const [diaVencimento, setDiaVencimento] = useState('1')
   const [tipo, setTipo] = useState<TipoCobranca>('promissoria')
-  const [primeiraParcela, setPrimeiraParcela] = useState(() => {
-    return new Date().toISOString().split('T')[0]
-  })
+  const [primeiraParcela, setPrimeiraParcela] = useState(() => hojeNoFuso())
 
   // Reset form quando o tipo muda (afeta labels), mas mantém primeiro valor
   useEffect(() => {
@@ -396,7 +402,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
     setNumeroParcelas('1')
     setDiaVencimento('1')
     setTipo('promissoria')
-    setPrimeiraParcela(new Date().toISOString().split('T')[0])
+    setPrimeiraParcela(hojeNoFuso())
   }, [])
 
   const openModal = useCallback(() => {
@@ -481,7 +487,27 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
         if (result.error) {
           toast.error(result.error)
         } else {
-          toast.success(result.success || 'Pagamento registrado!')
+          const c = result.comprovante
+          if (c?.status === 'enviado') {
+            toast.success(
+              `${result.success ?? 'Pagamento registrado!'} Comprovante enviado para ${c.email}.`,
+            )
+          } else if (c?.status === 'falhou') {
+            toast.success(result.success ?? 'Pagamento registrado!')
+            toast.error(
+              'O comprovante não pôde ser enviado agora. O pagamento foi registrado normalmente.',
+              'Comprovante',
+            )
+          } else if (c?.status === 'sem-email') {
+            toast.success(result.success ?? 'Pagamento registrado!')
+            setComprovanteEmailData({
+              pagamentoId: c.pagamentoId,
+              quitada: c.quitada,
+              numeroParcela: c.numeroParcela,
+            })
+          } else {
+            toast.success(result.success || 'Pagamento registrado!')
+          }
           setPagamentoParcela(null)
           router.refresh()
         }
@@ -490,6 +516,29 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
       }
     },
     [pagamentoParcela, router, toast],
+  )
+
+  const handleEnviarComprovanteEmail = useCallback(
+    async (email: string) => {
+      if (!comprovanteEmailData) return
+      setLoadingComprovanteEmail(true)
+      try {
+        const result = await enviarComprovantePagamento(
+          comprovanteEmailData.pagamentoId,
+          email,
+        )
+        if (result.error) {
+          toast.error(result.error)
+          return
+        }
+        toast.success(result.success || 'Comprovante enviado!')
+        setComprovanteEmailData(null)
+        router.refresh()
+      } finally {
+        setLoadingComprovanteEmail(false)
+      }
+    },
+    [comprovanteEmailData, router, toast],
   )
 
   const handleDesfazerParcela = useCallback(
@@ -1218,6 +1267,20 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
           onSubmit={handleSubmitPagamento}
+        />
+      )}
+
+      {/* Modal para coletar o e-mail do cliente e enviar o comprovante
+          (quando a cobrança não tinha e-mail cadastrado) */}
+      {comprovanteEmailData && (
+        <ComprovantePagamentoEmailModal
+          quitada={comprovanteEmailData.quitada}
+          numeroParcela={comprovanteEmailData.numeroParcela}
+          loading={loadingComprovanteEmail}
+          onClose={() => {
+            if (!loadingComprovanteEmail) setComprovanteEmailData(null)
+          }}
+          onSubmit={handleEnviarComprovanteEmail}
         />
       )}
 
@@ -2602,7 +2665,9 @@ function PagamentoModal({
   onSubmit: (valor: number, data: string) => void
 }) {
   const [valor, setValor] = useState(() => maskMoney(String(Math.round(parcela.valorRestante * 100))))
-  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
+  // `hojeNoFuso()` e não `toISOString()`: à noite (após 21h no Brasil) o UTC já
+  // virou o dia seguinte e o comprovante/lançamento sairia com a data adiantada.
+  const [data, setData] = useState(() => hojeNoFuso())
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   if (typeof document === 'undefined') return null
@@ -2746,6 +2811,133 @@ function PagamentoModal({
               <>
                 <IconCheck size={14} stroke={2.5} />
                 Confirmar Pagamento
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Modal: coletar e-mail e enviar comprovante ───────────────────────────
+
+function ComprovantePagamentoEmailModal({
+  quitada,
+  numeroParcela,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  quitada: boolean
+  numeroParcela: number
+  loading: boolean
+  onClose: () => void
+  onSubmit: (email: string) => void
+}) {
+  const [email, setEmail] = useState('')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  if (typeof document === 'undefined') return null
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg(null)
+    const value = email.trim()
+    if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setErrorMsg('Informe um e-mail válido.')
+      return
+    }
+    onSubmit(value)
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) onClose()
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty text-white shadow-sm">
+              <IconMail size={20} stroke={2} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-950">Enviar comprovante</h2>
+              <p className="mt-0.5 text-xs text-neutral-600">
+                Parcela {numeroParcela} · {quitada ? 'quitada' : 'pagamento parcial'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            <IconX size={18} stroke={2} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          <p className="text-xs text-neutral-600">
+            O pagamento foi registrado, mas este cliente não tem e-mail cadastrado.
+            Informe um e-mail para enviar o comprovante — ele ficará salvo no cadastro do
+            cliente para os próximos envios.
+          </p>
+
+          <Input
+            id="comprovanteEmail"
+            label="E-mail do cliente"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="cliente@email.com"
+            leftIcon={<IconMail size={14} />}
+            required
+            autoFocus
+          />
+
+          {errorMsg && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+              {errorMsg}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            Agora não
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <svg className="h-3 w-3 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+                Enviando...
+              </>
+            ) : (
+              <>
+                <IconSend size={14} stroke={2.5} />
+                Enviar comprovante
               </>
             )}
           </button>
