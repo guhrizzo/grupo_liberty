@@ -43,8 +43,13 @@ const toImageDataUrl = (fileName: string, mime = 'image/png'): string => {
 const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-blue.png')
 
 const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+// Data "pura" (YYYY-MM-DD): parseia como meia-noite local e formata sem timeZone —
+// as duas pontas no mesmo fuso se cancelam, então não desloca em servidor UTC.
 const dateBR = new Intl.DateTimeFormat('pt-BR')
+// "Emitido em" é um instante real → fixa o fuso do negócio para não mostrar UTC
+// quando roda em servidor UTC (Vercel).
 const dateTimeBR = new Intl.DateTimeFormat('pt-BR', {
+  timeZone: 'America/Sao_Paulo',
   day: '2-digit',
   month: '2-digit',
   year: 'numeric',

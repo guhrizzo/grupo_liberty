@@ -43,6 +43,7 @@ import {
   useToast,
 } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
+import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import { maskMoney, parseMoney } from '@/utils/masks'
 import type { Cobranca, Parcela, Pagamento, TipoCobranca } from './actions'
 import {
@@ -103,7 +104,7 @@ function motivoBloqueioEnvioSemanal(c: Cobranca): string | null {
   if (c.tipo !== 'aluguel') return null
   const alvo = getParcelaMaisUrgente(c)
   if (!alvo) return null
-  const hoje = new Date().toISOString().split('T')[0]
+  const hoje = hojeNoFuso()
   if (alvo.dataVencimento === hoje) return null
   return `Cobrança semanal — o envio só é liberado no dia do vencimento (${formatDate(alvo.dataVencimento)}).`
 }
@@ -274,9 +275,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
   const [numeroParcelas, setNumeroParcelas] = useState('1')
   const [diaVencimento, setDiaVencimento] = useState('1')
   const [tipo, setTipo] = useState<TipoCobranca>('promissoria')
-  const [primeiraParcela, setPrimeiraParcela] = useState(() => {
-    return new Date().toISOString().split('T')[0]
-  })
+  const [primeiraParcela, setPrimeiraParcela] = useState(() => hojeNoFuso())
 
   // Reset form quando o tipo muda (afeta labels), mas mantém primeiro valor
   useEffect(() => {
@@ -403,7 +402,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, curr
     setNumeroParcelas('1')
     setDiaVencimento('1')
     setTipo('promissoria')
-    setPrimeiraParcela(new Date().toISOString().split('T')[0])
+    setPrimeiraParcela(hojeNoFuso())
   }, [])
 
   const openModal = useCallback(() => {
@@ -2666,7 +2665,9 @@ function PagamentoModal({
   onSubmit: (valor: number, data: string) => void
 }) {
   const [valor, setValor] = useState(() => maskMoney(String(Math.round(parcela.valorRestante * 100))))
-  const [data, setData] = useState(() => new Date().toISOString().split('T')[0])
+  // `hojeNoFuso()` e não `toISOString()`: à noite (após 21h no Brasil) o UTC já
+  // virou o dia seguinte e o comprovante/lançamento sairia com a data adiantada.
+  const [data, setData] = useState(() => hojeNoFuso())
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   if (typeof document === 'undefined') return null
