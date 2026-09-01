@@ -6,6 +6,7 @@ import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { processarLembretesCobranca } from '@/utils/cobrancas/processar-lembretes'
 import { sendCobrancaLembreteEmail } from '@/utils/email/send-cobranca-lembrete-email'
 import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-email'
+import { sendComprovantePagamentoEmail } from '@/utils/email/send-comprovante-pagamento-email'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,9 +70,21 @@ export interface Cobranca {
   parcelas: Parcela[]
 }
 
+/**
+ * Resultado do envio do comprovante disparado por `registrarPagamento`:
+ * - `enviado` / `falhou`: a cobrança tinha e-mail; o envio foi tentado.
+ * - `sem-email`: a cobrança não tem e-mail — o client deve pedir um e
+ *   chamar `enviarComprovantePagamento`.
+ */
+export type ComprovanteResultado =
+  | { status: 'enviado'; email: string }
+  | { status: 'falhou'; email: string }
+  | { status: 'sem-email'; pagamentoId: string; quitada: boolean; numeroParcela: number }
+
 export type CobrancaResponse = {
   success?: string
   error?: string
+  comprovante?: ComprovanteResultado
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -718,18 +731,135 @@ export async function registrarPagamento(
       transacaoId: transacaoId ?? null,
     })
 
+    const restante = round2(saldo - valorArredondado)
+    const quitada = restante <= EPSILON
+
+    // Comprovante ao cliente (e-mail HTML + recibo PDF). Best-effort: qualquer
+    // problema aqui vira um `status` e nunca desfaz o pagamento.
+    const clienteEmail = ((cobranca?.clienteEmail as string | null) || '').trim()
+    let comprovante: ComprovanteResultado
+    if (!clienteEmail) {
+      comprovante = {
+        status: 'sem-email',
+        pagamentoId: pagamentoRef.id,
+        quitada,
+        numeroParcela: parcelaData.numeroParcela,
+      }
+    } else {
+      try {
+        const ok = await sendComprovantePagamentoEmail({
+          clienteNome: cobranca?.clienteNome ?? 'Cliente',
+          clienteEmail,
+          veiculoResumo: cobranca?.veiculoResumo ?? '',
+          numeroParcela: parcelaData.numeroParcela,
+          numeroParcelas: cobranca?.numeroParcelas ?? parcelaData.numeroParcela,
+          valorParcela: parcelaData.valorParcela,
+          valorPagoAgora: valorArredondado,
+          dataPagamento: data,
+          valorPagoAcumulado: round2(totalPago + valorArredondado),
+          valorRestante: Math.max(restante, 0),
+          quitada,
+          referencia: pagamentoRef.id.slice(0, 8).toUpperCase(),
+        })
+        comprovante = ok
+          ? { status: 'enviado', email: clienteEmail }
+          : { status: 'falhou', email: clienteEmail }
+      } catch (e) {
+        console.error('[registrarPagamento] falha ao enviar comprovante:', e)
+        comprovante = { status: 'falhou', email: clienteEmail }
+      }
+    }
+
     revalidatePath('/dashboard/cobrancas')
     revalidatePath('/dashboard/financeiro')
-    const restante = round2(saldo - valorArredondado)
     return {
-      success:
-        restante <= EPSILON
-          ? 'Parcela quitada! Lançado como entrada no financeiro.'
-          : `Pagamento registrado. Saldo restante: R$ ${restante.toFixed(2).replace('.', ',')}.`,
+      success: quitada
+        ? 'Parcela quitada! Lançado como entrada no financeiro.'
+        : `Pagamento registrado. Saldo restante: R$ ${restante.toFixed(2).replace('.', ',')}.`,
+      comprovante,
     }
   } catch (err: any) {
     console.error('[registrarPagamento]', err)
     return { error: 'Erro ao registrar pagamento.' }
+  }
+}
+
+/**
+ * Envia o comprovante de um pagamento para um e-mail informado na hora (quando
+ * a cobrança não tinha e-mail cadastrado). Salva o e-mail em
+ * `cobranca.clienteEmail` para os próximos envios e dispara o comprovante.
+ */
+export async function enviarComprovantePagamento(
+  pagamentoId: string,
+  email: string,
+): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    const emailTrim = (email || '').trim()
+    if (!emailTrim || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      return { error: 'E-mail inválido.' }
+    }
+    if (!pagamentoId) return { error: 'Pagamento inválido.' }
+
+    const pagamentoDoc = await adminDb.collection('cobranca_pagamentos').doc(pagamentoId).get()
+    if (!pagamentoDoc.exists) return { error: 'Pagamento não encontrado.' }
+    const pagamento = pagamentoDoc.data()!
+
+    const parcelaDoc = await adminDb
+      .collection('cobranca_parcelas')
+      .doc(pagamento.parcelaId)
+      .get()
+    if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
+    const parcela = parcelaDoc.data()!
+
+    const cobrancaRef = adminDb.collection('cobrancas').doc(pagamento.cobrancaId)
+    const cobrancaDoc = await cobrancaRef.get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    const cobranca = cobrancaDoc.data()!
+
+    await cobrancaRef.update({ clienteEmail: emailTrim })
+
+    const pagamentosSnap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('parcelaId', '==', pagamento.parcelaId)
+      .get()
+    const valorPagoAcumulado = round2(
+      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
+    )
+    const valorRestante = Math.max(round2(parcela.valorParcela - valorPagoAcumulado), 0)
+    const quitada = valorRestante <= EPSILON
+
+    const ok = await sendComprovantePagamentoEmail({
+      clienteNome: cobranca.clienteNome ?? 'Cliente',
+      clienteEmail: emailTrim,
+      veiculoResumo: cobranca.veiculoResumo ?? '',
+      numeroParcela: parcela.numeroParcela,
+      numeroParcelas: cobranca.numeroParcelas ?? parcela.numeroParcela,
+      valorParcela: parcela.valorParcela,
+      valorPagoAgora: pagamento.valor,
+      dataPagamento: pagamento.data,
+      valorPagoAcumulado,
+      valorRestante,
+      quitada,
+      referencia: pagamentoId.slice(0, 8).toUpperCase(),
+    })
+
+    revalidatePath('/dashboard/cobrancas')
+
+    return ok
+      ? { success: `Comprovante enviado para ${emailTrim}.` }
+      : {
+          error:
+            'E-mail salvo no cadastro, mas o envio falhou. Verifique o RESEND_API_KEY.',
+        }
+  } catch (err) {
+    console.error('[enviarComprovantePagamento]', err)
+    return { error: 'Erro ao enviar o comprovante.' }
   }
 }
 
