@@ -95,12 +95,6 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
 
-function addMonths(date: Date, months: number): Date {
-  const d = new Date(date)
-  d.setMonth(d.getMonth() + months)
-  return d
-}
-
 function addWeeks(date: Date, weeks: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + weeks * 7)
@@ -366,12 +360,16 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
         // Quinzenal: +15 dias por parcela
         dataVencimento = toDateString(addDays(baseDate, i * 15))
       } else {
-        // Mensal: mesmo dia do mês, avança meses
-        const d = addMonths(baseDate, i)
-        // Forçar o dia de vencimento (caso o mês tenha menos dias, usa o último dia)
-        const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-        d.setDate(Math.min(diaVencimento, ultimoDia))
-        dataVencimento = toDateString(d)
+        // Mensal: dia de vencimento fixo, avançando i meses a partir do mês da
+        // 1ª parcela. Aritmética de ano/mês direta — NÃO usar Date.setMonth, que
+        // transborda para o mês seguinte quando o dia do baseDate (ex.: 31) não
+        // existe no mês alvo, fazendo as parcelas "pularem" meses.
+        const alvoMes = baseDate.getMonth() + i
+        const ano = baseDate.getFullYear() + Math.floor(alvoMes / 12)
+        const mes = ((alvoMes % 12) + 12) % 12
+        const ultimoDia = new Date(ano, mes + 1, 0).getDate()
+        const dia = Math.min(Math.max(diaVencimento, 1), ultimoDia)
+        dataVencimento = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
       }
 
       const parcelaRef = adminDb.collection('cobranca_parcelas').doc()
