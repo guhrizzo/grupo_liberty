@@ -206,7 +206,7 @@ export default function ReciboPagamentoDocument(props: ReciboPagamentoDocumentPr
 
         <View style={[styles.badge, badgeStyle]}>
           <Text style={[styles.badgeText, { color: badgeTextColor }]}>
-            {quitada ? 'Parcela quitada' : 'Pagamento parcial'}
+            {quitada ? 'Parcela paga' : 'Pagamento parcial'}
           </Text>
         </View>
 

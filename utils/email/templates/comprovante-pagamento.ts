@@ -55,7 +55,7 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
     quitada,
   } = data
 
-  const badgeLabel = quitada ? 'PARCELA QUITADA' : 'PAGAMENTO PARCIAL'
+  const badgeLabel = quitada ? 'PARCELA PAGA' : 'PAGAMENTO PARCIAL'
   const badgeBg = quitada ? '#ecfdf5' : '#fffbeb'
   const badgeBorder = quitada ? '#a7f3d0' : '#fde68a'
   const badgeColor = quitada ? '#047857' : '#b45309'
@@ -65,7 +65,7 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
   const vencFmt = formatDateBR(dataVencimento)
 
   const mensagem = quitada
-    ? `Olá, ${clienteNome}! O pagamento da sua parcela ${parcelaRef}, com vencimento em ${vencFmt}, foi recebido com sucesso e esta parcela está quitada. O recibo detalhado está anexado a este e-mail em PDF.`
+    ? `Olá, ${clienteNome}! O pagamento da sua parcela ${parcelaRef}, com vencimento em ${vencFmt}, foi recebido com sucesso e esta parcela está paga. O recibo detalhado está anexado a este e-mail em PDF.`
     : `Olá, ${clienteNome}! Recebemos o pagamento de ${formatCurrencyBR(valorPagoAgora)} referente à sua parcela ${parcelaRef}, com vencimento em ${vencFmt}. Ainda restam ${formatCurrencyBR(valorRestante)} em aberto nesta parcela. O recibo detalhado está anexado a este e-mail em PDF.`
 
   const linhaSaldo = quitada
@@ -73,7 +73,7 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
                       <tr>
                         <td style="border-top:1px solid #e4e4e7;padding-top:14px;">
                           <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Situação da parcela</p>
-                          <p style="margin:0;font-size:16px;font-weight:800;color:#047857;">Quitada em ${formatDateBR(dataPagamento)}</p>
+                          <p style="margin:0;font-size:16px;font-weight:800;color:#047857;">Paga em ${formatDateBR(dataPagamento)}</p>
                         </td>
                       </tr>`
     : `

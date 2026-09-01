@@ -39,7 +39,7 @@ export async function sendComprovantePagamentoEmail(
   const resend = new Resend(RESEND_API_KEY)
 
   const subject = quitada
-    ? 'Comprovante de quitação da parcela — Liberty Car'
+    ? 'Comprovante de pagamento da parcela — Liberty Car'
     : 'Comprovante de pagamento parcial — Liberty Car'
 
   const html = renderComprovantePagamentoEmail(payload)
