@@ -14,6 +14,7 @@ import {
   IconCurrencyDollar,
   IconReceipt,
   IconSearch,
+  IconSparkles,
   IconMenu2,
 
   IconLogout,
@@ -30,7 +31,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search'
+  icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles'
   roles: string[]
   permissionKey?: string
 }
@@ -105,6 +106,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin'],
     permissionKey: 'usuarios',
   },
+  {
+    href: '/dashboard/novidades',
+    label: 'Novidades',
+    icon: 'sparkles',
+    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+  },
 ]
 
 function NavIcon({ name }: { name: NavItem['icon'] }) {
@@ -130,6 +137,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconTool className={cls} stroke={2} />
     case 'users':
       return <IconUsers className={cls} stroke={2} />
+    case 'sparkles':
+      return <IconSparkles className={cls} stroke={2} />
   }
 }
 
