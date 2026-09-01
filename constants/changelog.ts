@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-08-31-feedback-bugs-melhorias',
+    date: '2026-08-31',
+    title: 'Bugs & Melhorias',
+    tag: 'novo',
+    items: [
+      'Nova página no menu para reportar bugs do sistema e sugerir melhorias.',
+      'Todo mundo vê a lista de reports e o status de cada um.',
+      'Cada report pode ser bug ou melhoria, com título, descrição e a tela onde aconteceu.',
+    ],
+  },
+  {
     id: '2026-08-31-comprovante-email',
     date: '2026-08-31',
     title: 'Comprovante de pagamento por e-mail',
