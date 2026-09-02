@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-02-categorias-de-contrato',
+    date: '2026-09-02',
+    title: 'Tipo de contrato',
+    tag: 'novo',
+    items: [
+      'Ao anexar um contrato a um veículo agora é obrigatório escolher o tipo: Prestação de Serviço, Venda de veículo financiado, Locação de veículo, Locação com venda de veículo, Financiamento do cliente ou CRLV.',
+      'O administrador pode criar outros tipos em "Outros" e gerenciá-los pelo botão "Categorias" na tela de Contratos.',
+      'A tela de Contratos ganhou filtro por tipo, e dá para classificar contratos que já estavam anexados sem categoria.',
+    ],
+  },
+  {
     id: '2026-08-31-feedback-bugs-melhorias',
     date: '2026-08-31',
     title: 'Bugs & Melhorias',
