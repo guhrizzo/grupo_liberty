@@ -53,6 +53,8 @@ function serializeContrato(id: string, data: FirebaseFirestore.DocumentData): Co
     clausulasExtras: data.clausulasExtras ?? '',
     observacoesInternas: data.observacoesInternas ?? '',
     status: data.status,
+    categoriaId: data.categoriaId ?? null,
+    categoriaNome: data.categoriaNome ?? null,
     storagePath: data.storagePath,
     criadoPorUid: data.criadoPorUid,
     criadoPorEmail: data.criadoPorEmail ?? null,

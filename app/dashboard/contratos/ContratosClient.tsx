@@ -11,9 +11,19 @@ import {
   IconUpload,
   IconFiles,
   IconEye,
+  IconTags,
+  IconPencil,
+  IconCheck,
+  IconX,
 } from '@tabler/icons-react'
-import type { Contrato, ContratoInput } from './types'
+import type { Contrato, ContratoInput, ContratoCategoria } from './types'
 import { criarContrato } from './actions'
+import {
+  criarCategoriaContrato,
+  renomearCategoriaContrato,
+  removerCategoriaContrato,
+  definirCategoriaContrato,
+} from './categorias.actions'
 import {
   anexarContratoVeiculoAction,
   removerContratoVeiculoAction,
@@ -63,15 +73,31 @@ interface ContratosClientProps {
   initialContratos: Contrato[]
   veiculos: VeiculoOption[]
   userRole: string | null
+  categorias: ContratoCategoria[]
+  isAdmin: boolean
 }
 
 const PAGE_SIZE = 20
+const NOVA_CATEGORIA = '__nova__'
+const SEM_CATEGORIA = '__sem__'
+
+/** Fixas primeiro por `ordem`, depois custom por `nome` (pt-BR). */
+function ordenarCategorias(lista: ContratoCategoria[]): ContratoCategoria[] {
+  return [...lista].sort((a, b) => {
+    if (a.fixa !== b.fixa) return a.fixa ? -1 : 1
+    if (a.fixa && b.fixa) return a.ordem - b.ordem
+    return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' })
+  })
+}
 
 export default function ContratosClient({
   initialContratos,
   veiculos,
+  categorias: categoriasIniciais,
+  isAdmin,
 }: ContratosClientProps) {
   const [contratos, setContratos] = useState<Contrato[]>(initialContratos)
+  const [categorias, setCategorias] = useState<ContratoCategoria[]>(categoriasIniciais)
   const [showForm, setShowForm] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState<Contrato | null>(null)
@@ -90,6 +116,16 @@ export default function ContratosClient({
   const [enviarJuridico, setEnviarJuridico] = useState(false)
   const [isUploading, startUpload] = useTransition()
   const toast = useToast()
+
+  // Categoria no modal de anexar (id da categoria ou NOVA_CATEGORIA).
+  const [categoriaUpload, setCategoriaUpload] = useState('')
+  const [novaCategoriaNome, setNovaCategoriaNome] = useState('')
+  // Filtro por categoria: '' (todas), SEM_CATEGORIA ou id.
+  const [categoriaFiltro, setCategoriaFiltro] = useState('')
+  // Edição inline no modal "Ver Contratos".
+  const [savingCategoriaId, setSavingCategoriaId] = useState<string | null>(null)
+  // Modal de gestão de categorias (só admin).
+  const [gerenciarOpen, setGerenciarOpen] = useState(false)
 
   function handleAnexarSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -118,7 +154,32 @@ export default function ContratosClient({
       return
     }
 
+    if (!categoriaUpload) {
+      toast.error('Selecione o tipo de contrato.')
+      return
+    }
+    if (categoriaUpload === NOVA_CATEGORIA && !novaCategoriaNome.trim()) {
+      toast.error('Informe o nome da nova categoria.')
+      return
+    }
+
     startUpload(async () => {
+      let categoriaId = categoriaUpload
+      let categoriaNome =
+        categorias.find((c) => c.id === categoriaUpload)?.nome ?? ''
+
+      if (categoriaUpload === NOVA_CATEGORIA) {
+        const nova = await criarCategoriaContrato(novaCategoriaNome.trim())
+        if (nova.error || !nova.categoria) {
+          toast.error(nova.error || 'Erro ao criar categoria.')
+          return
+        }
+        setCategorias((prev) => ordenarCategorias([...prev, nova.categoria!]))
+        categoriaId = nova.categoria.id
+        categoriaNome = nova.categoria.nome
+      }
+      formData.set('categoriaId', categoriaId)
+
       const res = await anexarContratoVeiculoAction(formData)
       if (res.error) {
         toast.error(res.error)
@@ -150,6 +211,8 @@ export default function ContratosClient({
           clausulasExtras: res.contrato.descricao ?? '',
           observacoesInternas: '',
           status: 'ativo',
+          categoriaId: res.contrato.categoriaId ?? categoriaId,
+          categoriaNome: res.contrato.categoriaNome ?? categoriaNome,
           storagePath: res.contrato.storagePath,
           criadoPorUid: res.contrato.uploadedByUid,
           criadoPorEmail: res.contrato.uploadedByEmail,
@@ -163,6 +226,8 @@ export default function ContratosClient({
         setAnexarModalOpen(false)
         setSelectedVeiculoId('')
         setEnviarJuridico(false)
+        setCategoriaUpload('')
+        setNovaCategoriaNome('')
         form.reset()
       }
     })
@@ -234,6 +299,24 @@ export default function ContratosClient({
     })
   }
 
+  async function handleDefinirCategoria(contrato: Contrato, categoriaId: string) {
+    if (!categoriaId || categoriaId === contrato.categoriaId) return
+    setSavingCategoriaId(contrato.id)
+    const res = await definirCategoriaContrato(contrato.id, categoriaId)
+    setSavingCategoriaId(null)
+    if (res.error) {
+      toast.error(res.error)
+      return
+    }
+    const nome = categorias.find((c) => c.id === categoriaId)?.nome ?? null
+    setContratos((prev) =>
+      prev.map((c) =>
+        c.id === contrato.id ? { ...c, categoriaId, categoriaNome: nome } : c,
+      ),
+    )
+    toast.success('Tipo do contrato atualizado.')
+  }
+
   // Agrupa contratos por veículo
   const veiculosAgrupados = useMemo(() => {
     const map = new Map<string, VeiculoAgrupado>()
@@ -266,6 +349,14 @@ export default function ContratosClient({
     const term = debouncedSearch.toLowerCase()
     return veiculosAgrupados.filter((group) => {
       if (veiculoFiltro && group.veiculoId !== veiculoFiltro) return false
+      if (categoriaFiltro) {
+        const casa = group.contratos.some((c) =>
+          categoriaFiltro === SEM_CATEGORIA
+            ? !c.categoriaId
+            : c.categoriaId === categoriaFiltro,
+        )
+        if (!casa) return false
+      }
       if (!term) return true
 
       const matchesVehicle = group.veiculoResumo.toLowerCase().includes(term)
@@ -278,7 +369,7 @@ export default function ContratosClient({
       )
       return matchesVehicle || matchesContract
     })
-  }, [veiculosAgrupados, debouncedSearch, veiculoFiltro])
+  }, [veiculosAgrupados, debouncedSearch, veiculoFiltro, categoriaFiltro])
 
   const activeGroup = useMemo(() => {
     if (!verContratosVeiculoId) return null
@@ -306,16 +397,27 @@ export default function ContratosClient({
           </p>
         </div>
 
-        <Button
-          variant="liberty"
-          leftIcon={<IconUpload size={16} stroke={2.5} />}
-          onClick={() => {
-            setSelectedVeiculoId('')
-            setAnexarModalOpen(true)
-          }}
-        >
-          Anexar Contrato
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <Button
+              variant="secondary"
+              leftIcon={<IconTags size={16} stroke={2} />}
+              onClick={() => setGerenciarOpen(true)}
+            >
+              Categorias
+            </Button>
+          )}
+          <Button
+            variant="liberty"
+            leftIcon={<IconUpload size={16} stroke={2.5} />}
+            onClick={() => {
+              setSelectedVeiculoId('')
+              setAnexarModalOpen(true)
+            }}
+          >
+            Anexar Contrato
+          </Button>
+        </div>
       </div>
 
       {/* Formulário de geração de contrato DESATIVADO temporariamente */}
@@ -460,6 +562,22 @@ export default function ContratosClient({
           {veiculosAgrupados.map((g) => (
             <option key={g.veiculoId} value={g.veiculoId}>
               {g.veiculoResumo} ({g.contratos.length})
+            </option>
+          ))}
+        </Select>
+        <Select
+          value={categoriaFiltro}
+          onChange={(e) => {
+            setCategoriaFiltro(e.target.value)
+            setPage(1)
+          }}
+          containerClassName="w-full sm:max-w-xs"
+        >
+          <option value="">Todas as categorias</option>
+          <option value={SEM_CATEGORIA}>Sem categoria</option>
+          {categorias.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nome}
             </option>
           ))}
         </Select>
@@ -608,6 +726,7 @@ export default function ContratosClient({
                 <THead>
                   <tr>
                     <TH>Descrição / Documento</TH>
+                    <TH>Tipo</TH>
                     <TH>Data</TH>
                     <TH align="right">Ações</TH>
                   </tr>
@@ -630,6 +749,34 @@ export default function ContratosClient({
                               Enviado por: {c.criadoPorEmail}
                             </span>
                           )}
+                        </div>
+                      </TD>
+                      <TD>
+                        <div className="flex flex-col gap-1">
+                          {c.categoriaNome ? (
+                            <span className="inline-flex w-fit items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700 border border-neutral-200">
+                              {c.categoriaNome}
+                            </span>
+                          ) : (
+                            <span className="inline-flex w-fit items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 border border-amber-200">
+                              Sem categoria
+                            </span>
+                          )}
+                          <select
+                            value={c.categoriaId ?? ''}
+                            disabled={savingCategoriaId === c.id}
+                            onChange={(e) => handleDefinirCategoria(c, e.target.value)}
+                            className="w-full max-w-[11rem] rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs outline-none focus:border-neutral-400 disabled:opacity-50"
+                          >
+                            <option value="" disabled>
+                              Definir tipo…
+                            </option>
+                            {categorias.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.nome}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       </TD>
                       <TD className="text-xs text-neutral-600 whitespace-nowrap">
@@ -678,6 +825,8 @@ export default function ContratosClient({
           if (isUploading) return
           setAnexarModalOpen(false)
           setEnviarJuridico(false)
+          setCategoriaUpload('')
+          setNovaCategoriaNome('')
         }}
         title="Anexar Contrato ao Veículo"
         description="Selecione o veículo comercializado e envie o arquivo PDF do contrato (compra/venda, aditivo ou termo)."
@@ -710,6 +859,35 @@ export default function ContratosClient({
             hint="Permitidos apenas arquivos .pdf (máx. 10MB)"
             disabled={isUploading}
           />
+
+          <Select
+            label="Tipo de contrato *"
+            required
+            value={categoriaUpload}
+            onChange={(e) => setCategoriaUpload(e.target.value)}
+            disabled={isUploading}
+          >
+            <option value="" disabled>
+              Selecione o tipo
+            </option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+            {isAdmin && <option value={NOVA_CATEGORIA}>+ Outros (nova categoria)</option>}
+          </Select>
+
+          {categoriaUpload === NOVA_CATEGORIA && (
+            <Input
+              label="Nome da nova categoria"
+              value={novaCategoriaNome}
+              onChange={(e) => setNovaCategoriaNome(e.target.value)}
+              placeholder="Ex.: Consórcio"
+              maxLength={60}
+              disabled={isUploading}
+            />
+          )}
 
           <Textarea
             label="Descrição / Observação (opcional)"
@@ -749,6 +927,8 @@ export default function ContratosClient({
               onClick={() => {
                 setAnexarModalOpen(false)
                 setEnviarJuridico(false)
+                setCategoriaUpload('')
+                setNovaCategoriaNome('')
               }}
               disabled={isUploading}
             >
@@ -766,6 +946,15 @@ export default function ContratosClient({
           </div>
         </form>
       </Modal>
+
+      {isAdmin && (
+        <GerenciarCategoriasModal
+          open={gerenciarOpen}
+          onClose={() => setGerenciarOpen(false)}
+          categorias={categorias}
+          setCategorias={setCategorias}
+        />
+      )}
 
       <ConfirmDialog
         open={!!confirmDelete}
@@ -785,6 +974,201 @@ export default function ContratosClient({
         loading={isPending}
       />
     </div>
+  )
+}
+
+// ─── Modal de gestão de categorias (só admin) ───────────────────────────────
+
+interface GerenciarCategoriasModalProps {
+  open: boolean
+  onClose: () => void
+  categorias: ContratoCategoria[]
+  setCategorias: React.Dispatch<React.SetStateAction<ContratoCategoria[]>>
+}
+
+function GerenciarCategoriasModal({
+  open,
+  onClose,
+  categorias,
+  setCategorias,
+}: GerenciarCategoriasModalProps) {
+  const toast = useToast()
+  const [novoNome, setNovoNome] = useState('')
+  const [criando, setCriando] = useState(false)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editNome, setEditNome] = useState('')
+  const [salvando, setSalvando] = useState(false)
+  const [confirmRemover, setConfirmRemover] = useState<ContratoCategoria | null>(null)
+  const [removendo, setRemovendo] = useState(false)
+
+  async function handleCriar() {
+    const nome = novoNome.trim()
+    if (!nome) return
+    setCriando(true)
+    const res = await criarCategoriaContrato(nome)
+    setCriando(false)
+    if (res.error || !res.categoria) {
+      toast.error(res.error || 'Erro ao criar categoria.')
+      return
+    }
+    setCategorias((prev) => ordenarCategorias([...prev, res.categoria!]))
+    setNovoNome('')
+    toast.success('Categoria criada.')
+  }
+
+  async function handleRenomear(id: string) {
+    const nome = editNome.trim()
+    if (!nome) return
+    setSalvando(true)
+    const res = await renomearCategoriaContrato(id, nome)
+    setSalvando(false)
+    if (res.error || !res.categoria) {
+      toast.error(res.error || 'Erro ao renomear categoria.')
+      return
+    }
+    setCategorias((prev) =>
+      ordenarCategorias(prev.map((c) => (c.id === id ? res.categoria! : c))),
+    )
+    setEditandoId(null)
+    setEditNome('')
+    toast.success('Categoria renomeada.')
+  }
+
+  async function handleRemover(cat: ContratoCategoria) {
+    setRemovendo(true)
+    const res = await removerCategoriaContrato(cat.id)
+    setRemovendo(false)
+    setConfirmRemover(null)
+    if (res.error) {
+      toast.error(res.error)
+      return
+    }
+    setCategorias((prev) => prev.filter((c) => c.id !== cat.id))
+    toast.success('Categoria removida.')
+  }
+
+  return (
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Categorias de contrato"
+        description="As categorias padrão não podem ser alteradas. Adicione as suas em Outros."
+        size="md"
+      >
+        <div className="mt-2 space-y-4">
+          <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200">
+            {categorias.map((cat) => (
+              <li key={cat.id} className="flex items-center gap-2 px-3 py-2">
+                {editandoId === cat.id ? (
+                  <>
+                    <Input
+                      value={editNome}
+                      onChange={(e) => setEditNome(e.target.value)}
+                      maxLength={60}
+                      containerClassName="flex-1"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRenomear(cat.id)}
+                      disabled={salvando}
+                      aria-label="Salvar"
+                      className="rounded-lg border border-emerald-200 p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                      <IconCheck size={15} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditandoId(null)
+                        setEditNome('')
+                      }}
+                      aria-label="Cancelar"
+                      className="rounded-lg border border-neutral-200 p-1.5 text-neutral-500 hover:bg-neutral-100"
+                    >
+                      <IconX size={15} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-neutral-800">{cat.nome}</span>
+                    {cat.fixa ? (
+                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-medium text-neutral-500 border border-neutral-200">
+                        Padrão
+                      </span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditandoId(cat.id)
+                            setEditNome(cat.nome)
+                          }}
+                          aria-label={`Renomear ${cat.nome}`}
+                          className="rounded-lg border border-neutral-200 p-1.5 text-neutral-500 hover:bg-neutral-100"
+                        >
+                          <IconPencil size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRemover(cat)}
+                          aria-label={`Remover ${cat.nome}`}
+                          className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50"
+                        >
+                          <IconTrash size={15} />
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex items-end gap-2">
+            <Input
+              label="Nova categoria (Outros)"
+              value={novoNome}
+              onChange={(e) => setNovoNome(e.target.value)}
+              placeholder="Ex.: Consórcio"
+              maxLength={60}
+              containerClassName="flex-1"
+            />
+            <Button
+              type="button"
+              variant="liberty"
+              onClick={handleCriar}
+              loading={criando}
+              leftIcon={<IconPlus size={15} />}
+            >
+              Adicionar
+            </Button>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button variant="secondary" onClick={onClose}>
+              Fechar
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={!!confirmRemover}
+        onClose={() => setConfirmRemover(null)}
+        onConfirm={() => confirmRemover && handleRemover(confirmRemover)}
+        title="Remover categoria?"
+        description={
+          confirmRemover ? (
+            <>Remover a categoria &quot;{confirmRemover.nome}&quot;? Contratos que a usam impedem a remoção.</>
+          ) : null
+        }
+        confirmLabel={removendo ? 'Removendo...' : 'Remover'}
+        tone="danger"
+        loading={removendo}
+      />
+    </>
   )
 }
 

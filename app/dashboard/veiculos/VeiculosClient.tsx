@@ -43,6 +43,8 @@ import {
   removerContratoVeiculoAction,
   type VeiculoContrato,
 } from '@/app/veiculos/[id]/actions'
+import { listarCategoriasContrato } from '@/app/dashboard/contratos/categorias.actions'
+import type { ContratoCategoria } from '@/app/dashboard/contratos/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -230,8 +232,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [contratosExistentes, setContratosExistentes] = useState<VeiculoContrato[]>([])
   const [contratosLoading, setContratosLoading] = useState(false)
   const [novosContratos, setNovosContratos] = useState<
-    { file: File; descricao: string; enviarJuridico: boolean }[]
+    { file: File; descricao: string; enviarJuridico: boolean; categoriaId: string }[]
   >([])
+  const [categoriasContrato, setCategoriasContrato] = useState<ContratoCategoria[]>([])
   const [contratosUploadProgress, setContratosUploadProgress] = useState(false)
   const [removendoContratoId, setRemovendoContratoId] = useState<string | null>(null)
 
@@ -317,7 +320,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // ─── Contratos (PDFs) ───────────────────────────────────────────────────
 
   const addContratos = useCallback((files: FileList | File[]) => {
-    const aceitos: { file: File; descricao: string; enviarJuridico: boolean }[] = []
+    const aceitos: {
+      file: File
+      descricao: string
+      enviarJuridico: boolean
+      categoriaId: string
+    }[] = []
     for (const file of Array.from(files)) {
       const isPdf =
         file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
@@ -329,7 +337,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         toast.error(`"${file.name}" excede o limite de 10MB.`)
         continue
       }
-      aceitos.push({ file, descricao: '', enviarJuridico: false })
+      aceitos.push({ file, descricao: '', enviarJuridico: false, categoriaId: '' })
     }
     if (aceitos.length > 0) {
       setNovosContratos((prev) => [...prev, ...aceitos])
@@ -351,6 +359,26 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       prev.map((c, i) => (i === index ? { ...c, enviarJuridico } : c)),
     )
   }
+
+  const setNovoContratoCategoria = (index: number, categoriaId: string) => {
+    setNovosContratos((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, categoriaId } : c)),
+    )
+  }
+
+  // Carrega as categorias de contrato quando o formulário do veículo abre.
+  useEffect(() => {
+    if (!showForm || !canManageContratos || categoriasContrato.length > 0) return
+    let cancelado = false
+    listarCategoriasContrato()
+      .then((cats) => {
+        if (!cancelado) setCategoriasContrato(cats)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [showForm, canManageContratos, categoriasContrato.length])
 
   const handleRemoverContratoExistente = async (contratoId: string) => {
     if (!editingId) return
@@ -615,6 +643,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Todo contrato anexado precisa de um tipo antes de salvar.
+    if (novosContratos.some((c) => !c.categoriaId)) {
+      toast.error('Escolha o tipo de cada contrato anexado.')
+      return
+    }
+
     setLoading(true)
     setMessage(null)
     setFieldErrors({})
@@ -730,12 +765,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         if (novosContratos.length > 0 && vehicleId) {
           setContratosUploadProgress(true)
           let falhas = 0
-          for (const { file, descricao, enviarJuridico } of novosContratos) {
+          for (const { file, descricao, enviarJuridico, categoriaId } of novosContratos) {
             const fd = new FormData()
             fd.set('veiculoId', vehicleId)
             fd.set('pdf', file)
             if (descricao.trim()) fd.set('descricao', descricao.trim())
             fd.set('enviarJuridico', enviarJuridico ? 'true' : 'false')
+            fd.set('categoriaId', categoriaId)
             const res = await anexarContratoVeiculoAction(fd)
             if (res.error) falhas++
           }
@@ -1918,6 +1954,27 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                             placeholder="Descrição (opcional)"
                             className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
                           />
+                          <select
+                            value={c.categoriaId}
+                            onChange={(e) =>
+                              setNovoContratoCategoria(index, e.target.value)
+                            }
+                            disabled={categoriasContrato.length === 0}
+                            className={`mt-2 w-full rounded-lg border bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400 disabled:opacity-50 ${
+                              c.categoriaId ? 'border-neutral-200' : 'border-amber-300'
+                            }`}
+                          >
+                            <option value="" disabled>
+                              {categoriasContrato.length === 0
+                                ? 'Carregando tipos…'
+                                : 'Tipo de contrato *'}
+                            </option>
+                            {categoriasContrato.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.nome}
+                              </option>
+                            ))}
+                          </select>
                           <label
                             className={`mt-2 flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors cursor-pointer ${
                               c.enviarJuridico
