@@ -137,6 +137,13 @@ export interface VeiculoContrato {
   processoId?: string | null
   /** Data ISO em que o contrato foi convertido em processo. */
   convertidoEmProcessoEm?: string | null
+  /**
+   * Tipo do contrato. `categoriaId` referencia a coleção `contrato_categorias`;
+   * `categoriaNome` é desnormalizado para exibir sem join. Contratos anexados
+   * antes deste recurso ficam com ambos `null` ("Sem categoria").
+   */
+  categoriaId?: string | null
+  categoriaNome?: string | null
   /** Origem do contrato: 'contrato_gerado' (Novo Contrato) ou undefined (anexado manualmente). */
   origem?: 'contrato_gerado'
   /** ID do contrato na coleção `contratos` quando origem === 'contrato_gerado'. */
@@ -166,6 +173,8 @@ function serializeVeiculoContrato(
     uploadedByEmail: data.uploadedByEmail ?? null,
     uploadedAt: data.uploadedAt,
     enviarJuridico: data.enviarJuridico === true,
+    categoriaId: data.categoriaId ?? null,
+    categoriaNome: data.categoriaNome ?? null,
     processoId: data.processoId ?? null,
     convertidoEmProcessoEm: data.convertidoEmProcessoEm ?? null,
   }
@@ -266,6 +275,7 @@ export async function anexarContratoVeiculoAction(
   const veiculoId = sanitizeString(formData.get('veiculoId'), 200)
   const file = formData.get('pdf')
   const descricao = sanitizeOptional(formData.get('descricao'), 500)
+  const categoriaId = sanitizeString(formData.get('categoriaId'), 200)
   const enviarJuridicoRaw = formData.get('enviarJuridico')
   const enviarJuridico =
     enviarJuridicoRaw === 'on' ||
@@ -285,12 +295,24 @@ export async function anexarContratoVeiculoAction(
   if (!isPdf) {
     return { error: 'Apenas arquivos PDF são permitidos.' }
   }
+  if (!categoriaId) {
+    return { error: 'Selecione o tipo de contrato.' }
+  }
 
   try {
     const veiculoDoc = await adminDb.collection('veiculos').doc(veiculoId).get()
     if (!veiculoDoc.exists) {
       return { error: 'Veículo não encontrado.' }
     }
+
+    const categoriaDoc = await adminDb
+      .collection('contrato_categorias')
+      .doc(categoriaId)
+      .get()
+    if (!categoriaDoc.exists) {
+      return { error: 'Categoria inválida.' }
+    }
+    const categoriaNome = String(categoriaDoc.data()!.nome ?? '')
 
     const contratoRef = adminDb.collection('veiculo_contratos').doc()
     const contratoId = contratoRef.id
@@ -330,6 +352,8 @@ export async function anexarContratoVeiculoAction(
         uploadedByEmail: user.email,
         uploadedAt: now,
         enviarJuridico,
+        categoriaId,
+        categoriaNome,
       }
 
       await contratoRef.set(contrato)

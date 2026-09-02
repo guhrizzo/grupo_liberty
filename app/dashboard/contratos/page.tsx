@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import ContratosClient from './ContratosClient'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import { listarTodosContratosVeiculoAction } from '@/app/veiculos/[id]/actions'
+import { listarCategoriasContrato } from './categorias.actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +32,7 @@ export default async function ContratosPage() {
   // Lista todos os contratos anexados aos veículos (coleção `veiculo_contratos`).
   // A página /dashboard/contratos agora é apenas visualização — geração desativada.
   const veiculoContratos = await listarTodosContratosVeiculoAction()
+  const categorias = await listarCategoriasContrato()
   const veiculoMarcas = new Map(veiculosList.map((v) => [v.id, v]))
   const contratos = veiculoContratos.map((c) => {
     const v = veiculoMarcas.get(c.veiculoId)
@@ -59,6 +61,8 @@ export default async function ContratosPage() {
       clausulasExtras: c.descricao ?? '',
       observacoesInternas: '',
       status: 'ativo' as const,
+      categoriaId: c.categoriaId ?? null,
+      categoriaNome: c.categoriaNome ?? null,
       storagePath: c.storagePath,
       criadoPorUid: c.uploadedByUid,
       criadoPorEmail: c.uploadedByEmail,
@@ -72,6 +76,8 @@ export default async function ContratosPage() {
       initialContratos={contratos}
       veiculos={veiculos}
       userRole={session.role}
+      categorias={categorias}
+      isAdmin={session.role === 'admin'}
     />
   )
 }
