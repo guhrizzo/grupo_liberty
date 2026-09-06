@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-06-debitos-veiculo-ajustes',
+    date: '2026-09-06',
+    title: 'Débitos do veículo revisados',
+    tag: 'melhoria',
+    items: [
+      '"Arrastamento / Guincho" agora se chama "Cegonha / Guincho".',
+      'Removidos os itens "DPVAT" e "IPVA parcelado".',
+      '"Débitos no RENAVAM" foi substituído por "Procurações".',
+    ],
+  },
+  {
     id: '2026-09-02-categorias-de-contrato',
     date: '2026-09-02',
     title: 'Tipo de contrato',

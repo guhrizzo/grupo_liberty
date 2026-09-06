@@ -30,21 +30,9 @@ export const DEBITOS: DebitoItemDefinicao[] = [
     descricao: 'Somatório das multas pendentes vinculadas ao veículo.',
   },
   {
-    chave: 'dpvat',
-    label: 'DPVAT',
-    labelPdf: 'DPVAT',
-    descricao: 'Seguro obrigatório de danos pessoais.',
-  },
-  {
-    chave: 'ipva_parcelado',
-    label: 'IPVA parcelado',
-    labelPdf: 'IPVA parcelado',
-    descricao: 'Parcelas pendentes do IPVA do exercício atual.',
-  },
-  {
     chave: 'arranstamento',
-    label: 'Arrastamento / Guincho',
-    labelPdf: 'Arrastamento / Guincho',
+    label: 'Cegonha / Guincho',
+    labelPdf: 'Cegonha / Guincho',
     descricao: 'Custódia / diárias do pátio após remoção.',
   },
   {
@@ -54,10 +42,10 @@ export const DEBITOS: DebitoItemDefinicao[] = [
     descricao: 'Diárias acumuladas em pátio.',
   },
   {
-    chave: 'debito_renavam',
-    label: 'Débitos no RENAVAM',
-    labelPdf: 'Débitos no RENAVAM',
-    descricao: 'Pendências administrativas junto ao DETRAN.',
+    chave: 'procuracoes',
+    label: 'Procurações',
+    labelPdf: 'Procurações',
+    descricao: 'Procurações necessárias para transferência do veículo.',
   },
   {
     chave: 'outros',
