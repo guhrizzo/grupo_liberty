@@ -112,6 +112,8 @@ export interface Veiculo {
   telefoneAcessoria: string | null
   valorParcela: number | null
   custoAcumulado: number | null
+  /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
+  precoAquisicao: number | null
   debitos: number | null
   /** Débitos detalhados por categoria. Calcula o total que aparece em `debitos`. */
   debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
@@ -160,6 +162,7 @@ export type VeiculoFieldErrors = {
   telefoneAcessoria?: string
   valorParcela?: string
   custoAcumulado?: string
+  precoAquisicao?: string
   debitos?: string
   parcelasRestantes?: string
   taxaJuros?: string
@@ -230,6 +233,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         telefoneAcessoria: data.telefoneAcessoria || null,
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
+        precoAquisicao: data.precoAquisicao ?? null,
         debitos: data.debitos ?? null,
         debitosItens: Array.isArray(data.debitosItens)
           ? (data.debitosItens as Array<{
@@ -363,6 +367,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
+  const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -466,6 +472,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   if (custoAcumulado !== null && (Number.isNaN(custoAcumulado) || custoAcumulado < 0)) {
     fieldErrors.custoAcumulado = 'Custo acumulado inválido.'
   }
+  if (precoAquisicao !== null && (Number.isNaN(precoAquisicao) || precoAquisicao < 0)) {
+    fieldErrors.precoAquisicao = 'Preço de aquisição inválido.'
+  }
   if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
     fieldErrors.debitos = 'Débitos inválido.'
   }
@@ -513,6 +522,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       telefoneAcessoria: telefoneAcessoria || null,
       valorParcela,
       custoAcumulado,
+      precoAquisicao,
       debitos,
       debitosItens,
       parcelasRestantes,
@@ -666,6 +676,8 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
+  const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
+  const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -769,6 +781,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   if (custoAcumulado !== null && (Number.isNaN(custoAcumulado) || custoAcumulado < 0)) {
     fieldErrors.custoAcumulado = 'Custo acumulado inválido.'
   }
+  if (precoAquisicao !== null && (Number.isNaN(precoAquisicao) || precoAquisicao < 0)) {
+    fieldErrors.precoAquisicao = 'Preço de aquisição inválido.'
+  }
   if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
     fieldErrors.debitos = 'Débitos inválido.'
   }
@@ -841,6 +856,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       telefoneAcessoria: telefoneAcessoria || null,
       valorParcela,
       custoAcumulado,
+      precoAquisicao,
       debitos,
       debitosItens,
       parcelasRestantes,

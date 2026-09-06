@@ -174,6 +174,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [parcelasRestantes, setParcelasRestantes] = useState('')
   const [valorParcela, setValorParcela] = useState('')
   const [custoAcumulado, setCustoAcumulado] = useState('')
+  // Preço pago para adquirir o veículo. Valor interno de custo — não entra em
+  // débitos, propostas, PDF nem no site.
+  const [precoAquisicao, setPrecoAquisicao] = useState('')
 
   // Acessória
   const [telefoneAcessoria, setTelefoneAcessoria] = useState('')
@@ -453,6 +456,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setParcelasRestantes('')
     setValorParcela('')
     setCustoAcumulado('')
+    setPrecoAquisicao('')
     setTelefoneAcessoria('')
     setDebitos('')
     setDebitosItensSelecionados([])
@@ -598,6 +602,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setParcelasRestantes(veiculo.parcelasRestantes !== null ? String(veiculo.parcelasRestantes) : '')
     setValorParcela(veiculo.valorParcela ? formatCurrency(veiculo.valorParcela).replace('R$', '').trim() : '')
     setCustoAcumulado(veiculo.custoAcumulado ? formatCurrency(veiculo.custoAcumulado).replace('R$', '').trim() : '')
+    setPrecoAquisicao(
+      veiculo.precoAquisicao ? formatCurrency(veiculo.precoAquisicao).replace('R$', '').trim() : '',
+    )
     setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
     setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
     if (Array.isArray(veiculo.debitosItens) && veiculo.debitosItens.length > 0) {
@@ -719,6 +726,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('parcelasRestantes', parcelasRestantes)
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
+      formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
       // Acessória
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       // Débitos
@@ -1640,6 +1648,37 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     containerClassName="mt-3"
                   />
                 )}
+              </div>
+
+              {/* ─── Preço de Aquisição ────────────────────────────── */}
+              <div>
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+                  Preço de Aquisição
+                </h3>
+                <Input
+                  id="precoAquisicao"
+                  label="Preço de aquisição (R$)"
+                  type="text"
+                  inputMode="decimal"
+                  value={precoAquisicao}
+                  onChange={(e) => setPrecoAquisicao(maskMoney(e.target.value))}
+                  placeholder="R$ 0,00"
+                  leftIcon={<IconCash size={14} />}
+                  error={fieldErrors.precoAquisicao}
+                  rightAdornment={
+                    precoAquisicao ? (
+                      <ClearMoneyButton
+                        value={precoAquisicao}
+                        onClear={() => setPrecoAquisicao('')}
+                        label="Preço de aquisição"
+                      />
+                    ) : undefined
+                  }
+                />
+                <p className="mt-2 text-[10px] text-neutral-500">
+                  Valor pago para adquirir o veículo. Uso interno — não entra no total de
+                  débitos e não aparece em propostas, PDF ou no site.
+                </p>
               </div>
 
               {/* ─── Dados do Vendedor ──────────────────────────────────────────── */}

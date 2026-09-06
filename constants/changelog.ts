@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-06-preco-aquisicao-veiculo',
+    date: '2026-09-06',
+    title: 'Preço de aquisição do veículo',
+    tag: 'melhoria',
+    items: [
+      'No cadastro/edição de veículo agora dá para registrar o "Preço de Aquisição" — quanto foi pago para obter o veículo.',
+      'É um valor interno de controle de custo: não entra no total de débitos e não aparece em propostas, PDF nem no site.',
+    ],
+  },
+  {
     id: '2026-09-06-debitos-veiculo-ajustes',
     date: '2026-09-06',
     title: 'Débitos do veículo revisados',
