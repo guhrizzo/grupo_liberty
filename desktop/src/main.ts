@@ -116,10 +116,11 @@ function createWindow() {
 function hardenContents(contents: Electron.WebContents) {
   contents.setWindowOpenHandler(({ url }) => {
     const origin = originOf(url)
-    // Mesma origem (ex.: "abrir PDF" do contrato/proposta em nova aba) → abre
-    // numa janela filha própria, que o usuário fecha. Herda o webPreferences
-    // endurecido do pai.
-    if (origin && APP_ORIGINS.includes(origin)) {
+    // Mesma origem (ex.: "abrir PDF" do contrato/proposta em nova aba) ou o
+    // popup de login do Firebase/Google (`__/auth/handler`, accounts.google.com)
+    // → janela filha no mesmo processo, pra o postMessage do OAuth funcionar.
+    // Herda o webPreferences endurecido do pai.
+    if (origin && (APP_ORIGINS.includes(origin) || AUTH_ORIGINS.includes(origin))) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
@@ -171,6 +172,14 @@ if (!app.requestSingleInstanceLock()) {
   app.on('web-contents-created', (_e, contents) => hardenContents(contents))
 
   app.whenReady().then(() => {
+    // O Google bloqueia OAuth quando o User-Agent contém "Electron" (ou o nome
+    // do app). Tira esses tokens pra o "Continuar com Google" funcionar; pro
+    // site somos um Chrome normal.
+    const cleanUA = session.defaultSession
+      .getUserAgent()
+      .replace(/ (Electron|Liberty ?Car)\/[\d.]+/g, '')
+    session.defaultSession.setUserAgent(cleanUA)
+
     // Downloads (PDFs de contrato/proposta/comprovante): salva em Downloads e abre.
     session.defaultSession.on('will-download', (_e, item) => {
       const savePath = path.join(app.getPath('downloads'), item.getFilename())
