@@ -88,23 +88,29 @@ export default function BaixaManutencaoModal({ manutencao, onClose, onDone }: Pr
       open={!!manutencao}
       onClose={handleClose}
       title="Dar baixa na manutenção"
-      description={
-        manutencao
-          ? `${manutencao.veiculoLabel} • ${manutencao.tipo} • ${manutencao.oficina}`
-          : undefined
-      }
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {manutencao && (
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 px-3.5 py-3">
+            <p className="text-sm font-semibold text-neutral-900">{manutencao.veiculoLabel}</p>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {manutencao.tipo} · {manutencao.oficina}
+            </p>
+          </div>
+        )}
+
         <Input
-          label="Valor pago (R$) *"
+          label="Valor pago (R$)"
+          required
           type="text"
           inputMode="decimal"
-          autoFocus
+          data-autofocus
           value={valor}
           onChange={(e) => setValor(maskMoney(e.target.value))}
-          placeholder="R$ 0,00"
+          placeholder="0,00"
           leftIcon={<IconCash size={14} />}
+          hint="Marca a manutenção como Concluída e entra no custo efetivo total do veículo."
         />
 
         <div className="space-y-1.5">

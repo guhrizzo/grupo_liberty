@@ -83,6 +83,11 @@ const TIPO_CONSERTO_PECAS = 'Conserto de peças'
 
 const PAGE_SIZE = 12
 
+// Botão de ação compacto (só ícone) para a coluna "Ações" da tabela — mantém a
+// linha numa altura só e evita a quebra feia com 3–4 botões rotulados.
+const ICON_ACTION_CLS =
+  'inline-flex items-center justify-center rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 cursor-pointer'
+
 interface Props {
   veiculos: { id: string; marca: string; modelo: string; ano: number; placa: string | null }[]
   initialManutencoes: Manutencao[]
@@ -106,6 +111,16 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const [confirmEstorno, setConfirmEstorno] = useState<Manutencao | null>(null)
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
+
+  // Depois de `router.refresh()` (cadastro, baixa, estorno) o servidor manda uma
+  // lista nova via props — reconcilia o estado local aqui (no render, padrão
+  // "ajustar state quando a prop muda"), senão a tabela só atualizava com F5.
+  // O delete continua fazendo update otimista antes disso.
+  const [lastInitial, setLastInitial] = useState(initialManutencoes)
+  if (lastInitial !== initialManutencoes) {
+    setLastInitial(initialManutencoes)
+    setItems(initialManutencoes)
+  }
 
   function openCreate() {
     setEditing(null)
@@ -196,8 +211,8 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
       toast.success(result.success || (editing ? 'Manutenção atualizada.' : 'Manutenção cadastrada.'))
       router.refresh()
       closeForm()
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro inesperado.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
     } finally {
       setSubmitting(false)
     }
@@ -223,8 +238,8 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         toast.success(result.success || 'Manutenção removida.')
         router.refresh()
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao remover.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover.')
       router.refresh()
     } finally {
       setSubmitting(false)
@@ -520,9 +535,9 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
               <tr>
                 <TH>Veículo / Tipo</TH>
                 <TH>Oficina / Resp.</TH>
-                <TH>Agendada</TH>
-                <TH>Conclusão</TH>
-                <TH align="right">Valor da baixa</TH>
+                <TH className="whitespace-nowrap">Agendada</TH>
+                <TH className="whitespace-nowrap">Conclusão</TH>
+                <TH align="right" className="whitespace-nowrap">Valor da baixa</TH>
                 <TH>Status</TH>
                 <TH align="right">Ações</TH>
               </tr>
@@ -535,11 +550,13 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                     <div className="text-xs text-neutral-500">{m.tipo}</div>
                   </TD>
                   <TD>
-                    <div>{m.oficina}</div>
-                    <div className="text-xs text-neutral-500">{m.responsavel}</div>
+                    <div className="max-w-[15rem] truncate" title={m.oficina}>{m.oficina}</div>
+                    <div className="text-xs text-neutral-500 max-w-[15rem] truncate" title={m.responsavel}>
+                      {m.responsavel}
+                    </div>
                   </TD>
-                  <TD className="text-xs">{formatDate(m.dataAgendada)}</TD>
-                  <TD className="text-xs">{formatDate(m.dataConclusao)}</TD>
+                  <TD className="text-xs whitespace-nowrap">{formatDate(m.dataAgendada)}</TD>
+                  <TD className="text-xs whitespace-nowrap">{formatDate(m.dataConclusao)}</TD>
                   <TD align="right" className="font-semibold text-neutral-900">
                     {isManutencaoBaixada(m) ? (
                       formatCurrency(valorManutencao(m))
@@ -551,7 +568,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                     <StatusBadge tone={STATUS_TONE[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
                   </TD>
                   <TD align="right">
-                    <div className="inline-flex flex-wrap justify-end gap-2">
+                    <div className="flex items-center justify-end gap-1">
                       {m.baixa ? (
                         <>
                           {m.baixa.comprovante && (
@@ -559,19 +576,22 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                               href={`/api/manutencao/${m.id}/comprovante`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                              className={ICON_ACTION_CLS}
+                              title="Ver comprovante"
+                              aria-label="Ver comprovante"
                             >
-                              <IconEye size={12} stroke={2.2} /> Comprovante
+                              <IconEye size={16} stroke={2} />
                             </a>
                           )}
-                          <Button
-                            size="sm"
-                            variant="secondary"
+                          <button
+                            type="button"
                             onClick={() => setConfirmEstorno(m)}
-                            leftIcon={<IconArrowBackUp size={12} />}
+                            className={ICON_ACTION_CLS}
+                            title="Estornar baixa"
+                            aria-label="Estornar baixa"
                           >
-                            Estornar
-                          </Button>
+                            <IconArrowBackUp size={16} stroke={2} />
+                          </button>
                         </>
                       ) : (
                         m.status !== 'cancelada' && (
@@ -585,23 +605,25 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                           </Button>
                         )
                       )}
-                      <Button
-                        size="sm"
-                        variant="secondary"
+                      <span className="mx-0.5 h-5 w-px bg-neutral-200" aria-hidden />
+                      <button
+                        type="button"
                         onClick={() => openEdit(m)}
-                        leftIcon={<IconPencil size={12} />}
+                        className={ICON_ACTION_CLS}
+                        title="Editar manutenção"
+                        aria-label="Editar manutenção"
                       >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
+                        <IconPencil size={16} stroke={2} />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setConfirmDelete(m)}
-                        leftIcon={<IconTrash size={12} />}
-                        className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+                        className={`${ICON_ACTION_CLS} !text-rose-600 hover:!bg-rose-50 hover:!text-rose-700`}
+                        title="Remover manutenção"
+                        aria-label="Remover manutenção"
                       >
-                        Remover
-                      </Button>
+                        <IconTrash size={16} stroke={2} />
+                      </button>
                     </div>
                   </TD>
                 </TR>
