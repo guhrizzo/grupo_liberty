@@ -45,6 +45,13 @@ export function Modal({
   const descId = useId()
   const prevFocus = useRef<HTMLElement | null>(null)
 
+  // `onClose` costuma ser uma arrow inline — muda de identidade a cada render.
+  // Guardamos a última referência para que o efeito de foco/Escape NÃO precise
+  // dela nas deps: senão ele re-executa a cada tecla digitada num input
+  // controlado e o cleanup rouba o foco do campo (bug "só aceita 1 dígito").
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   // Body scroll lock
   useEffect(() => {
     if (!open) return
@@ -55,18 +62,22 @@ export function Modal({
     }
   }, [open])
 
-  // Escape para fechar + foco inicial + restore
+  // Escape para fechar + foco inicial + restore. Deps: só `open` — ver nota
+  // em `onCloseRef` acima.
   useEffect(() => {
     if (!open) return
     prevFocus.current = document.activeElement as HTMLElement | null
 
     const dialog = dialogRef.current
     if (dialog) {
-      const focusables = dialog.querySelectorAll<HTMLElement>(FOCUSABLE)
-      const first = focusables[0]
-      if (first) {
+      // Respeita um campo marcado com `autoFocus` (ex.: o valor no modal de
+      // baixa); só então cai para o primeiro focável.
+      const target =
+        dialog.querySelector<HTMLElement>('[autofocus], [data-autofocus]') ??
+        dialog.querySelector<HTMLElement>(FOCUSABLE)
+      if (target) {
         // timeout para o React montar
-        setTimeout(() => first.focus(), 0)
+        setTimeout(() => target.focus(), 0)
       } else {
         dialog.focus()
       }
@@ -75,7 +86,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        onCloseRef.current()
         return
       }
       if (e.key === 'Tab' && dialog) {
@@ -104,7 +115,7 @@ export function Modal({
       // Restaura foco no elemento que abriu o modal.
       prevFocus.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   if (typeof document === 'undefined') return null
 
