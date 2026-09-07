@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState, useTransition } from 'react'
+import { useActionState, useEffect, useState, useSyncExternalStore, useTransition } from 'react'
 import {
   IconMail,
   IconLock,
@@ -23,6 +23,18 @@ import { Button, Input, useToast, ZoomIn } from '../components/ui'
 import { login, loginWithGoogle, checkEmailAuthMethod, requestPasswordReset } from './actions'
 
 const initialState: { error?: string } = {}
+
+/** `true` quando a página está rodando dentro do app desktop (Electron), que
+ *  injeta `window.libertyDesktop` via preload. Usado pra esconder o login com
+ *  Google (o popup OAuth não fecha o fluxo de forma confiável no Electron). */
+const noopSubscribe = () => () => {}
+function useIsDesktopApp() {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => Boolean((window as { libertyDesktop?: unknown }).libertyDesktop),
+    () => false,
+  )
+}
 
 /** Conta com o mesmo e-mail já existe, mas com senha — precisamos da senha
  *  atual para vincular o Google a essa mesma conta (nunca criamos uma nova). */
@@ -73,6 +85,8 @@ export default function LoginForm({
   const [linkPassword, setLinkPassword] = useState('')
   const [showLinkPassword, setShowLinkPassword] = useState(false)
   const [isLinking, startLinkTransition] = useTransition()
+  // No app desktop (Electron) o acesso é só por e-mail/senha.
+  const isDesktopApp = useIsDesktopApp()
   const toast = useToast()
 
   // Toasts: erro do useActionState; mensagem de sucesso vinda da query string.
@@ -279,25 +293,29 @@ export default function LoginForm({
           Entrar
         </Button>
 
-        <div className="flex items-center gap-3">
-          <div className="h-px flex-1 bg-neutral-800" />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-text-lo">ou</span>
-          <div className="h-px flex-1 bg-neutral-800" />
-        </div>
+        {!isDesktopApp && (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-neutral-800" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-lo">ou</span>
+              <div className="h-px flex-1 bg-neutral-800" />
+            </div>
 
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          fullWidth
-          loading={isGoogleLoading}
-          loadingLabel="Conectando..."
-          disabled={isPending}
-          onClick={handleGoogleLogin}
-          leftIcon={<GoogleIcon size={16} />}
-        >
-          Continuar com Google
-        </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              loading={isGoogleLoading}
+              loadingLabel="Conectando..."
+              disabled={isPending}
+              onClick={handleGoogleLogin}
+              leftIcon={<GoogleIcon size={16} />}
+            >
+              Continuar com Google
+            </Button>
+          </>
+        )}
       </form>
 
       {/* Modal de Vinculação de Conta Google — quando o e-mail já existe com senha */}
