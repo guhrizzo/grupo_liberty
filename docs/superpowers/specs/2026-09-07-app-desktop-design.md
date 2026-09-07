@@ -106,8 +106,20 @@ estar apontado para o deploy da Vercel antes do primeiro release.
   - origem fora de `APP_ORIGINS ∪ AUTH_ORIGINS` → bloqueia (e abre no navegador
     se for http/https).
 - Domínios de auth liberados: `grupo-liberty.firebaseapp.com`,
-  `accounts.google.com`, `apis.google.com` (rede de segurança caso o login use
-  redirect — o fluxo atual é por cookie de sessão, sem popup).
+  `accounts.google.com`, `apis.google.com`.
+
+### Login
+
+- **E-mail/senha**: funciona sem nenhuma config no Firebase (o server action
+  `login` chama a API REST `identitytoolkit` no servidor). É o único método no
+  app desktop.
+- **Google (`signInWithPopup`)**: **escondido no app desktop** — o `LoginForm`
+  detecta `window.libertyDesktop` e não renderiza o botão. Motivo: o popup OAuth
+  do Firebase não fecha o fluxo de forma confiável dentro do Electron. No site
+  (navegador) o botão continua normal.
+- Firebase → Authentication → Authorized domains precisa ter
+  `grupolibertycar.com.br` e `www.grupolibertycar.com.br` (já necessário pro
+  site). O app carrega a página do domínio real, não há "domínio do exe".
 
 ### Downloads / PDFs
 

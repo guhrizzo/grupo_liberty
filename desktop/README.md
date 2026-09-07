@@ -55,6 +55,16 @@ reiniciar.
 partir do wordmark da marca — é **provisório**. Para o ícone oficial, coloque um
 `assets/icon.source.png` quadrado (≥ 1024×1024) e rode `npm run prebuild`.
 
+## Login
+
+Só **e-mail e senha** dentro do app. O botão "Continuar com Google" some quando a
+página roda no Electron (`window.libertyDesktop`) — o popup OAuth do Firebase não
+fecha o fluxo de forma confiável fora de um navegador. No site continua normal.
+
+No Firebase (Authentication → Settings → Authorized domains) basta ter
+`grupolibertycar.com.br` e `www.grupolibertycar.com.br` — o app carrega a página
+do domínio real, não existe "domínio do exe".
+
 ## Limitações conhecidas
 
 1. **Sem assinatura de código.** Na primeira instalação o Windows SmartScreen
