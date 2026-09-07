@@ -1,6 +1,5 @@
 import { app, dialog, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { UPDATE_FEED_URL } from './config'
 
 const SIX_HOURS = 6 * 60 * 60 * 1000
 let manualCheck = false
@@ -12,7 +11,8 @@ function wire(getWindow: () => BrowserWindow | null) {
 
   autoUpdater.autoDownload = true
   autoUpdater.autoInstallOnAppQuit = true
-  autoUpdater.setFeedURL({ provider: 'generic', url: UPDATE_FEED_URL })
+  // Feed = GitHub Releases (guhrizzo/grupo_liberty), lido do app-update.yml que o
+  // electron-builder embute a partir do bloco `publish` do electron-builder.yml.
 
   autoUpdater.on('update-downloaded', async (info) => {
     const win = getWindow() ?? undefined

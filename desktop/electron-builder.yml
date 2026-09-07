@@ -12,9 +12,12 @@ files:
   - package.json
 
 # electron-updater lê este bloco pra gerar o app-update.yml embutido.
+# GitHub Releases do repo público guhrizzo/grupo_liberty — sem limite de tamanho,
+# download sem token (o repo é público). Publicar precisa de GH_TOKEN local.
 publish:
-  provider: generic
-  url: https://tdnioxrmhfhfvlfvuand.supabase.co/storage/v1/object/public/desktop-releases
+  provider: github
+  owner: guhrizzo
+  repo: grupo_liberty
 
 win:
   target:
