@@ -50,7 +50,9 @@ export function Modal({
   // dela nas deps: senão ele re-executa a cada tecla digitada num input
   // controlado e o cleanup rouba o foco do campo (bug "só aceita 1 dígito").
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   // Body scroll lock
   useEffect(() => {

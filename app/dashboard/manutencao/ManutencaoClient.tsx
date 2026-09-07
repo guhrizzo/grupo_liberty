@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   IconPlus,
@@ -211,8 +211,8 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
       toast.success(result.success || (editing ? 'Manutenção atualizada.' : 'Manutenção cadastrada.'))
       router.refresh()
       closeForm()
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro inesperado.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
     } finally {
       setSubmitting(false)
     }
@@ -238,8 +238,8 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         toast.success(result.success || 'Manutenção removida.')
         router.refresh()
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'Erro ao remover.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao remover.')
       router.refresh()
     } finally {
       setSubmitting(false)
