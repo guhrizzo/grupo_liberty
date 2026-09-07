@@ -48,6 +48,12 @@ export const DEBITOS: DebitoItemDefinicao[] = [
     descricao: 'Procurações necessárias para transferência do veículo.',
   },
   {
+    chave: 'translado',
+    label: 'Translado',
+    labelPdf: 'Translado',
+    descricao: 'Custo para transportar o veículo — ex.: gasolina para buscar o veículo.',
+  },
+  {
     chave: 'outros',
     label: 'Outros débitos',
     labelPdf: 'Outros débitos',

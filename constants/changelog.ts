@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-06-custo-efetivo-total-veiculo',
+    date: '2026-09-06',
+    title: 'Custo efetivo total do veículo',
+    tag: 'melhoria',
+    items: [
+      'O formulário de veículo agora mostra o "Custo efetivo total" — soma dos débitos do veículo com o preço de aquisição.',
+      'É um valor interno de controle de custo, calculado automaticamente; não aparece em propostas, PDF nem no site.',
+      'Novo débito "Translado": custo para transportar o veículo (ex.: gasolina para buscá-lo).',
+    ],
+  },
+  {
     id: '2026-09-06-preco-aquisicao-veiculo',
     date: '2026-09-06',
     title: 'Preço de aquisição do veículo',

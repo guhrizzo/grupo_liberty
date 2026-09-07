@@ -207,6 +207,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const setDebitoValor = (chave: string, raw: string) => {
     setDebitosValores((prev) => ({ ...prev, [chave]: raw }))
   }
+
+  // Custo efetivo total = total de débitos + preço de aquisição. Só exibição — o
+  // servidor recalcula e persiste a partir dos mesmos campos.
+  const debitosParaCusto =
+    debitosItensSelecionados.length > 0 ? debitosTotalCalculado : parseMoney(debitos) || 0
+  const precoAquisicaoNum = parseMoney(precoAquisicao) || 0
+  const custoEfetivoTotal = debitosParaCusto + precoAquisicaoNum
+
   const [sellerName, setSellerName] = useState('')
   const [sellerCpf, setSellerCpf] = useState('')
   const [sellerBirthDate, setSellerBirthDate] = useState('')
@@ -1678,6 +1686,41 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <p className="mt-2 text-[10px] text-neutral-500">
                   Valor pago para adquirir o veículo. Uso interno — não entra no total de
                   débitos e não aparece em propostas, PDF ou no site.
+                </p>
+              </div>
+
+              {/* ─── Custo efetivo total ───────────────────────────── */}
+              <div>
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+                  Custo efetivo total
+                </h3>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-4">
+                  <dl className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-neutral-500">Débitos do veículo</dt>
+                      <dd className="font-semibold text-neutral-800 tabular-nums">
+                        {formatCurrency(debitosParaCusto)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-neutral-500">Preço de aquisição</dt>
+                      <dd className="font-semibold text-neutral-800 tabular-nums">
+                        {formatCurrency(precoAquisicaoNum)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="mt-3 flex items-center justify-between border-t border-neutral-200 pt-3">
+                    <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                      Custo efetivo total
+                    </span>
+                    <span className="text-sm font-extrabold text-liberty tabular-nums">
+                      {formatCurrency(custoEfetivoTotal)}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] text-neutral-500">
+                  Soma automática de débitos do veículo + preço de aquisição. Uso interno —
+                  não aparece em propostas, PDF ou no site.
                 </p>
               </div>
 

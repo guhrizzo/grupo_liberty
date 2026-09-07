@@ -114,6 +114,8 @@ export interface Veiculo {
   custoAcumulado: number | null
   /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
   precoAquisicao: number | null
+  /** Soma interna: total de débitos + preço de aquisição. Derivado — não editável. */
+  custoEfetivoTotal: number | null
   debitos: number | null
   /** Débitos detalhados por categoria. Calcula o total que aparece em `debitos`. */
   debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
@@ -234,6 +236,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
+        custoEfetivoTotal: data.custoEfetivoTotal ?? null,
         debitos: data.debitos ?? null,
         debitosItens: Array.isArray(data.debitosItens)
           ? (data.debitosItens as Array<{
@@ -379,6 +382,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       : debitosManual !== null
         ? debitosManual
         : null
+  // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
+  // derivado — o cliente só exibe, o servidor é a fonte da verdade.
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -523,6 +529,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      custoEfetivoTotal,
       debitos,
       debitosItens,
       parcelasRestantes,
@@ -688,6 +695,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       : debitosManual !== null
         ? debitosManual
         : null
+  // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
+  // derivado — o cliente só exibe, o servidor é a fonte da verdade.
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -857,6 +867,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      custoEfetivoTotal,
       debitos,
       debitosItens,
       parcelasRestantes,
