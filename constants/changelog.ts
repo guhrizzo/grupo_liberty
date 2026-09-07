@@ -29,8 +29,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Custo efetivo total do veículo',
     tag: 'melhoria',
     items: [
-      'O formulário de veículo agora mostra o "Custo efetivo total" — soma dos débitos do veículo com o preço de aquisição.',
-      'É um valor interno de controle de custo, calculado automaticamente; não aparece em propostas, PDF nem no site.',
+      'O formulário de veículo agora mostra o "Custo efetivo total" — soma dos débitos do veículo, do preço de aquisição e das manutenções do veículo.',
+      'Cada manutenção não cancelada entra como uma linha "Manutenção — <tipo>" e é somada automaticamente; ao criar, editar ou remover uma manutenção o total é atualizado.',
+      'É um valor interno de controle de custo; não aparece em propostas, PDF nem no site.',
       'Novo débito "Translado": custo para transportar o veículo (ex.: gasolina para buscá-lo).',
     ],
   },

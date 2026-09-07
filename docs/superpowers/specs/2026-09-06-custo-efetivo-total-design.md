@@ -102,6 +102,40 @@ Entra no total de débitos como qualquer outro item — portanto também no
 "Custo efetivo total". Como os demais débitos, pode ser incluído numa proposta/PDF
 se selecionado lá.
 
+## Manutenções no custo efetivo total (adendo 2026-09-07)
+
+Cada manutenção do veículo também entra no "Custo efetivo total".
+
+| Questão | Decisão |
+|---|---|
+| Rótulo da linha | `Manutenção — <tipo>` (campo `tipo` da manutenção) |
+| Quais entram | Todas com `status !== 'cancelada'` (agendada, em execução, concluída) |
+| Valor | Campo `custo` da manutenção (já embute o total de peças quando usado) |
+| Fonte no form | `listarManutencoesVeiculo(veiculoId)` — carregada sob demanda no `handleEdit`, só na edição |
+| Persistência | `custoEfetivoTotal` no doc do veículo passa a incluir a soma das manutenções |
+| Quando recalcula o valor gravado | Ao salvar o veículo **e** ao criar / editar / remover uma manutenção |
+
+### `listarManutencoesVeiculo(veiculoId)` (`app/dashboard/manutencao/actions.ts`)
+
+Leitura sem gate de admin (mesma postura de `getManutencoes`). Retorna
+`Array<{ id; tipo; custo }>` das manutenções não canceladas do veículo.
+
+### `recalcularCustoEfetivoTotal(veiculoId)` (`app/dashboard/veiculos/actions.ts`)
+
+Helper exportado. Lê `debitos` + `precoAquisicao` do doc do veículo, soma o `custo`
+das manutenções não canceladas daquele `veiculoId` e grava
+`custoEfetivoTotal = base + manutenções || null`. Falha em silêncio (loga).
+
+Chamado por:
+- `updateVehicle` — depois do `update`, para dobrar as manutenções sobre o valor
+  base já gravado.
+- `createManutencao` / `updateManutencao` / `deleteManutencao` — para o valor
+  gravado no veículo não ficar defasado. `updateManutencao` recalcula também o
+  `veiculoId` anterior quando a manutenção troca de veículo.
+
+Essas actions de manutenção passam a chamar também
+`revalidatePath('/dashboard/veiculos')`.
+
 ## Changelog
 
 Entrada nova no topo de `constants/changelog.ts`:

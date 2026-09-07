@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { recalcularCustoEfetivoTotal } from '@/app/dashboard/veiculos/actions'
 import {
   MANUTENCAO_STATUS,
   type Manutencao,
@@ -189,7 +190,10 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
 
     await docRef.set(nova)
 
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return {
       success: 'Manutenção cadastrada com sucesso!',
       manutencao: { id: docRef.id, ...nova },
@@ -249,6 +253,7 @@ export async function updateManutencao(
     const docRef = adminDb.collection('manutencoes').doc(id)
     const doc = await docRef.get()
     if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+    const veiculoIdAnterior = (doc.data()?.veiculoId as string) || ''
 
     const now = new Date().toISOString()
     const atualizacao = {
@@ -268,7 +273,13 @@ export async function updateManutencao(
 
     await docRef.update(atualizacao)
 
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+    if (veiculoIdAnterior && veiculoIdAnterior !== veiculoId) {
+      await recalcularCustoEfetivoTotal(veiculoIdAnterior)
+    }
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return {
       success: 'Manutenção atualizada com sucesso!',
       manutencao: { id, ...doc.data(), ...atualizacao } as Manutencao,
@@ -296,12 +307,50 @@ export async function deleteManutencao(
     const docRef = adminDb.collection('manutencoes').doc(id)
     const doc = await docRef.get()
     if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+    const veiculoIdDaManutencao = (doc.data()?.veiculoId as string) || ''
 
     await docRef.delete()
+
+    if (veiculoIdDaManutencao) await recalcularCustoEfetivoTotal(veiculoIdDaManutencao)
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return { success: 'Manutenção removida com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao remover manutenção: ${error.message}` }
+  }
+}
+
+/**
+ * Manutenções não canceladas de um único veículo, resumidas para compor o
+ * "Custo efetivo total" no cadastro de veículo. Leitura sem gate de admin —
+ * mesma postura de `getManutencoes`; devolve só tipo e custo.
+ */
+export async function listarManutencoesVeiculo(
+  veiculoId: string,
+): Promise<Array<{ id: string; tipo: string; custo: number }>> {
+  if (!veiculoId) return []
+  try {
+    const snap = await adminDb
+      .collection('manutencoes')
+      .where('veiculoId', '==', veiculoId)
+      .get()
+    const itens: Array<{ id: string; tipo: string; custo: number }> = []
+    for (const doc of snap.docs) {
+      const data = doc.data()
+      if (data.status === 'cancelada') continue
+      const custo =
+        typeof data.custo === 'number' ? data.custo : Number(data.custo) || 0
+      itens.push({
+        id: doc.id,
+        tipo: (data.tipo as string) || 'Manutenção',
+        custo: custo > 0 ? custo : 0,
+      })
+    }
+    return itens
+  } catch (error) {
+    console.error('Erro ao listar manutenções do veículo:', error)
+    return []
   }
 }
 

@@ -51,6 +51,41 @@ function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
 export type DebitoItem = DebitoItemPersistido
 
 /**
+ * Recalcula e persiste `custoEfetivoTotal` de um veículo:
+ * `debitos + precoAquisicao + soma das manutenções não canceladas do veículo`.
+ * É chamado ao salvar o veículo e sempre que uma manutenção dele é criada,
+ * editada ou removida, para o valor gravado não ficar defasado. Falha em
+ * silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
+ */
+export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<void> {
+  if (!veiculoId) return
+  try {
+    const ref = adminDb.collection('veiculos').doc(veiculoId)
+    const snap = await ref.get()
+    if (!snap.exists) return
+    const data = snap.data() || {}
+    const base = (data.debitos ?? 0) + (data.precoAquisicao ?? 0)
+
+    const manutSnap = await adminDb
+      .collection('manutencoes')
+      .where('veiculoId', '==', veiculoId)
+      .get()
+    let manutencoes = 0
+    for (const m of manutSnap.docs) {
+      const md = m.data()
+      if (md.status === 'cancelada') continue
+      const custo = typeof md.custo === 'number' ? md.custo : Number(md.custo) || 0
+      if (custo > 0) manutencoes += custo
+    }
+
+    const total = base + manutencoes || null
+    await ref.update({ custoEfetivoTotal: total })
+  } catch (error) {
+    console.error('Erro ao recalcular custo efetivo total do veículo', veiculoId, error)
+  }
+}
+
+/**
  * Descriptografa um CPF salvo. Registros gravados antes da criptografia
  * (texto plano, sem o separador ':' do formato 'ivHex:encryptedHex') caem no
  * fallback e retornam o valor bruto, para não quebrar veículos já cadastrados.
@@ -889,6 +924,10 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     }
 
     await docRef.update(atualizacao)
+
+    // `atualizacao.custoEfetivoTotal` cobre só débitos + preço de aquisição;
+    // dobra as manutenções não canceladas por cima do valor já gravado.
+    await recalcularCustoEfetivoTotal(id)
 
     revalidatePath('/dashboard/veiculos')
     return {
