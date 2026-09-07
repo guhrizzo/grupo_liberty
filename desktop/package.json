@@ -12,7 +12,7 @@
     "dev": "npm run compile && cross-env APP_ORIGIN=http://localhost:3000 electronmon dist/main.js",
     "prebuild": "node scripts/make-icon.mjs",
     "build": "npm run compile && npm run prebuild && electron-builder --win",
-    "release": "npm run compile && npm run prebuild && electron-builder --win --publish always"
+    "release": "node scripts/release.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.6.2",
