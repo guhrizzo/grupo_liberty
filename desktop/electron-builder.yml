@@ -1,0 +1,36 @@
+appId: br.com.grupoliberty.libertycar
+productName: Liberty Car
+copyright: © Grupo Liberty
+
+directories:
+  output: build
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+
+# electron-updater lê este bloco pra gerar o app-update.yml embutido.
+publish:
+  provider: generic
+  url: https://tdnioxrmhfhfvlfvuand.supabase.co/storage/v1/object/public/desktop-releases
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  # Sem assinatura de código por enquanto — SmartScreen vai avisar na 1a vez.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Liberty Car
+  deleteAppDataOnUninstall: false
+
+artifactName: Liberty-Car-Setup-${version}.${ext}
