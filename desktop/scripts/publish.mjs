@@ -30,7 +30,7 @@ const BUCKET = process.env.RELEASE_BUCKET || 'desktop-releases'
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   console.error(
-    'Faltando SUPABASE_URL / SUPABASE_SERVICE_KEY. Crie desktop/.env a partir de desktop/.env.example.',
+    'Faltando SUPABASE_URL / SUPABASE_SERVICE_KEY. Preencha desktop/.env (ver desktop/README.md).',
   )
   process.exit(1)
 }
@@ -76,9 +76,11 @@ function contentType(file) {
 
 for (const file of targets) {
   const body = await readFile(path.join(buildDir, file))
+  // latest.yml não pode ficar em cache — é o que sinaliza "tem versão nova".
+  const cacheControl = file === 'latest.yml' ? 'no-cache' : '3600'
   const { error } = await supa.storage
     .from(BUCKET)
-    .upload(file, body, { upsert: true, contentType: contentType(file) })
+    .upload(file, body, { upsert: true, contentType: contentType(file), cacheControl })
   if (error) {
     console.error('falha no upload de', file, '—', error.message)
     process.exit(1)

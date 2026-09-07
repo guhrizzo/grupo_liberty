@@ -40,8 +40,12 @@ O `.exe` fica em `desktop/build/`. Instalação por usuário (não pede admin).
 ## Publicar uma atualização
 
 1. Suba o número em `package.json` (`version`).
-2. Crie `desktop/.env` a partir de `desktop/.env.example` e preencha a
-   `SUPABASE_SERVICE_KEY`.
+2. Crie `desktop/.env` (gitignored) com:
+   ```
+   SUPABASE_URL=https://<ref>.supabase.co
+   SUPABASE_SERVICE_KEY=<service_role key — Settings > API>
+   RELEASE_BUCKET=desktop-releases
+   ```
 3. `npm run release` — builda e sobe `latest.yml` + `.exe` + `.blockmap` pro
    bucket público `desktop-releases` do Supabase.
 
