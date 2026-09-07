@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // App desktop (Electron) — projeto próprio, fora do lint/build da Vercel.
+    "desktop/**",
   ]),
 ]);
 
