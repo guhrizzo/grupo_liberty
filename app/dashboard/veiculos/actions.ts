@@ -52,10 +52,13 @@ export type DebitoItem = DebitoItemPersistido
 
 /**
  * Recalcula e persiste `custoEfetivoTotal` de um veículo:
- * `debitos + precoAquisicao + soma das manutenções não canceladas do veículo`.
+ * `debitos + precoAquisicao + soma das manutenções baixadas do veículo`.
  * É chamado ao salvar o veículo e sempre que uma manutenção dele é criada,
- * editada ou removida, para o valor gravado não ficar defasado. Falha em
- * silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
+ * editada, baixada, estornada ou removida, para o valor gravado não ficar
+ * defasado. Falha em silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
+ *
+ * "Baixada" = tem objeto `baixa` OU (legado) já tinha `custo > 0` e não está
+ * cancelada. O valor é `baixa.valor` quando há baixa, senão o `custo` legado.
  */
 export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<void> {
   if (!veiculoId) return
@@ -74,8 +77,12 @@ export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<vo
     for (const m of manutSnap.docs) {
       const md = m.data()
       if (md.status === 'cancelada') continue
-      const custo = typeof md.custo === 'number' ? md.custo : Number(md.custo) || 0
-      if (custo > 0) manutencoes += custo
+      const baixa = md.baixa as { valor?: number } | null | undefined
+      const custoLegado = typeof md.custo === 'number' ? md.custo : Number(md.custo) || 0
+      const baixada = !!baixa || custoLegado > 0
+      if (!baixada) continue
+      const valor = baixa ? Number(baixa.valor) || 0 : custoLegado
+      if (valor > 0) manutencoes += valor
     }
 
     const total = base + manutencoes || null

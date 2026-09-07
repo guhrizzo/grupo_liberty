@@ -209,7 +209,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setDebitosValores((prev) => ({ ...prev, [chave]: raw }))
   }
 
-  // Manutenções não canceladas do veículo em edição — carregadas sob demanda no
+  // Manutenções com baixa do veículo em edição — carregadas sob demanda no
   // handleEdit. Entram no "Custo efetivo total" como uma linha cada.
   const [manutencoesVeiculo, setManutencoesVeiculo] = useState<
     Array<{ id: string; tipo: string; custo: number }>
@@ -665,7 +665,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         .finally(() => setContratosLoading(false))
     }
 
-    // Manutenções (não canceladas) do veículo — compõem o custo efetivo total.
+    // Manutenções com baixa do veículo — compõem o custo efetivo total.
     setManutencoesVeiculo([])
     listarManutencoesVeiculo(veiculo.id)
       .then((lista) => setManutencoesVeiculo(lista))
@@ -1748,7 +1748,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
                 <p className="mt-2 text-[10px] text-neutral-500">
                   Soma automática de débitos do veículo + preço de aquisição + manutenções
-                  (exceto canceladas). Uso interno — não aparece em propostas, PDF ou no site.
+                  com baixa. Uso interno — não aparece em propostas, PDF ou no site.
                 </p>
               </div>
 

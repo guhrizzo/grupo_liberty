@@ -24,13 +24,25 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-07-baixa-manutencao',
+    date: '2026-09-07',
+    title: 'Baixa de manutenção (valor + comprovante)',
+    tag: 'melhoria',
+    items: [
+      'A manutenção agora é cadastrada sem valor — só os dados do serviço.',
+      'Quando o serviço termina, use "Dar baixa": informe o valor pago e, se quiser, anexe um comprovante (PDF ou imagem). A baixa marca a manutenção como Concluída.',
+      'Só manutenção com baixa entra no "Custo efetivo total" do veículo. Dá para "Estornar" uma baixa (admin).',
+      'Manutenções antigas que já tinham custo continuam contando normalmente.',
+    ],
+  },
+  {
     id: '2026-09-06-custo-efetivo-total-veiculo',
     date: '2026-09-06',
     title: 'Custo efetivo total do veículo',
     tag: 'melhoria',
     items: [
       'O formulário de veículo agora mostra o "Custo efetivo total" — soma dos débitos do veículo, do preço de aquisição e das manutenções do veículo.',
-      'Cada manutenção não cancelada entra como uma linha "Manutenção — <tipo>" e é somada automaticamente; ao criar, editar ou remover uma manutenção o total é atualizado.',
+      'Cada manutenção com baixa entra como uma linha "Manutenção — <tipo>" e é somada automaticamente; ao dar baixa, estornar ou remover uma manutenção o total é atualizado.',
       'É um valor interno de controle de custo; não aparece em propostas, PDF nem no site.',
       'Novo débito "Translado": custo para transportar o veículo (ex.: gasolina para buscá-lo).',
     ],
