@@ -10,11 +10,8 @@ export const APP_ORIGIN =
 // o próprio site redireciona pra /login; com sessão, entra direto.
 export const APP_URL = process.env.APP_URL ?? `${APP_ORIGIN}/dashboard`
 
-// Feed de atualização (bucket público do Supabase Storage). O ref do projeto é o
-// mesmo usado no `next.config.ts` da raiz.
-export const UPDATE_FEED_URL =
-  process.env.UPDATE_FEED_URL ??
-  'https://tdnioxrmhfhfvlfvuand.supabase.co/storage/v1/object/public/desktop-releases'
+// O feed de atualização (GitHub Releases) é configurado no electron-builder.yml
+// e embutido no app-update.yml — não precisa de nada aqui.
 
 // Origens tratadas como "dentro do app" — navegação livre.
 export const APP_ORIGINS = [

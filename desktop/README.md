@@ -4,7 +4,7 @@ Casca **Electron** que empacota o sistema Liberty Car (Next.js, publicado na
 Vercel) como um aplicativo instalável no Windows, com janela própria, atalho no
 Menu Iniciar e atualização automática.
 
-O backend continua 100% na nuvem (Firebase / Supabase). Este app **não** roda o
+O backend continua 100% na nuvem (Firebase). Este app **não** roda o
 Next.js localmente — ele abre `https://grupolibertycar.com.br/dashboard` numa
 janela nativa. É **só o sistema interno**: sem sessão cai na tela de login; a
 vitrine pública (`/`, `/veiculos`) não aparece dentro do app (é redirecionada
@@ -39,15 +39,19 @@ O `.exe` fica em `desktop/build/`. Instalação por usuário (não pede admin).
 
 ## Publicar uma atualização
 
+O feed de atualização são as **Releases do GitHub** do repo público
+`guhrizzo/grupo_liberty` (sem limite de tamanho; download sem token porque o repo
+é público).
+
 1. Suba o número em `package.json` (`version`).
-2. Crie `desktop/.env` (gitignored) com:
+2. Crie `desktop/electron-builder.env` (gitignored) com:
    ```
-   SUPABASE_URL=https://<ref>.supabase.co
-   SUPABASE_SERVICE_KEY=<service_role key — Settings > API>
-   RELEASE_BUCKET=desktop-releases
+   GH_TOKEN=<Personal Access Token — escopo public_repo>
    ```
-3. `npm run release` — builda e sobe `latest.yml` + `.exe` + `.blockmap` pro
-   bucket público `desktop-releases` do Supabase.
+   Token em https://github.com/settings/tokens
+3. `npm run release` — builda o `.exe` e publica uma release (rascunho) no GitHub
+   com `latest.yml` + `.exe` + `.blockmap`.
+4. No GitHub, **publica a release** (sai de "Draft"). Só então os apps enxergam.
 
 Apps já instalados detectam a nova versão em até 6h (ou na hora, via
 **Ajuda › Procurar atualizações**), baixam em segundo plano e pedem pra
