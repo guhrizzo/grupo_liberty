@@ -8,7 +8,7 @@ import {
 
 interface MenuOptions {
   isDev: boolean
-  appUrl: string
+  siteUrl: string
   onCheckUpdates: () => void
 }
 
@@ -77,8 +77,8 @@ export function buildMenu(opts: MenuOptions): Menu {
       label: 'Ajuda',
       submenu: [
         {
-          label: 'Abrir site no navegador',
-          click: () => shell.openExternal(opts.appUrl),
+          label: 'Abrir site público no navegador',
+          click: () => shell.openExternal(opts.siteUrl),
         },
         { label: 'Procurar atualizações…', click: opts.onCheckUpdates },
       ],

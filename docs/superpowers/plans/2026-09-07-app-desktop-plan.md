@@ -34,7 +34,11 @@ Feed de update: bucket público `desktop-releases` no Supabase Storage.
 ## Passo 1 — Config (`desktop/src/config.ts`)
 
 ```ts
-export const APP_URL = process.env.APP_URL ?? 'https://grupolibertycar.com.br'
+export const APP_ORIGIN = process.env.APP_ORIGIN ?? 'https://grupolibertycar.com.br'
+// entra direto no sistema interno; sem sessão o site manda pra /login
+export const APP_URL = process.env.APP_URL ?? `${APP_ORIGIN}/dashboard`
+// rotas públicas que o desktop redireciona pro sistema interno
+export const internalRedirectFor = (url: string): string | null => // .../dashboard | null
 export const UPDATE_FEED_URL =
   process.env.UPDATE_FEED_URL ??
   'https://<PROJETO>.supabase.co/storage/v1/object/public/desktop-releases'

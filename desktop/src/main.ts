@@ -10,9 +10,11 @@ import {
 } from 'electron'
 import {
   APP_URL,
+  APP_ORIGIN,
   APP_ORIGINS,
   AUTH_ORIGINS,
   BACKGROUND_COLOR,
+  internalRedirectFor,
 } from './config'
 import { createWindowState } from './window-state'
 import { buildMenu } from './menu'
@@ -132,12 +134,25 @@ function hardenContents(contents: Electron.WebContents) {
   })
 
   contents.on('will-navigate', (event, url) => {
+    // Rota pública (vitrine) → manda pro sistema interno.
+    const internal = internalRedirectFor(url)
+    if (internal) {
+      event.preventDefault()
+      mainWindow?.loadURL(internal)
+      return
+    }
     if (isAllowedNavigation(url)) return
     event.preventDefault()
     if (/^https?:/.test(url)) shell.openExternal(url)
   })
 
   contents.on('will-redirect', (event, url) => {
+    const internal = internalRedirectFor(url)
+    if (internal) {
+      event.preventDefault()
+      mainWindow?.loadURL(internal)
+      return
+    }
     if (isAllowedNavigation(url)) return
     event.preventDefault()
   })
@@ -173,7 +188,7 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(
       buildMenu({
         isDev,
-        appUrl: APP_URL,
+        siteUrl: APP_ORIGIN,
         onCheckUpdates: () => checkForUpdatesManual(getWindow),
       }),
     )

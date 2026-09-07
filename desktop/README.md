@@ -5,8 +5,10 @@ Vercel) como um aplicativo instalável no Windows, com janela própria, atalho n
 Menu Iniciar e atualização automática.
 
 O backend continua 100% na nuvem (Firebase / Supabase). Este app **não** roda o
-Next.js localmente — ele só abre `https://grupolibertycar.com.br` numa janela
-nativa.
+Next.js localmente — ele abre `https://grupolibertycar.com.br/dashboard` numa
+janela nativa. É **só o sistema interno**: sem sessão cai na tela de login; a
+vitrine pública (`/`, `/veiculos`) não aparece dentro do app (é redirecionada
+pro sistema). O site público segue acessível pelo navegador, normal.
 
 > Spec e plano: `../docs/superpowers/specs/2026-09-07-app-desktop-design.md` ·
 > `../docs/superpowers/plans/2026-09-07-app-desktop-plan.md`

@@ -16,6 +16,12 @@ Decisão de arquitetura (já tomada): **casca fina**. O executável é um
 100% na nuvem — nada de segredos do Firebase/Resend dentro do instalador, nada de
 servidor Next rodando na máquina do usuário.
 
+O app desktop é **só o sistema interno**: abre direto em `/dashboard` (sem
+sessão, o próprio site manda pra `/login`; com sessão, entra direto). A vitrine
+pública (`/`, `/veiculos/*`) não aparece — qualquer navegação pra ela é
+redirecionada pro sistema interno. O site público segue existindo no navegador,
+normal.
+
 Consequência aceita: **exige internet** para funcionar (igual ao site hoje). Modo
 offline de verdade (banco local) está fora deste escopo.
 
@@ -61,7 +67,8 @@ desktop/
 
 | var | dev | prod |
 |---|---|---|
-| `APP_URL` | `http://localhost:3000` | `https://grupolibertycar.com.br` |
+| `APP_ORIGIN` | `http://localhost:3000` | `https://grupolibertycar.com.br` |
+| `APP_URL` (derivado) | `<APP_ORIGIN>/dashboard` | `<APP_ORIGIN>/dashboard` |
 | `UPDATE_FEED_URL` | — | URL pública do bucket Supabase (ver "Atualização automática") |
 
 Domínio de produção: **`grupolibertycar.com.br`** (apex e `www.` contam como
@@ -91,14 +98,16 @@ estar apontado para o deploy da Vercel antes do primeiro release.
 
 ### Navegação e links externos (segurança)
 
-- `webContents.setWindowOpenHandler`: qualquer `target=_blank` / `window.open`
-  para origem **diferente** de `APP_URL` → abre no navegador padrão
-  (`shell.openExternal`) e nega a janela nova. Mesma origem → permite.
-- `webContents.on('will-navigate')`: bloqueia navegação para fora de `APP_URL`
-  (exceto domínios de auth do Google/Firebase, caso o login use popup/redirect —
-  a verificar no teste; se usar, liberar `accounts.google.com` e
-  `*.firebaseapp.com`).
-- `will-navigate` para `file://` externo → bloqueado.
+- `webContents.setWindowOpenHandler`: `target=_blank` / `window.open` de mesma
+  origem (ex.: "abrir PDF") → janela filha própria. Origem diferente → navegador
+  padrão (`shell.openExternal`) + nega a janela nova.
+- `webContents.on('will-navigate'` / `'will-redirect')`:
+  - rota pública (`/`, `/veiculos/*`, `/public/*`) → redireciona pra `/dashboard`;
+  - origem fora de `APP_ORIGINS ∪ AUTH_ORIGINS` → bloqueia (e abre no navegador
+    se for http/https).
+- Domínios de auth liberados: `grupo-liberty.firebaseapp.com`,
+  `accounts.google.com`, `apis.google.com` (rede de segurança caso o login use
+  redirect — o fluxo atual é por cookie de sessão, sem popup).
 
 ### Downloads / PDFs
 
@@ -190,8 +199,9 @@ Independente da versão do site (que não versiona).
 
 ## Testes (manual)
 
-1. `desktop dev` com o site local no ar → abre a janela, login funciona, sessão
-   persiste ao fechar/reabrir.
+1. `desktop dev` com o site local no ar → abre direto na tela de **login**
+   (sem sessão) ou no dashboard (com sessão); sessão persiste ao fechar/reabrir.
+   Tentar abrir `/` ou `/veiculos/<id>` → cai no sistema interno, não na vitrine.
 2. Gerar um PDF (proposta/contrato) → abre/baixa corretamente.
 3. Clicar num link externo (ex.: rodapé, e-mail de suporte) → abre no navegador
    padrão, não dentro do app.

@@ -9,7 +9,7 @@
     "clean": "rimraf dist build",
     "compile": "tsc",
     "start": "npm run compile && electron dist/main.js",
-    "dev": "npm run compile && cross-env APP_URL=http://localhost:3000 electronmon dist/main.js",
+    "dev": "npm run compile && cross-env APP_ORIGIN=http://localhost:3000 electronmon dist/main.js",
     "prebuild": "node scripts/make-icon.mjs",
     "build": "npm run compile && npm run prebuild && electron-builder --win",
     "release": "npm run build && node scripts/publish.mjs"
