@@ -51,6 +51,48 @@ function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
 export type DebitoItem = DebitoItemPersistido
 
 /**
+ * Recalcula e persiste `custoEfetivoTotal` de um veículo:
+ * `debitos + precoAquisicao + soma das manutenções baixadas do veículo`.
+ * É chamado ao salvar o veículo e sempre que uma manutenção dele é criada,
+ * editada, baixada, estornada ou removida, para o valor gravado não ficar
+ * defasado. Falha em silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
+ *
+ * "Baixada" = tem objeto `baixa` OU (legado) já tinha `custo > 0` e não está
+ * cancelada. O valor é `baixa.valor` quando há baixa, senão o `custo` legado.
+ */
+export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<void> {
+  if (!veiculoId) return
+  try {
+    const ref = adminDb.collection('veiculos').doc(veiculoId)
+    const snap = await ref.get()
+    if (!snap.exists) return
+    const data = snap.data() || {}
+    const base = (data.debitos ?? 0) + (data.precoAquisicao ?? 0)
+
+    const manutSnap = await adminDb
+      .collection('manutencoes')
+      .where('veiculoId', '==', veiculoId)
+      .get()
+    let manutencoes = 0
+    for (const m of manutSnap.docs) {
+      const md = m.data()
+      if (md.status === 'cancelada') continue
+      const baixa = md.baixa as { valor?: number } | null | undefined
+      const custoLegado = typeof md.custo === 'number' ? md.custo : Number(md.custo) || 0
+      const baixada = !!baixa || custoLegado > 0
+      if (!baixada) continue
+      const valor = baixa ? Number(baixa.valor) || 0 : custoLegado
+      if (valor > 0) manutencoes += valor
+    }
+
+    const total = base + manutencoes || null
+    await ref.update({ custoEfetivoTotal: total })
+  } catch (error) {
+    console.error('Erro ao recalcular custo efetivo total do veículo', veiculoId, error)
+  }
+}
+
+/**
  * Descriptografa um CPF salvo. Registros gravados antes da criptografia
  * (texto plano, sem o separador ':' do formato 'ivHex:encryptedHex') caem no
  * fallback e retornam o valor bruto, para não quebrar veículos já cadastrados.
@@ -114,6 +156,8 @@ export interface Veiculo {
   custoAcumulado: number | null
   /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
   precoAquisicao: number | null
+  /** Soma interna: total de débitos + preço de aquisição. Derivado — não editável. */
+  custoEfetivoTotal: number | null
   debitos: number | null
   /** Débitos detalhados por categoria. Calcula o total que aparece em `debitos`. */
   debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
@@ -234,6 +278,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
+        custoEfetivoTotal: data.custoEfetivoTotal ?? null,
         debitos: data.debitos ?? null,
         debitosItens: Array.isArray(data.debitosItens)
           ? (data.debitosItens as Array<{
@@ -379,6 +424,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       : debitosManual !== null
         ? debitosManual
         : null
+  // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
+  // derivado — o cliente só exibe, o servidor é a fonte da verdade.
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -523,6 +571,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      custoEfetivoTotal,
       debitos,
       debitosItens,
       parcelasRestantes,
@@ -688,6 +737,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       : debitosManual !== null
         ? debitosManual
         : null
+  // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
+  // derivado — o cliente só exibe, o servidor é a fonte da verdade.
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -857,6 +909,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      custoEfetivoTotal,
       debitos,
       debitosItens,
       parcelasRestantes,
@@ -878,6 +931,10 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     }
 
     await docRef.update(atualizacao)
+
+    // `atualizacao.custoEfetivoTotal` cobre só débitos + preço de aquisição;
+    // dobra as manutenções não canceladas por cima do valor já gravado.
+    await recalcularCustoEfetivoTotal(id)
 
     revalidatePath('/dashboard/veiculos')
     return {

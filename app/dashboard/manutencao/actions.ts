@@ -2,10 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
+import { recalcularCustoEfetivoTotal } from '@/app/dashboard/veiculos/actions'
 import {
   MANUTENCAO_STATUS,
+  isManutencaoBaixada,
+  valorManutencao,
+  type BaixaManutencao,
+  type BaixaManutencaoResponse,
   type Manutencao,
+  type ManutencaoComprovante,
   type ManutencaoFieldErrors,
   type ManutencaoResponse,
   type ManutencaoStatus,
@@ -110,6 +116,7 @@ export async function getManutencoes(): Promise<Manutencao[]> {
         dataConclusao: data.dataConclusao || null,
         status: (data.status as ManutencaoStatus) || 'agendada',
         pecasConserto: parsePecasConserto(data.pecasConserto),
+        baixa: (data.baixa as BaixaManutencao) ?? null,
         created_at: data.created_at,
         updated_at: data.updated_at,
         created_by: data.created_by || null,
@@ -141,8 +148,8 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
   const descricao = ((formData.get('descricao') as string) || '').trim() || null
   const oficina = ((formData.get('oficina') as string) || '').trim()
   const responsavel = ((formData.get('responsavel') as string) || '').trim()
-  const custoRaw = (formData.get('custo') as string) || ''
-  const custo = parseCusto(custoRaw)
+  // O valor da manutenção não é informado no cadastro — só na baixa
+  // (`darBaixaManutencao`). Nasce zerada e sem baixa.
   const dataAgendada = ((formData.get('dataAgendada') as string) || '').trim()
   const dataConclusao = ((formData.get('dataConclusao') as string) || '').trim() || null
   const statusRaw = ((formData.get('status') as string) || '').trim()
@@ -177,7 +184,8 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
       descricao,
       oficina,
       responsavel,
-      custo,
+      custo: 0,
+      baixa: null as BaixaManutencao | null,
       dataAgendada,
       dataConclusao,
       status,
@@ -189,7 +197,10 @@ export async function createManutencao(formData: FormData): Promise<ManutencaoRe
 
     await docRef.set(nova)
 
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return {
       success: 'Manutenção cadastrada com sucesso!',
       manutencao: { id: docRef.id, ...nova },
@@ -220,8 +231,7 @@ export async function updateManutencao(
   const descricao = ((formData.get('descricao') as string) || '').trim() || null
   const oficina = ((formData.get('oficina') as string) || '').trim()
   const responsavel = ((formData.get('responsavel') as string) || '').trim()
-  const custoRaw = (formData.get('custo') as string) || ''
-  const custo = parseCusto(custoRaw)
+  // `custo` e `baixa` não são editados aqui — só pelo fluxo de baixa/estorno.
   const dataAgendada = ((formData.get('dataAgendada') as string) || '').trim()
   const dataConclusao = ((formData.get('dataConclusao') as string) || '').trim() || null
   const statusRaw = ((formData.get('status') as string) || '').trim()
@@ -249,6 +259,7 @@ export async function updateManutencao(
     const docRef = adminDb.collection('manutencoes').doc(id)
     const doc = await docRef.get()
     if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+    const veiculoIdAnterior = (doc.data()?.veiculoId as string) || ''
 
     const now = new Date().toISOString()
     const atualizacao = {
@@ -258,7 +269,6 @@ export async function updateManutencao(
       descricao,
       oficina,
       responsavel,
-      custo,
       dataAgendada,
       dataConclusao,
       status,
@@ -268,7 +278,13 @@ export async function updateManutencao(
 
     await docRef.update(atualizacao)
 
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+    if (veiculoIdAnterior && veiculoIdAnterior !== veiculoId) {
+      await recalcularCustoEfetivoTotal(veiculoIdAnterior)
+    }
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return {
       success: 'Manutenção atualizada com sucesso!',
       manutencao: { id, ...doc.data(), ...atualizacao } as Manutencao,
@@ -296,12 +312,69 @@ export async function deleteManutencao(
     const docRef = adminDb.collection('manutencoes').doc(id)
     const doc = await docRef.get()
     if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+    const dados = doc.data() || {}
+    const veiculoIdDaManutencao = (dados.veiculoId as string) || ''
+
+    // Best-effort: apaga o comprovante da baixa do Storage.
+    const storagePathComprovante = (dados.baixa as BaixaManutencao | null)?.comprovante
+      ?.storagePath
+    if (storagePathComprovante) {
+      try {
+        const fileRef = adminStorage.bucket().file(storagePathComprovante)
+        const [exists] = await fileRef.exists()
+        if (exists) await fileRef.delete()
+      } catch (storageErr) {
+        console.error('Erro ao remover comprovante da manutenção do Storage:', storageErr)
+      }
+    }
 
     await docRef.delete()
+
+    if (veiculoIdDaManutencao) await recalcularCustoEfetivoTotal(veiculoIdDaManutencao)
+
     revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
     return { success: 'Manutenção removida com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao remover manutenção: ${error.message}` }
+  }
+}
+
+/**
+ * Manutenções **baixadas** de um único veículo, resumidas para compor o
+ * "Custo efetivo total" no cadastro de veículo. Leitura sem gate de admin —
+ * mesma postura de `getManutencoes`; devolve só tipo e valor.
+ */
+export async function listarManutencoesVeiculo(
+  veiculoId: string,
+): Promise<Array<{ id: string; tipo: string; custo: number }>> {
+  if (!veiculoId) return []
+  try {
+    const snap = await adminDb
+      .collection('manutencoes')
+      .where('veiculoId', '==', veiculoId)
+      .get()
+    const itens: Array<{ id: string; tipo: string; custo: number }> = []
+    for (const doc of snap.docs) {
+      const data = doc.data()
+      const m = {
+        baixa: (data.baixa as BaixaManutencao) ?? null,
+        custo: typeof data.custo === 'number' ? data.custo : Number(data.custo) || 0,
+        status: (data.status as ManutencaoStatus) || 'agendada',
+      }
+      if (!isManutencaoBaixada(m)) continue
+      const valor = valorManutencao(m)
+      if (valor <= 0) continue
+      itens.push({
+        id: doc.id,
+        tipo: (data.tipo as string) || 'Manutenção',
+        custo: valor,
+      })
+    }
+    return itens
+  } catch (error) {
+    console.error('Erro ao listar manutenções do veículo:', error)
+    return []
   }
 }
 
@@ -347,6 +420,7 @@ export async function getManutencoesPorVeiculos(
           dataConclusao: data.dataConclusao || null,
           status: (data.status as ManutencaoStatus) || 'agendada',
           pecasConserto: parsePecasConserto(data.pecasConserto),
+          baixa: (data.baixa as BaixaManutencao) ?? null,
           created_at: data.created_at,
           updated_at: data.updated_at,
           created_by: data.created_by || null,
@@ -357,5 +431,206 @@ export async function getManutencoesPorVeiculos(
   } catch (err) {
     console.error('Erro ao buscar manutenções por veículo:', err)
     return []
+  }
+}
+
+// ─── Baixa da manutenção (valor + comprovante opcional) ─────────────────────
+// Só na baixa o valor da manutenção é definido. Um comprovante por manutenção
+// (mesmo formato do módulo Financeiro).
+
+const MAX_COMPROVANTE_SIZE = 10 * 1024 * 1024 // 10MB
+const COMPROVANTE_TIPOS_PERMITIDOS = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]
+
+function sanitizeFileName(name: string): string {
+  return (
+    name
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-zA-Z0-9-_ .]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .slice(0, 120) || 'comprovante'
+  )
+}
+
+function extensaoPorTipo(contentType: string, fileName: string): string {
+  switch (contentType) {
+    case 'application/pdf':
+      return 'pdf'
+    case 'image/png':
+      return 'png'
+    case 'image/webp':
+      return 'webp'
+    case 'image/jpeg':
+      return 'jpg'
+    default: {
+      const match = fileName.match(/\.([a-zA-Z0-9]+)$/)
+      return match ? match[1].toLowerCase() : 'bin'
+    }
+  }
+}
+
+/**
+ * Dá baixa numa manutenção: registra o valor pago (obrigatório) e, opcionalmente,
+ * anexa um comprovante (PDF ou imagem). Marca a manutenção como Concluída e
+ * preenche a data de conclusão se estiver vazia. Recebe FormData com:
+ * - manutencaoId: string
+ * - valor: string (máscara pt-BR)
+ * - arquivo: File opcional (PDF/JPG/PNG/WEBP, máx. 10MB)
+ */
+export async function darBaixaManutencao(
+  formData: FormData,
+): Promise<BaixaManutencaoResponse> {
+  let user: { uid: string; email?: string | null }
+  try {
+    user = (await assertAdmin()).user as { uid: string; email?: string | null }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  const manutencaoId = ((formData.get('manutencaoId') as string) || '').trim()
+  const valor = parseCusto((formData.get('valor') as string) || '')
+  const file = formData.get('arquivo')
+
+  if (!manutencaoId) return { error: 'Manutenção não especificada.' }
+  if (!(valor > 0)) return { error: 'Informe o valor pago na manutenção.' }
+
+  const temArquivo = file instanceof File && file.size > 0
+  if (temArquivo) {
+    if (file.size > MAX_COMPROVANTE_SIZE) {
+      return { error: 'Arquivo excede o limite de 10MB.' }
+    }
+    if (!COMPROVANTE_TIPOS_PERMITIDOS.includes(file.type)) {
+      return { error: 'Formato não suportado. Envie um PDF, JPG, PNG ou WEBP.' }
+    }
+  }
+
+  try {
+    const docRef = adminDb.collection('manutencoes').doc(manutencaoId)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+
+    const dados = doc.data() || {}
+    if (dados.baixa) {
+      return { error: 'Esta manutenção já teve baixa. Estorne antes de refazer.' }
+    }
+
+    const now = new Date().toISOString()
+    let comprovante: ManutencaoComprovante | null = null
+
+    if (temArquivo) {
+      const contentType = file.type
+      const ext = extensaoPorTipo(contentType, file.name)
+      const storagePath = `manutencoes/${manutencaoId}/comprovante_${Date.now()}.${ext}`
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      await adminStorage
+        .bucket()
+        .file(storagePath)
+        .save(buffer, {
+          metadata: {
+            contentType,
+            metadata: { manutencaoId, uploadedBy: user.uid },
+          },
+        })
+      comprovante = {
+        fileName: sanitizeFileName(file.name),
+        contentType,
+        size: file.size,
+        storagePath,
+        uploadedByUid: user.uid,
+        uploadedByEmail: user.email ?? null,
+        uploadedAt: now,
+      }
+    }
+
+    const baixa: BaixaManutencao = {
+      valor,
+      comprovante,
+      baixadoEm: now,
+      baixadoPorUid: user.uid,
+      baixadoPorEmail: user.email ?? null,
+    }
+
+    const dataConclusaoAtual = (dados.dataConclusao as string) || ''
+    const atualizacao = {
+      baixa,
+      custo: valor,
+      status: 'concluida' as ManutencaoStatus,
+      dataConclusao: dataConclusaoAtual || now.slice(0, 10),
+      updated_at: now,
+    }
+
+    await docRef.update(atualizacao)
+
+    const veiculoId = (dados.veiculoId as string) || ''
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+
+    revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
+    return {
+      success: 'Baixa registrada com sucesso!',
+      manutencao: { id: manutencaoId, ...dados, ...atualizacao } as Manutencao,
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'erro inesperado'
+    return { error: `Erro ao dar baixa na manutenção: ${msg}` }
+  }
+}
+
+/**
+ * Estorna a baixa de uma manutenção: zera o valor e apaga o comprovante.
+ * O status não é alterado.
+ */
+export async function estornarBaixaManutencao(
+  id: string,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAdmin()
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  if (!id) return { error: 'ID inválido.' }
+
+  try {
+    const docRef = adminDb.collection('manutencoes').doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Manutenção não encontrada.' }
+
+    const dados = doc.data() || {}
+    const baixa = (dados.baixa as BaixaManutencao | null) ?? null
+    if (!baixa) return { error: 'Esta manutenção não tem baixa para estornar.' }
+
+    if (baixa.comprovante?.storagePath) {
+      try {
+        const fileRef = adminStorage.bucket().file(baixa.comprovante.storagePath)
+        const [exists] = await fileRef.exists()
+        if (exists) await fileRef.delete()
+      } catch (storageErr) {
+        console.error('Erro ao remover comprovante da manutenção do Storage:', storageErr)
+      }
+    }
+
+    await docRef.update({
+      baixa: null,
+      custo: 0,
+      updated_at: new Date().toISOString(),
+    })
+
+    const veiculoId = (dados.veiculoId as string) || ''
+    if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
+
+    revalidatePath('/dashboard/manutencao')
+    revalidatePath('/dashboard/veiculos')
+    return { success: 'Baixa estornada com sucesso!' }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'erro inesperado'
+    return { error: `Erro ao estornar baixa: ${msg}` }
   }
 }

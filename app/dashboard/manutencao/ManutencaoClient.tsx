@@ -10,7 +10,9 @@ import {
   IconBuildingWarehouse,
   IconUser,
   IconCalendar,
-  IconCash,
+  IconReceipt2,
+  IconEye,
+  IconArrowBackUp,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -31,14 +33,24 @@ import {
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatCurrency, formatDate } from '@/utils/format'
-import { maskMoney } from '@/utils/masks'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
-import { createManutencao, updateManutencao, deleteManutencao } from './actions'
-import type { Manutencao, ManutencaoStatus } from './types'
+import {
+  createManutencao,
+  updateManutencao,
+  deleteManutencao,
+  estornarBaixaManutencao,
+} from './actions'
+import {
+  isManutencaoBaixada,
+  valorManutencao,
+  type Manutencao,
+  type ManutencaoStatus,
+} from './types'
 import {
   ConsertoPecasModal,
   type PecaValor,
 } from './ConsertoPecasModal'
+import BaixaManutencaoModal from './BaixaManutencaoModal'
 
 type Status = ManutencaoStatus
 
@@ -85,17 +97,18 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
   const [confirmDelete, setConfirmDelete] = useState<Manutencao | null>(null)
   const [page, setPage] = useState(1)
-  const [custo, setCusto] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [pecasModalOpen, setPecasModalOpen] = useState(false)
   const [pecasState, setPecasState] = useState<PecaValor[]>([])
   const [tipoSelecionado, setTipoSelecionado] = useState<string>('')
+  // Baixa: valor + comprovante são informados aqui, não no cadastro.
+  const [baixaDe, setBaixaDe] = useState<Manutencao | null>(null)
+  const [confirmEstorno, setConfirmEstorno] = useState<Manutencao | null>(null)
   const debouncedSearch = useDebounce(search, 250)
   const toast = useToast()
 
   function openCreate() {
     setEditing(null)
-    setCusto('')
     setPecasState([])
     setTipoSelecionado('')
     setShowForm(true)
@@ -103,7 +116,6 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
 
   function openEdit(m: Manutencao) {
     setEditing(m)
-    setCusto(m.custo ? maskMoney(m.custo.toString()) : '')
     setPecasState([])
     setTipoSelecionado(m.tipo ?? '')
     setShowForm(true)
@@ -112,7 +124,6 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   function closeForm() {
     setShowForm(false)
     setEditing(null)
-    setCusto('')
     setTipoSelecionado('')
   }
 
@@ -220,6 +231,26 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
     }
   }
 
+  async function handleEstorno(m: Manutencao) {
+    if (submitting) return
+    setSubmitting(true)
+    setConfirmEstorno(null)
+    try {
+      const result = await estornarBaixaManutencao(m.id)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(result.success || 'Baixa estornada.')
+      }
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao estornar.')
+      router.refresh()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const filtered = useMemo(() => {
     return items.filter((m) => {
       const matchesStatus = filterStatus === 'todos' || m.status === filterStatus
@@ -234,9 +265,18 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
     })
   }, [items, debouncedSearch, filterStatus])
 
-  const totalCusto = useMemo(() => filtered.reduce((acc, m) => acc + (m.custo || 0), 0), [
-    filtered,
-  ])
+  const totalCusto = useMemo(
+    () =>
+      filtered.reduce(
+        (acc, m) => acc + (isManutencaoBaixada(m) ? valorManutencao(m) : 0),
+        0,
+      ),
+    [filtered],
+  )
+  const aguardandoBaixa = useMemo(
+    () => items.filter((m) => m.status !== 'cancelada' && !isManutencaoBaixada(m)).length,
+    [items],
+  )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -258,7 +298,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
             Ordens abertas
@@ -266,6 +306,12 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
           <p className="mt-1 text-2xl font-bold text-neutral-950">
             {items.filter((m) => m.status === 'agendada' || m.status === 'em_execucao').length}
           </p>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+            Aguardando baixa
+          </p>
+          <p className="mt-1 text-2xl font-bold text-neutral-950">{aguardandoBaixa}</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
@@ -277,7 +323,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-            Custo (filtrado)
+            Custo baixado (filtrado)
           </p>
           <p className="mt-1 text-2xl font-bold text-neutral-950">{formatCurrency(totalCusto)}</p>
         </div>
@@ -420,17 +466,6 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             />
 
             <Input
-              label="Custo (R$)"
-              name="custo"
-              type="text"
-              inputMode="decimal"
-              value={custo}
-              onChange={(e) => setCusto(maskMoney(e.target.value))}
-              placeholder="R$ 0,00"
-              leftIcon={<IconCash size={14} />}
-            />
-
-            <Input
               label="Data agendada"
               name="dataAgendada"
               type="date"
@@ -487,7 +522,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                 <TH>Oficina / Resp.</TH>
                 <TH>Agendada</TH>
                 <TH>Conclusão</TH>
-                <TH align="right">Custo</TH>
+                <TH align="right">Valor da baixa</TH>
                 <TH>Status</TH>
                 <TH align="right">Ações</TH>
               </tr>
@@ -506,13 +541,50 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                   <TD className="text-xs">{formatDate(m.dataAgendada)}</TD>
                   <TD className="text-xs">{formatDate(m.dataConclusao)}</TD>
                   <TD align="right" className="font-semibold text-neutral-900">
-                    {formatCurrency(m.custo)}
+                    {isManutencaoBaixada(m) ? (
+                      formatCurrency(valorManutencao(m))
+                    ) : (
+                      <span className="text-xs font-medium text-amber-600">Aguardando baixa</span>
+                    )}
                   </TD>
                   <TD>
                     <StatusBadge tone={STATUS_TONE[m.status]}>{STATUS_LABELS[m.status]}</StatusBadge>
                   </TD>
                   <TD align="right">
-                    <div className="inline-flex gap-2">
+                    <div className="inline-flex flex-wrap justify-end gap-2">
+                      {m.baixa ? (
+                        <>
+                          {m.baixa.comprovante && (
+                            <a
+                              href={`/api/manutencao/${m.id}/comprovante`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-50"
+                            >
+                              <IconEye size={12} stroke={2.2} /> Comprovante
+                            </a>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setConfirmEstorno(m)}
+                            leftIcon={<IconArrowBackUp size={12} />}
+                          >
+                            Estornar
+                          </Button>
+                        </>
+                      ) : (
+                        m.status !== 'cancelada' && (
+                          <Button
+                            size="sm"
+                            variant="liberty"
+                            onClick={() => setBaixaDe(m)}
+                            leftIcon={<IconReceipt2 size={12} />}
+                          >
+                            Dar baixa
+                          </Button>
+                        )
+                      )}
                       <Button
                         size="sm"
                         variant="secondary"
@@ -570,9 +642,10 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         open={pecasModalOpen}
         onClose={() => setPecasModalOpen(false)}
         initial={pecasState}
-        onConfirm={(pecas, total) => {
+        onConfirm={(pecas) => {
+          // As peças ficam registradas como planejadas; o valor real da
+          // manutenção só é definido na baixa.
           setPecasState(pecas)
-          setCusto(maskMoney((total * 100).toString()))
         }}
       />
 
@@ -591,6 +664,34 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         }
         confirmLabel="Remover"
         tone="danger"
+      />
+
+      <ConfirmDialog
+        open={!!confirmEstorno}
+        onClose={() => setConfirmEstorno(null)}
+        onConfirm={() => confirmEstorno && handleEstorno(confirmEstorno)}
+        title="Estornar baixa?"
+        description={
+          confirmEstorno ? (
+            <>
+              O valor de <strong>{formatCurrency(valorManutencao(confirmEstorno))}</strong> e o
+              comprovante (se houver) da manutenção de{' '}
+              <strong>{confirmEstorno.veiculoLabel}</strong> serão removidos. A manutenção sai do
+              custo efetivo total do veículo.
+            </>
+          ) : null
+        }
+        confirmLabel="Estornar"
+        tone="danger"
+      />
+
+      <BaixaManutencaoModal
+        manutencao={baixaDe}
+        onClose={() => setBaixaDe(null)}
+        onDone={() => {
+          setBaixaDe(null)
+          router.refresh()
+        }}
       />
     </div>
   )

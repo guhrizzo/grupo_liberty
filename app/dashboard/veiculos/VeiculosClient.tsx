@@ -44,6 +44,7 @@ import {
   type VeiculoContrato,
 } from '@/app/veiculos/[id]/actions'
 import { listarCategoriasContrato } from '@/app/dashboard/contratos/categorias.actions'
+import { listarManutencoesVeiculo } from '@/app/dashboard/manutencao/actions'
 import type { ContratoCategoria } from '@/app/dashboard/contratos/types'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -207,6 +208,24 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const setDebitoValor = (chave: string, raw: string) => {
     setDebitosValores((prev) => ({ ...prev, [chave]: raw }))
   }
+
+  // Manutenções com baixa do veículo em edição — carregadas sob demanda no
+  // handleEdit. Entram no "Custo efetivo total" como uma linha cada.
+  const [manutencoesVeiculo, setManutencoesVeiculo] = useState<
+    Array<{ id: string; tipo: string; custo: number }>
+  >([])
+
+  // Custo efetivo total = total de débitos + preço de aquisição + manutenções.
+  // Só exibição — o servidor recalcula e persiste a partir das mesmas fontes.
+  const debitosParaCusto =
+    debitosItensSelecionados.length > 0 ? debitosTotalCalculado : parseMoney(debitos) || 0
+  const precoAquisicaoNum = parseMoney(precoAquisicao) || 0
+  const manutencoesTotalCusto = manutencoesVeiculo.reduce(
+    (acc, m) => acc + (m.custo > 0 ? m.custo : 0),
+    0,
+  )
+  const custoEfetivoTotal = debitosParaCusto + precoAquisicaoNum + manutencoesTotalCusto
+
   const [sellerName, setSellerName] = useState('')
   const [sellerCpf, setSellerCpf] = useState('')
   const [sellerBirthDate, setSellerBirthDate] = useState('')
@@ -457,6 +476,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setValorParcela('')
     setCustoAcumulado('')
     setPrecoAquisicao('')
+    setManutencoesVeiculo([])
     setTelefoneAcessoria('')
     setDebitos('')
     setDebitosItensSelecionados([])
@@ -644,6 +664,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         .catch(() => setContratosExistentes([]))
         .finally(() => setContratosLoading(false))
     }
+
+    // Manutenções com baixa do veículo — compõem o custo efetivo total.
+    setManutencoesVeiculo([])
+    listarManutencoesVeiculo(veiculo.id)
+      .then((lista) => setManutencoesVeiculo(lista))
+      .catch(() => setManutencoesVeiculo([]))
 
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [canManageContratos])
@@ -1678,6 +1704,51 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 <p className="mt-2 text-[10px] text-neutral-500">
                   Valor pago para adquirir o veículo. Uso interno — não entra no total de
                   débitos e não aparece em propostas, PDF ou no site.
+                </p>
+              </div>
+
+              {/* ─── Custo efetivo total ───────────────────────────── */}
+              <div>
+                <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
+                  Custo efetivo total
+                </h3>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-4">
+                  <dl className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-neutral-500">Débitos do veículo</dt>
+                      <dd className="font-semibold text-neutral-800 tabular-nums">
+                        {formatCurrency(debitosParaCusto)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-neutral-500">Preço de aquisição</dt>
+                      <dd className="font-semibold text-neutral-800 tabular-nums">
+                        {formatCurrency(precoAquisicaoNum)}
+                      </dd>
+                    </div>
+                    {manutencoesVeiculo.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between gap-3">
+                        <dt className="min-w-0 truncate text-neutral-500">
+                          Manutenção — {m.tipo}
+                        </dt>
+                        <dd className="shrink-0 font-semibold text-neutral-800 tabular-nums">
+                          {formatCurrency(m.custo)}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <div className="mt-3 flex items-center justify-between border-t border-neutral-200 pt-3">
+                    <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
+                      Custo efetivo total
+                    </span>
+                    <span className="text-sm font-extrabold text-liberty tabular-nums">
+                      {formatCurrency(custoEfetivoTotal)}
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] text-neutral-500">
+                  Soma automática de débitos do veículo + preço de aquisição + manutenções
+                  com baixa. Uso interno — não aparece em propostas, PDF ou no site.
                 </p>
               </div>
 
