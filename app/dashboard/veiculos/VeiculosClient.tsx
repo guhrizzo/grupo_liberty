@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash, IconAlertTriangle } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
 import PhotoLightbox from '../../components/PhotoLightbox'
 import {
@@ -2282,7 +2282,34 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                         {v.localizacao || 'Jaú/SP'}
                       </span>
+                      {v.terceiro && (
+                        <span className="rounded-full bg-amber-500 text-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          Terceiro
+                        </span>
+                      )}
                     </div>
+
+                    {v.terceiro && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
+                        <p className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700">
+                          <IconAlertTriangle size={11} stroke={2.5} />
+                          Veículo de terceiro — não é da Liberty
+                        </p>
+                        {v.terceiroInfo && (
+                          <p className="mt-1 text-amber-800">
+                            {v.terceiroInfo.nome}
+                            {v.terceiroInfo.telefone ? ` · ${v.terceiroInfo.telefone}` : ''}
+                            {v.terceiroInfo.email ? ` · ${v.terceiroInfo.email}` : ''}
+                          </p>
+                        )}
+                        <Link
+                          href="/dashboard/anuncios"
+                          className="mt-1 inline-block font-bold underline hover:text-amber-950"
+                        >
+                          Ver anúncios
+                        </Link>
+                      </div>
+                    )}
 
                       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-lg font-bold text-neutral-950">
