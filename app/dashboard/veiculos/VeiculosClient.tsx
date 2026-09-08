@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash } from '@tabler/icons-react'
+import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash, IconAlertTriangle } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
 import PhotoLightbox from '../../components/PhotoLightbox'
 import {
@@ -19,6 +19,7 @@ import {
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDateTime } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
+import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
 import {
@@ -1184,10 +1185,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={cambio}
                     onChange={(e) => setCambio(e.target.value)}
                   >
-                    <option value="manual">Manual</option>
-                    <option value="automatico">Automático</option>
-                    <option value="cvt">CVT</option>
-                    <option value="automatizado">Automatizado</option>
+                    {CAMBIO_OPCOES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </Select>
                   <Select
                     id="combustivel"
@@ -1195,12 +1195,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={combustivel}
                     onChange={(e) => setCombustivel(e.target.value)}
                   >
-                    <option value="flex">Flex</option>
-                    <option value="gasolina">Gasolina</option>
-                    <option value="etanol">Etanol</option>
-                    <option value="diesel">Diesel</option>
-                    <option value="eletrico">Elétrico</option>
-                    <option value="hibrido">Híbrido</option>
+                    {COMBUSTIVEL_OPCOES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </Select>
                 </div>
 
@@ -2285,7 +2282,34 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                       <span className="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                         {v.localizacao || 'Jaú/SP'}
                       </span>
+                      {v.terceiro && (
+                        <span className="rounded-full bg-amber-500 text-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                          Terceiro
+                        </span>
+                      )}
                     </div>
+
+                    {v.terceiro && (
+                      <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
+                        <p className="flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider text-amber-700">
+                          <IconAlertTriangle size={11} stroke={2.5} />
+                          Veículo de terceiro — não é da Liberty
+                        </p>
+                        {v.terceiroInfo && (
+                          <p className="mt-1 text-amber-800">
+                            {v.terceiroInfo.nome}
+                            {v.terceiroInfo.telefone ? ` · ${v.terceiroInfo.telefone}` : ''}
+                            {v.terceiroInfo.email ? ` · ${v.terceiroInfo.email}` : ''}
+                          </p>
+                        )}
+                        <Link
+                          href="/dashboard/anuncios"
+                          className="mt-1 inline-block font-bold underline hover:text-amber-950"
+                        >
+                          Ver anúncios
+                        </Link>
+                      </div>
+                    )}
 
                       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-lg font-bold text-neutral-950">

@@ -149,6 +149,18 @@ export interface Veiculo {
   localizacao: string
   /** Visível no site público. Controlado pelo toggle Público/Privado — todo veículo fica no mesmo estoque. */
   publico: boolean
+  /**
+   * Veículo não é da Liberty — entrou pelo fluxo de anúncios de terceiros.
+   * Selo exibido só internamente; nunca serializado no payload público.
+   */
+  terceiro: boolean
+  /** Contato do dono quando `terceiro === true`. Interno — nunca vai pro site. */
+  terceiroInfo: {
+    nome: string
+    email: string
+    telefone: string
+    anuncioId: string
+  } | null
   cpfCliente: string | null
   telefoneCliente: string | null
   telefoneAcessoria: string | null
@@ -272,6 +284,8 @@ export async function getVehicles(): Promise<Veiculo[]> {
         // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
         publico:
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
+        terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
+        terceiroInfo: data.terceiroInfo ?? null,
         cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
@@ -565,6 +579,10 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       fotos,
       localizacao,
       publico,
+      // Veículo cadastrado pelo dashboard é sempre da Liberty. O fluxo de
+      // anúncios de terceiros grava `terceiro: true` por outra via.
+      terceiro: false,
+      terceiroInfo: null as Veiculo['terceiroInfo'],
       cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,

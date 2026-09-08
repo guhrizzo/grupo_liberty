@@ -1,10 +1,10 @@
-import Link from 'next/link'
 import { cookies } from 'next/headers'
-import { IconCar, IconArrowRight, IconUser } from '@tabler/icons-react'
+import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import { toPublicVeiculo } from '@/app/dashboard/veiculos/public'
 import PublicVehiclesList from './PublicVehiclesList'
+import PublicHeader from './components/PublicHeader'
 import { Button } from './components/ui'
 
 export const metadata = {
@@ -34,46 +34,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col">
 
-      {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-neutral-200">
-        <div className="mx-auto max-w-7xl flex items-center justify-between px-4 py-3 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="relative h-9 w-9 rounded-lg grid place-items-center liberty-glow bg-liberty/10">
-              <IconCar size={20} className="text-liberty" stroke={2.2} />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-lg font-black tracking-tighter text-neutral-900">
-                LIBERTY<span className="text-liberty">CAR</span>
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-neutral-500 mt-0.5">
-                Seminovos & Novos
-              </span>
-            </div>
-          </Link>
-
-          <nav className="flex items-center gap-3">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <span className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-neutral-600">
-                  <IconUser size={14} className="text-liberty" />
-                  {user.email}
-                </span>
-                <Link href="/dashboard">
-                  <Button variant="liberty" size="sm" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
-                    Dashboard
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <Link href="/login">
-                <Button variant="secondary" size="sm" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
-                  Entrar no Painel
-                </Button>
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
+      <PublicHeader user={user} variant="home" />
 
       {/* Main Content */}
       <main className="flex-1 overflow-x-clip px-4 py-10 md:px-8 md:py-16">
@@ -99,6 +60,11 @@ export default async function HomePage() {
                 <a href="#estoque">
                   <Button variant="liberty" size="lg" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
                     Ver Estoque
+                  </Button>
+                </a>
+                <a href="/anuncie-seu-veiculo">
+                  <Button variant="secondary" size="lg" leftIcon={<IconSpeakerphone size={14} stroke={2.5} />}>
+                    Anuncie seu veículo
                   </Button>
                 </a>
                 <a href="https://libertycar.net.br" target="_blank" rel="noopener noreferrer">
