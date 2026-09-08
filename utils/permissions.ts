@@ -15,6 +15,7 @@ export interface UserPermissions {
   veiculos?: boolean
   consulta_fipe?: boolean
   propostas?: boolean
+  anuncios?: boolean
   contratos?: boolean
   financeiro?: boolean
   cobrancas?: boolean
@@ -116,6 +117,24 @@ export async function assertPodeGerarPropostaPDF(): Promise<SessionUser> {
 
   if (user.role !== 'admin' && user.role !== 'vendedor') {
     throw new Error('Acesso negado. Apenas administradores e vendedores podem baixar PDFs de propostas.')
+  }
+
+  return user
+}
+
+/**
+ * Garante permissão para ver e fazer a triagem dos anúncios de terceiros
+ * (aba /dashboard/anuncios). Mesma regra de `hasPageAccess(user, 'anuncios',
+ * ['admin', 'vendedor'])`: admin e vendedor têm por padrão; a flag
+ * `permissions.anuncios` no perfil prevalece quando definida (libera outros
+ * cargos ou bloqueia vendedor).
+ */
+export async function assertPodeVerAnuncios(): Promise<SessionUser> {
+  const user = await getSessionUser()
+  if (!user) throw new Error('Não autenticado.')
+
+  if (!hasPageAccess(user, 'anuncios', ['admin', 'vendedor'])) {
+    throw new Error('Acesso negado. Você não tem permissão para ver anúncios.')
   }
 
   return user

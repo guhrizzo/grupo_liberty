@@ -19,6 +19,7 @@ import {
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDateTime } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
+import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
 import {
@@ -1184,10 +1185,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={cambio}
                     onChange={(e) => setCambio(e.target.value)}
                   >
-                    <option value="manual">Manual</option>
-                    <option value="automatico">Automático</option>
-                    <option value="cvt">CVT</option>
-                    <option value="automatizado">Automatizado</option>
+                    {CAMBIO_OPCOES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </Select>
                   <Select
                     id="combustivel"
@@ -1195,12 +1195,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     value={combustivel}
                     onChange={(e) => setCombustivel(e.target.value)}
                   >
-                    <option value="flex">Flex</option>
-                    <option value="gasolina">Gasolina</option>
-                    <option value="etanol">Etanol</option>
-                    <option value="diesel">Diesel</option>
-                    <option value="eletrico">Elétrico</option>
-                    <option value="hibrido">Híbrido</option>
+                    {COMBUSTIVEL_OPCOES.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </Select>
                 </div>
 
