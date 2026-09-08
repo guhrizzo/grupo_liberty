@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { IconCar, IconArrowRight, IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconMessage2, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
+import { IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
 import { adminDb } from '@/utils/firebase/admin'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
 import ShareButton from '@/app/components/ShareButton'
-import { Button } from '@/app/components/ui'
+import PublicHeader from '@/app/components/PublicHeader'
 import { getSessionUser } from '@/utils/permissions'
 import type { Metadata } from 'next'
 
@@ -100,35 +100,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   return (
     <div className="flex-1 overflow-x-clip flex flex-col">
 
-      {/* Topbar */}
-      <header className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-md border-b border-neutral-200">
-        <div className="mx-auto max-w-7xl flex items-center justify-between px-4 py-3 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 liberty-glow">
-              <IconCar size={20} className="text-liberty" stroke={2.2} />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-lg font-black tracking-tighter text-neutral-900">
-                LIBERTY<span className="text-liberty">CAR</span>
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.25em] text-neutral-500 mt-0.5">
-                Seminovos & Novos
-              </span>
-            </div>
-          </Link>
-          {user ? (
-            <Link href="/dashboard">
-              <Button variant="liberty" size="sm" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
-                Dashboard
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/login">
-              <Button variant="secondary" size="sm">Entrar</Button>
-            </Link>
-          )}
-        </div>
-      </header>
+      <PublicHeader user={user} variant="inner" />
 
       <main className="flex-1 overflow-x-clip px-4 py-8 md:px-8">
         <div className="mx-auto max-w-7xl">
