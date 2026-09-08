@@ -14,6 +14,7 @@ const MAX_FOTO_BYTES = 8 * 1024 * 1024 // 8 MB — guarda-costas; o client já c
 const MAX_OBS = 2000
 const THROTTLE_JANELA_MS = 60 * 60 * 1000 // 1 h
 const THROTTLE_LIMITE = 5
+const DEDUPE_JANELA_MS = 5 * 60 * 1000 // reenvio idêntico em até 5 min = duplicata
 const PLACA_RE = /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/
 
 const EXT_POR_MIME: Record<string, string> = {
@@ -128,8 +129,10 @@ function getIpHash(req: Request): string {
   return createHash('sha256').update(ip).digest('hex')
 }
 
-/** Conta anúncios do mesmo IP na última hora. Fallback sem índice composto. */
-async function contarEnviosRecentes(ipHash: string): Promise<number> {
+/** Anúncios do mesmo IP na última hora. Fallback sem índice composto. */
+async function enviosRecentes(
+  ipHash: string,
+): Promise<FirebaseFirestore.DocumentData[]> {
   const corte = new Date(Date.now() - THROTTLE_JANELA_MS).toISOString()
   try {
     const snap = await adminDb
@@ -137,11 +140,20 @@ async function contarEnviosRecentes(ipHash: string): Promise<number> {
       .where('ipHash', '==', ipHash)
       .where('created_at', '>', corte)
       .get()
-    return snap.size
+    return snap.docs.map((d) => d.data())
   } catch {
     const snap = await adminDb.collection('anuncios').where('ipHash', '==', ipHash).get()
-    return snap.docs.filter((d) => String(d.data().created_at ?? '') > corte).length
+    return snap.docs
+      .map((d) => d.data())
+      .filter((d) => String(d.created_at ?? '') > corte)
   }
+}
+
+/** Assinatura de conteúdo para detectar reenvio (duplo-clique / Enter). */
+function fingerprint(data: AnuncioData): string {
+  return [data.cpfDigits, data.marca, data.modelo, data.ano, data.precoDesejado]
+    .join('|')
+    .toLowerCase()
 }
 
 export async function POST(req: Request) {
@@ -159,20 +171,34 @@ export async function POST(req: Request) {
 
   const ipHash = getIpHash(req)
 
-  try {
-    if ((await contarEnviosRecentes(ipHash)) >= THROTTLE_LIMITE) {
-      return NextResponse.json(
-        { error: 'Você já enviou vários anúncios recentemente. Aguarde um pouco e tente de novo.' },
-        { status: 429 },
-      )
-    }
-  } catch (err) {
-    console.error('[anuncios] Erro no throttle:', err)
-  }
-
   const { data, error } = parseAnuncioForm(form)
   if (error || !data) {
     return NextResponse.json({ error: error ?? 'Dados inválidos.' }, { status: 400 })
+  }
+
+  let recentes: FirebaseFirestore.DocumentData[] = []
+  try {
+    recentes = await enviosRecentes(ipHash)
+  } catch (err) {
+    console.error('[anuncios] Erro ao buscar envios recentes:', err)
+  }
+
+  if (recentes.length >= THROTTLE_LIMITE) {
+    return NextResponse.json(
+      { error: 'Você já enviou vários anúncios recentemente. Aguarde um pouco e tente de novo.' },
+      { status: 429 },
+    )
+  }
+
+  // Reenvio idêntico (duplo-clique / Enter): mesma assinatura nos últimos 5 min
+  // → responde sucesso sem gravar de novo nem subir fotos.
+  const fp = fingerprint(data)
+  const corteDedupe = new Date(Date.now() - DEDUPE_JANELA_MS).toISOString()
+  const jaEnviado = recentes.some(
+    (r) => r.fingerprint === fp && String(r.created_at ?? '') > corteDedupe,
+  )
+  if (jaEnviado) {
+    return NextResponse.json({ ok: true, duplicate: true }, { status: 200 })
   }
 
   const fotos = form.getAll('fotos').filter((f): f is File => f instanceof File && f.size > 0)
@@ -238,6 +264,7 @@ export async function POST(req: Request) {
       // aprovação para copiar as fotos escolhidas para `fotos/` sem precisar
       // parsear as URLs públicas.
       fotosPaths: enviadas,
+      fingerprint: fp,
       status: 'pendente',
       motivoRecusa: null,
       veiculoId: null,
