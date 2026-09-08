@@ -234,6 +234,10 @@ export async function POST(req: Request) {
       observacoes: data.observacoes,
       placa: data.placa,
       fotos: urls,
+      // Caminhos dos objetos no Storage, paralelos a `fotos`. Usados na
+      // aprovação para copiar as fotos escolhidas para `fotos/` sem precisar
+      // parsear as URLs públicas.
+      fotosPaths: enviadas,
       status: 'pendente',
       motivoRecusa: null,
       veiculoId: null,
