@@ -216,11 +216,20 @@ só apaga `anuncios/<id>/` — nunca `fotos/`.
 
 ### Cabeçalho / hero
 
-- [`app/page.tsx`](../../../app/page.tsx): no `<nav>` do header, botão "Anuncie
-  seu veículo" (`variant="secondary"`, ícone `IconSpeakerphone`) antes do bloco
-  de login/dashboard; e um `Button` secundário na hero ao lado de "Ver Estoque".
-- Header do `app/veiculos/[id]/page.tsx` (se replica o mesmo `<header>`): mesmo
-  botão. Se o header já for um componente compartilhado, mudar só nele.
+O `<header>` público está **duplicado inline** em
+[`app/page.tsx`](../../../app/page.tsx) e
+[`app/veiculos/[id]/page.tsx`](../../../app/veiculos/[id]/page.tsx), com pequenas
+divergências (home: "Entrar no Painel" + e-mail do usuário; detalhe: "Entrar" /
+"Dashboard"). Primeiro passo do plano: **extrair `app/components/PublicHeader.tsx`**
+(client ou server conforme o uso de `user`), unificando as duas cópias —
+preservar a variação logado/deslogado via prop (`user: { email } | null`). As
+duas páginas passam a renderizar `<PublicHeader user={...} />`.
+
+- No `PublicHeader`: botão "Anuncie seu veículo" (`variant="secondary"`, ícone
+  `IconSpeakerphone`, `href="/anuncie-seu-veiculo"`) antes do bloco
+  login/dashboard.
+- Em `app/page.tsx`: também um `Button` secundário na hero, ao lado de "Ver
+  Estoque".
 
 ## Dashboard
 
@@ -307,8 +316,8 @@ Todas as ações começam com `await assertPodeVerAnuncios()`.
 
 ### `RevisarAnuncioModal.tsx` (client)
 
-- Modal (ou rota dedicada `/dashboard/anuncios/[id]/revisar` se ficar grande) com
-  formulário **pré-preenchido** pelos dados do anúncio: marca, modelo, ano, cor,
+- **Modal** (decidido) com formulário **pré-preenchido** pelos dados do anúncio:
+  marca, modelo, ano, cor,
   câmbio, combustível, km, preço, descrição (= observações), placa, localização
   (`Select` Jaú/Bauru), seleção/ordem das fotos.
 - Rodapé com dois botões de confirmação:
@@ -387,14 +396,17 @@ no mesmo padrão de [`app/dashboard/veiculos/public.ts`](../../../app/dashboard/
     `error`, nenhum veículo duplicado.
 12. `npm run build` limpo; `npm run lint` limpo.
 
+## Decisões resolvidas (pós-revisão do spec)
+
+- Header público está **duplicado** → o plano começa extraindo
+  `app/components/PublicHeader.tsx`.
+- Tela de revisão de aprovação = **modal** (`RevisarAnuncioModal.tsx`).
+- Localização do veículo aprovado entra como **`Jaú/SP`** por padrão.
+
 ## Pendências para o plano
 
-- Confirmar se o `<header>` público é componente compartilhado ou está duplicado
-  em `app/page.tsx` e `app/veiculos/[id]/page.tsx` (define se o botão entra em 1
-  ou 2 lugares).
-- Ler `node_modules/next/dist/docs/` (Route Handlers, `formData`, uploads) antes
-  de escrever o endpoint — o projeto roda um Next.js com breaking changes
-  (AGENTS.md).
+- Ler `node_modules/next/dist/docs/` (Route Handlers, `formData`, uploads,
+  App Router) antes de escrever o endpoint e as páginas — o projeto roda um
+  Next.js com breaking changes (AGENTS.md).
 - Verificar a lista canônica de opções de câmbio/combustível/cor no formulário
   de veículo do dashboard para reusar no formulário público.
-- Definir se a revisão é modal ou rota própria conforme o tamanho do form.
