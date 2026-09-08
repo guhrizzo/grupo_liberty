@@ -31,6 +31,7 @@ const PERMISSION_TABS = [
   { key: 'veiculos',      label: 'Veículos',       defaultRoles: ['admin', 'vendedor', 'suporte'] },
   { key: 'consulta_fipe', label: 'Consulta FIPE',  defaultRoles: ['admin', 'vendedor'] },
   { key: 'propostas',     label: 'Propostas',      defaultRoles: ['admin', 'vendedor'] },
+  { key: 'anuncios',      label: 'Anúncios',       defaultRoles: ['admin', 'vendedor'] },
   { key: 'contratos',     label: 'Contratos',      defaultRoles: ['admin', 'advogado'] },
   { key: 'financeiro',    label: 'Financeiro',     defaultRoles: ['admin', 'vendedor', 'advogado'] },
   { key: 'cobrancas',     label: 'Cobranças',      defaultRoles: ['admin', 'vendedor'] },

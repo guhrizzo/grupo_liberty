@@ -16,6 +16,7 @@ import {
   IconSearch,
   IconSparkles,
   IconBug,
+  IconSpeakerphone,
   IconMenu2,
 
   IconLogout,
@@ -32,7 +33,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug'
   roles: string[]
   permissionKey?: string
 }
@@ -64,6 +65,13 @@ const NAV_ITEMS: NavItem[] = [
     icon: 'mail',
     roles: ['admin', 'vendedor'],
     permissionKey: 'propostas',
+  },
+  {
+    href: '/dashboard/anuncios',
+    label: 'Anúncios',
+    icon: 'megaphone',
+    roles: ['admin', 'vendedor'],
+    permissionKey: 'anuncios',
   },
   {
     href: '/dashboard/contratos',
@@ -148,6 +156,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconSparkles className={cls} stroke={2} />
     case 'bug':
       return <IconBug className={cls} stroke={2} />
+    case 'megaphone':
+      return <IconSpeakerphone className={cls} stroke={2} />
   }
 }
 
@@ -172,6 +182,7 @@ interface DashboardShellProps {
   displayName: string | null
   logoutAction: () => Promise<void>
   propostasPendentesCount?: number
+  anunciosPendentesCount?: number
   permissions?: Record<string, boolean>
 }
 
@@ -181,6 +192,7 @@ export default function DashboardShell({
   displayName,
   logoutAction,
   propostasPendentesCount = 0,
+  anunciosPendentesCount = 0,
   permissions = {},
 }: DashboardShellProps) {
   const pathname = usePathname()
@@ -346,7 +358,12 @@ export default function DashboardShell({
 
           {allowedItems.map((item) => {
             const active = isActive(item.href)
-            const count = item.href === '/dashboard/propostas' ? propostasPendentesCount : 0
+            const count =
+              item.href === '/dashboard/propostas'
+                ? propostasPendentesCount
+                : item.href === '/dashboard/anuncios'
+                  ? anunciosPendentesCount
+                  : 0
 
             return (
               <li key={item.href}>
