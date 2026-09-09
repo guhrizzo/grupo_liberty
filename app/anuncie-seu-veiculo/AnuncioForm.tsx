@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   IconUser,
@@ -48,6 +48,9 @@ export default function AnuncioForm() {
   const [website, setWebsite] = useState('') // honeypot
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
+  // Trava síncrona: `loading` só vira true no próximo render, então um segundo
+  // submit (Enter, duplo-clique rápido) que chegue antes disso ainda passaria.
+  const enviandoRef = useRef(false)
 
   function validar(): string | null {
     if (nome.trim().length < 2) return 'Informe seu nome completo.'
@@ -76,12 +79,14 @@ export default function AnuncioForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (enviandoRef.current) return
     const erro = validar()
     if (erro) {
       toast.error(erro, 'Revise o formulário')
       return
     }
 
+    enviandoRef.current = true
     setLoading(true)
     const fd = new FormData()
     fd.append('website', website)
@@ -113,6 +118,7 @@ export default function AnuncioForm() {
       toast.error('Falha de conexão. Tente novamente.', 'Erro ao enviar')
     } finally {
       setLoading(false)
+      enviandoRef.current = false
     }
   }
 
