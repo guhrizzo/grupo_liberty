@@ -65,13 +65,24 @@ partir do wordmark da marca — é **provisório**. Para o ícone oficial, coloq
 
 ## Login
 
-Só **e-mail e senha** dentro do app. O botão "Continuar com Google" some quando a
-página roda no Electron (`window.libertyDesktop`) — o popup OAuth do Firebase não
-fecha o fluxo de forma confiável fora de um navegador. No site continua normal.
+Dois caminhos:
 
-No Firebase (Authentication → Settings → Authorized domains) basta ter
-`grupolibertycar.com.br` e `www.grupolibertycar.com.br` — o app carrega a página
-do domínio real, não existe "domínio do exe".
+- **Entrar com o navegador** (primário): o app sobe um servidor local numa porta
+  efêmera, abre `/entrar-dispositivo` no navegador padrão do sistema e a pessoa
+  loga lá normalmente — **Google inclusive**, além de e-mail/senha e vínculo de
+  conta. A página gera um código de uso único (coleção `device_logins`, 2 min de
+  validade), o app troca esse código por um cookie de sessão em
+  `POST /api/desktop/exchange` (custom token → `signInWithCustomToken` →
+  `createSessionCookie`) e recarrega já logado. A sessão dura 5 dias e persiste
+  entre aberturas.
+- **E-mail e senha** direto no app (recolhido num "ou entrar com e-mail e
+  senha") — continua funcionando via a API REST no servidor.
+
+O `signInWithPopup` do Firebase **não** é usado no app (o popup OAuth não fecha
+o fluxo de forma confiável fora de um navegador). Não há nenhuma configuração
+nova no Google Cloud / Firebase Console — o navegador do sistema usa os
+`Authorized domains` que o site já tem (`grupolibertycar.com.br` e
+`www.grupolibertycar.com.br`).
 
 ## Limitações conhecidas
 

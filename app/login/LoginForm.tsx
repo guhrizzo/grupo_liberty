@@ -24,14 +24,26 @@ import { login, loginWithGoogle, checkEmailAuthMethod, requestPasswordReset } fr
 
 const initialState: { error?: string } = {}
 
-/** `true` quando a página está rodando dentro do app desktop (Electron), que
- *  injeta `window.libertyDesktop` via preload. Usado pra esconder o login com
- *  Google (o popup OAuth não fecha o fluxo de forma confiável no Electron). */
+/** Ponte injetada pelo preload do app desktop (Electron). */
+type DesktopBridge = {
+  loginWithBrowser?: () => Promise<void>
+}
+function desktopBridge(): DesktopBridge | null {
+  if (typeof window === 'undefined') return null
+  return (window as { libertyDesktop?: DesktopBridge }).libertyDesktop ?? null
+}
+
+/** `true` quando a página roda dentro do app desktop. No desktop o botão do
+ *  Google (popup OAuth) fica escondido — o login vai pelo navegador do sistema. */
 const noopSubscribe = () => () => {}
 function useIsDesktopApp() {
+  return useSyncExternalStore(noopSubscribe, () => Boolean(desktopBridge()), () => false)
+}
+/** `true` quando o app desktop expõe o login pelo navegador (preload novo). */
+function useCanBrowserLogin() {
   return useSyncExternalStore(
     noopSubscribe,
-    () => Boolean((window as { libertyDesktop?: unknown }).libertyDesktop),
+    () => typeof desktopBridge()?.loginWithBrowser === 'function',
     () => false,
   )
 }
@@ -85,9 +97,23 @@ export default function LoginForm({
   const [linkPassword, setLinkPassword] = useState('')
   const [showLinkPassword, setShowLinkPassword] = useState(false)
   const [isLinking, startLinkTransition] = useTransition()
-  // No app desktop (Electron) o acesso é só por e-mail/senha.
   const isDesktopApp = useIsDesktopApp()
+  const canBrowserLogin = useCanBrowserLogin()
+  const [browserLoginPending, startBrowserLogin] = useTransition()
   const toast = useToast()
+
+  function handleBrowserLogin() {
+    startBrowserLogin(async () => {
+      const bridge = desktopBridge()
+      if (!bridge?.loginWithBrowser) return
+      try {
+        // Resolve quando o Electron já recebeu a sessão e navegou pro dashboard.
+        await bridge.loginWithBrowser()
+      } catch {
+        toast.error('Login não concluído. Tente de novo.', 'Falha no login')
+      }
+    })
+  }
 
   // Toasts: erro do useActionState; mensagem de sucesso vinda da query string.
   useEffect(() => {
@@ -155,7 +181,7 @@ export default function LoginForm({
         return
       }
 
-      const res = await loginWithGoogle(idToken)
+      const res = await loginWithGoogle(idToken, redirect)
       if (res?.error) toast.error(res.error, 'Falha no login')
     })
   }
@@ -209,13 +235,16 @@ export default function LoginForm({
 
       setLinkPrompt(null)
       setLinkPassword('')
-      const res = await loginWithGoogle(idToken)
+      const res = await loginWithGoogle(idToken, redirect)
       if (res?.error) toast.error(res.error, 'Falha no login')
     })
   }
 
-  return (
-    <>
+  // No app desktop (com preload novo) o login primário é pelo navegador do
+  // sistema; e-mail/senha fica recolhido num <details>.
+  const desktopMode = isDesktopApp && canBrowserLogin
+
+  const emailPasswordForm = (
       <form
         className="space-y-5"
         action={
@@ -227,10 +256,12 @@ export default function LoginForm({
             : formAction
         }
       >
-        <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Acessar Painel</h1>
-          <p className="text-xs text-text-md mt-1.5">Entre com suas credenciais corporativas.</p>
-        </div>
+        {!desktopMode && (
+          <div>
+            <h1 className="text-2xl font-black text-white tracking-tight">Acessar Painel</h1>
+            <p className="text-xs text-text-md mt-1.5">Entre com suas credenciais corporativas.</p>
+          </div>
+        )}
 
         <Input
           type="email"
@@ -317,6 +348,48 @@ export default function LoginForm({
           </>
         )}
       </form>
+  )
+
+  return (
+    <>
+      {desktopMode && (
+        <div className="space-y-4">
+          <div>
+            <h1 className="text-2xl font-black text-white tracking-tight">Acessar Painel</h1>
+            <p className="text-xs text-text-md mt-1.5">
+              Entre com sua conta pelo navegador — Google inclusive.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={browserLoginPending}
+            loadingLabel="Abrindo o navegador…"
+            onClick={handleBrowserLogin}
+            leftIcon={<GoogleIcon size={16} />}
+          >
+            Entrar com o navegador
+          </Button>
+          {browserLoginPending && (
+            <p className="text-center text-xs text-text-lo">
+              Conclua o login no navegador que abriu e volte para o app.
+            </p>
+          )}
+        </div>
+      )}
+
+      {desktopMode ? (
+        <details className="mt-5">
+          <summary className="cursor-pointer list-none text-xs font-semibold text-text-lo hover:text-text-hi">
+            ou entrar com e-mail e senha
+          </summary>
+          <div className="mt-4">{emailPasswordForm}</div>
+        </details>
+      ) : (
+        emailPasswordForm
+      )}
 
       {/* Modal de Vinculação de Conta Google — quando o e-mail já existe com senha */}
       {linkPrompt && (

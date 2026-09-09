@@ -20,13 +20,6 @@ export const APP_ORIGINS = [
   'http://localhost:3000',
 ]
 
-// Origens de autenticação liberadas caso o login do Firebase use redirect/popup.
-export const AUTH_ORIGINS = [
-  'https://grupo-liberty.firebaseapp.com',
-  'https://accounts.google.com',
-  'https://apis.google.com',
-]
-
 // Rotas públicas (vitrine) que o app desktop NÃO deve abrir — qualquer tentativa
 // de navegar pra elas é redirecionada pro sistema interno.
 const PUBLIC_PATH = /^\/$|^\/(veiculos|public)(\/|$)/
