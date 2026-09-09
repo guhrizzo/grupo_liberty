@@ -2,9 +2,11 @@
 // então os defaults abaixo são o que vale de verdade. Em dev, o script `dev`
 // exporta APP_URL apontando pro localhost.
 
-// Site publicado.
+// Site publicado. Usa o host `www` porque em produção o apex
+// (grupolibertycar.com.br) redireciona 308 pra www — apontar pro apex fazia o
+// cookie de sessão ser gravado no host errado.
 export const APP_ORIGIN =
-  process.env.APP_ORIGIN ?? 'https://grupolibertycar.com.br'
+  process.env.APP_ORIGIN ?? 'https://www.grupolibertycar.com.br'
 
 // Ponto de entrada do app desktop: vai direto pro sistema interno. Sem sessão,
 // o próprio site redireciona pra /login; com sessão, entra direto.

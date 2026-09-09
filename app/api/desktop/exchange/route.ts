@@ -73,14 +73,18 @@ export async function POST(req: Request) {
     const { idToken } = (await r.json()) as { idToken: string }
 
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: SESSION_MS })
+    const maxAge = SESSION_MS / 1000
 
-    const res = NextResponse.json({ ok: true })
+    // Devolve o valor no corpo também: o processo principal do app grava o
+    // cookie explicitamente na sessão do Electron (o Set-Cookie sozinho não é
+    // confiável ali — a Fetch API esconde o header e o host pode diferir).
+    const res = NextResponse.json({ ok: true, session: sessionCookie, maxAge })
     res.cookies.set('session', sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       path: '/',
       sameSite: 'lax',
-      maxAge: SESSION_MS / 1000,
+      maxAge,
     })
     return res
   } catch (err) {

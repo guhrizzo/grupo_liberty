@@ -109,8 +109,14 @@ export default function LoginForm({
       try {
         // Resolve quando o Electron já recebeu a sessão e navegou pro dashboard.
         await bridge.loginWithBrowser()
-      } catch {
-        toast.error('Login não concluído. Tente de novo.', 'Falha no login')
+      } catch (err) {
+        const raw = err instanceof Error ? err.message : ''
+        // IPC embrulha a mensagem: "Error invoking remote method 'x': Error: real"
+        const msg = raw.replace(/^Error invoking remote method '[^']*':\s*(Error:\s*)?/, '').trim()
+        toast.error(
+          msg && msg !== 'timeout' ? msg : 'Login não concluído. Tente de novo.',
+          'Falha no login',
+        )
       }
     })
   }

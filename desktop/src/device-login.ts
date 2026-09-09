@@ -30,28 +30,21 @@ function encerra(server: http.Server, timer: NodeJS.Timeout) {
   if (emAndamento === server) emAndamento = null
 }
 
-/** Garante que o cookie `session` da resposta do /exchange está na sessão do app. */
-async function garanteCookie(res: Awaited<ReturnType<typeof net.fetch>>) {
-  // net.fetch já usa session.defaultSession — normalmente o Set-Cookie entra
-  // sozinho. Se não entrou (checamos), setamos manualmente pelo header.
-  const jaTem = await session.defaultSession.cookies
-    .get({ url: APP_ORIGIN, name: 'session' })
-    .then((c) => c.length > 0)
-    .catch(() => false)
-  if (jaTem) return
-
-  const setCookie = res.headers.get('set-cookie') ?? ''
-  const m = /(?:^|,\s*)session=([^;]+)/.exec(setCookie)
-  if (!m) throw new Error('sem cookie de sessão na resposta')
+/** Grava o cookie `session` (valor vindo no corpo do /exchange) na sessão do app. */
+async function gravaCookie(valor: string, maxAgeSec: number) {
+  const https = APP_ORIGIN.startsWith('https')
+  // domínio-base (sem `www.`) → cobre apex e www, seja qual for o host final.
+  const dominio = https ? new URL(APP_ORIGIN).hostname.replace(/^www\./, '') : undefined
   await session.defaultSession.cookies.set({
     url: APP_ORIGIN,
     name: 'session',
-    value: m[1],
-    httpOnly: true,
-    secure: APP_ORIGIN.startsWith('https'),
+    value: valor,
+    domain: dominio,
     path: '/',
+    httpOnly: true,
+    secure: https,
     sameSite: 'lax',
-    expirationDate: Math.floor(Date.now() / 1000) + 5 * 24 * 3600,
+    expirationDate: Math.floor(Date.now() / 1000) + (maxAgeSec || 5 * 24 * 3600),
   })
 }
 
@@ -97,13 +90,17 @@ export function loginWithBrowser(getWindow: () => BrowserWindow | null): Promise
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ code }),
-          credentials: 'include',
         })
-        if (!r.ok) {
-          const j = (await r.json().catch(() => ({}))) as { error?: string }
+        const j = (await r.json().catch(() => ({}))) as {
+          ok?: boolean
+          session?: string
+          maxAge?: number
+          error?: string
+        }
+        if (!r.ok || !j.session) {
           throw new Error(j.error ?? `exchange ${r.status}`)
         }
-        await garanteCookie(r)
+        await gravaCookie(j.session, j.maxAge ?? 0)
         getWindow()?.loadURL(APP_URL)
         resolve()
       } catch (err) {
