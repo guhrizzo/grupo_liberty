@@ -19,6 +19,7 @@ import {
 import { createWindowState } from './window-state'
 import { buildMenu } from './menu'
 import { initUpdater, checkForUpdatesManual } from './updater'
+import { loginWithBrowser } from './device-login'
 
 const isDev = !app.isPackaged
 const ASSETS = path.join(__dirname, '..', 'assets')
@@ -221,4 +222,5 @@ if (!app.requestSingleInstanceLock()) {
 
   ipcMain.on('retry-load', () => loadApp())
   ipcMain.handle('app-version', () => app.getVersion())
+  ipcMain.handle('login-with-browser', () => loginWithBrowser(getWindow))
 }
