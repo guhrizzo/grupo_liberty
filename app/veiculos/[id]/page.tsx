@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard } from '@tabler/icons-react'
+import { IconCalendar, IconPalette, IconRoad, IconManualGearbox, IconGasStation, IconMapPin, IconChevronRight, IconCash, IconAlertTriangle, IconCreditCard, IconBuildingBank } from '@tabler/icons-react'
 import { adminDb } from '@/utils/firebase/admin'
+import { getBancoByCodigo } from '@/constants/bancos'
 import PropostaForm from './PropostaForm'
 import GalleryViewer from './GalleryViewer'
 import ShareButton from '@/app/components/ShareButton'
@@ -72,6 +73,11 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   }
 
   const veiculo = { id: docSnap.id, ...docSnap.data() } as any
+
+  // Nome do banco do financiamento para exibir na ficha técnica pública.
+  // Prefere o nome canônico da tabela quando há código; cai no texto livre.
+  const bancoNome: string | null =
+    getBancoByCodigo(veiculo.bancoCodigo)?.nome ?? (veiculo.banco || null)
 
   const session = await getSessionUser()
   const user = session
@@ -200,6 +206,9 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   {veiculo.tabelaFipe ? (
                     <Spec icon={<IconCash size={16} />} label="Tabela FIPE" value={formatCurrency(veiculo.tabelaFipe)} />
                   ) : null}
+                  {bancoNome && (
+                    <Spec icon={<IconBuildingBank size={16} />} label="Banco" value={bancoNome} />
+                  )}
                 </div>
 
                 {veiculo.descricao && (
