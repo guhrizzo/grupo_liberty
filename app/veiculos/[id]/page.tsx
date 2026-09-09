@@ -206,9 +206,8 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   {veiculo.tabelaFipe ? (
                     <Spec icon={<IconCash size={16} />} label="Tabela FIPE" value={formatCurrency(veiculo.tabelaFipe)} />
                   ) : null}
-                  {bancoNome && (
-                    <Spec icon={<IconBuildingBank size={16} />} label="Banco" value={bancoNome} />
-                  )}
+                  <Spec icon={<IconBuildingBank size={16} />} label="Banco" value={bancoNome ?? 'Não cadastrado'} />
+
                 </div>
 
                 {veiculo.descricao && (
