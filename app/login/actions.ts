@@ -4,12 +4,14 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { safeInternalPath } from '@/utils/safeInternalPath'
 
 type LoginResult = { error?: string }
 
 export async function login(_prev: LoginResult, formData: FormData): Promise<LoginResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const destino = safeInternalPath(formData.get('redirect'))
 
   if (!email || !password) {
     return { error: 'E-mail e senha são obrigatórios.' }
@@ -61,7 +63,7 @@ export async function login(_prev: LoginResult, formData: FormData): Promise<Log
 
   revalidatePath('/', 'layout')
   // Mantemos redirect aqui porque o sucesso invalida a página inteira.
-  redirect('/dashboard')
+  redirect(destino)
 }
 
 export type EmailAuthMethod = { hasPassword: boolean; hasGoogle: boolean }
@@ -110,10 +112,14 @@ export async function checkEmailAuthMethod(email: string): Promise<EmailAuthMeth
  * popup do Google acabou de criar é removido, para não sobrar cadastro
  * órfão no banco.
  */
-export async function loginWithGoogle(idToken: string): Promise<LoginResult> {
+export async function loginWithGoogle(
+  idToken: string,
+  redirectTo?: string,
+): Promise<LoginResult> {
   if (!idToken) {
     return { error: 'Token do Google inválido.' }
   }
+  const destino = safeInternalPath(redirectTo)
 
   try {
     const decoded = await adminAuth.verifyIdToken(idToken)
@@ -147,7 +153,7 @@ export async function loginWithGoogle(idToken: string): Promise<LoginResult> {
 
   revalidatePath('/', 'layout')
   // Fora do try/catch: redirect() lança uma exceção de controle do Next.js.
-  redirect('/dashboard')
+  redirect(destino)
 }
 
 export async function logout() {

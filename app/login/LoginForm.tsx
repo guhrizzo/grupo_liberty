@@ -155,7 +155,7 @@ export default function LoginForm({
         return
       }
 
-      const res = await loginWithGoogle(idToken)
+      const res = await loginWithGoogle(idToken, redirect)
       if (res?.error) toast.error(res.error, 'Falha no login')
     })
   }
@@ -209,7 +209,7 @@ export default function LoginForm({
 
       setLinkPrompt(null)
       setLinkPassword('')
-      const res = await loginWithGoogle(idToken)
+      const res = await loginWithGoogle(idToken, redirect)
       if (res?.error) toast.error(res.error, 'Falha no login')
     })
   }
