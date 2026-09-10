@@ -28,6 +28,8 @@ export interface Anuncio {
   precoDesejado: number
   observacoes: string
   placa: string | null
+  cidade: string
+  estado: string
   fotos: string[]
   // Triagem
   status: AnuncioStatus

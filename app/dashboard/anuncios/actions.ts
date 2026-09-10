@@ -36,6 +36,9 @@ function serializar(id: string, d: FirebaseFirestore.DocumentData): Anuncio {
     precoDesejado: Number(d.precoDesejado) || 0,
     observacoes: d.observacoes ?? '',
     placa: d.placa ?? null,
+    // Anúncios enviados antes desse campo existir ficam sem cidade/estado.
+    cidade: d.cidade ?? '',
+    estado: d.estado ?? '',
     fotos: Array.isArray(d.fotos) ? (d.fotos as string[]) : [],
     status: (d.status ?? 'pendente') as AnuncioStatus,
     motivoRecusa: d.motivoRecusa ?? null,
@@ -182,6 +185,10 @@ export async function aprovarAnuncio(
         email: d.email ?? '',
         telefone: d.telefone ?? '',
         anuncioId: id,
+        // Ao contrário dos campos acima, cidade/estado são exibidos
+        // publicamente no anúncio do veículo (ver toPublicVeiculo).
+        cidade: d.cidade ?? '',
+        estado: d.estado ?? '',
       },
       cpfCliente: null,
       telefoneCliente: null,
