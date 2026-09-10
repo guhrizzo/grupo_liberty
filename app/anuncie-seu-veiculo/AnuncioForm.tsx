@@ -12,14 +12,18 @@ import {
   IconSend,
   IconCircleCheck,
   IconSpeakerphone,
+  IconPercentage,
 } from '@tabler/icons-react'
 import { Button, Input, Select, Textarea, useToast } from '../components/ui'
 import { onlyDigits, parseMoney } from '@/utils/masks'
+import { formatCurrency } from '@/utils/format'
 import { validarCPF } from '@/utils/validadorCpf'
 import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import PhotoUploadField, { type LocalFoto } from './PhotoUploadField'
 
 const ANO_MAX = new Date().getFullYear() + 1
+/** Comissão que a LibertyCar retém sobre o valor anunciado pelo dono. */
+const TAXA_COMISSAO = 0.08
 const PLACA_RE = /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/
 
 const CAMBIO_SELECT = [{ value: '', label: 'Selecione…' }, ...CAMBIO_OPCOES]
@@ -51,6 +55,11 @@ export default function AnuncioForm() {
   // Trava síncrona: `loading` só vira true no próximo render, então um segundo
   // submit (Enter, duplo-clique rápido) que chegue antes disso ainda passaria.
   const enviandoRef = useRef(false)
+
+  // Prévia da comissão: a LibertyCar retém 8% do valor anunciado; o resto é repasse ao dono.
+  const precoNum = parseMoney(precoDesejado)
+  const comissao = precoNum * TAXA_COMISSAO
+  const repasse = precoNum - comissao
 
   function validar(): string | null {
     if (nome.trim().length < 2) return 'Informe seu nome completo.'
@@ -280,6 +289,44 @@ export default function AnuncioForm() {
             placeholder="ABC-1234 ou ABC1D23"
             containerClassName="sm:col-span-2"
           />
+        </div>
+
+        <div className="mt-4 rounded-xl border border-liberty/25 bg-liberty/[0.04] p-4">
+          <h4 className="flex items-center gap-2 text-sm font-bold text-neutral-900">
+            <IconPercentage size={16} className="text-liberty" />
+            Comissão da LibertyCar
+          </h4>
+          <p className="mt-1 text-xs text-neutral-600 leading-relaxed">
+            Ao vender pela LibertyCar, retemos <strong>8%</strong> do valor
+            anunciado. O restante é repassado a você.
+          </p>
+
+          {precoNum > 0 ? (
+            <dl className="mt-3 space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-neutral-600">Valor anunciado</dt>
+                <dd className="font-medium text-neutral-900 tabular-nums">
+                  {formatCurrency(precoNum)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-neutral-600">Comissão LibertyCar (8%)</dt>
+                <dd className="font-medium text-neutral-500 tabular-nums">
+                  − {formatCurrency(comissao)}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between border-t border-liberty/20 pt-1.5">
+                <dt className="font-semibold text-neutral-900">Você recebe</dt>
+                <dd className="font-bold text-liberty tabular-nums">
+                  {formatCurrency(repasse)}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <p className="mt-2 text-xs text-neutral-400">
+              Informe o preço desejado acima para ver quanto você receberia.
+            </p>
+          )}
         </div>
 
         <div className="mt-4">
