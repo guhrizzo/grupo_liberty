@@ -9,6 +9,7 @@ import {
   IconTool,
   IconFileText,
   IconCurrencyDollar,
+  IconChartBar,
   IconArrowRight,
   type Icon,
 } from '@tabler/icons-react'
@@ -83,6 +84,14 @@ const MODULES: ModuleCard[] = [
     icon: IconTool,
     badge: 'Operações',
     allowed: ['admin', 'vendedor', 'suporte'],
+  },
+  {
+    href: '/dashboard/analytics',
+    titulo: 'Visitantes do Site',
+    descricao: 'Quantas pessoas acessam o site, quantas estão logadas e os veículos mais vistos.',
+    icon: IconChartBar,
+    badge: 'Admin',
+    allowed: ['admin'],
   },
 ]
 
