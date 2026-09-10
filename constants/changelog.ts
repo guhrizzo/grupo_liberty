@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-10-visitantes-do-site',
+    date: '2026-09-10',
+    title: 'Visitantes do site',
+    tag: 'novo',
+    items: [
+      'Nova aba "Visitantes" no menu (só admin): mostra quantas pessoas acessam o site.',
+      'Visitantes de hoje e do mês, separando quem está logado de quem é anônimo, mais os pageviews.',
+      'Gráfico dos últimos 30 dias e ranking dos veículos mais vistos.',
+      'A conta usa um identificador anônimo por navegador (sem dados pessoais); a navegação interna do painel não é contabilizada.',
+    ],
+  },
+  {
     id: '2026-09-07-baixa-manutencao',
     date: '2026-09-07',
     title: 'Baixa de manutenção (valor + comprovante)',
