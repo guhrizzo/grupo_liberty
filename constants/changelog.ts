@@ -36,6 +36,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    id: '2026-09-10-remover-foto-veiculo-mobile',
+    date: '2026-09-10',
+    title: 'Remover fotos de veículo no celular',
+    tag: 'melhoria',
+    items: [
+      'No cadastro/edição de veículo pelo celular, o "X" de cada foto agora fica sempre visível (antes só aparecia com o mouse em cima, o que não dava no toque).',
+      'Ao tocar no "X" o sistema pede confirmação antes de tirar a foto da galeria, evitando remoção acidental.',
+      'A foto só sai de vez quando você salva as alterações do veículo.',
+    ],
+  },
+  {
     id: '2026-09-07-baixa-manutencao',
     date: '2026-09-07',
     title: 'Baixa de manutenção (valor + comprovante)',
