@@ -27,6 +27,13 @@ export interface PublicVeiculo {
   created_at: string
   /** Veículo anunciado por terceiro (dono do carro), não é do estoque próprio da Liberty. */
   terceiro: boolean
+  /**
+   * Cidade/estado onde o veículo de terceiro realmente está (informados no
+   * anúncio) — só quando `terceiro === true`. Nunca inclui o resto de
+   * `terceiroInfo` (nome/telefone/e-mail do dono), que é estritamente interno.
+   */
+  cidadeTerceiro: string | null
+  estadoTerceiro: string | null
 }
 
 export function toPublicVeiculo(v: Veiculo): PublicVeiculo {
@@ -47,5 +54,7 @@ export function toPublicVeiculo(v: Veiculo): PublicVeiculo {
     localizacao: v.localizacao,
     created_at: v.created_at,
     terceiro: v.terceiro,
+    cidadeTerceiro: v.terceiro ? v.terceiroInfo?.cidade || null : null,
+    estadoTerceiro: v.terceiro ? v.terceiroInfo?.estado || null : null,
   }
 }
