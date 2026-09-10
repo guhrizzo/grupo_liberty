@@ -139,12 +139,12 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
               </div>
 
               <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-                <div className="border-b border-neutral-200 pb-5 mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
+                <div className="border-b border-neutral-200 pb-5 mb-5 flex flex-col sm:flex-row sm:flex-wrap sm:items-start sm:justify-between gap-3">
+                  <div className="min-w-0 sm:flex-1">
                     <span className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty">
                       {veiculo.marca}
                     </span>
-                    <h1 className="text-3xl md:text-4xl font-black text-neutral-900 tracking-tight mt-1 break-words">
+                    <h1 className="text-2xl md:text-4xl font-black text-neutral-900 tracking-tight mt-1 [overflow-wrap:anywhere]">
                       {veiculo.modelo}
                     </h1>
                     {veiculo.localizacao && (
@@ -154,14 +154,14 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                       </span>
                     )}
                   </div>
-                  <div className="shrink-0 text-right max-w-full">
+                  <div className="shrink-0 text-left sm:text-right max-w-full">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500 whitespace-nowrap">
                       {veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
                         ? 'Preço promocional'
                         : 'Preço à vista'}
                     </p>
                     {veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco ? (
-                      <div className="flex flex-col items-end gap-0.5">
+                      <div className="flex flex-col items-start sm:items-end gap-0.5">
                         <p className="text-sm font-semibold text-neutral-400 line-through">
                           {formatCurrency(veiculo.preco)}
                         </p>
@@ -193,7 +193,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   <Spec icon={<IconCalendar size={16} />} label="Ano" value={String(veiculo.ano)} />
                   {veiculo.cor && <Spec icon={<IconPalette size={16} />} label="Cor" value={veiculo.cor} />}
                   {veiculo.quilometragem !== null && veiculo.quilometragem !== undefined && (
-                    <Spec icon={<IconRoad size={16} />} label="Quilometragem" value={`${veiculo.quilometragem.toLocaleString('pt-BR')} km`} />
+                    <Spec icon={<IconRoad size={16} />} label="Km rodados" value={`${veiculo.quilometragem.toLocaleString('pt-BR')} km`} />
                   )}
                   <Spec icon={<IconManualGearbox size={16} />} label="Câmbio" value={String(veiculo.cambio).toUpperCase()} />
                   <Spec icon={<IconGasStation size={16} />} label="Combustível" value={String(veiculo.combustivel).toUpperCase()} />
@@ -274,10 +274,10 @@ function Spec({ icon, label, value }: { icon: React.ReactNode; label: string; va
   return (
     <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-3.5 hover:border-liberty/40 transition-colors">
       <div className="flex items-center gap-1.5 text-liberty">
-        {icon}
-        <p className="text-[10px] font-extrabold uppercase tracking-[0.2em]">{label}</p>
+        <span className="shrink-0">{icon}</span>
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] sm:tracking-[0.2em] leading-tight [overflow-wrap:anywhere] min-w-0">{label}</p>
       </div>
-      <p className="text-sm font-bold text-neutral-900 mt-1.5">{value}</p>
+      <p className="text-sm font-bold text-neutral-900 mt-1.5 [overflow-wrap:anywhere]">{value}</p>
     </div>
   )
 }
