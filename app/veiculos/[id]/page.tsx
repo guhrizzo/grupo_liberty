@@ -147,11 +147,20 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                     <h1 className="text-2xl md:text-4xl font-black text-neutral-900 tracking-tight mt-1 [overflow-wrap:anywhere]">
                       {veiculo.modelo}
                     </h1>
-                    {veiculo.localizacao && (
+                    {veiculo.terceiro && veiculo.terceiroInfo?.cidade ? (
                       <span className="inline-flex items-center gap-1.5 mt-2 text-xs text-neutral-600">
                         <IconMapPin size={14} className="text-liberty" />
-                        Loja {veiculo.localizacao === 'bauru' ? 'Bauru/SP' : 'Jaú/SP'}
+                        {veiculo.terceiroInfo.cidade}
+                        {veiculo.terceiroInfo.estado ? `/${veiculo.terceiroInfo.estado}` : ''}
                       </span>
+                    ) : (
+                      !veiculo.terceiro &&
+                      veiculo.localizacao && (
+                        <span className="inline-flex items-center gap-1.5 mt-2 text-xs text-neutral-600">
+                          <IconMapPin size={14} className="text-liberty" />
+                          Loja {veiculo.localizacao === 'bauru' ? 'Bauru/SP' : 'Jaú/SP'}
+                        </span>
+                      )
                     )}
                   </div>
                   <div className="shrink-0 text-left sm:text-right max-w-full">

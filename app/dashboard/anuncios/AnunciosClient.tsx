@@ -18,6 +18,7 @@ import {
   IconPhoto,
   IconExternalLink,
   IconSearch,
+  IconMapPin,
 } from '@tabler/icons-react'
 import { Breadcrumb, Button, ConfirmDialog, EmptyState, Modal, Textarea, useToast } from '../../components/ui'
 import PhotoLightbox from '../../components/PhotoLightbox'
@@ -253,6 +254,7 @@ export default function AnunciosClient({ anuncios }: { anuncios: Anuncio[] }) {
                       <li className="flex items-center gap-1.5"><IconManualGearbox size={12} /> {CAMBIO_LABEL[a.cambio] ?? a.cambio}</li>
                       <li className="flex items-center gap-1.5"><IconGasStation size={12} /> {COMBUSTIVEL_LABEL[a.combustivel] ?? a.combustivel}</li>
                       {a.placa && <li className="flex items-center gap-1.5"><IconCalendar size={12} /> Placa {a.placa}</li>}
+                      {a.cidade && <li className="flex items-center gap-1.5"><IconMapPin size={12} /> {a.cidade}{a.estado ? `/${a.estado}` : ''}</li>}
                     </ul>
                   </div>
 

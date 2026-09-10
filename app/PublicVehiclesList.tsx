@@ -182,6 +182,14 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
           {filteredAndSorted.map((v, idx) => {
             const em = isEmDesconto(v)
             const pct = em ? descontoPercent(v) : 0
+            // Veículo de terceiro: mostra a cidade/UF real informada no
+            // anúncio no lugar da loja fixa, que não se aplica a ele.
+            const pinLabel =
+              v.terceiro && v.cidadeTerceiro
+                ? `${v.cidadeTerceiro}${v.estadoTerceiro ? `/${v.estadoTerceiro}` : ''}`
+                : v.terceiro
+                  ? null
+                  : v.localizacao
             return (
             <div
               key={v.id}
@@ -209,15 +217,15 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       <IconCar size={48} stroke={1.2} />
                     </div>
                   )}
-                  {v.localizacao && (
+                  {pinLabel && (
                     <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-md bg-white/95 backdrop-blur-sm text-liberty-deep text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-neutral-200 shadow-sm">
                       <IconMapPin size={11} stroke={2.5} />
-                      {v.localizacao}
+                      {pinLabel}
                     </span>
                   )}
                   {v.terceiro && (
                     <span
-                      className={`absolute left-3 inline-flex items-center gap-1 rounded-md bg-slate-700/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-slate-800 shadow-sm ${v.localizacao ? 'top-11' : 'top-3'}`}
+                      className={`absolute left-3 inline-flex items-center gap-1 rounded-md bg-slate-700/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-slate-800 shadow-sm ${pinLabel ? 'top-11' : 'top-3'}`}
                     >
                       Anúncio de terceiro
                     </span>

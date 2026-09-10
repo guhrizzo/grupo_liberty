@@ -13,12 +13,14 @@ import {
   IconCircleCheck,
   IconSpeakerphone,
   IconPercentage,
+  IconMapPin,
 } from '@tabler/icons-react'
 import { Button, Input, Select, Textarea, useToast } from '../components/ui'
 import { onlyDigits, parseMoney } from '@/utils/masks'
 import { formatCurrency } from '@/utils/format'
 import { validarCPF } from '@/utils/validadorCpf'
 import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
+import { ESTADO_OPCOES } from '@/utils/estadosBrasil'
 import PhotoUploadField, { type LocalFoto } from './PhotoUploadField'
 
 const ANO_MAX = new Date().getFullYear() + 1
@@ -28,6 +30,7 @@ const PLACA_RE = /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/
 
 const CAMBIO_SELECT = [{ value: '', label: 'Selecione…' }, ...CAMBIO_OPCOES]
 const COMBUSTIVEL_SELECT = [{ value: '', label: 'Selecione…' }, ...COMBUSTIVEL_OPCOES]
+const ESTADO_SELECT = [{ value: '', label: 'UF' }, ...ESTADO_OPCOES]
 
 export default function AnuncioForm() {
   const toast = useToast()
@@ -46,6 +49,8 @@ export default function AnuncioForm() {
   const [quilometragem, setQuilometragem] = useState('')
   const [precoDesejado, setPrecoDesejado] = useState('')
   const [placa, setPlaca] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
   const [observacoes, setObservacoes] = useState('')
 
   const [fotos, setFotos] = useState<LocalFoto[]>([])
@@ -77,6 +82,8 @@ export default function AnuncioForm() {
     if (!combustivel) return 'Selecione o combustível.'
     if (onlyDigits(quilometragem) === '') return 'Informe a quilometragem.'
     if (parseMoney(precoDesejado) <= 0) return 'Informe o preço desejado.'
+    if (!cidade.trim()) return 'Informe a cidade onde o veículo está.'
+    if (!estado) return 'Selecione o estado onde o veículo está.'
     if (!observacoes.trim()) return 'Escreva algumas informações sobre o veículo.'
     if (placa.trim() && !PLACA_RE.test(placa.trim().toUpperCase())) {
       return 'Placa inválida. Use ABC-1234 ou ABC1D23.'
@@ -112,6 +119,8 @@ export default function AnuncioForm() {
     fd.append('quilometragem', onlyDigits(quilometragem))
     fd.append('precoDesejado', precoDesejado)
     fd.append('placa', placa.trim())
+    fd.append('cidade', cidade.trim())
+    fd.append('estado', estado)
     fd.append('observacoes', observacoes.trim())
     for (const f of fotos) fd.append('fotos', f.file)
 
@@ -288,6 +297,20 @@ export default function AnuncioForm() {
             onChange={(e) => setPlaca(e.target.value)}
             placeholder="ABC-1234 ou ABC1D23"
             containerClassName="sm:col-span-2"
+          />
+          <Input
+            label="Cidade onde o veículo está"
+            required
+            value={cidade}
+            onChange={(e) => setCidade(e.target.value)}
+            placeholder="Ex: Jaú"
+            leftIcon={<IconMapPin size={14} />}
+          />
+          <Select
+            label="Estado"
+            options={ESTADO_SELECT}
+            value={estado}
+            onChange={(e) => setEstado(e.target.value)}
           />
         </div>
 

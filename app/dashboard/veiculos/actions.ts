@@ -154,12 +154,19 @@ export interface Veiculo {
    * Selo exibido só internamente; nunca serializado no payload público.
    */
   terceiro: boolean
-  /** Contato do dono quando `terceiro === true`. Interno — nunca vai pro site. */
+  /**
+   * Dados do dono/anúncio quando `terceiro === true`. `nome`/`email`/
+   * `telefone`/`anuncioId` são internos, nunca vão pro site — `cidade`/
+   * `estado` são exceção: aparecem publicamente no anúncio (ver
+   * `toPublicVeiculo`).
+   */
   terceiroInfo: {
     nome: string
     email: string
     telefone: string
     anuncioId: string
+    cidade: string
+    estado: string
   } | null
   cpfCliente: string | null
   telefoneCliente: string | null
