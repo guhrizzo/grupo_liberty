@@ -17,6 +17,7 @@ import {
   IconSparkles,
   IconBug,
   IconSpeakerphone,
+  IconChartBar,
   IconMenu2,
 
   IconLogout,
@@ -33,7 +34,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart'
   roles: string[]
   permissionKey?: string
 }
@@ -116,6 +117,13 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'usuarios',
   },
   {
+    href: '/dashboard/analytics',
+    label: 'Visitantes',
+    icon: 'chart',
+    roles: ['admin'],
+    permissionKey: 'analytics',
+  },
+  {
     href: '/dashboard/novidades',
     label: 'Novidades',
     icon: 'sparkles',
@@ -158,6 +166,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconBug className={cls} stroke={2} />
     case 'megaphone':
       return <IconSpeakerphone className={cls} stroke={2} />
+    case 'chart':
+      return <IconChartBar className={cls} stroke={2} />
   }
 }
 

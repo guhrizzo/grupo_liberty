@@ -38,6 +38,7 @@ const PERMISSION_TABS = [
   { key: 'juridico',      label: 'Jurídico',       defaultRoles: ['admin', 'advogado'] },
   { key: 'manutencao',    label: 'Manutenção',     defaultRoles: ['admin', 'vendedor', 'suporte'] },
   { key: 'usuarios',      label: 'Usuários',       defaultRoles: ['admin'] },
+  { key: 'analytics',     label: 'Visitantes',     defaultRoles: ['admin'] },
 ] as const
 
 type PermKey = typeof PERMISSION_TABS[number]['key']
