@@ -243,6 +243,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // Reorder drag state
   const dragIndexRef = useRef<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  // Foto aguardando confirmação de remoção (índice em `photos`). No mobile o
+  // botão "X" fica sempre visível, então a confirmação evita toque acidental.
+  const [photoToRemove, setPhotoToRemove] = useState<number | null>(null)
 
   // Contratos (PDFs anexados ao veículo) — ficam abaixo das fotos no formulário.
   // Em cadastro os PDFs ficam pendentes e sobem após o veículo ser criado;
@@ -296,6 +299,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       copy.splice(index, 1)
       return copy
     })
+  }
+
+  const confirmRemovePhoto = () => {
+    if (photoToRemove !== null) removePhoto(photoToRemove)
+    setPhotoToRemove(null)
   }
 
   // ─── Photo reorder (drag within grid) ───────────────────────────────────
@@ -493,6 +501,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       if (!p.isExisting) URL.revokeObjectURL(p.url)
     })
     setPhotos([])
+    setPhotoToRemove(null)
     setContratosExistentes([])
     setContratosLoading(false)
     setNovosContratos([])
@@ -1909,10 +1918,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         </div>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); removePhoto(index) }}
-                          className="absolute top-1 right-1 rounded-full bg-black/60 hover:bg-black/80 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                          onClick={(e) => { e.stopPropagation(); setPhotoToRemove(index) }}
+                          aria-label={`Remover foto ${index + 1}`}
+                          className="absolute top-1.5 right-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                         >
-                          <IconX size={12} stroke={2.5} />
+                          <IconX size={14} stroke={2.5} />
                         </button>
                         {index === 0 && (
                           <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
@@ -2349,6 +2359,18 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             </div>
           )}
         </div>
+
+      {/* Confirmação de remoção de foto (mobile: X sempre visível) */}
+      <ConfirmDialog
+        open={photoToRemove !== null}
+        onClose={() => setPhotoToRemove(null)}
+        onConfirm={confirmRemovePhoto}
+        title="Remover esta foto?"
+        description="A foto sai da galeria deste veículo quando você salvar as alterações."
+        confirmLabel="Remover"
+        cancelLabel="Cancelar"
+        tone="danger"
+      />
 
       {/* Modal de Confirmação de Exclusão */}
       {deleteId && (
