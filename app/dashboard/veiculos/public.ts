@@ -25,6 +25,8 @@ export interface PublicVeiculo {
   fotos: string[]
   localizacao: string
   created_at: string
+  /** Veículo anunciado por terceiro (dono do carro), não é do estoque próprio da Liberty. */
+  terceiro: boolean
 }
 
 export function toPublicVeiculo(v: Veiculo): PublicVeiculo {
@@ -44,5 +46,6 @@ export function toPublicVeiculo(v: Veiculo): PublicVeiculo {
     fotos: v.fotos,
     localizacao: v.localizacao,
     created_at: v.created_at,
+    terceiro: v.terceiro,
   }
 }
