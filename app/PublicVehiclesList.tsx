@@ -215,6 +215,13 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                       {v.localizacao}
                     </span>
                   )}
+                  {v.terceiro && (
+                    <span
+                      className={`absolute left-3 inline-flex items-center gap-1 rounded-md bg-slate-700/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-slate-800 shadow-sm ${v.localizacao ? 'top-11' : 'top-3'}`}
+                    >
+                      Anúncio de terceiro
+                    </span>
+                  )}
                   {em && (
                     <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-md bg-emerald-500/95 backdrop-blur-sm text-white text-[10px] font-extrabold uppercase tracking-wider px-2 py-1 border border-emerald-600 shadow-sm">
                       −{pct}%
