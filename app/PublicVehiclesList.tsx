@@ -106,7 +106,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
             <Input
               id="vehicle-search"
               type="search"
-              placeholder="Buscar por marca, modelo, opcionais..."
+              placeholder="Buscar por marca ou modelo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               leftIcon={<IconSearch size={18} stroke={2} />}

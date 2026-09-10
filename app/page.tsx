@@ -95,7 +95,7 @@ export default async function HomePage() {
           {/* Listagem de Veículos */}
           <section id="estoque" className="space-y-6">
             <div className="flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty">
                   Frota Disponível
                 </p>
@@ -103,7 +103,7 @@ export default async function HomePage() {
                   Veículos em Destaque
                 </h2>
               </div>
-              <span className="text-xs font-semibold text-neutral-500">
+              <span className="shrink-0 text-xs font-semibold text-neutral-500 whitespace-nowrap">
                 {veiculos.length} {veiculos.length === 1 ? 'veículo' : 'veículos'}
               </span>
             </div>
