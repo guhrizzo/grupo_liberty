@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-10-veiculos-vendidos',
+    date: '2026-09-10',
+    title: 'Veículos vendidos no site',
+    tag: 'novo',
+    items: [
+      'No estoque, a visibilidade do veículo agora tem três opções: Disponível, Vendido e Privado.',
+      'Ao marcar como "Vendido", o carro sai da vitrine principal e aparece numa seção "Vendidos recentemente" na home, com selo e preço riscado.',
+      'Veículos vendidos ficam expostos por 30 dias e depois são removidos automaticamente, junto com as fotos.',
+      'Dá pra voltar atrás: mudar de "Vendido" para "Disponível" recoloca o carro no estoque e zera a contagem dos 30 dias.',
+    ],
+  },
+  {
     id: '2026-09-10-visitantes-do-site',
     date: '2026-09-10',
     title: 'Visitantes do site',
