@@ -28,6 +28,10 @@ export interface Anuncio {
   precoDesejado: number
   observacoes: string
   placa: string | null
+  /** Vem do autofill por placa. Interno — nunca exibido no anúncio nem pro dono. */
+  tabelaFipe: number | null
+  /** Vem do autofill por placa. Interno. */
+  renavam: string | null
   cidade: string
   estado: string
   fotos: string[]
@@ -57,6 +61,8 @@ export interface RevisaoVeiculo {
   preco: number
   descricao: string
   placa: string | null
+  tabelaFipe: number | null
+  renavam: string | null
   /** 'Jaú/SP' (padrão) ou 'Bauru/SP'. */
   localizacao: string
   /** Subconjunto e ordem das fotos do anúncio a levar pro veículo. */

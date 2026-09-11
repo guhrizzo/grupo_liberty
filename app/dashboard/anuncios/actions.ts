@@ -36,6 +36,9 @@ function serializar(id: string, d: FirebaseFirestore.DocumentData): Anuncio {
     precoDesejado: Number(d.precoDesejado) || 0,
     observacoes: d.observacoes ?? '',
     placa: d.placa ?? null,
+    // Anúncios enviados antes desse campo existir ficam sem FIPE/Renavam.
+    tabelaFipe: typeof d.tabelaFipe === 'number' ? d.tabelaFipe : null,
+    renavam: d.renavam ?? null,
     // Anúncios enviados antes desse campo existir ficam sem cidade/estado.
     cidade: d.cidade ?? '',
     estado: d.estado ?? '',
@@ -170,11 +173,11 @@ export async function aprovarAnuncio(
       quilometragem: dados.quilometragem,
       preco: dados.preco,
       precoComDesconto: null,
-      tabelaFipe: null,
+      tabelaFipe: dados.tabelaFipe,
       cambio: dados.cambio,
       combustivel: dados.combustivel,
       placa: dados.placa,
-      renavam: null,
+      renavam: dados.renavam,
       descricao: dados.descricao.trim(),
       fotos: urlsVeiculo,
       localizacao: dados.localizacao || 'Jaú/SP',
