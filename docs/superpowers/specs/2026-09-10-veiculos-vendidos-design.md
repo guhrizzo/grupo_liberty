@@ -42,8 +42,7 @@ Decisões de produto já tomadas (brainstorm 2026-09-10):
 - Filtro "Vendidos" na listagem pública, busca ou ordenação nessa seção.
 - Contabilizar vendidos em qualquer métrica de analytics ou nos contadores da
   home.
-- Entrada no changelog (`constants/changelog.ts`) — segue o padrão do projeto de
-  branch `chore/changelog-*` separada, salvo indicação em contrário.
+- _(sem itens — o changelog entra nesta branch, ver item 10)._
 
 ## Modelo de dados
 
@@ -347,6 +346,28 @@ linhas ~1117-1158)
 - `generateMetadata`: acrescentar "(vendido)" ao título quando `vendidoEm` — nice
   to have, não bloqueante.
 
+### 10. `constants/changelog.ts`
+
+Nova entrada **no topo** do array `CHANGELOG`, no mesmo commit da mudança
+(convenção do arquivo):
+
+```ts
+{
+  id: '2026-09-10-veiculos-vendidos',
+  date: '2026-09-10',
+  title: 'Veículos vendidos no site',
+  tag: 'novo',
+  items: [
+    'No estoque, a visibilidade do veículo agora tem três opções: Disponível, Vendido e Privado.',
+    'Ao marcar como "Vendido", o carro sai da vitrine principal e aparece numa seção "Vendidos" na home, com selo e preço riscado.',
+    'Veículos vendidos ficam expostos por 30 dias e depois são removidos automaticamente (junto com as fotos).',
+    'Dá pra voltar atrás a qualquer momento: mudar de "Vendido" para "Disponível" recoloca o carro no estoque e zera a contagem dos 30 dias.',
+  ],
+}
+```
+
+Texto final revisável no PR.
+
 ## Fluxos
 
 ### Marcar como vendido
@@ -411,9 +432,11 @@ linhas ~1117-1158)
 | `utils/veiculos/limpar-vendidos.ts` | novo — lógica do cron |
 | `app/api/cron/limpar-vendidos/route.ts` | novo — rota do cron |
 | `vercel.json` | 2º cron |
+| `constants/changelog.ts` | nova entrada `2026-09-10-veiculos-vendidos` no topo |
 
 ## Questões em aberto
 
-- Copy final: rótulo da seção "Vendidos" na home, texto do banner no detalhe.
+- Copy final: rótulo da seção "Vendidos" na home, texto do banner no detalhe,
+  texto da entrada de changelog.
 - Plano Vercel comporta o 2º cron? (confirmar antes do deploy)
-- Changelog nesta branch ou em `chore/changelog-*` separada?
+- ~~Changelog nesta branch ou separada?~~ → **nesta branch** (item 10).
