@@ -2,8 +2,9 @@ import { cookies } from 'next/headers'
 import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
-import { toPublicVeiculo } from '@/app/dashboard/veiculos/public'
+import { toPublicVeiculo, vendidoVisivel } from '@/app/dashboard/veiculos/public'
 import PublicVehiclesList from './PublicVehiclesList'
+import PublicSoldVehiclesList from './PublicSoldVehiclesList'
 import PublicHeader from './components/PublicHeader'
 import { Button } from './components/ui'
 
@@ -26,10 +27,17 @@ export default async function HomePage() {
     }
   }
   const todosVeiculos = await getVehicles()
-  // Todo veículo fica no mesmo estoque; só aparece no site se marcado como público.
-  // Mapeado para um subconjunto público-seguro — sem CPF, dados do vendedor ou
-  // financiamento — antes de serializar no payload da página pública.
-  const veiculos = todosVeiculos.filter(v => v.publico === true).map(toPublicVeiculo)
+  // Todo veículo fica no mesmo estoque. Mapeado para um subconjunto
+  // público-seguro — sem CPF, dados do vendedor ou financiamento — antes de
+  // serializar no payload da página pública.
+  //  - `veiculos`: à venda (público e não vendido) → grid principal.
+  //  - `vendidos`: marcados como vendidos há ≤ 30 dias → seção "Vendidos".
+  const veiculos = todosVeiculos
+    .filter((v) => v.publico === true && !v.vendidoEm)
+    .map(toPublicVeiculo)
+  const vendidos = todosVeiculos
+    .filter((v) => vendidoVisivel(v.vendidoEm))
+    .map(toPublicVeiculo)
 
   return (
     <div className="flex flex-col">
@@ -109,6 +117,26 @@ export default async function HomePage() {
             </div>
             <PublicVehiclesList veiculos={veiculos} />
           </section>
+
+          {/* Vendidos recentemente — prova social; some sozinho após 30 dias */}
+          {vendidos.length > 0 && (
+            <section id="vendidos" className="space-y-6">
+              <div className="flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-400">
+                    Saíram do estoque
+                  </p>
+                  <h2 className="text-2xl md:text-3xl font-black text-neutral-900 mt-1">
+                    Vendidos recentemente
+                  </h2>
+                </div>
+                <span className="shrink-0 text-xs font-semibold text-neutral-500 whitespace-nowrap">
+                  {vendidos.length} {vendidos.length === 1 ? 'veículo' : 'veículos'}
+                </span>
+              </div>
+              <PublicSoldVehiclesList veiculos={vendidos} />
+            </section>
+          )}
 
         </div>
       </main>

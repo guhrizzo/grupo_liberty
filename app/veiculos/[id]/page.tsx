@@ -93,9 +93,18 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   const isPublic: boolean =
     typeof veiculo.publico === 'boolean' ? veiculo.publico : veiculo.finalidade !== 'pessoal'
 
-  if (!isPublic && !showInternalInfo) {
+  // Veículo vendido continua acessível (link vem da seção "Vendidos" da home),
+  // mesmo que estivesse privado antes. Após 30 dias o cron apaga o registro e
+  // cai no notFound() acima pelo docSnap inexistente.
+  const isVendido = !!veiculo.vendidoEm
+
+  if (!isPublic && !isVendido && !showInternalInfo) {
     notFound()
   }
+
+  // Visitante (não o time) vendo um veículo vendido: sem preço "de venda", sem
+  // formulário de proposta.
+  const mostrarComoVendido = isVendido && !showInternalInfo
 
   return (
     <div className="flex-1 overflow-x-clip flex flex-col">
@@ -165,11 +174,21 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                   </div>
                   <div className="shrink-0 text-left sm:text-right max-w-full">
                     <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500 whitespace-nowrap">
-                      {veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
-                        ? 'Preço promocional'
-                        : 'Preço à vista'}
+                      {mostrarComoVendido
+                        ? 'Vendido'
+                        : veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
+                          ? 'Preço promocional'
+                          : 'Preço à vista'}
                     </p>
-                    {veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco ? (
+                    {mostrarComoVendido ? (
+                      <p className="text-3xl font-black text-neutral-400 line-through whitespace-nowrap">
+                        {formatCurrency(
+                          veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
+                            ? veiculo.precoComDesconto
+                            : veiculo.preco,
+                        )}
+                      </p>
+                    ) : veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco ? (
                       <div className="flex flex-col items-start sm:items-end gap-0.5">
                         <p className="text-sm font-semibold text-neutral-400 line-through">
                           {formatCurrency(veiculo.preco)}
@@ -193,6 +212,12 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                     )}
                   </div>
                 </div>
+
+                {mostrarComoVendido && (
+                  <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+                    Este veículo já foi vendido e não está mais disponível.
+                  </div>
+                )}
 
                 <h2 className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-500 mb-3">
                   Ficha Técnica
@@ -265,11 +290,26 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
             </div>
 
             <div className="space-y-6 lg:sticky lg:top-24">
-              <PropostaForm
-                veiculoId={veiculo.id}
-                veiculoModelo={`${veiculo.marca} ${veiculo.modelo}`}
-                userEmail={user?.email ?? undefined}
-              />
+              {mostrarComoVendido ? (
+                <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm text-center">
+                  <p className="text-sm font-bold text-neutral-900">Este veículo já foi vendido.</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Confira os outros veículos disponíveis no nosso estoque.
+                  </p>
+                  <Link
+                    href="/#estoque"
+                    className="mt-4 inline-flex items-center justify-center rounded-lg bg-liberty px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-liberty-deep"
+                  >
+                    Ver veículos disponíveis
+                  </Link>
+                </div>
+              ) : (
+                <PropostaForm
+                  veiculoId={veiculo.id}
+                  veiculoModelo={`${veiculo.marca} ${veiculo.modelo}`}
+                  userEmail={user?.email ?? undefined}
+                />
+              )}
             </div>
 
           </div>
