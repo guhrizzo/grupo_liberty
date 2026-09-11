@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { assertPodeGerenciarVeiculos } from '@/utils/permissions'
+import { apagarVeiculoCompleto, extractFirebaseStoragePath } from '@/utils/veiculos/apagar'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -103,33 +104,6 @@ function decryptCpfOrRaw(value: string | null | undefined): string {
   return decrypt(value) || value
 }
 
-/**
- * Extrai o caminho do objeto dentro do bucket do Firebase Storage a partir de
- * uma URL pública. Cobre os dois formatos que o Firebase Storage gera
- * (`storage.googleapis.com/<bucket>/<path>` e `<bucket>.firebasestorage.app/<path>`).
- * Retorna `null` para URLs de outro provedor (ex.: Supabase, configurado em
- * next.config.ts mas sem suporte a exclusão aqui) — o chamador deve logar em
- * vez de ignorar a falha em silêncio.
- */
-function extractFirebaseStoragePath(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    if (parsed.hostname === 'storage.googleapis.com') {
-      const segments = parsed.pathname.replace(/^\//, '').split('/')
-      segments.shift() // remove o nome do bucket
-      const path = segments.join('/')
-      return path || null
-    }
-    if (parsed.hostname.endsWith('.firebasestorage.app')) {
-      const path = parsed.pathname.replace(/^\//, '')
-      return path || null
-    }
-    return null
-  } catch {
-    return null
-  }
-}
-
 export interface Veiculo {
   id: string
   marca: string
@@ -149,6 +123,13 @@ export interface Veiculo {
   localizacao: string
   /** Visível no site público. Controlado pelo toggle Público/Privado — todo veículo fica no mesmo estoque. */
   publico: boolean
+  /**
+   * Instante (ISO) em que foi marcado como vendido, ou `null`. Enquanto
+   * preenchido (e dentro de `VENDIDO_TTL_DIAS`), o veículo aparece na seção
+   * "Vendidos" do site em vez do estoque; depois o cron `limpar-vendidos`
+   * apaga o registro. Vence o `publico` na hora de decidir o que o site mostra.
+   */
+  vendidoEm: string | null
   /**
    * Veículo não é da Liberty — entrou pelo fluxo de anúncios de terceiros.
    * Selo exibido só internamente; nunca serializado no payload público.
@@ -291,6 +272,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
         publico:
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
+        vendidoEm: data.vendidoEm ?? null,
         terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
         terceiroInfo: data.terceiroInfo ?? null,
         cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
@@ -420,10 +402,21 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const fotos: string[] = fotosJson ? JSON.parse(fotosJson) : []
   const localizacaoRaw = ((formData.get('localizacao') as string) || '').trim()
   const localizacao = localizacaoRaw === 'bauru' ? 'Bauru/SP' : localizacaoRaw === 'jau' ? 'Jaú/SP' : (localizacaoRaw || 'Jaú/SP')
-  // Todo veículo fica no mesmo estoque; o toggle Público/Privado só controla
-  // se ele aparece no site (padrão: público).
+  // Todo veículo fica no mesmo estoque; o seletor Disponível/Vendido/Privado
+  // controla se ele aparece no site e onde. `estoqueEstado` é a fonte da
+  // verdade; `publico` continua sendo lido como fallback de compat.
   const publicoRaw = formData.get('publico') as string | null
-  const publico = publicoRaw !== 'false'
+  const estoqueEstadoRaw = ((formData.get('estoqueEstado') as string) || '').trim()
+  let publico = publicoRaw !== 'false'
+  let vendidoEm: string | null = null
+  if (estoqueEstadoRaw === 'vendido') {
+    publico = true
+    vendidoEm = new Date().toISOString()
+  } else if (estoqueEstadoRaw === 'privado') {
+    publico = false
+  } else if (estoqueEstadoRaw === 'disponivel') {
+    publico = true
+  }
 
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
@@ -586,6 +579,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       fotos,
       localizacao,
       publico,
+      vendidoEm,
       // Veículo cadastrado pelo dashboard é sempre da Liberty. O fluxo de
       // anúncios de terceiros grava `terceiro: true` por outra via.
       terceiro: false,
@@ -632,7 +626,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
 }
 
 /**
- * Remove um veículo e suas fotos do Storage.
+ * Remove um veículo, suas fotos e contratos anexados. A lógica de exclusão
+ * mora em `apagarVeiculoCompleto` (reaproveitada pelo cron `limpar-vendidos`);
+ * aqui só ficam o gate de permissão e a revalidação de rotas.
  */
 export async function deleteVehicle(id: string): Promise<{ success?: string; error?: string }> {
   try {
@@ -642,62 +638,9 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
   }
 
   try {
-    // 1. Buscar veículo para pegar as fotos
-    const docRef = adminDb.collection('veiculos').doc(id)
-    const doc = await docRef.get()
-    
-    if (!doc.exists) {
-      return { error: 'Veículo não encontrado.' }
-    }
-
-    const veiculo = doc.data()
-    const bucket = adminStorage.bucket()
-
-    // 2. Remover fotos do Storage
-    if (veiculo?.fotos?.length) {
-      for (const url of veiculo.fotos) {
-        const filePath = extractFirebaseStoragePath(url)
-        if (!filePath) {
-          console.warn(`Foto com URL de provedor não suportado para exclusão automática: ${url}`)
-          continue
-        }
-        try {
-          await bucket.file(filePath).delete()
-        } catch (deleteFileErr) {
-          console.error(`Erro ao deletar arquivo ${filePath} do Firebase Storage:`, deleteFileErr)
-        }
-      }
-    }
-
-    // 2.5 Remover contratos anexados (PDFs) e seus arquivos no Storage
-    const contratosSnap = await adminDb
-      .collection('veiculo_contratos')
-      .where('veiculoId', '==', id)
-      .get()
-
-    if (!contratosSnap.empty) {
-      const batch = adminDb.batch()
-      for (const cDoc of contratosSnap.docs) {
-        const cData = cDoc.data() as { storagePath?: string }
-        if (cData.storagePath) {
-          try {
-            await bucket.file(cData.storagePath).delete()
-          } catch (storageErr) {
-            console.error(
-              `Erro ao deletar contrato ${cDoc.id} do Storage:`,
-              storageErr,
-            )
-          }
-        }
-        batch.delete(cDoc.ref)
-      }
-      await batch.commit()
-    }
-
-    // 3. Deletar do banco
-    await docRef.delete()
-
+    await apagarVeiculoCompleto(id)
     revalidatePath('/dashboard/veiculos')
+    revalidatePath('/')
     return { success: 'Veículo removido com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao deletar veículo: ${error.message}` }
@@ -972,14 +915,22 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
 }
 
 /**
- * Alterna a visibilidade pública de um veículo isoladamente, sem passar
- * pelas validações dos demais campos do cadastro (placa, renavam, CPF,
- * telefones, preços etc.). Existe porque o toggle Público/Privado, ao ser
- * salvo junto do formulário inteiro em `updateVehicle`, ficava bloqueado
+ * Define o estado do veículo no estoque (Disponível / Vendido / Privado)
+ * isoladamente, sem passar pelas validações dos demais campos do cadastro
+ * (placa, renavam, CPF, telefones, preços etc.). Existe porque o seletor, ao
+ * ser salvo junto do formulário inteiro em `updateVehicle`, ficava bloqueado
  * sempre que algum outro campo do veículo tinha dado legado que não passa
- * mais nas validações atuais — mesmo sem relação nenhuma com visibilidade.
+ * mais nas validações atuais — mesmo sem relação nenhuma com o estado.
+ *
+ * - `disponivel` → `{ publico: true,  vendidoEm: null }`
+ * - `privado`    → `{ publico: false, vendidoEm: null }`
+ * - `vendido`    → `{ vendidoEm: <agora> }` (não mexe em `publico`: `vendidoEm`
+ *   já domina no site e na página pública do veículo)
  */
-export async function setVeiculoPublico(id: string, publico: boolean): Promise<VeiculoResponse> {
+export async function setVeiculoEstoqueEstado(
+  id: string,
+  estado: 'disponivel' | 'vendido' | 'privado',
+): Promise<VeiculoResponse> {
   try {
     await assertPodeGerenciarVeiculos()
   } catch (err: any) {
@@ -995,14 +946,28 @@ export async function setVeiculoPublico(id: string, publico: boolean): Promise<V
     }
 
     const now = new Date().toISOString()
-    await docRef.update({ publico, updated_at: now })
+    const patch: Record<string, unknown> = { updated_at: now }
+    let success: string
+    if (estado === 'vendido') {
+      patch.vendidoEm = now
+      success = 'Veículo marcado como vendido.'
+    } else if (estado === 'privado') {
+      patch.publico = false
+      patch.vendidoEm = null
+      success = 'Veículo agora está privado.'
+    } else {
+      patch.publico = true
+      patch.vendidoEm = null
+      success = 'Veículo de volta ao estoque.'
+    }
+
+    await docRef.update(patch)
 
     revalidatePath('/dashboard/veiculos')
-    return {
-      success: publico ? 'Veículo agora está público.' : 'Veículo agora está privado.',
-    }
+    revalidatePath('/')
+    return { success }
   } catch (error: any) {
-    return { error: `Erro ao atualizar visibilidade: ${error.message}` }
+    return { error: `Erro ao atualizar o estado do veículo: ${error.message}` }
   }
 }
 
