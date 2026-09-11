@@ -24,6 +24,13 @@ const LOGIN_WINDOW_MS = 5 * 60 * 1000 // 5 minutos
 const PROPOSTA_LIMIT = 5
 const PROPOSTA_WINDOW_MS = 10 * 60 * 1000 // 10 minutos
 
+// Consulta por placa pública (app/anuncie-seu-veiculo) — API paga (Puxa
+// Placa) por trás, sem login. O cache de 24h no Firestore evita custo
+// repetido da mesma placa; isto aqui só limita quantas placas diferentes um
+// IP pode tentar consultar.
+const CONSULTA_PLACA_LIMIT = 8
+const CONSULTA_PLACA_WINDOW_MS = 15 * 60 * 1000 // 15 minutos
+
 function tooManyRequests(retryAfterSeconds: number) {
   return new NextResponse('Muitas requisições. Tente novamente em instantes.', {
     status: 429,
@@ -46,6 +53,11 @@ export default async function proxy(request: NextRequest) {
   if (pathname.startsWith('/veiculos/') && request.method === 'POST') {
     const proposta = rateLimit(`proposta:${ip}`, PROPOSTA_LIMIT, PROPOSTA_WINDOW_MS)
     if (!proposta.allowed) return tooManyRequests(proposta.retryAfterSeconds)
+  }
+
+  if (pathname === '/api/consulta-placa-publica' && request.method === 'GET') {
+    const cp = rateLimit(`consulta-placa:${ip}`, CONSULTA_PLACA_LIMIT, CONSULTA_PLACA_WINDOW_MS)
+    if (!cp.allowed) return tooManyRequests(cp.retryAfterSeconds)
   }
 
   const response = await updateSession(request)
