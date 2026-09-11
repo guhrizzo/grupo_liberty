@@ -41,7 +41,9 @@ interface AnuncioData {
   quilometragem: number
   precoDesejado: number
   observacoes: string
-  placa: string | null
+  placa: string
+  tabelaFipe: number | null
+  renavam: string | null
   cidade: string
   estado: string
 }
@@ -100,11 +102,19 @@ function parseAnuncioForm(form: FormData): { data?: AnuncioData; error?: string 
   if (!observacoes) return { error: 'Escreva algumas informações sobre o veículo.' }
 
   const placaRaw = str(form, 'placa').toUpperCase().replace(/\s/g, '')
-  let placa: string | null = null
-  if (placaRaw) {
-    if (!PLACA_RE.test(placaRaw)) return { error: 'Placa inválida. Use ABC-1234 ou ABC1D23.' }
-    placa = placaRaw
-  }
+  if (!placaRaw) return { error: 'Informe a placa do veículo.' }
+  if (!PLACA_RE.test(placaRaw)) return { error: 'Placa inválida. Use ABC-1234 ou ABC1D23.' }
+  const placa = placaRaw
+
+  // Vêm do autofill por placa (endpoint público) — opcionais, o dono nunca os
+  // digita. Ausentes quando a busca falhou e o preenchimento caiu pro manual.
+  const tabelaFipeRaw = str(form, 'tabelaFipe')
+  const tabelaFipeNum = tabelaFipeRaw ? Number(tabelaFipeRaw) : null
+  const tabelaFipe =
+    tabelaFipeNum !== null && Number.isFinite(tabelaFipeNum) && tabelaFipeNum > 0
+      ? tabelaFipeNum
+      : null
+  const renavam = str(form, 'renavam') || null
 
   const cidade = str(form, 'cidade')
   if (!cidade) return { error: 'Informe a cidade onde o veículo está.' }
@@ -128,6 +138,8 @@ function parseAnuncioForm(form: FormData): { data?: AnuncioData; error?: string 
       precoDesejado,
       observacoes,
       placa,
+      tabelaFipe,
+      renavam,
       cidade,
       estado,
     },
@@ -270,6 +282,8 @@ export async function POST(req: Request) {
       precoDesejado: data.precoDesejado,
       observacoes: data.observacoes,
       placa: data.placa,
+      tabelaFipe: data.tabelaFipe,
+      renavam: data.renavam,
       cidade: data.cidade,
       estado: data.estado,
       fotos: urls,
