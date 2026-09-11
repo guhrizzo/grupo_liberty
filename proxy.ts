@@ -1,7 +1,13 @@
+import { randomUUID } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/utils/firebase/middleware'
 import { rateLimit } from '@/utils/rate-limit'
 import { getClientIp } from '@/utils/get-client-ip'
+import { isBotUserAgent } from '@/utils/analytics/bots'
+
+// Cookie de identidade do visitante (analytics). UUID aleatório, sem PII.
+const VISITOR_COOKIE = 'liberty_vid'
+const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 ano
 
 // Limite geral: qualquer IP, em qualquer rota coberta pelo matcher abaixo.
 // Barra enxurradas de requisições genéricas (flood/DoS básico).
@@ -42,7 +48,24 @@ export default async function proxy(request: NextRequest) {
     if (!proposta.allowed) return tooManyRequests(proposta.retryAfterSeconds)
   }
 
-  return await updateSession(request)
+  const response = await updateSession(request)
+
+  // Garante um id de visitante para o analytics (contagem de pessoas únicas).
+  // Não gera para bots — eles não devem virar "visitantes".
+  if (
+    !request.cookies.get(VISITOR_COOKIE) &&
+    !isBotUserAgent(request.headers.get('user-agent'))
+  ) {
+    response.cookies.set(VISITOR_COOKIE, randomUUID(), {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: VISITOR_COOKIE_MAX_AGE,
+    })
+  }
+
+  return response
 }
 
 export const config = {

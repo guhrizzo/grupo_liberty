@@ -22,6 +22,7 @@ export interface UserPermissions {
   juridico?: boolean
   manutencao?: boolean
   usuarios?: boolean
+  analytics?: boolean
 }
 
 export const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin'] as const

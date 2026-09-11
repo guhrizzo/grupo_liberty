@@ -5,6 +5,7 @@ import { encrypt } from '@/utils/crypto'
 import { validarCPF } from '@/utils/validadorCpf'
 import { onlyDigits, parseMoney } from '@/utils/masks'
 import { isCambioValido, isCombustivelValido } from '@/utils/veiculos/opcoes'
+import { isEstadoValido } from '@/utils/estadosBrasil'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,6 +42,8 @@ interface AnuncioData {
   precoDesejado: number
   observacoes: string
   placa: string | null
+  cidade: string
+  estado: string
 }
 
 function str(form: FormData, key: string): string {
@@ -103,6 +106,12 @@ function parseAnuncioForm(form: FormData): { data?: AnuncioData; error?: string 
     placa = placaRaw
   }
 
+  const cidade = str(form, 'cidade')
+  if (!cidade) return { error: 'Informe a cidade onde o veículo está.' }
+
+  const estado = str(form, 'estado').toUpperCase()
+  if (!isEstadoValido(estado)) return { error: 'Selecione um estado válido.' }
+
   return {
     data: {
       nome,
@@ -119,6 +128,8 @@ function parseAnuncioForm(form: FormData): { data?: AnuncioData; error?: string 
       precoDesejado,
       observacoes,
       placa,
+      cidade,
+      estado,
     },
   }
 }
@@ -259,6 +270,8 @@ export async function POST(req: Request) {
       precoDesejado: data.precoDesejado,
       observacoes: data.observacoes,
       placa: data.placa,
+      cidade: data.cidade,
+      estado: data.estado,
       fotos: urls,
       // Caminhos dos objetos no Storage, paralelos a `fotos`. Usados na
       // aprovação para copiar as fotos escolhidas para `fotos/` sem precisar

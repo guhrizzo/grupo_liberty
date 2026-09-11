@@ -33,11 +33,12 @@ import {
   updateVehicle,
   deleteVehicle,
   uploadVehiclePhotos,
-  setVeiculoPublico,
+  setVeiculoEstoqueEstado,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
 } from './actions'
+import { estoqueEstadoDe, type EstoqueEstado } from './public'
 import {
   listarContratosVeiculoAction,
   anexarContratoVeiculoAction,
@@ -156,8 +157,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [descricao, setDescricao] = useState('')
   const [localizacaoSelect, setLocalizacaoSelect] = useState<'jau' | 'bauru' | 'outro'>('jau')
   const [outraCidade, setOutraCidade] = useState('')
-  // Visibilidade pública do veículo no site — controla se aparece na vitrine.
-  const [publico, setPublico] = useState(true)
+  // Estado do veículo no estoque: Disponível (no site), Vendido (na seção
+  // "Vendidos" do site por 30 dias) ou Privado (fora do site).
+  const [estoqueEstado, setEstoqueEstado] = useState<EstoqueEstado>('disponivel')
   const [filtroCidade, setFiltroCidade] = useState<string>('')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
 
@@ -243,6 +245,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // Reorder drag state
   const dragIndexRef = useRef<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  // Foto aguardando confirmação de remoção (índice em `photos`). No mobile o
+  // botão "X" fica sempre visível, então a confirmação evita toque acidental.
+  const [photoToRemove, setPhotoToRemove] = useState<number | null>(null)
 
   // Contratos (PDFs anexados ao veículo) — ficam abaixo das fotos no formulário.
   // Em cadastro os PDFs ficam pendentes e sobem após o veículo ser criado;
@@ -268,9 +273,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   const MAX_PHOTOS = 20
 
-  // Salva o toggle Público/Privado isoladamente (ver setVeiculoPublico em
-  // actions.ts) quando editando um veículo já existente.
-  const [publicoSaving, setPublicoSaving] = useState(false)
+  // Salva o seletor Disponível/Vendido/Privado isoladamente (ver
+  // setVeiculoEstoqueEstado em actions.ts) quando editando um veículo existente.
+  const [estadoSaving, setEstadoSaving] = useState(false)
 
   // ─── Photo handling ──────────────────────────────────────────────────────
 
@@ -296,6 +301,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       copy.splice(index, 1)
       return copy
     })
+  }
+
+  const confirmRemovePhoto = () => {
+    if (photoToRemove !== null) removePhoto(photoToRemove)
+    setPhotoToRemove(null)
   }
 
   // ─── Photo reorder (drag within grid) ───────────────────────────────────
@@ -467,7 +477,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setDescricao('')
     setLocalizacaoSelect('jau')
     setOutraCidade('')
-    setPublico(true)
+    setEstoqueEstado('disponivel')
     setBanco('')
     setBancoCodigo('')
     setTaxaJuros('')
@@ -493,6 +503,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       if (!p.isExisting) URL.revokeObjectURL(p.url)
     })
     setPhotos([])
+    setPhotoToRemove(null)
     setContratosExistentes([])
     setContratosLoading(false)
     setNovosContratos([])
@@ -599,7 +610,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       setOutraCidade(veiculo.localizacao)
     }
 
-    setPublico(veiculo.publico)
+    setEstoqueEstado(estoqueEstadoDe(veiculo))
     setBanco(veiculo.banco || '')
     setBancoCodigo(veiculo.bancoCodigo || '')
     setQuitacaoPercent(
@@ -732,7 +743,9 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       const localizacaoValor = localizacaoSelect === 'outro' ? (outraCidade.trim() || 'Jaú/SP') : (localizacaoSelect === 'bauru' ? 'Bauru/SP' : 'Jaú/SP')
       formData.append('descricao', descricao)
       formData.append('localizacao', localizacaoValor)
-      formData.append('publico', String(publico))
+      formData.append('estoqueEstado', estoqueEstado)
+      // Fallback de compat pro caminho legado de createVehicle.
+      formData.append('publico', String(estoqueEstado !== 'privado'))
 
       let newPhotoIndex = 0
       const fotosFinalStr = JSON.stringify(photos.map(p => {
@@ -832,34 +845,35 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     }
   }
 
-  // Alterna Público/Privado. Se o veículo já existe, salva na hora (sem
-  // depender da validade dos outros campos do formulário); se é um veículo
+  // Define Disponível/Vendido/Privado. Se o veículo já existe, salva na hora
+  // (sem depender da validade dos outros campos do formulário); se é um veículo
   // novo ainda não salvo, só ajusta o estado local — vai junto no create.
-  const handleTogglePublico = async () => {
-    const novoValor = !publico
+  const handleSetEstoqueEstado = async (novo: EstoqueEstado) => {
+    if (novo === estoqueEstado) return
+    const anterior = estoqueEstado
 
     if (!editingId) {
-      setPublico(novoValor)
+      setEstoqueEstado(novo)
       return
     }
 
-    setPublico(novoValor)
-    setPublicoSaving(true)
+    setEstoqueEstado(novo)
+    setEstadoSaving(true)
     setMessage(null)
     try {
-      const result = await setVeiculoPublico(editingId, novoValor)
+      const result = await setVeiculoEstoqueEstado(editingId, novo)
       if (result.error) {
-        setPublico(!novoValor) // reverte o toggle
+        setEstoqueEstado(anterior) // reverte
         setMessage({ type: 'error', text: result.error })
       } else {
-        setMessage({ type: 'success', text: result.success || 'Visibilidade atualizada!' })
+        setMessage({ type: 'success', text: result.success || 'Estado atualizado!' })
         router.refresh()
       }
     } catch (err: any) {
-      setPublico(!novoValor)
-      setMessage({ type: 'error', text: err.message || 'Erro ao atualizar visibilidade.' })
+      setEstoqueEstado(anterior)
+      setMessage({ type: 'error', text: err.message || 'Erro ao atualizar o estado do veículo.' })
     } finally {
-      setPublicoSaving(false)
+      setEstadoSaving(false)
     }
   }
 
@@ -899,7 +913,14 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     return Array.from(set)
   }, [veiculos])
 
-  const totalPublicos = useMemo(() => veiculos.filter(v => v.publico).length, [veiculos])
+  const totalDisponiveis = useMemo(
+    () => veiculos.filter((v) => estoqueEstadoDe(v) === 'disponivel').length,
+    [veiculos],
+  )
+  const totalVendidos = useMemo(
+    () => veiculos.filter((v) => estoqueEstadoDe(v) === 'vendido').length,
+    [veiculos],
+  )
 
   const veiculosFiltrados = useMemo(() => {
     return veiculos.filter((v) => {
@@ -1114,46 +1135,52 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   />
                 </div>
 
-                {/* Visibilidade pública — todo veículo fica no mesmo estoque; o
-                    switch só controla se ele aparece no site público. */}
-                <div className="mt-6 flex items-center gap-3">
-                  <span className="text-sm font-medium text-neutral-700">Visibilidade</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={publico}
-                    aria-label={`Visibilidade do veículo. Atual: ${publico ? 'Público' : 'Privado'}.`}
-                    onClick={handleTogglePublico}
-                    disabled={publicoSaving}
-                    className={[
-                      'relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
-                      'transition-colors duration-200 ease-out',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white',
-                      'disabled:cursor-wait disabled:opacity-70',
-                      publico ? 'bg-emerald-500' : 'bg-neutral-300',
-                    ].join(' ')}
+                {/* Estado no estoque — todo veículo fica na mesma coleção; o
+                    seletor controla se e onde ele aparece no site.
+                    "Vendido" vence a visibilidade: aparece na seção "Vendidos"
+                    do site por 30 dias e depois é apagado automaticamente. */}
+                <div className="mt-6">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium text-neutral-700">Estado no estoque</span>
+                    {estadoSaving && (
+                      <span className="text-xs text-neutral-400">Salvando…</span>
+                    )}
+                  </div>
+                  <div
+                    role="radiogroup"
+                    aria-label="Estado do veículo no estoque"
+                    className="mt-2 inline-flex rounded-lg border border-neutral-200 bg-neutral-50 p-1"
                   >
-                    <span
-                      aria-hidden="true"
-                      className={[
-                        'inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0',
-                        'transition-transform duration-200 ease-out',
-                        publico ? 'translate-x-5' : 'translate-x-0.5',
-                      ].join(' ')}
-                    />
-                  </button>
-                  <span
-                    className={[
-                      'rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider border',
-                      publico
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                        : 'bg-neutral-100 text-neutral-600 border-neutral-200',
-                    ].join(' ')}
-                  >
-                    {publico ? 'Público' : 'Privado'}
-                  </span>
-                  {publicoSaving && (
-                    <span className="text-xs text-neutral-400">Salvando…</span>
+                    {([
+                      { valor: 'disponivel', label: 'Disponível', ativo: 'bg-emerald-500 text-white' },
+                      { valor: 'vendido', label: 'Vendido', ativo: 'bg-amber-500 text-white' },
+                      { valor: 'privado', label: 'Privado', ativo: 'bg-neutral-800 text-white' },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.valor}
+                        type="button"
+                        role="radio"
+                        aria-checked={estoqueEstado === opt.valor}
+                        onClick={() => handleSetEstoqueEstado(opt.valor)}
+                        disabled={estadoSaving}
+                        className={[
+                          'rounded-md px-3 py-1.5 text-xs font-bold uppercase tracking-wider',
+                          'transition-colors duration-200 ease-out',
+                          'focus:outline-none focus-visible:ring-2 focus-visible:ring-liberty/40',
+                          'disabled:cursor-wait disabled:opacity-70',
+                          estoqueEstado === opt.valor
+                            ? opt.ativo
+                            : 'text-neutral-500 hover:text-neutral-800',
+                        ].join(' ')}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {estoqueEstado === 'vendido' && (
+                    <p className="mt-1.5 text-xs text-amber-700">
+                      Fica na seção “Vendidos” do site por 30 dias e depois é removido automaticamente.
+                    </p>
                   )}
                 </div>
 
@@ -1909,10 +1936,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         </div>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); removePhoto(index) }}
-                          className="absolute top-1 right-1 rounded-full bg-black/60 hover:bg-black/80 text-white p-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                          onClick={(e) => { e.stopPropagation(); setPhotoToRemove(index) }}
+                          aria-label={`Remover foto ${index + 1}`}
+                          className="absolute top-1.5 right-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white p-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer z-10"
                         >
-                          <IconX size={12} stroke={2.5} />
+                          <IconX size={14} stroke={2.5} />
                         </button>
                         {index === 0 && (
                           <span className="absolute bottom-1 left-1 rounded bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
@@ -2153,7 +2181,8 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
               Estoque de Veículos ({veiculosFiltrados.length})
               <span className="ml-2 font-normal normal-case text-neutral-400">
-                · {totalPublicos} público{totalPublicos === 1 ? '' : 's'}
+                · {totalDisponiveis} no site
+                {totalVendidos > 0 && ` · ${totalVendidos} vendido${totalVendidos === 1 ? '' : 's'}`}
               </span>
             </h3>
 
@@ -2236,15 +2265,21 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                         +{v.fotos.length - 1} fotos
                       </span>
                     )}
-                    <span
-                      className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border shadow-sm ${
-                        v.publico
-                          ? 'bg-emerald-500/90 text-white border-emerald-600 backdrop-blur-sm'
-                          : 'bg-neutral-900/80 text-white border-neutral-700 backdrop-blur-sm'
-                      }`}
-                    >
-                      {v.publico ? 'Público' : 'Privado'}
-                    </span>
+                    {(() => {
+                      const estado = estoqueEstadoDe(v)
+                      const cfg = {
+                        disponivel: { label: 'Disponível', cls: 'bg-emerald-500/90 text-white border-emerald-600' },
+                        vendido: { label: 'Vendido', cls: 'bg-amber-500/90 text-white border-amber-600' },
+                        privado: { label: 'Privado', cls: 'bg-neutral-900/80 text-white border-neutral-700' },
+                      }[estado]
+                      return (
+                        <span
+                          className={`absolute top-2 left-2 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider border shadow-sm backdrop-blur-sm ${cfg.cls}`}
+                        >
+                          {cfg.label}
+                        </span>
+                      )
+                    })()}
                   </div>
 
                   {/* Info */}
@@ -2349,6 +2384,18 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
             </div>
           )}
         </div>
+
+      {/* Confirmação de remoção de foto (mobile: X sempre visível) */}
+      <ConfirmDialog
+        open={photoToRemove !== null}
+        onClose={() => setPhotoToRemove(null)}
+        onConfirm={confirmRemovePhoto}
+        title="Remover esta foto?"
+        description="A foto sai da galeria deste veículo quando você salvar as alterações."
+        confirmLabel="Remover"
+        cancelLabel="Cancelar"
+        tone="danger"
+      />
 
       {/* Modal de Confirmação de Exclusão */}
       {deleteId && (

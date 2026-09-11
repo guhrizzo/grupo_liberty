@@ -1,2 +1,4 @@
 # App desktop (Electron) — não faz parte do build da Vercel.
-desktop
+# Com barra inicial: só a pasta `desktop/` da raiz. Sem a barra, o padrão
+# casava também com `app/api/desktop/` e derrubava aquela rota do deploy.
+/desktop

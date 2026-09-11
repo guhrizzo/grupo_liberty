@@ -24,6 +24,41 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-10-veiculos-vendidos',
+    date: '2026-09-10',
+    title: 'Veículos vendidos no site',
+    tag: 'novo',
+    items: [
+      'No estoque, a visibilidade do veículo agora tem três opções: Disponível, Vendido e Privado.',
+      'Ao marcar como "Vendido", o carro sai da vitrine principal e aparece numa seção "Vendidos recentemente" na home, com selo de vendido e sem exibir o valor.',
+      'Veículos vendidos ficam expostos por 30 dias e depois são removidos automaticamente, junto com as fotos.',
+      'Dá pra voltar atrás: mudar de "Vendido" para "Disponível" recoloca o carro no estoque e zera a contagem dos 30 dias.',
+    ],
+  },
+  {
+    id: '2026-09-10-visitantes-do-site',
+    date: '2026-09-10',
+    title: 'Visitantes do site',
+    tag: 'novo',
+    items: [
+      'Nova aba "Visitantes" no menu (só admin): mostra quantas pessoas acessam o site.',
+      'Visitantes de hoje e do mês, separando quem está logado de quem é anônimo, mais os pageviews.',
+      'Gráfico dos últimos 30 dias e ranking dos veículos mais vistos.',
+      'A conta usa um identificador anônimo por navegador (sem dados pessoais); a navegação interna do painel não é contabilizada.',
+    ],
+  },
+  {
+    id: '2026-09-10-remover-foto-veiculo-mobile',
+    date: '2026-09-10',
+    title: 'Remover fotos de veículo no celular',
+    tag: 'melhoria',
+    items: [
+      'No cadastro/edição de veículo pelo celular, o "X" de cada foto agora fica sempre visível (antes só aparecia com o mouse em cima, o que não dava no toque).',
+      'Ao tocar no "X" o sistema pede confirmação antes de tirar a foto da galeria, evitando remoção acidental.',
+      'A foto só sai de vez quando você salva as alterações do veículo.',
+    ],
+  },
+  {
     id: '2026-09-07-baixa-manutencao',
     date: '2026-09-07',
     title: 'Baixa de manutenção (valor + comprovante)',
