@@ -23,8 +23,11 @@ Decisões de produto já tomadas (brainstorm 2026-09-10):
   Irreversível.
 - A marcação é um **terceiro estado** do veículo no estoque: **Disponível /
   Vendido / Privado** num seletor único (substitui o switch Público/Privado).
-- Card do vendido no site: **selo "VENDIDO" + preço riscado**, e o card
-  **continua clicável** para `/veiculos/[id]` (sem formulário de proposta).
+- Card do vendido no site: **selo "VENDIDO", sem exibir preço** (por quanto o
+  veículo foi vendido é informação interna), e o card **continua clicável** para
+  `/veiculos/[id]` (sem formulário de proposta). _(Ajuste 2026-09-10: a versão
+  original mostrava o preço riscado; passou a não exibir valor nenhum a pedido
+  do dono.)_
 - O gatilho da exclusão é um **cron diário** na Vercel (não limpeza preguiçosa).
 - Ao **desmarcar**, o veículo volta a **Disponível** e o prazo **zera** — se for
   remarcado como vendido, os 30 dias recomeçam.
@@ -202,8 +205,7 @@ const vendidos = todosVeiculos
   - foto em `grayscale` suave + overlay; tarja diagonal ou selo **"VENDIDO"**
     (vermelho/neutro) no canto.
   - marca / modelo / ano / km.
-  - preço **riscado** (`line-through`, cinza). Se `precoComDesconto`, riscar o
-    valor efetivo. Sem badge de desconto.
+  - **sem preço** — só o rótulo "Vendido". Por quanto foi vendido não vai pro site.
   - card inteiro é `<Link href={/veiculos/${v.id}}>` — sem botão "Ver detalhes",
     sem `ShareButton`.
 - Cabeçalho da seção: rótulo "Já foi pra garagem de alguém" / "Vendidos
@@ -338,9 +340,9 @@ linhas ~1117-1158)
     `vendidoVisivel` é opcional defensivo; **decisão: não checar**, deixa o
     registro visível até o cron apagar).
 - Quando `isVendido` e visitante (não `showInternalInfo`):
-  - Banner no topo do bloco de preço: **"Veículo vendido"** + data ("vendido em
-    DD/MM/AAAA") — copy no PR.
-  - Preço com `line-through`, sem badge de desconto/−%.
+  - Aviso no bloco de preço: **"Este veículo já foi vendido..."**.
+  - **Sem preço** — rótulo "Vendido" e um traço no lugar do valor. Sem badge de
+    desconto/−%. (Time interno continua vendo o preço real.)
   - Trocar `<PropostaForm />` por um card estático: "Este veículo já foi
     vendido." + `<Link href="/#estoque">Ver veículos disponíveis</Link>`.
 - `generateMetadata`: acrescentar "(vendido)" ao título quando `vendidoEm` — nice

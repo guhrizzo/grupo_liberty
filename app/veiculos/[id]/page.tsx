@@ -181,12 +181,9 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                           : 'Preço à vista'}
                     </p>
                     {mostrarComoVendido ? (
-                      <p className="text-3xl font-black text-neutral-400 line-through whitespace-nowrap">
-                        {formatCurrency(
-                          veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco
-                            ? veiculo.precoComDesconto
-                            : veiculo.preco,
-                        )}
+                      // Por quanto foi vendido é informação interna — não vai pro site.
+                      <p className="text-3xl font-black text-neutral-400 whitespace-nowrap">
+                        —
                       </p>
                     ) : veiculo.precoComDesconto != null && veiculo.preco != null && veiculo.precoComDesconto < veiculo.preco ? (
                       <div className="flex flex-col items-start sm:items-end gap-0.5">

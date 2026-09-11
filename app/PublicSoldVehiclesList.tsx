@@ -7,11 +7,6 @@ interface PublicSoldVehiclesListProps {
   veiculos: PublicVeiculo[]
 }
 
-const formatCurrency = (value: number | null | undefined) => {
-  if (value == null || Number.isNaN(value)) return '—'
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-}
-
 /**
  * Vitrine enxuta dos veículos já vendidos (seção "Vendidos recentemente" da
  * home). Sem filtros nem busca — é prova social. Cada card leva à página do
@@ -27,12 +22,6 @@ export default function PublicSoldVehiclesList({ veiculos }: PublicSoldVehiclesL
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {ordenados.map((v) => {
-        // Valor que o cliente veria — riscado.
-        const precoExibido =
-          v.precoComDesconto != null && v.preco != null && v.precoComDesconto < v.preco
-            ? v.precoComDesconto
-            : v.preco
-
         return (
           <Link
             key={v.id}
@@ -80,12 +69,10 @@ export default function PublicSoldVehiclesList({ veiculos }: PublicSoldVehiclesL
                 <span className="uppercase">{v.cambio}</span>
               </div>
 
+              {/* Preço não aparece: por quanto o veículo foi vendido é interno. */}
               <div className="mt-4 pt-4 border-t border-neutral-200">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400">
-                  Vendido por
-                </p>
-                <p className="text-base font-bold text-neutral-400 line-through">
-                  {formatCurrency(precoExibido)}
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  Vendido
                 </p>
               </div>
             </div>

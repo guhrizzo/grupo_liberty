@@ -237,8 +237,7 @@ _Commit 4: `feat(veiculos-vendidos): seletor Disponível/Vendido/Privado no esto
     mesma pílula do card atual.
   - marca / modelo / ano / km (reaproveitar as classes do card de
     `PublicVehiclesList`).
-  - preço **riscado**: se `precoComDesconto < preco`, riscar `precoComDesconto`;
-    senão `preco`. `line-through text-neutral-400`. Sem badge de %.
+  - **sem preço** — só o rótulo "Vendido" (por quanto foi vendido é interno).
   - sem `ShareButton`, sem botão "Ver detalhes".
 - Sem estado vazio (a seção só renderiza quando há itens).
 
@@ -290,9 +289,9 @@ _Commit 5: `feat(veiculos-vendidos): seção "Vendidos recentemente" na home`_
   `if (!isPublic && !isVendido && !showInternalInfo) notFound()`.
   (veículo vendido além dos 30d já foi apagado → `!docSnap.exists` cobre.)
 - Quando `isVendido && !showInternalInfo`:
-  - No bloco de preço: rótulo "Preço à vista" → "Vendido"; envolver o valor em
-    `<span className="line-through text-neutral-400">`; **não** renderizar o
-    bloco de desconto/`−%`.
+  - No bloco de preço: rótulo "Preço à vista" → "Vendido"; **não exibir o valor**
+    (um traço no lugar) nem o bloco de desconto/`−%`. Time interno segue vendo
+    o preço real.
   - Banner acima da ficha: `<div>` âmbar/neutro "Este veículo já foi vendido."
   - Trocar `<PropostaForm .../>` (~linha 259) por card estático:
     "Este veículo já foi vendido." + `<Link href="/#estoque">Ver veículos disponíveis</Link>`.

@@ -30,7 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'novo',
     items: [
       'No estoque, a visibilidade do veículo agora tem três opções: Disponível, Vendido e Privado.',
-      'Ao marcar como "Vendido", o carro sai da vitrine principal e aparece numa seção "Vendidos recentemente" na home, com selo e preço riscado.',
+      'Ao marcar como "Vendido", o carro sai da vitrine principal e aparece numa seção "Vendidos recentemente" na home, com selo de vendido e sem exibir o valor.',
       'Veículos vendidos ficam expostos por 30 dias e depois são removidos automaticamente, junto com as fotos.',
       'Dá pra voltar atrás: mudar de "Vendido" para "Disponível" recoloca o carro no estoque e zera a contagem dos 30 dias.',
     ],
