@@ -41,6 +41,10 @@ export default function RevisarAnuncioModal({
   const [preco, setPreco] = useState(moneyFromNumber(anuncio.precoDesejado))
   const [descricao, setDescricao] = useState(anuncio.observacoes)
   const [placa, setPlaca] = useState(anuncio.placa ?? '')
+  const [tabelaFipe, setTabelaFipe] = useState(
+    anuncio.tabelaFipe ? moneyFromNumber(anuncio.tabelaFipe) : '',
+  )
+  const [renavam, setRenavam] = useState(anuncio.renavam ?? '')
   const [localizacao, setLocalizacao] = useState<string>('Jaú/SP')
 
   // Ordem das fotos + quais estão selecionadas.
@@ -83,6 +87,8 @@ export default function RevisarAnuncioModal({
       preco: parseMoney(preco),
       descricao: descricao.trim(),
       placa: placa.trim() ? placa.trim().toUpperCase() : null,
+      tabelaFipe: parseMoney(tabelaFipe) > 0 ? parseMoney(tabelaFipe) : null,
+      renavam: renavam.trim() ? renavam.trim() : null,
       localizacao,
       fotos: fotosEscolhidas,
     }
@@ -164,6 +170,20 @@ export default function RevisarAnuncioModal({
             value={placa}
             onChange={(e) => setPlaca(e.target.value)}
             containerClassName="sm:col-span-1"
+          />
+          <Input
+            label="Tabela FIPE (R$)"
+            mask="money"
+            inputMode="decimal"
+            value={tabelaFipe}
+            onChange={(e) => setTabelaFipe(e.target.value)}
+            placeholder="R$ 0,00"
+          />
+          <Input
+            label="Renavam"
+            value={renavam}
+            onChange={(e) => setRenavam(e.target.value)}
+            placeholder="000000000"
           />
           <Select
             label="Loja"
