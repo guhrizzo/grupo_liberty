@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   IconUser,
@@ -27,10 +27,29 @@ const ANO_MAX = new Date().getFullYear() + 1
 /** Comissão que a LibertyCar retém sobre o valor anunciado pelo dono. */
 const TAXA_COMISSAO = 0.08
 const PLACA_RE = /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/
+// Formato "sem máscara" (7 chars, Mercosul ou tradicional) usado pra disparar
+// a busca automática — mesmo padrão de VeiculosClient.tsx.
+const PLACA_BUSCA_RE = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
+const placaSemMascara = (raw: string) => raw.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 const CAMBIO_SELECT = [{ value: '', label: 'Selecione…' }, ...CAMBIO_OPCOES]
 const COMBUSTIVEL_SELECT = [{ value: '', label: 'Selecione…' }, ...COMBUSTIVEL_OPCOES]
 const ESTADO_SELECT = [{ value: '', label: 'UF' }, ...ESTADO_OPCOES]
+
+// O Sistema Puxa Placa devolve o combustível em texto livre (ex.: "Flex",
+// "Gasolina/Álcool") — normaliza pro value que o <Select> de combustível
+// espera. Cópia do helper de app/dashboard/veiculos/VeiculosClient.tsx.
+function normalizarCombustivel(raw?: string): string | null {
+  if (!raw) return null
+  const s = raw.toLowerCase()
+  if (s.includes('flex') || s.includes('álcool/gas') || s.includes('alcool/gas')) return 'flex'
+  if (s.includes('híbrid') || s.includes('hibrid')) return 'hibrido'
+  if (s.includes('elétric') || s.includes('eletric')) return 'eletrico'
+  if (s.includes('diesel')) return 'diesel'
+  if (s.includes('etanol') || s.includes('álcool') || s.includes('alcool')) return 'etanol'
+  if (s.includes('gasolina')) return 'gasolina'
+  return null
+}
 
 export default function AnuncioForm() {
   const toast = useToast()
@@ -61,10 +80,78 @@ export default function AnuncioForm() {
   // submit (Enter, duplo-clique rápido) que chegue antes disso ainda passaria.
   const enviandoRef = useRef(false)
 
+  // Capturados só pelo autofill da placa — nunca exibidos nem editáveis pelo
+  // dono (preço desejado fica sempre à parte, sem "âncora" na FIPE).
+  const [tabelaFipe, setTabelaFipe] = useState<number | null>(null)
+  const [renavam, setRenavam] = useState<string | null>(null)
+  const [buscandoPlaca, setBuscandoPlaca] = useState(false)
+  // Placa já buscada com sucesso ou já tentada — evita repetir a mesma
+  // chamada a cada re-render enquanto o dono mexe em outros campos.
+  const placaJaBuscadaRef = useRef('')
+
   // Prévia da comissão: a LibertyCar retém 8% do valor anunciado; o resto é repasse ao dono.
   const precoNum = parseMoney(precoDesejado)
   const comissao = precoNum * TAXA_COMISSAO
   const repasse = precoNum - comissao
+
+  // ─── Busca automática por placa (endpoint público, sem login) ────────────
+  // Mesmo padrão de app/dashboard/veiculos/VeiculosClient.tsx, mas contra
+  // /api/consulta-placa-publica (sem sessão, rate-limited em proxy.ts).
+
+  const buscarDadosPlaca = useCallback(
+    async (placaLimpa: string) => {
+      setBuscandoPlaca(true)
+      try {
+        const res = await fetch(`/api/consulta-placa-publica?placa=${placaLimpa}`)
+        if (!res.ok) throw new Error()
+        const data = await res.json()
+
+        if (data.marca) setMarca(data.marca)
+        if (data.modelo) setModelo(data.modelo)
+        if (data.anoModelo) setAno(String(data.anoModelo))
+        if (data.cor) setCor(data.cor)
+        const comb = normalizarCombustivel(data.combustivel)
+        if (comb) setCombustivel(comb)
+        setTabelaFipe(typeof data.valorFipe === 'number' && data.valorFipe > 0 ? data.valorFipe : null)
+        setRenavam(data.renavam || null)
+
+        toast.success(
+          'Marca, modelo, ano, cor e combustível preenchidos automaticamente.',
+          'Placa encontrada',
+        )
+      } catch {
+        // Permite tentar de novo assim que a placa mudar (mesmo que volte pro
+        // mesmo valor), já que essa tentativa falhou.
+        placaJaBuscadaRef.current = ''
+        toast.error(
+          'Não conseguimos buscar os dados automaticamente. Preencha manualmente.',
+          'Busca indisponível',
+        )
+      } finally {
+        setBuscandoPlaca(false)
+      }
+    },
+    [toast],
+  )
+
+  // Assim que a placa fica completa e válida, busca sozinha — sem precisar
+  // clicar em nada. Debounce de 600ms pra não disparar a cada tecla enquanto
+  // o dono ainda está digitando/corrigindo.
+  useEffect(() => {
+    const placaLimpa = placaSemMascara(placa)
+    if (!PLACA_BUSCA_RE.test(placaLimpa)) {
+      placaJaBuscadaRef.current = ''
+      return
+    }
+    if (placaJaBuscadaRef.current === placaLimpa) return
+
+    const timer = setTimeout(() => {
+      placaJaBuscadaRef.current = placaLimpa
+      buscarDadosPlaca(placaLimpa)
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [placa, buscarDadosPlaca])
 
   function validar(): string | null {
     if (nome.trim().length < 2) return 'Informe seu nome completo.'
@@ -85,7 +172,8 @@ export default function AnuncioForm() {
     if (!cidade.trim()) return 'Informe a cidade onde o veículo está.'
     if (!estado) return 'Selecione o estado onde o veículo está.'
     if (!observacoes.trim()) return 'Escreva algumas informações sobre o veículo.'
-    if (placa.trim() && !PLACA_RE.test(placa.trim().toUpperCase())) {
+    if (!placa.trim()) return 'Informe a placa do veículo.'
+    if (!PLACA_RE.test(placa.trim().toUpperCase())) {
       return 'Placa inválida. Use ABC-1234 ou ABC1D23.'
     }
     if (fotos.length < 1) return 'Envie ao menos 1 foto do veículo.'
@@ -119,6 +207,8 @@ export default function AnuncioForm() {
     fd.append('quilometragem', onlyDigits(quilometragem))
     fd.append('precoDesejado', precoDesejado)
     fd.append('placa', placa.trim())
+    fd.append('tabelaFipe', tabelaFipe != null ? String(tabelaFipe) : '')
+    fd.append('renavam', renavam ?? '')
     fd.append('cidade', cidade.trim())
     fd.append('estado', estado)
     fd.append('observacoes', observacoes.trim())
@@ -291,12 +381,18 @@ export default function AnuncioForm() {
             leftIcon={<IconCash size={14} />}
           />
           <Input
-            label="Placa (opcional)"
+            label="Placa"
+            required
             mask="plate"
             value={placa}
             onChange={(e) => setPlaca(e.target.value)}
             placeholder="ABC-1234 ou ABC1D23"
             containerClassName="sm:col-span-2"
+            hint={
+              buscandoPlaca
+                ? 'Buscando dados do veículo...'
+                : 'A gente puxa marca, modelo, ano, cor e combustível automaticamente.'
+            }
           />
           <Input
             label="Cidade onde o veículo está"
