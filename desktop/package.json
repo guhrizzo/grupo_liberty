@@ -1,6 +1,6 @@
 {
   "name": "liberty-car-desktop",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "private": true,
   "description": "Casca desktop (Electron) do sistema Liberty Car",
   "author": "Grupo Liberty",
