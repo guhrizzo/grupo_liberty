@@ -76,7 +76,7 @@ function createWindow() {
     backgroundColor: BACKGROUND_COLOR,
     title: 'Liberty Car',
     icon: path.join(ASSETS, 'icon.ico'),
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
