@@ -18,6 +18,14 @@ export default function PublicFooter() {
           <p className="mt-3 text-xs text-neutral-500 leading-relaxed max-w-xs">
             Veículos selecionados com transparência, segurança e as melhores condições de Jaú e Bauru.
           </p>
+          <a
+            href="https://localiberty.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block text-xs font-semibold text-neutral-600 hover:text-liberty transition-colors"
+          >
+            Também alugamos veículos — Liberty →
+          </a>
         </div>
 
         {/* Lojas */}
