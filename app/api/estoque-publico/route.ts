@@ -14,7 +14,11 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const limit = Math.min(Number(searchParams.get('limit')) || 6, 24)
+  // Teto alto o bastante pra nunca cortar o estoque de verdade (o sistema
+  // de locação, outro negócio da mesma empresa, importa "todos que estão em
+  // estoque" pra cadastrar veículos) — quem não manda `limit` continua
+  // recebendo só 6 (a vitrine "Escolha um carro do nosso estoque").
+  const limit = Math.min(Number(searchParams.get('limit')) || 6, 500)
 
   const todosVeiculos = await getVehicles()
   const disponiveis = todosVeiculos
@@ -32,6 +36,10 @@ export async function GET(request: Request) {
     cambio: v.cambio,
     foto: v.fotos?.[0] ?? null,
     url: `https://www.grupolibertycar.com.br/veiculos/${v.id}`,
+    // Veículo anunciado por terceiro (dono do carro), não é do estoque
+    // próprio da Liberty — já exibido publicamente no site (badge "Anúncio
+    // de terceiro" em PublicVehiclesList.tsx), então seguro repassar aqui.
+    terceiro: v.terceiro,
   }))
 
   return NextResponse.json(
