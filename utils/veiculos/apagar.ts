@@ -5,6 +5,10 @@ import { adminDb, adminStorage } from '@/utils/firebase/admin'
  * Extrai o caminho do objeto dentro do bucket do Firebase Storage a partir de
  * uma URL pública. Cobre os dois formatos que o Firebase Storage gera
  * (`storage.googleapis.com/<bucket>/<path>` e `<bucket>.firebasestorage.app/<path>`).
+ * O caminho é decodificado: `publicUrl()` do SDK gera `fotos%2Farquivo.webp`
+ * (barra codificada), mas o nome real do objeto no bucket é `fotos/arquivo.webp`.
+ * Sem decodificar, `bucket.file(path).delete()` mira um objeto inexistente e a
+ * foto fica órfã no Storage.
  * Retorna `null` para URLs de outro provedor (ex.: Supabase, configurado em
  * next.config.ts mas sem suporte a exclusão aqui) — o chamador deve logar em
  * vez de ignorar a falha em silêncio.
@@ -15,11 +19,11 @@ export function extractFirebaseStoragePath(url: string): string | null {
     if (parsed.hostname === 'storage.googleapis.com') {
       const segments = parsed.pathname.replace(/^\//, '').split('/')
       segments.shift() // remove o nome do bucket
-      const path = segments.join('/')
+      const path = decodeURIComponent(segments.join('/'))
       return path || null
     }
     if (parsed.hostname.endsWith('.firebasestorage.app')) {
-      const path = parsed.pathname.replace(/^\//, '')
+      const path = decodeURIComponent(parsed.pathname.replace(/^\//, ''))
       return path || null
     }
     return null
