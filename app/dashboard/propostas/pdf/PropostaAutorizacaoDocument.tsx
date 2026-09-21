@@ -354,15 +354,19 @@ function formatBRL(value: number | null | undefined): string {
   return `R$: ${fmt}`
 }
 
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
+const hojeBR = () => new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+
 function formatDateBR(iso: string | undefined | null): string {
-  if (!iso) return new Date().toLocaleDateString('pt-BR')
-  try {
-    const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString('pt-BR')
-    return d.toLocaleDateString('pt-BR')
-  } catch {
-    return new Date().toLocaleDateString('pt-BR')
-  }
+  if (!iso) return hojeBR()
+  // "YYYY-MM-DD" (campo de data do formulário) é lido como UTC por `new Date`,
+  // o que recuava um dia em fusos a oeste de Greenwich. Formata direto da string.
+  const soData = DATE_ONLY_RE.exec(iso)
+  if (soData) return `${soData[3]}/${soData[2]}/${soData[1]}`
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return hojeBR()
+  return d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 }
 
 export interface PropostaAutorizacaoDocumentProps {
