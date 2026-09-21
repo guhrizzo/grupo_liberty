@@ -3,6 +3,7 @@
 import { randomBytes } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { adminDb, adminStorage } from '@/utils/firebase/admin'
+import { converterFotoParaWebp, FOTO_CACHE_CONTROL } from '@/utils/veiculos/foto-webp'
 import { assertPodeVerAnuncios } from '@/utils/permissions'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ } from '@/utils/masks'
@@ -149,9 +150,22 @@ export async function aprovarAnuncio(
         urlsVeiculo.push(url)
         continue
       }
-      const ext = src.split('.').pop() || 'jpg'
-      const dest = `fotos/${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`
-      await bucket.file(src).copy(bucket.file(dest))
+      const nome = `${Date.now()}-${randomBytes(4).toString('hex')}`
+      let dest: string
+      try {
+        // Converte pra WebP ao copiar pro estoque (mais leve pro site).
+        const [original] = await bucket.file(src).download()
+        const webp = await converterFotoParaWebp(original)
+        dest = `fotos/${nome}.webp`
+        await bucket.file(dest).save(webp, {
+          metadata: { contentType: 'image/webp', cacheControl: FOTO_CACHE_CONTROL },
+        })
+      } catch (convErr) {
+        // Formato não suportado ou falha de leitura: cai na cópia do original.
+        console.warn(`Foto ${src} não convertida para WebP, copiando original:`, convErr)
+        dest = `fotos/${nome}.${src.split('.').pop() || 'jpg'}`
+        await bucket.file(src).copy(bucket.file(dest))
+      }
       copiadas.push(dest)
       await bucket.file(dest).makePublic()
       urlsVeiculo.push(bucket.file(dest).publicUrl())
