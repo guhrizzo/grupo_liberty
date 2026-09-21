@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
+import { converterFotoParaWebp, FOTO_CACHE_CONTROL } from '@/utils/veiculos/foto-webp'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { assertPodeGerenciarVeiculos } from '@/utils/permissions'
 import { apagarVeiculoCompleto, extractFirebaseStoragePath } from '@/utils/veiculos/apagar'
@@ -342,18 +343,27 @@ export async function uploadVehiclePhotos(formData: FormData): Promise<{ urls?: 
   for (const file of files) {
     if (!file.size) continue
 
-    // Gerar nome único baseado em timestamp + random
-    const ext = file.name.split('.').pop() || 'jpg'
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
-    const filePath = `fotos/${fileName}`
-
     try {
-      const fileRef = bucket.file(filePath)
-      const arrayBuffer = await file.arrayBuffer()
-      const buffer = Buffer.from(arrayBuffer)
+      const original = Buffer.from(await file.arrayBuffer())
+
+      // Converte pra WebP (mais leve). Se o formato não for suportado, sobe o original.
+      let buffer: Buffer = original
+      let ext = file.name.split('.').pop() || 'jpg'
+      let contentType = file.type || 'image/jpeg'
+      try {
+        buffer = await converterFotoParaWebp(original)
+        ext = 'webp'
+        contentType = 'image/webp'
+      } catch (convErr) {
+        console.warn(`Foto "${file.name}" não convertida para WebP, enviando original:`, convErr)
+      }
+
+      // Gerar nome único baseado em timestamp + random
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
+      const fileRef = bucket.file(`fotos/${fileName}`)
 
       await fileRef.save(buffer, {
-        metadata: { contentType: file.type || 'image/jpeg' },
+        metadata: { contentType, cacheControl: FOTO_CACHE_CONTROL },
       })
 
       await fileRef.makePublic()

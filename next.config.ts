@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
+    // O otimizador da Vercel estourou a cota (402) e derrubou as fotos do site.
+    // As fotos já são convertidas pra WebP no upload (utils/veiculos/foto-webp.ts),
+    // então servimos direto do Firebase Storage.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
