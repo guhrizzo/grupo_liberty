@@ -8,6 +8,13 @@
  *                                           -> além disso, apaga os arquivos originais do Storage
  *   Opções: --limit=N (processa só N veículos)
  *
+ * Limpeza dos originais que sobraram (depois de converter):
+ *   npm run fotos:webp -- --limpar-orfaos            -> simulação: lista o que seria apagado
+ *   npm run fotos:webp -- --limpar-orfaos --apply    -> apaga de fato
+ *   Só apaga um arquivo de fotos/ que (1) não é .webp, (2) tem um .webp de mesmo nome
+ *   no bucket e (3) nenhum veículo referencia mais. Órfãos sem gêmeo .webp são só
+ *   contados, nunca apagados.
+ *
  * Seguro por padrão:
  *  - sem --apply nada é gravado;
  *  - os originais NÃO são apagados sem --delete-old (outros sistemas, como o de
@@ -24,8 +31,14 @@ config({ path: '.env.local' })
 
 const args = process.argv.slice(2)
 const APPLY = args.includes('--apply')
+const LIMPAR_ORFAOS = args.includes('--limpar-orfaos')
 const DELETE_OLD = args.includes('--delete-old')
 const LIMIT = Number(args.find((a) => a.startsWith('--limit='))?.split('=')[1]) || Infinity
+
+if (LIMPAR_ORFAOS && (DELETE_OLD || args.some((a) => a.startsWith('--limit=')))) {
+  console.error('--limpar-orfaos não combina com --delete-old nem --limit.')
+  process.exit(1)
+}
 
 if (DELETE_OLD && !APPLY) {
   console.error('--delete-old só funciona junto com --apply.')
@@ -54,6 +67,76 @@ function caminhoNoBucket(url: string, bucketName: string): string | null {
 
 const kb = (n: number) => `${(n / 1024).toFixed(0)} KB`
 
+type Bucket = ReturnType<ReturnType<typeof getStorage>['bucket']>
+const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`
+
+/**
+ * Apaga de `fotos/` os originais (.jpg/.jpeg/.png) que já têm um .webp gêmeo
+ * e não são mais referenciados por nenhum veículo.
+ */
+async function limparOrfaos(
+  bucket: Bucket,
+  bucketName: string,
+  adminDb: FirebaseFirestore.Firestore,
+) {
+  console.log(APPLY ? 'MODO APLICAR: apagando órfãos' : 'SIMULAÇÃO (nada será apagado)')
+
+  // 1. Tudo que algum veículo ainda referencia.
+  const referenciados = new Set<string>()
+  const veiculos = await adminDb.collection('veiculos').get()
+  for (const doc of veiculos.docs) {
+    const fotos: string[] = Array.isArray(doc.data().fotos) ? doc.data().fotos : []
+    for (const url of fotos) {
+      const path = caminhoNoBucket(url, bucketName)
+      if (path) referenciados.add(path)
+    }
+  }
+
+  // 2. Tudo que existe em fotos/.
+  const [arquivos] = await bucket.getFiles({ prefix: 'fotos/' })
+  const nomes = new Set(arquivos.map((f) => f.name))
+
+  const paraApagar: { name: string; size: number }[] = []
+  let semGemeo = 0
+  let semGemeoBytes = 0
+  for (const f of arquivos) {
+    if (/\.webp$/i.test(f.name) || !/\.(jpe?g|png)$/i.test(f.name)) continue
+    if (referenciados.has(f.name)) continue
+    const size = Number(f.metadata.size) || 0
+    const gemeo = f.name.replace(/\.[^./]+$/, '') + '.webp'
+    if (nomes.has(gemeo)) {
+      paraApagar.push({ name: f.name, size })
+    } else {
+      semGemeo++
+      semGemeoBytes += size
+    }
+  }
+
+  let apagados = 0
+  let falhas = 0
+  let bytes = 0
+  for (const { name, size } of paraApagar) {
+    if (APPLY) {
+      try {
+        await bucket.file(name).delete()
+      } catch (err) {
+        falhas++
+        console.error(`  ! ${name}: não apagou (${(err as Error).message})`)
+        continue
+      }
+    }
+    apagados++
+    bytes += size
+    console.log(`  ${APPLY ? '-' : '~'} ${name} (${kb(size)})`)
+  }
+
+  console.log('\n=== Resumo ===')
+  console.log(`arquivos em fotos/: ${arquivos.length} | referenciados por veículos: ${referenciados.size}`)
+  console.log(`${APPLY ? 'apagados' : 'a apagar'}: ${apagados} (${mb(bytes)}) | falhas: ${falhas}`)
+  console.log(`órfãos SEM gêmeo .webp (não mexi): ${semGemeo} (${mb(semGemeoBytes)})`)
+  if (!APPLY) console.log('Nada foi apagado. Rode com --apply para apagar.')
+}
+
 async function main() {
   const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
   if (!bucketName) throw new Error('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ausente no .env.local')
@@ -61,6 +144,11 @@ async function main() {
   // Import dinâmico: o firebase-admin lê o .env.local no momento em que carrega.
   const { adminDb } = await import('./firebase-admin')
   const bucket = getStorage(getApps()[0]).bucket(bucketName)
+
+  if (LIMPAR_ORFAOS) {
+    await limparOrfaos(bucket, bucketName, adminDb)
+    return
+  }
 
   console.log(APPLY ? `MODO APLICAR${DELETE_OLD ? ' + APAGAR ORIGINAIS' : ''}` : 'SIMULAÇÃO (nada será gravado)')
 
