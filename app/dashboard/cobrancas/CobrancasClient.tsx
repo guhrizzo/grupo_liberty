@@ -1641,6 +1641,10 @@ function CobrancaCard({
   const temAtraso = c.parcelas.some((p) => p.status === 'atrasado')
   // Limitado a 100%: multa/juros pagos entram em `valorPago` e passariam do total.
   const percentual = c.valorTotal > 0 ? Math.min((totalPago / c.valorTotal) * 100, 100) : 0
+  const encargosCobranca = c.parcelas.reduce(
+    (a, p) => a + (temEncargosAtivos(p) ? p.encargos!.multa + p.encargos!.juros : 0),
+    0,
+  )
   const proxVenc = c.parcelas
     .filter((p) => !p.pago && p.status !== 'atrasado')
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))[0]
@@ -1695,6 +1699,11 @@ function CobrancaCard({
           <p className="text-[10px] text-neutral-500">
             de {formatCurrency(c.valorTotal)}
           </p>
+          {encargosCobranca > 0.01 && (
+            <p className="text-[10px] font-semibold text-rose-600">
+              + {formatCurrency(encargosCobranca)} de multa/juros
+            </p>
+          )}
         </div>
 
         <div className="hidden text-right lg:block">
@@ -1708,7 +1717,11 @@ function CobrancaCard({
               </p>
             </>
           ) : (
+            temAtraso ? (
+            <p className="text-xs font-bold text-rose-600">Em atraso</p>
+          ) : (
             <p className="text-xs font-bold text-emerald-700">Em dia</p>
+          )
           )}
         </div>
 
@@ -1888,6 +1901,11 @@ function CobrancaCard({
           <p className="text-[10px] text-neutral-500">
             de {formatCurrency(c.valorTotal)}
           </p>
+          {encargosCobranca > 0.01 && (
+            <p className="text-[10px] font-semibold text-rose-600">
+              + {formatCurrency(encargosCobranca)} de multa/juros
+            </p>
+          )}
         </div>
         <div className="text-right">
           {proxVenc ? (
@@ -1900,7 +1918,11 @@ function CobrancaCard({
               </p>
             </>
           ) : (
+            temAtraso ? (
+            <p className="text-sm font-bold text-rose-600">Em atraso</p>
+          ) : (
             <p className="text-sm font-bold text-emerald-700">Em dia</p>
+          )
           )}
         </div>
       </div>
@@ -1953,6 +1975,17 @@ function CobrancaCard({
 
 // ─── Lista de Parcelas ─────────────────────────────────────────────────────
 
+/** A parcela gerou multa/juros e não está isenta. */
+function temEncargosAtivos(p: Parcela): boolean {
+  return !!p.encargos && !p.encargosIsentos && p.encargos.multa + p.encargos.juros > 0.01
+}
+
+/** Valor da parcela com multa e juros por atraso (os juros param de correr ao quitar). */
+function valorAtualizado(p: Parcela): number {
+  if (!temEncargosAtivos(p)) return p.valorParcela
+  return Math.round((p.valorParcela + p.encargos!.multa + p.encargos!.juros) * 100) / 100
+}
+
 /** Multa + juros por atraso da parcela (calculados até hoje no servidor). */
 function ParcelaEncargosInfo({
   parcela: p,
@@ -1964,25 +1997,26 @@ function ParcelaEncargosInfo({
   onIsentar: (parcela: Parcela) => void
 }) {
   const e = p.encargos
-  if (!e || p.encargosIsentos) return null
+  if (!e || !temEncargosAtivos(p)) return null
   if (p.pago) {
-    return e.pagos > 0.01 ? (
+    return (
       <p className="mt-0.5 text-[10px] text-neutral-500">
-        Inclui {formatCurrency(e.pagos)} de multa/juros por atraso
+        Valor original {formatCurrency(p.valorParcela)} + {formatCurrency(e.multa + e.juros)} de
+        multa/juros por atraso
       </p>
-    ) : null
+    )
   }
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-rose-700">
       <IconPercentage size={10} className="shrink-0" />
       <span>
-        multa {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
+        <span className="text-neutral-500">Valor original {formatCurrency(p.valorParcela)}</span> + multa{' '}
+        {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
         dia{e.diasAtraso === 1 ? '' : 's'})
       </span>
       {e.pagos > 0.01 && (
-        <span className="text-neutral-500">· {formatCurrency(e.pagos)} já pagos</span>
+        <span className="text-neutral-500">· {formatCurrency(e.pagos)} de encargos já pagos</span>
       )}
-      <span className="font-bold">· total hoje {formatCurrency(p.valorRestante)}</span>
       {canEdit && (
         <button
           type="button"
@@ -2146,8 +2180,8 @@ function ParcelasList({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <p className="text-sm font-bold text-neutral-900">
-                    {formatCurrency(p.valorParcela)}
+                  <p className={`text-sm font-bold ${temEncargosAtivos(p) && !p.pago ? 'text-rose-700' : 'text-neutral-900'}`}>
+                    {formatCurrency(valorAtualizado(p))}
                   </p>
                   {canEdit && (
                     <button
@@ -2245,8 +2279,8 @@ function ParcelasList({
                   </td>
                   <td className="px-5 py-3 align-top">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="font-bold text-neutral-900">
-                        {formatCurrency(p.valorParcela)}
+                      <p className={`font-bold ${temEncargosAtivos(p) && !p.pago ? 'text-rose-700' : 'text-neutral-900'}`}>
+                        {formatCurrency(valorAtualizado(p))}
                       </p>
                       {canEdit && (
                         <button
