@@ -1136,7 +1136,7 @@ export async function isentarEncargos(
 
     revalidatePath('/dashboard/cobrancas')
     return { success: isentar ? 'Multa e juros isentos nesta parcela.' : 'Isenção removida — encargos voltaram a ser cobrados.' }
-  } catch (err: any) {
+  } catch (err) {
     console.error('[isentarEncargos]', err)
     return { error: 'Erro ao atualizar a isenção.' }
   }

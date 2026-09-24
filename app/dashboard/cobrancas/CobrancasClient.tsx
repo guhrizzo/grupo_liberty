@@ -34,6 +34,7 @@ import {
   IconSend,
   IconEdit,
   IconHistory,
+  IconPercentage,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -58,7 +59,10 @@ import {
   enviarEmailCobranca,
   editarValorParcela,
   enviarComprovantePagamento,
+  isentarEncargos,
 } from './actions'
+import { calcularEncargos } from '@/utils/cobrancas/encargos'
+import { ENCARGOS_PADRAO } from '@/constants/encargos'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -255,6 +259,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
   const [enviandoEmailId, setEnviandoEmailId] = useState<string | null>(null)
   const [editarValorParcelaData, setEditarValorParcelaData] = useState<Parcela | null>(null)
   const [loadingEditarValor, setLoadingEditarValor] = useState(false)
+  const [isentarParcelaData, setIsentarParcelaData] = useState<Parcela | null>(null)
+  const [loadingIsentar, setLoadingIsentar] = useState(false)
   const [editarCobrancaData, setEditarCobrancaData] = useState<Cobranca | null>(null)
   const [loadingEditar, setLoadingEditar] = useState(false)
 
@@ -646,6 +652,30 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
       }
     },
     [editarValorParcelaData, currentUserName, router, toast],
+  )
+
+  const handleAbrirIsentar = useCallback((parcela: Parcela) => {
+    setIsentarParcelaData(parcela)
+  }, [])
+
+  const handleSalvarIsentar = useCallback(
+    async (isentar: boolean, motivo: string) => {
+      if (!isentarParcelaData) return
+      setLoadingIsentar(true)
+      try {
+        const result = await isentarEncargos(isentarParcelaData.id, isentar, currentUserName, motivo)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Isenção atualizada.')
+          setIsentarParcelaData(null)
+          router.refresh()
+        }
+      } finally {
+        setLoadingIsentar(false)
+      }
+    },
+    [isentarParcelaData, currentUserName, router, toast],
   )
 
   const handleAbrirLembrete = useCallback((cobranca: Cobranca) => {
@@ -1104,6 +1134,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
                 onRemoverPagamento={handleRemoverPagamentoClick}
                 onEnviarEmail={handleEnviarEmail}
                 onEditarValor={handleAbrirEditarValor}
+                onIsentar={handleAbrirIsentar}
                 pendingId={null}
                 isToggling={isPending}
                 togglingId={togglingId}
@@ -1261,6 +1292,10 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
         <PagamentoModal
           parcela={pagamentoParcela}
           cliente={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.clienteNome ?? null}
+          taxas={(() => {
+            const cob = cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)
+            return { multaPct: cob?.multaPct ?? 0, jurosMensalPct: cob?.jurosMensalPct ?? 0 }
+          })()}
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
           onSubmit={handleSubmitPagamento}
@@ -1289,6 +1324,19 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
           loading={loadingEditarValor}
           onClose={handleFecharEditarValor}
           onSubmit={handleSalvarEditarValor}
+        />
+      )}
+
+      {/* Modal de isenção de multa/juros de uma parcela */}
+      {isentarParcelaData && (
+        <IsentarEncargosModal
+          parcela={isentarParcelaData}
+          editorName={currentUserName}
+          loading={loadingIsentar}
+          onClose={() => {
+            if (!loadingIsentar) setIsentarParcelaData(null)
+          }}
+          onSubmit={handleSalvarIsentar}
         />
       )}
 
@@ -1561,6 +1609,7 @@ function CobrancaCard({
   onRemoverPagamento,
   onEnviarEmail,
   onEditarValor,
+  onIsentar,
   isToggling,
   togglingId,
   enviandoEmailId,
@@ -1578,6 +1627,7 @@ function CobrancaCard({
   onRemoverPagamento: (pagamento: Pagamento) => void
   onEnviarEmail: (cobranca: Cobranca) => void
   onEditarValor: (parcela: Parcela) => void
+  onIsentar: (parcela: Parcela) => void
   pendingId: string | null
   isToggling: boolean
   togglingId: string | null
@@ -1589,7 +1639,8 @@ function CobrancaCard({
   )
   const pagas = c.parcelas.filter((p) => p.pago).length
   const temAtraso = c.parcelas.some((p) => p.status === 'atrasado')
-  const percentual = c.valorTotal > 0 ? (totalPago / c.valorTotal) * 100 : 0
+  // Limitado a 100%: multa/juros pagos entram em `valorPago` e passariam do total.
+  const percentual = c.valorTotal > 0 ? Math.min((totalPago / c.valorTotal) * 100, 100) : 0
   const proxVenc = c.parcelas
     .filter((p) => !p.pago && p.status !== 'atrasado')
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))[0]
@@ -1891,6 +1942,7 @@ function CobrancaCard({
             onDesfazer={onDesfazer}
             onRemoverPagamento={onRemoverPagamento}
             onEditarValor={onEditarValor}
+            onIsentar={onIsentar}
             isToggling={isToggling}
           />
         </div>
@@ -1900,6 +1952,90 @@ function CobrancaCard({
 }
 
 // ─── Lista de Parcelas ─────────────────────────────────────────────────────
+
+/** Multa + juros por atraso da parcela (calculados até hoje no servidor). */
+function ParcelaEncargosInfo({
+  parcela: p,
+  canEdit,
+  onIsentar,
+}: {
+  parcela: Parcela
+  canEdit: boolean
+  onIsentar: (parcela: Parcela) => void
+}) {
+  const e = p.encargos
+  if (!e || p.encargosIsentos) return null
+  if (p.pago) {
+    return e.pagos > 0.01 ? (
+      <p className="mt-0.5 text-[10px] text-neutral-500">
+        Inclui {formatCurrency(e.pagos)} de multa/juros por atraso
+      </p>
+    ) : null
+  }
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] text-rose-700">
+      <IconPercentage size={10} className="shrink-0" />
+      <span>
+        multa {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
+        dia{e.diasAtraso === 1 ? '' : 's'})
+      </span>
+      {e.pagos > 0.01 && (
+        <span className="text-neutral-500">· {formatCurrency(e.pagos)} já pagos</span>
+      )}
+      <span className="font-bold">· total hoje {formatCurrency(p.valorRestante)}</span>
+      {canEdit && (
+        <button
+          type="button"
+          onClick={() => onIsentar(p)}
+          className="font-bold text-liberty underline-offset-2 hover:underline cursor-pointer"
+        >
+          Isentar
+        </button>
+      )}
+    </div>
+  )
+}
+
+function EncargosIsentosBadge({
+  parcela,
+  canEdit,
+  onClick,
+}: {
+  parcela: Parcela
+  canEdit: boolean
+  onClick: (parcela: Parcela) => void
+}) {
+  if (!parcela.encargosIsentos) return null
+  const detalhes = [
+    parcela.encargosIsentosPor ? `Isento por ${parcela.encargosIsentosPor}` : 'Multa e juros isentos',
+    parcela.encargosIsentosMotivo ? `Motivo: ${parcela.encargosIsentosMotivo}` : null,
+    parcela.encargosIsentosEm ? `Em ${formatDate(parcela.encargosIsentosEm.slice(0, 10))}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const className =
+    'inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-700'
+  const conteudo = (
+    <>
+      <IconPercentage size={9} stroke={2.5} />
+      Sem juros
+    </>
+  )
+  return canEdit ? (
+    <button
+      type="button"
+      title={`${detalhes} — clique para gerenciar`}
+      onClick={() => onClick(parcela)}
+      className={`${className} cursor-pointer hover:bg-emerald-100`}
+    >
+      {conteudo}
+    </button>
+  ) : (
+    <span title={detalhes} className={className}>
+      {conteudo}
+    </span>
+  )
+}
 
 function PagamentosMini({
   pagamentos,
@@ -1921,6 +2057,9 @@ function PagamentosMini({
           <IconCoin size={10} className="shrink-0 text-sky-500" />
           <span>
             {formatCurrency(pg.valor)} em {formatDate(pg.data)}
+            {pg.paraEncargos > 0.01 && (
+              <span className="text-rose-600"> ({formatCurrency(pg.paraEncargos)} de multa/juros)</span>
+            )}
           </span>
           {canEdit && (
             <button
@@ -1967,6 +2106,7 @@ function ParcelasList({
   onDesfazer,
   onRemoverPagamento,
   onEditarValor,
+  onIsentar,
   isToggling,
 }: {
   parcelas: Parcela[]
@@ -1975,6 +2115,7 @@ function ParcelasList({
   onDesfazer: (parcela: Parcela) => void
   onRemoverPagamento: (pagamento: Pagamento) => void
   onEditarValor: (parcela: Parcela) => void
+  onIsentar: (parcela: Parcela) => void
   isToggling: boolean
 }) {
   const hoje = new Date()
@@ -2021,6 +2162,7 @@ function ParcelasList({
                   )}
                   <StatusBadge status={p.status} />
                   <ParcelaValorEditadoBadge parcela={p} />
+                  <EncargosIsentosBadge parcela={p} canEdit={canEdit} onClick={onIsentar} />
                 </div>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
                   Vence {formatDate(p.dataVencimento)}
@@ -2040,6 +2182,7 @@ function ParcelasList({
                     </span>
                   )}
                 </p>
+                <ParcelaEncargosInfo parcela={p} canEdit={canEdit} onIsentar={onIsentar} />
                 <PagamentosMini
                   pagamentos={p.pagamentos}
                   canEdit={canEdit}
@@ -2117,12 +2260,14 @@ function ParcelasList({
                         </button>
                       )}
                       <ParcelaValorEditadoBadge parcela={p} />
+                      <EncargosIsentosBadge parcela={p} canEdit={canEdit} onClick={onIsentar} />
                     </div>
                     {!p.pago && p.valorPago > 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
                         pago {formatCurrency(p.valorPago)} · falta {formatCurrency(p.valorRestante)}
                       </p>
                     )}
+                    <ParcelaEncargosInfo parcela={p} canEdit={canEdit} onIsentar={onIsentar} />
                     <PagamentosMini
                       pagamentos={p.pagamentos}
                       canEdit={canEdit}
@@ -2599,6 +2744,11 @@ function NovaCobrancaModal({
                   <p className="mt-1 text-[11px] font-semibold text-neutral-500">
                     Total: {formatCurrency(preview.entrada + preview.valorParcela * preview.n)}
                   </p>
+                  <p className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
+                    <IconPercentage size={11} className="shrink-0" />
+                    Em caso de atraso: multa de {ENCARGOS_PADRAO.multaPct}% + juros de{' '}
+                    {ENCARGOS_PADRAO.jurosMensalPct}% ao mês, cobrados por dia.
+                  </p>
                 </div>
               </div>
             </section>
@@ -2651,17 +2801,22 @@ function NovaCobrancaModal({
 function PagamentoModal({
   parcela,
   cliente,
+  taxas,
   loading,
   onClose,
   onSubmit,
 }: {
   parcela: Parcela
   cliente: string | null
+  /** Taxas de encargos da cobrança (0 em cobranças anteriores à regra). */
+  taxas: { multaPct: number; jurosMensalPct: number }
   loading: boolean
   onClose: () => void
   onSubmit: (valor: number, data: string) => void
 }) {
   const [valor, setValor] = useState(() => maskMoney(String(Math.round(parcela.valorRestante * 100))))
+  // Enquanto o usuário não digitar um valor, ele acompanha o total devido na data escolhida.
+  const [valorEditado, setValorEditado] = useState(false)
   // `hojeNoFuso()` e não `toISOString()`: à noite (após 21h no Brasil) o UTC já
   // virou o dia seguinte e o comprovante/lançamento sairia com a data adiantada.
   const [data, setData] = useState(() => hojeNoFuso())
@@ -2669,12 +2824,39 @@ function PagamentoModal({
 
   if (typeof document === 'undefined') return null
 
+  // Mesmo cálculo do servidor: multa/juros até a data do pagamento.
+  const calcularAte = (referencia: string, extra?: { valor: number }) =>
+    calcularEncargos({
+      valorParcela: parcela.valorParcela,
+      dataVencimento: parcela.dataVencimento,
+      multaPct: taxas.multaPct,
+      jurosMensalPct: taxas.jurosMensalPct,
+      isento: parcela.encargosIsentos,
+      pagamentos: extra
+        ? [...parcela.pagamentos, { id: '__novo__', valor: extra.valor, data: referencia, criadoEm: '~' }]
+        : parcela.pagamentos,
+      referencia,
+    })
+  const dataValida = /^\d{4}-\d{2}-\d{2}$/.test(data)
+  const calculo = dataValida ? calcularAte(data) : null
+  const saldo = calculo?.totalDevido ?? parcela.valorRestante
+  const temEncargos = !!calculo && calculo.multa + calculo.juros > 0.01
+
   const valorNum = parseMoney(valor)
-  const restanteAposPagamento = Math.max(round2(parcela.valorRestante - valorNum), 0)
-  const ehParcial = valorNum > 0 && valorNum < parcela.valorRestante - 0.01
+  const simulacao = dataValida && valorNum > 0 ? calcularAte(data, { valor: valorNum }) : null
+  const divisaoNovo = simulacao?.divisao.find((d) => d.pagamentoId === '__novo__')
+  const restanteAposPagamento = simulacao ? simulacao.totalDevido : Math.max(round2(saldo - valorNum), 0)
+  const ehParcial = valorNum > 0 && valorNum < saldo - 0.01
 
   function round2(n: number) {
     return Math.round(n * 100) / 100
+  }
+
+  function handleDataChange(novaData: string) {
+    setData(novaData)
+    if (!valorEditado && /^\d{4}-\d{2}-\d{2}$/.test(novaData)) {
+      setValor(maskMoney(String(Math.round(calcularAte(novaData).totalDevido * 100))))
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -2684,8 +2866,8 @@ function PagamentoModal({
       setErrorMsg('Informe um valor válido.')
       return
     }
-    if (valorNum > parcela.valorRestante + 0.01) {
-      setErrorMsg(`O valor não pode ser maior que o saldo restante (${formatCurrency(parcela.valorRestante)}).`)
+    if (valorNum > saldo + 0.01) {
+      setErrorMsg(`O valor não pode ser maior que o total devido nesta data (${formatCurrency(saldo)}).`)
       return
     }
     if (!data) {
@@ -2741,9 +2923,31 @@ function PagamentoModal({
                 <span className="font-bold text-emerald-700">{formatCurrency(parcela.valorPago)}</span>
               </div>
             )}
+            {temEncargos && calculo && (
+              <>
+                <div className="mt-2 flex items-center justify-between border-t border-neutral-200 pt-2 text-xs">
+                  <span className="text-neutral-500">Multa ({taxas.multaPct}%)</span>
+                  <span className="font-bold text-rose-600">{formatCurrency(calculo.multa)}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs">
+                  <span className="text-neutral-500">
+                    Juros ({calculo.diasAtraso} dia{calculo.diasAtraso === 1 ? '' : 's'} de atraso)
+                  </span>
+                  <span className="font-bold text-rose-600">{formatCurrency(calculo.juros)}</span>
+                </div>
+                {calculo.encargosPagos > 0.01 && (
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="text-neutral-500">Encargos já pagos</span>
+                    <span className="font-bold text-emerald-700">− {formatCurrency(calculo.encargosPagos)}</span>
+                  </div>
+                )}
+              </>
+            )}
             <div className="mt-1 flex items-center justify-between text-xs">
-              <span className="text-neutral-500">Saldo restante</span>
-              <span className="font-bold text-rose-600">{formatCurrency(parcela.valorRestante)}</span>
+              <span className="text-neutral-500">
+                {temEncargos ? `Total devido em ${formatDate(data)}` : 'Saldo restante'}
+              </span>
+              <span className="font-bold text-rose-600">{formatCurrency(saldo)}</span>
             </div>
           </div>
 
@@ -2751,7 +2955,10 @@ function PagamentoModal({
             id="valorPagamento"
             label="Valor a pagar agora"
             value={valor}
-            onChange={(e) => setValor(maskMoney(e.target.value))}
+            onChange={(e) => {
+              setValor(maskMoney(e.target.value))
+              setValorEditado(true)
+            }}
             placeholder="R$ 0,00"
             inputMode="numeric"
             leftIcon={<IconCurrencyDollar size={14} />}
@@ -2764,10 +2971,17 @@ function PagamentoModal({
             label="Data do pagamento"
             type="date"
             value={data}
-            onChange={(e) => setData(e.target.value)}
+            onChange={(e) => handleDataChange(e.target.value)}
             leftIcon={<IconCalendar size={14} />}
             required
           />
+
+          {divisaoNovo && divisaoNovo.paraEncargos > 0.01 && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
+              {formatCurrency(divisaoNovo.paraEncargos)} vão para multa/juros e{' '}
+              {formatCurrency(divisaoNovo.paraPrincipal)} abatem a parcela.
+            </p>
+          )}
 
           {ehParcial && (
             <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[11px] font-semibold text-sky-700">
@@ -2975,8 +3189,10 @@ function EditarValorParcelaModal({
       setErrorMsg('Informe um valor válido.')
       return
     }
-    if (parcela.valorPago > 0 && valorNum < parcela.valorPago - 0.01) {
-      setErrorMsg(`O novo valor não pode ser menor que o já pago (${formatCurrency(parcela.valorPago)}).`)
+    // Só o que abateu a parcela conta — a parte paga de multa/juros não.
+    const principalPago = parcela.pagamentos.reduce((a, pg) => a + pg.paraPrincipal, 0)
+    if (principalPago > 0 && valorNum < principalPago - 0.01) {
+      setErrorMsg(`O novo valor não pode ser menor que o já pago da parcela (${formatCurrency(principalPago)}).`)
       return
     }
 
@@ -3100,6 +3316,153 @@ function EditarValorParcelaModal({
               <>
                 <IconCheck size={14} stroke={2.5} />
                 Salvar Valor
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </div>,
+    document.body,
+  )
+}
+
+// ─── Modal Isentar Multa/Juros ────────────────────────────────────────────
+
+function IsentarEncargosModal({
+  parcela,
+  editorName,
+  loading,
+  onClose,
+  onSubmit,
+}: {
+  parcela: Parcela
+  editorName: string
+  loading: boolean
+  onClose: () => void
+  /** `isentar = false` remove uma isenção existente. */
+  onSubmit: (isentar: boolean, motivo: string) => void
+}) {
+  const [motivo, setMotivo] = useState('')
+
+  if (typeof document === 'undefined') return null
+
+  const jaIsenta = parcela.encargosIsentos
+  const e = parcela.encargos
+
+  function handleSubmit(ev: React.FormEvent) {
+    ev.preventDefault()
+    onSubmit(!jaIsenta, motivo.trim())
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(ev) => {
+        if (ev.target === ev.currentTarget && !loading) onClose()
+      }}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-liberty/10 via-white to-white px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-liberty text-white shadow-sm">
+              <IconPercentage size={20} stroke={2} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-950">
+                {jaIsenta ? 'Remover isenção' : 'Isentar multa e juros'}
+              </h2>
+              <p className="mt-0.5 text-xs text-neutral-600">Parcela {parcela.numeroParcela}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            <IconX size={18} stroke={2} />
+          </button>
+        </div>
+
+        <div className="space-y-4 px-5 py-5">
+          {jaIsenta ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+              Isenta por <strong>{parcela.encargosIsentosPor ?? '—'}</strong>
+              {parcela.encargosIsentosEm ? ` em ${formatDate(parcela.encargosIsentosEm.slice(0, 10))}` : ''}
+              {parcela.encargosIsentosMotivo ? ` — ${parcela.encargosIsentosMotivo}` : ''}.
+              <p className="mt-2 text-[11px] text-emerald-700">
+                Ao remover a isenção, multa e juros voltam a ser calculados desde o vencimento.
+              </p>
+            </div>
+          ) : (
+            <>
+              {e && (
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-neutral-500">Multa</span>
+                    <span className="font-bold text-rose-600">{formatCurrency(e.multa)}</span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-xs">
+                    <span className="text-neutral-500">
+                      Juros ({e.diasAtraso} dia{e.diasAtraso === 1 ? '' : 's'})
+                    </span>
+                    <span className="font-bold text-rose-600">{formatCurrency(e.juros)}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 rounded-lg border border-liberty/30 bg-liberty/10 px-3 py-2">
+                <IconUser size={14} className="shrink-0 text-liberty-deep" />
+                <p className="text-[11px] font-semibold text-liberty-deep">
+                  Isentando como <span className="font-bold">{editorName}</span>
+                </p>
+              </div>
+
+              <Input
+                id="motivoIsencao"
+                label="Motivo (opcional)"
+                value={motivo}
+                onChange={(ev) => setMotivo(ev.target.value)}
+                placeholder="Ex: Negociação, atraso justificado..."
+                leftIcon={<IconPencil size={14} />}
+                autoFocus
+              />
+
+              <p className="rounded-lg border border-liberty/30 bg-liberty/10 px-3 py-2 text-[11px] font-semibold text-liberty-deep">
+                A parcela deixa de cobrar multa e juros. O que já tiver sido pago de encargos passa a
+                abater o valor da parcela.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-liberty px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors cursor-pointer hover:bg-liberty-deep disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <IconLoader2 size={14} className="animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <IconCheck size={14} stroke={2.5} />
+                {jaIsenta ? 'Remover isenção' : 'Isentar encargos'}
               </>
             )}
           </button>
