@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import { toPublicVeiculo } from '@/app/dashboard/veiculos/public'
 
 export const dynamic = 'force-dynamic'
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 })
   }
 
-  const todosVeiculos = await getVehicles()
+  const todosVeiculos = await listarVeiculos()
   // Só exclui vendidos — um veículo já vendido não é mais da Liberty, não
   // faz sentido importar pra frota de locação. Ao contrário de
   // /api/estoque-publico, `publico` NÃO filtra aqui.

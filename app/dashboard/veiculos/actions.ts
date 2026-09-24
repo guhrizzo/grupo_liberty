@@ -4,9 +4,10 @@ import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { converterFotoParaWebp, FOTO_CACHE_CONTROL } from '@/utils/veiculos/foto-webp'
-import { encrypt, decrypt } from '@/utils/crypto'
+import { encrypt } from '@/utils/crypto'
 import { assertPodeGerenciarVeiculos } from '@/utils/permissions'
 import { apagarVeiculoCompleto, extractFirebaseStoragePath } from '@/utils/veiculos/apagar'
+import { recalcularCustoEfetivoTotal } from '@/utils/veiculos/custo-efetivo'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -51,59 +52,6 @@ function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
 }
 
 export type DebitoItem = DebitoItemPersistido
-
-/**
- * Recalcula e persiste `custoEfetivoTotal` de um veículo:
- * `debitos + precoAquisicao + soma das manutenções baixadas do veículo`.
- * É chamado ao salvar o veículo e sempre que uma manutenção dele é criada,
- * editada, baixada, estornada ou removida, para o valor gravado não ficar
- * defasado. Falha em silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
- *
- * "Baixada" = tem objeto `baixa` OU (legado) já tinha `custo > 0` e não está
- * cancelada. O valor é `baixa.valor` quando há baixa, senão o `custo` legado.
- */
-export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<void> {
-  if (!veiculoId) return
-  try {
-    const ref = adminDb.collection('veiculos').doc(veiculoId)
-    const snap = await ref.get()
-    if (!snap.exists) return
-    const data = snap.data() || {}
-    const base = (data.debitos ?? 0) + (data.precoAquisicao ?? 0)
-
-    const manutSnap = await adminDb
-      .collection('manutencoes')
-      .where('veiculoId', '==', veiculoId)
-      .get()
-    let manutencoes = 0
-    for (const m of manutSnap.docs) {
-      const md = m.data()
-      if (md.status === 'cancelada') continue
-      const baixa = md.baixa as { valor?: number } | null | undefined
-      const custoLegado = typeof md.custo === 'number' ? md.custo : Number(md.custo) || 0
-      const baixada = !!baixa || custoLegado > 0
-      if (!baixada) continue
-      const valor = baixa ? Number(baixa.valor) || 0 : custoLegado
-      if (valor > 0) manutencoes += valor
-    }
-
-    const total = base + manutencoes || null
-    await ref.update({ custoEfetivoTotal: total })
-  } catch (error) {
-    console.error('Erro ao recalcular custo efetivo total do veículo', veiculoId, error)
-  }
-}
-
-/**
- * Descriptografa um CPF salvo. Registros gravados antes da criptografia
- * (texto plano, sem o separador ':' do formato 'ivHex:encryptedHex') caem no
- * fallback e retornam o valor bruto, para não quebrar veículos já cadastrados.
- */
-function decryptCpfOrRaw(value: string | null | undefined): string {
-  if (!value) return ''
-  if (!value.includes(':')) return value
-  return decrypt(value) || value
-}
 
 export interface Veiculo {
   id: string
@@ -237,92 +185,6 @@ async function getSessionUser() {
 }
 // ─── Server Actions ──────────────────────────────────────────────────────────
 
-/**
- * Busca todos os veículos cadastrados.
- */
-export async function getVehicles(): Promise<Veiculo[]> {
-  try {
-    const snapshot = await adminDb.collection('veiculos')
-      .orderBy('created_at', 'desc')
-      .get()
-
-    const vehicles: Veiculo[] = []
-    snapshot.forEach((doc: any) => {
-      const data = doc.data()
-      const loc = data.localizacao
-      const localizacao = loc === 'jau' ? 'Jaú/SP' : loc === 'bauru' ? 'Bauru/SP' : (loc || 'Jaú/SP')
-      vehicles.push({
-        id: doc.id,
-        marca: data.marca,
-        modelo: data.modelo,
-        ano: data.ano,
-        cor: data.cor || null,
-        quilometragem: data.quilometragem || null,
-        preco: data.preco ?? null,
-        precoComDesconto: data.precoComDesconto ?? null,
-        tabelaFipe: data.tabelaFipe ?? null,
-        cambio: data.cambio,
-        combustivel: data.combustivel,
-        placa: data.placa || null,
-        renavam: data.renavam || null,
-        descricao: data.descricao || null,
-        fotos: data.fotos || [],
-        localizacao,
-        // Migração: veículos salvos antes desse campo existir usam a antiga
-        // 'finalidade' como fallback — 'venda' (ou ausente) permanece público,
-        // 'pessoal' permanece privado, preservando a visibilidade que já tinham.
-        publico:
-          typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
-        vendidoEm: data.vendidoEm ?? null,
-        terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
-        terceiroInfo: data.terceiroInfo ?? null,
-        cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
-        telefoneCliente: data.telefoneCliente || null,
-        telefoneAcessoria: data.telefoneAcessoria || null,
-        valorParcela: data.valorParcela ?? null,
-        custoAcumulado: data.custoAcumulado ?? null,
-        precoAquisicao: data.precoAquisicao ?? null,
-        custoEfetivoTotal: data.custoEfetivoTotal ?? null,
-        debitos: data.debitos ?? null,
-        debitosItens: Array.isArray(data.debitosItens)
-          ? (data.debitosItens as Array<{
-              chave: string
-              valor: number
-              label?: string
-            }>)
-          : null,
-        parcelasRestantes: data.parcelasRestantes ?? null,
-        banco: data.banco || null,
-        bancoCodigo: data.bancoCodigo || null,
-        quitacaoPercent:
-          typeof data.quitacaoPercent === 'number' ? data.quitacaoPercent : null,
-        descontoPercent:
-          typeof data.descontoPercent === 'number' ? data.descontoPercent : null,
-        bancoCnpjs: Array.isArray(data.bancoCnpjs) ? (data.bancoCnpjs as string[]) : [],
-        taxaJuros: data.taxaJuros ?? null,
-        taxaPeriodicidade:
-          data.taxaPeriodicidade === 'anual' || data.taxaPeriodicidade === 'mensal'
-            ? data.taxaPeriodicidade
-            : null,
-        valorEntrada: data.valorEntrada ?? null,
-        sellerName: data.sellerName || null,
-        sellerCpf: decryptCpfOrRaw(data.sellerCpf) || null,
-        sellerBirthDate: data.sellerBirthDate || null,
-        sellerCity: data.sellerCity || null,
-        isVehicleInSellersName: data.isVehicleInSellersName ?? null,
-        registeredOwnerName: data.registeredOwnerName || null,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-        created_by: data.created_by || null,
-      })
-    })
-
-    return vehicles
-  } catch (error) {
-    console.error('Erro ao buscar veículos:', error)
-    return []
-  }
-}
 
 /**
  * Faz upload das fotos para o Firebase Storage e retorna as URLs públicas.

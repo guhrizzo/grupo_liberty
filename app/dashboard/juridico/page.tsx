@@ -6,7 +6,7 @@ import {
   getAnotacoesContagem,
   getContratosEnviadosJuridico,
 } from './actions'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import JuridicoClient from './JuridicoClient'
 
 export const metadata = {
@@ -30,7 +30,7 @@ export default async function JuridicoPage() {
     contratosJuridico,
   ] = await Promise.all([
     getProcessos(),
-    getVehicles(),
+    listarVeiculos(),
     getClientesPorVeiculo(),
     getAnotacoesContagem(),
     getContratosEnviadosJuridico(),

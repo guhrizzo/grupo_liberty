@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import { toPublicVeiculo, vendidoVisivel } from '@/app/dashboard/veiculos/public'
 import PublicVehiclesList from './PublicVehiclesList'
 import PublicSoldVehiclesList from './PublicSoldVehiclesList'
@@ -26,7 +26,7 @@ export default async function HomePage() {
       // Ignorar erro e continuar como deslogado
     }
   }
-  const todosVeiculos = await getVehicles()
+  const todosVeiculos = await listarVeiculos()
   // Todo veículo fica no mesmo estoque. Mapeado para um subconjunto
   // público-seguro — sem CPF, dados do vendedor ou financiamento — antes de
   // serializar no payload da página pública.

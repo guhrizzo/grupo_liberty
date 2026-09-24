@@ -1,5 +1,5 @@
 import { getCobrancas } from './actions'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import CobrancasClient from './CobrancasClient'
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
@@ -16,7 +16,7 @@ export default async function CobrancasPage() {
 
   const [cobrancas, veiculos] = await Promise.all([
     getCobrancas(),
-    getVehicles(),
+    listarVeiculos(),
   ])
 
   const currentUserName = user.name || user.email || 'Usuário'
