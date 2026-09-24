@@ -14,6 +14,10 @@ export interface CobrancaAtrasoEmailPayload {
   valorRestante: number
   dataVencimento: string
   diasAtraso: number
+  /** Multa/juros pendentes até hoje — ausente em cobranças sem encargos. */
+  encargos?: { multa: number; juros: number; pendentes: number }
+  /** Principal + encargos pendentes. */
+  totalDevido?: number
 }
 
 /**
@@ -38,6 +42,8 @@ export async function sendCobrancaAtrasoEmail(
     valorRestante,
     dataVencimento,
     diasAtraso,
+    encargos,
+    totalDevido,
   } = payload
 
   if (!clienteEmail) {
@@ -57,6 +63,8 @@ export async function sendCobrancaAtrasoEmail(
     valorRestante,
     dataVencimento,
     diasAtraso,
+    encargos,
+    totalDevido,
   })
 
   try {

@@ -2,6 +2,12 @@ import 'server-only'
 import { adminDb } from '@/utils/firebase/admin'
 import { sendCobrancaLembreteEmail } from '@/utils/email/send-cobranca-lembrete-email'
 import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-email'
+import {
+  calcularEncargos,
+  diasEntre,
+  hojeSaoPaulo,
+  type PagamentoEncargosInput,
+} from '@/utils/cobrancas/encargos'
 
 // ─── Envio automático em 3 momentos fixos ─────────────────────────────────
 //
@@ -33,30 +39,26 @@ export interface ProcessarLembretesResult {
   erros: string[]
 }
 
-function diasAte(hoje: Date, dataVencimento: string): number {
-  const venc = new Date(dataVencimento + 'T00:00:00')
-  return Math.round((venc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-/** Busca pagamentos de uma cobrança e devolve o valor pago por parcela. */
-async function carregarValoresPagos(cobrancaId: string) {
+/** Busca parcelas e pagamentos de uma cobrança, com os pagamentos agrupados por parcela. */
+async function carregarPagamentos(cobrancaId: string) {
   const [parcelasSnap, pagamentosSnap] = await Promise.all([
     adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
     adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
   ])
 
-  const pagoPorParcela = new Map<string, number>()
+  const pagamentosPorParcela = new Map<string, PagamentoEncargosInput[]>()
   for (const doc of pagamentosSnap.docs) {
     const data = doc.data()
-    pagoPorParcela.set(data.parcelaId, (pagoPorParcela.get(data.parcelaId) ?? 0) + (data.valor || 0))
+    const list = pagamentosPorParcela.get(data.parcelaId) ?? []
+    list.push({ id: doc.id, valor: data.valor || 0, data: data.data, criadoEm: data.criadoEm })
+    pagamentosPorParcela.set(data.parcelaId, list)
   }
 
-  return { parcelasSnap, pagoPorParcela }
+  return { parcelasSnap, pagamentosPorParcela }
 }
 
 export async function processarLembretesCobranca(): Promise<ProcessarLembretesResult> {
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
+  const hoje = hojeSaoPaulo()
 
   let verificados = 0
   let enviados = 0
@@ -73,17 +75,25 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
     const clienteEmail = (cobranca.clienteEmail as string | null) || null
     if (!clienteEmail) continue
 
-    const { parcelasSnap, pagoPorParcela } = await carregarValoresPagos(cobrancaDoc.id)
+    const { parcelasSnap, pagamentosPorParcela } = await carregarPagamentos(cobrancaDoc.id)
 
     for (const parcelaDoc of parcelasSnap.docs) {
       const parcela = parcelaDoc.data()
       verificados++
 
-      const valorPago = pagoPorParcela.get(parcelaDoc.id) ?? 0
-      const valorRestante = Math.max(Math.round((parcela.valorParcela - valorPago) * 100) / 100, 0)
-      if (valorRestante <= 0.01) continue // parcela já quitada
+      // Principal + multa/juros por atraso até hoje (0% em cobranças antigas).
+      const calculo = calcularEncargos({
+        valorParcela: parcela.valorParcela,
+        dataVencimento: parcela.dataVencimento,
+        multaPct: typeof cobranca.multaPct === 'number' ? cobranca.multaPct : 0,
+        jurosMensalPct: typeof cobranca.jurosMensalPct === 'number' ? cobranca.jurosMensalPct : 0,
+        isento: Boolean(parcela.encargosIsentos),
+        pagamentos: pagamentosPorParcela.get(parcelaDoc.id) ?? [],
+        referencia: hoje,
+      })
+      if (calculo.totalDevido <= 0.01) continue // parcela já quitada
 
-      const diasRestantes = diasAte(hoje, parcela.dataVencimento)
+      const diasRestantes = diasEntre(hoje, parcela.dataVencimento)
 
       // Cobranças semanais (aluguel) só recebem e-mail no dia do vencimento —
       // sem lembrete 3 dias antes nem aviso de atraso 1 dia depois.
@@ -139,9 +149,14 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
           veiculoResumo: cobranca.veiculoResumo,
           numeroParcela: parcela.numeroParcela,
           numeroParcelas: cobranca.numeroParcelas,
-          valorRestante,
+          valorRestante: calculo.principalRestante,
           dataVencimento: parcela.dataVencimento,
           diasAtraso: 1,
+          encargos:
+            calculo.encargosPendentes > 0.01
+              ? { multa: calculo.multa, juros: calculo.juros, pendentes: calculo.encargosPendentes }
+              : undefined,
+          totalDevido: calculo.totalDevido,
         })
 
         if (ok) {

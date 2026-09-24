@@ -6,6 +6,10 @@ interface CobrancaAtrasoData {
   valorRestante: number
   dataVencimento: string // YYYY-MM-DD
   diasAtraso: number
+  /** Multa/juros pendentes até hoje — ausente em cobranças sem encargos. */
+  encargos?: { multa: number; juros: number; pendentes: number }
+  /** Principal + encargos pendentes. */
+  totalDevido?: number
 }
 
 function formatCurrencyBR(value: number): string {
@@ -33,7 +37,31 @@ function escapeHtml(value: string): string {
 export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
   const clienteNome = escapeHtml(data.clienteNome)
   const veiculoResumo = escapeHtml(data.veiculoResumo)
-  const { numeroParcela, numeroParcelas, valorRestante, dataVencimento, diasAtraso } = data
+  const { numeroParcela, numeroParcelas, valorRestante, dataVencimento, diasAtraso, encargos } = data
+  const totalDevido = data.totalDevido ?? valorRestante
+
+  const linhaEncargo = (label: string, valor: string, destaque = false) => `
+                            <tr>
+                              <td style="padding:4px 0;font-size:${destaque ? '15px' : '13px'};color:${destaque ? '#09090b' : '#52525b'};font-weight:${destaque ? '800' : '500'};">${label}</td>
+                              <td align="right" style="padding:4px 0;font-size:${destaque ? '17px' : '13px'};color:${destaque ? '#dc2626' : '#09090b'};font-weight:800;">${valor}</td>
+                            </tr>`
+
+  const blocoEncargos = encargos
+    ? `
+                      <tr>
+                        <td style="border-top:1px solid #fecdd3;padding-top:14px;margin-top:14px;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            ${linhaEncargo('Multa por atraso', formatCurrencyBR(encargos.multa))}
+                            ${linhaEncargo(`Juros (${diasAtraso} dia${diasAtraso === 1 ? '' : 's'})`, formatCurrencyBR(encargos.juros))}
+                            ${encargos.pendentes < encargos.multa + encargos.juros - 0.01 ? linhaEncargo('Encargos já pagos', '− ' + formatCurrencyBR(encargos.multa + encargos.juros - encargos.pendentes)) : ''}
+                            ${linhaEncargo('Total atualizado hoje', formatCurrencyBR(totalDevido), true)}
+                          </table>
+                          <p style="margin:10px 0 0;font-size:11px;color:#71717a;line-height:1.5;">
+                            Multa de 5% e juros de 10% ao mês, cobrados por dia de atraso — o valor aumenta a cada dia.
+                          </p>
+                        </td>
+                      </tr>`
+    : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -107,8 +135,7 @@ export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
               </h1>
               <p style="margin:0;font-size:15px;color:#52525b;line-height:1.7;">
                 Identificamos que sua parcela está em atraso há
-                <strong>${diasAtraso} dia${diasAtraso === 1 ? '' : 's'}</strong>. Para evitar juros, multas ou
-                outros transtornos, regularize o pagamento o quanto antes.
+                <strong>${diasAtraso} dia${diasAtraso === 1 ? '' : 's'}</strong>. ${encargos ? 'Multa e juros diários já estão sendo cobrados — regularize o pagamento o quanto antes para evitar que o valor continue aumentando.' : 'Para evitar juros, multas ou outros transtornos, regularize o pagamento o quanto antes.'}
               </p>
             </td>
           </tr>
@@ -146,7 +173,7 @@ export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
                                 <p style="margin:0;font-size:17px;font-weight:800;color:#09090b;">${numeroParcela}/${numeroParcelas}</p>
                               </td>
                               <td width="33%" style="vertical-align:top;">
-                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Valor em aberto</p>
+                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">${encargos ? 'Parcela em aberto' : 'Valor em aberto'}</p>
                                 <p style="margin:0;font-size:17px;font-weight:800;color:#dc2626;">${formatCurrencyBR(valorRestante)}</p>
                               </td>
                               <td width="33%" style="vertical-align:top;">
@@ -156,7 +183,7 @@ export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
                             </tr>
                           </table>
                         </td>
-                      </tr>
+                      </tr>${blocoEncargos}
                     </table>
                   </td>
                 </tr>
