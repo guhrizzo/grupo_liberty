@@ -1,9 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
-import { assertJuridicoAccess } from '@/utils/permissions'
+import { adminDb } from '@/utils/firebase/admin'
+import { assertJuridicoAccess, assertPageAccess } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import type { VeiculoContrato } from '@/app/veiculos/[id]/actions'
 import {
@@ -33,35 +32,9 @@ function decryptCpfOrRaw(value: string | null | undefined): string {
   return decrypt(value) || value
 }
 
-async function getSessionUser() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
-
-  try {
-    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
-    return decodedClaims
-  } catch {
-    return null
-  }
-}
-
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const claims: any = user
-  const isAdminByClaim = claims.admin === true || claims.role === 'admin'
-  if (isAdminByClaim) return { user }
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Você precisa ser administrador para realizar esta ação.')
-  }
-
-  return { user }
+/** Quem tem acesso à aba `juridico` pode fazer o CRUD dela. */
+async function assertAcesso() {
+  return { user: await assertPageAccess('juridico') }
 }
 
 // ─── Server Actions ──────────────────────────────────────────────────────────
@@ -111,7 +84,7 @@ export async function getProcessos(): Promise<Processo[]> {
 export async function createProcesso(formData: FormData): Promise<ProcessoResponse> {
   let user: any
   try {
-    const res = await assertAdmin()
+    const res = await assertAcesso()
     user = res.user
   } catch (err: any) {
     return { error: err.message }
@@ -205,7 +178,7 @@ export async function updateProcesso(
   formData: FormData,
 ): Promise<ProcessoResponse> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -282,7 +255,7 @@ export async function deleteProcesso(
   id: string,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }

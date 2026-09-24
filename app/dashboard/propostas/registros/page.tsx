@@ -12,7 +12,7 @@ export default async function PropostasRegistradasPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'propostas', ['admin', 'vendedor'])) {
+  if (!hasPageAccess(user, 'propostas')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

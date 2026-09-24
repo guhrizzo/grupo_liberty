@@ -27,7 +27,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await getSessionUser()
-  if (!user || !hasPageAccess(user, 'manutencao', ['admin', 'vendedor', 'suporte'])) {
+  if (!user || !hasPageAccess(user, 'manutencao')) {
     return new Response('Acesso negado.', { status: 403 })
   }
 

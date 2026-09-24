@@ -175,7 +175,7 @@ function serializeParcela(
 async function assertAuthorized() {
   const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
-  if (!hasPageAccess(user, 'cobrancas', ['admin', 'vendedor'])) {
+  if (!hasPageAccess(user, 'cobrancas')) {
     throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
   }
   return user

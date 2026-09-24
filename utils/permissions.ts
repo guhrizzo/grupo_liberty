@@ -2,6 +2,11 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { OWNER_EMAIL } from '@/constants/feedback'
+import {
+  temAcessoPagina,
+  type PermissionKey,
+  type UserPermissions,
+} from '@/constants/permissoes'
 
 export interface SessionUser {
   uid: string
@@ -11,19 +16,7 @@ export interface SessionUser {
   permissions: UserPermissions
 }
 
-export interface UserPermissions {
-  veiculos?: boolean
-  consulta_fipe?: boolean
-  propostas?: boolean
-  anuncios?: boolean
-  contratos?: boolean
-  financeiro?: boolean
-  cobrancas?: boolean
-  juridico?: boolean
-  manutencao?: boolean
-  usuarios?: boolean
-  analytics?: boolean
-}
+export type { PermissionKey, UserPermissions }
 
 export const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin'] as const
 export type RoleValido = (typeof ROLES_VALIDOS)[number]
@@ -59,114 +52,53 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 }
 
 /**
- * Garante que o usuário pode acessar o módulo jurídico
- * (admin ou advogado).
+ * Garante que o usuário tem acesso a uma aba do dashboard — e, portanto,
+ * pode fazer o CRUD dela. Mesma regra de `hasPageAccess` usada pelas
+ * páginas: admin sempre; flag `permissions[aba]` quando definida;
+ * senão os cargos padrão da aba.
  */
-export async function assertJuridicoAccess(): Promise<SessionUser> {
+export async function assertPageAccess(key: PermissionKey): Promise<SessionUser> {
   const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
-  if (user.role !== 'admin' && user.role !== 'advogado') {
-    throw new Error('Acesso negado. Apenas administradores ou advogados podem acessar o jurídico.')
+  if (!hasPageAccess(user, key)) {
+    throw new Error('Acesso negado. Você não tem permissão para acessar esta área.')
   }
   return user
 }
 
-/**
- * Garante permissão para visualizar/criar/baixar contratos.
- * Admin e advogado sempre podem (o advogado tem acesso à aba de
- * contratos por padrão). Demais roles precisam da flag
- * `permissions.contratos = true` no perfil.
- */
-export async function assertPodeGerarContratos(): Promise<SessionUser> {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const isAdmin = user.role === 'admin'
-  // Advogado tem acesso por padrão, a não ser que o admin tenha
-  // desativado explicitamente a permissão de contratos no perfil.
-  const isAdvogado = user.role === 'advogado' && user.permissions?.contratos !== false
-  const hasFlag = user.permissions?.contratos === true
-
-  if (!isAdmin && !isAdvogado && !hasFlag) {
-    throw new Error('Acesso negado. Você não tem permissão para gerenciar contratos.')
-  }
-
-  return user
+/** Acesso ao módulo jurídico (aba `juridico`). */
+export function assertJuridicoAccess(): Promise<SessionUser> {
+  return assertPageAccess('juridico')
 }
 
-/**
- * Versão síncrona do gate de contratos — recebe o usuário já
- * carregado e devolve apenas o booleano. Útil para o server
- * decidir se renderiza blocos condicionais sem refazer query.
- */
+/** Ver/criar/baixar/excluir contratos (aba `contratos`). */
+export function assertPodeGerarContratos(): Promise<SessionUser> {
+  return assertPageAccess('contratos')
+}
+
+/** Versão síncrona do gate de contratos, para renderização condicional. */
 export function canManageContratos(user: SessionUser | null | undefined): boolean {
-  if (!user) return false
-  return (
-    user.role === 'admin' ||
-    (user.role === 'advogado' && user.permissions?.contratos !== false) ||
-    user.permissions?.contratos === true
-  )
+  return hasPageAccess(user, 'contratos')
 }
 
-/**
- * Garante permissão para baixar o PDF de uma proposta.
- * Permitido para admin e vendedor.
- */
-export async function assertPodeGerarPropostaPDF(): Promise<SessionUser> {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  if (user.role !== 'admin' && user.role !== 'vendedor') {
-    throw new Error('Acesso negado. Apenas administradores e vendedores podem baixar PDFs de propostas.')
-  }
-
-  return user
+/** Baixar o PDF de uma proposta (aba `propostas`). */
+export function assertPodeGerarPropostaPDF(): Promise<SessionUser> {
+  return assertPageAccess('propostas')
 }
 
-/**
- * Garante permissão para ver e fazer a triagem dos anúncios de terceiros
- * (aba /dashboard/anuncios). Mesma regra de `hasPageAccess(user, 'anuncios',
- * ['admin', 'vendedor'])`: admin e vendedor têm por padrão; a flag
- * `permissions.anuncios` no perfil prevalece quando definida (libera outros
- * cargos ou bloqueia vendedor).
- */
-export async function assertPodeVerAnuncios(): Promise<SessionUser> {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  if (!hasPageAccess(user, 'anuncios', ['admin', 'vendedor'])) {
-    throw new Error('Acesso negado. Você não tem permissão para ver anúncios.')
-  }
-
-  return user
+/** Ver e fazer a triagem dos anúncios de terceiros (aba `anuncios`). */
+export function assertPodeVerAnuncios(): Promise<SessionUser> {
+  return assertPageAccess('anuncios')
 }
 
-/**
- * Garante permissão para criar/editar/excluir veículos.
- * Admin sempre pode. Demais roles precisam da flag
- * `permissions.veiculos = true` no perfil (liberada pelo admin).
- */
-export async function assertPodeGerenciarVeiculos(): Promise<SessionUser> {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const isAdmin = user.role === 'admin'
-  const hasFlag = user.permissions?.veiculos === true
-
-  if (!isAdmin && !hasFlag) {
-    throw new Error('Acesso negado. Você não tem permissão para gerenciar veículos.')
-  }
-
-  return user
+/** Criar/editar/excluir veículos (aba `veiculos`). */
+export function assertPodeGerenciarVeiculos(): Promise<SessionUser> {
+  return assertPageAccess('veiculos')
 }
 
-/**
- * Versão síncrona do gate de veículos — recebe o usuário já
- * carregado e devolve apenas o booleano.
- */
+/** Versão síncrona do gate de veículos. */
 export function canManageVeiculos(user: SessionUser | null | undefined): boolean {
-  if (!user) return false
-  return user.role === 'admin' || user.permissions?.veiculos === true
+  return hasPageAccess(user, 'veiculos')
 }
 
 /**
@@ -180,21 +112,12 @@ export function isOwner(user: SessionUser | null | undefined): boolean {
 }
 
 /**
- * Verifica se o usuário logado tem acesso a uma página/aba específica do dashboard.
+ * Verifica se o usuário logado tem acesso a uma página/aba específica do
+ * dashboard. Ter acesso à aba = poder fazer o CRUD dela.
  */
 export function hasPageAccess(
   user: SessionUser | null | undefined,
-  permissionKey: keyof UserPermissions,
-  defaultRoles: readonly string[] | string[]
+  permissionKey: PermissionKey,
 ): boolean {
-  if (!user || !user.role) return false
-  if (user.role === 'admin') return true
-
-  // Se a permissão está explicitamente definida no perfil do usuário, ela prevalece
-  if (user.permissions && user.permissions[permissionKey] !== undefined) {
-    return user.permissions[permissionKey] === true
-  }
-
-  // Fallback baseado nos cargos permitidos por padrão
-  return defaultRoles.includes(user.role)
+  return temAcessoPagina(user?.role, user?.permissions, permissionKey)
 }

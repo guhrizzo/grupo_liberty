@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
-import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
+import { adminDb, adminStorage } from '@/utils/firebase/admin'
+import { assertPageAccess } from '@/utils/permissions'
 import { ehMesValido, hojeNoFuso, intervaloDoMes } from './periodo'
 import {
   type Transacao,
@@ -17,35 +17,9 @@ import {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function getSessionUser() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
-
-  try {
-    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
-    return decodedClaims
-  } catch {
-    return null
-  }
-}
-
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const claims: any = user
-  const isAdminByClaim = claims.admin === true || claims.role === 'admin'
-  if (isAdminByClaim) return { user }
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Você precisa ser administrador para realizar esta ação.')
-  }
-
-  return { user }
+/** Quem tem acesso à aba `financeiro` pode fazer o CRUD dela. */
+async function assertAcesso() {
+  return { user: await assertPageAccess('financeiro') }
 }
 
 // Parser robusto pt-BR → número (aceita "1.234,56", "1234.56" ou "1234,56")
@@ -162,7 +136,7 @@ export async function getIntervaloDeMeses(): Promise<{
 export async function createTransacao(formData: FormData): Promise<TransacaoResponse> {
   let user: any
   try {
-    const res = await assertAdmin()
+    const res = await assertAcesso()
     user = res.user
   } catch (err: any) {
     return { error: err.message }
@@ -228,7 +202,7 @@ export async function updateTransacao(
   formData: FormData,
 ): Promise<TransacaoResponse> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -299,7 +273,7 @@ export async function deleteTransacao(
   removerPagamentoVinculado: boolean = false,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -404,7 +378,7 @@ export async function anexarComprovanteTransacao(
 ): Promise<TransacaoComprovanteResponse> {
   let user: any
   try {
-    const res = await assertAdmin()
+    const res = await assertAcesso()
     user = res.user
   } catch (err: any) {
     return { error: err.message }
@@ -494,7 +468,7 @@ export async function removerComprovanteTransacao(
   transacaoId: string,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }

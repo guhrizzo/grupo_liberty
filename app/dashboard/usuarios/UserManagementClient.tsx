@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { PAGE_DEFAULT_ROLES } from '@/constants/permissoes'
 import { IconUserPlus, IconTrash, IconUsers, IconKey, IconX, IconShield } from '@tabler/icons-react'
 import { createUserAction, getAllUsersAction, updateUserRoleAction, deleteUserAction, updateUserPermissionsAction } from './actions'
 import {
@@ -28,17 +29,17 @@ interface UserManagementClientProps {
 
 // Definição de todas as abas configuráveis
 const PERMISSION_TABS = [
-  { key: 'veiculos',      label: 'Veículos',       defaultRoles: ['admin', 'vendedor', 'suporte'] },
-  { key: 'consulta_fipe', label: 'Consulta FIPE',  defaultRoles: ['admin', 'vendedor'] },
-  { key: 'propostas',     label: 'Propostas',      defaultRoles: ['admin', 'vendedor'] },
-  { key: 'anuncios',      label: 'Anúncios',       defaultRoles: ['admin', 'vendedor'] },
-  { key: 'contratos',     label: 'Contratos',      defaultRoles: ['admin', 'advogado'] },
-  { key: 'financeiro',    label: 'Financeiro',     defaultRoles: ['admin', 'vendedor', 'advogado'] },
-  { key: 'cobrancas',     label: 'Cobranças',      defaultRoles: ['admin', 'vendedor'] },
-  { key: 'juridico',      label: 'Jurídico',       defaultRoles: ['admin', 'advogado'] },
-  { key: 'manutencao',    label: 'Manutenção',     defaultRoles: ['admin', 'vendedor', 'suporte'] },
-  { key: 'usuarios',      label: 'Usuários',       defaultRoles: ['admin'] },
-  { key: 'analytics',     label: 'Visitantes',     defaultRoles: ['admin'] },
+  { key: 'veiculos',      label: 'Veículos' },
+  { key: 'consulta_fipe', label: 'Consulta FIPE' },
+  { key: 'propostas',     label: 'Propostas' },
+  { key: 'anuncios',      label: 'Anúncios' },
+  { key: 'contratos',     label: 'Contratos' },
+  { key: 'financeiro',    label: 'Financeiro' },
+  { key: 'cobrancas',     label: 'Cobranças' },
+  { key: 'juridico',      label: 'Jurídico' },
+  { key: 'manutencao',    label: 'Manutenção' },
+  { key: 'usuarios',      label: 'Usuários' },
+  { key: 'analytics',     label: 'Visitantes' },
 ] as const
 
 type PermKey = typeof PERMISSION_TABS[number]['key']
@@ -48,13 +49,13 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   const [allUsers, setAllUsers] = useState<any[]>([])
   const toast = useToast()
 
-  const currentRole = currentUserRole
+  // Quem chegou nesta página tem acesso à aba de usuários e pode fazer o CRUD.
+  // Só contas de administrador ficam restritas a admins (o server também trava).
+  const isAdmin = currentUserRole === 'admin'
 
   useEffect(() => {
-    if (currentRole === 'admin') {
-      getAllUsersAction().then(setAllUsers).catch(console.error)
-    }
-  }, [currentRole])
+    getAllUsersAction().then(setAllUsers).catch(console.error)
+  }, [])
 
   // Dados do formulário
   const [name, setName] = useState('')
@@ -254,7 +255,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   const getRoleDefaultLabel = (key: PermKey): string => {
     const tab = PERMISSION_TABS.find(t => t.key === key)
     if (!tab || !permModalUser?.role) return 'padrão'
-    return tab.defaultRoles.includes(permModalUser.role as any) ? 'padrão: ✓' : 'padrão: ✗'
+    return PAGE_DEFAULT_ROLES[tab.key].includes(permModalUser.role) ? 'padrão: ✓' : 'padrão: ✗'
   }
 
   return (
@@ -281,87 +282,78 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                 Cadastrar Novo Colaborador
               </h2>
 
-              {currentRole !== 'admin' ? (
-                <div className="rounded-lg bg-amber-50 border border-amber-200 p-5 text-amber-800">
-                  <p className="font-semibold mb-2">Acesso Restrito</p>
-                  <p className="text-sm">
-                    Sua conta atual não possui privilégios de administrador para criar novos usuários.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <Input
-                    id="name"
-                    label="Nome Completo"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Nome do colaborador"
-                    autoComplete="name"
-                  />
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <Input
+                  id="name"
+                  label="Nome Completo"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Nome do colaborador"
+                  autoComplete="name"
+                />
 
-                  <Input
-                    id="email"
-                    label="E-mail"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@libertycar.com"
-                    autoComplete="email"
-                    inputMode="email"
-                  />
+                <Input
+                  id="email"
+                  label="E-mail"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@libertycar.com"
+                  autoComplete="email"
+                  inputMode="email"
+                />
 
-                  <Select
-                    id="role"
-                    label="Perfil de Acesso *"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
+                <Select
+                  id="role"
+                  label="Perfil de Acesso *"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                >
+                  <option value="vendedor">Vendedor</option>
+                  <option value="advogado">Advogado</option>
+                  <option value="suporte">Suporte</option>
+                  <option value="admin" disabled={!isAdmin}>Administrador</option>
+                </Select>
+
+                <Input
+                  id="password"
+                  label="Senha"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 6 caracteres"
+                  autoComplete="new-password"
+                />
+
+                <Input
+                  id="confirmPassword"
+                  label="Confirmar Senha"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a senha"
+                  autoComplete="new-password"
+                />
+
+                <div className="pt-2">
+                  <Button
+                    type="submit"
+                    variant="liberty"
+                    loading={loading}
+                    loadingLabel="Cadastrando..."
+                    leftIcon={<IconUserPlus size={16} />}
+                    fullWidth
                   >
-                    <option value="vendedor">Vendedor</option>
-                    <option value="advogado">Advogado</option>
-                    <option value="suporte">Suporte</option>
-                    <option value="admin">Administrador</option>
-                  </Select>
-
-                  <Input
-                    id="password"
-                    label="Senha"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    autoComplete="new-password"
-                  />
-
-                  <Input
-                    id="confirmPassword"
-                    label="Confirmar Senha"
-                    type="password"
-                    required
-                    minLength={6}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repita a senha"
-                    autoComplete="new-password"
-                  />
-
-                  <div className="pt-2">
-                    <Button
-                      type="submit"
-                      variant="liberty"
-                      loading={loading}
-                      loadingLabel="Cadastrando..."
-                      leftIcon={<IconUserPlus size={16} />}
-                      fullWidth
-                    >
-                      Cadastrar Usuário
-                    </Button>
-                  </div>
-                </form>
-              )}
+                    Cadastrar Usuário
+                  </Button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -420,6 +412,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                   <div className="divide-y divide-neutral-200 md:hidden">
                     {visibleUsers.map((u) => {
                       const isSelf = u.id === currentUser.id
+                      const bloqueado = isSelf || (!isAdmin && u.role === 'admin')
                       return (
                         <div key={u.id} className="p-4">
                           <div className="flex items-start justify-between gap-3">
@@ -444,11 +437,11 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               <Select
                                 value={u.role || ''}
                                 onChange={(e) => handleUpdateRoleClick(u, e.target.value)}
-                                disabled={isSelf || currentRole !== 'admin' || loading}
+                                disabled={bloqueado || loading}
                                 aria-label="Alterar perfil de acesso"
                                 className="!py-1.5 !text-xs uppercase font-medium"
                               >
-                                <option value="admin">Administrador</option>
+                                <option value="admin" disabled={!isAdmin}>Administrador</option>
                                 <option value="vendedor">Vendedor</option>
                                 <option value="advogado">Advogado</option>
                                 <option value="suporte">Suporte</option>
@@ -465,7 +458,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                           </div>
 
                           <div className="mt-3 flex items-center gap-2 border-t border-neutral-100 pt-3">
-                            {currentRole === 'admin' && !isSelf && (
+                            {!bloqueado && (
                               <Button
                                 size="sm"
                                 variant="secondary"
@@ -481,7 +474,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               size="sm"
                               variant="secondary"
                               onClick={() => handleDeleteClick(u)}
-                              disabled={isSelf || currentRole !== 'admin' || loading}
+                              disabled={bloqueado || loading}
                               leftIcon={<IconTrash size={12} />}
                               className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50 flex-1"
                             >
@@ -507,6 +500,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                       <TBody>
                         {visibleUsers.map((u) => {
                           const isSelf = u.id === currentUser.id
+                          const bloqueado = isSelf || (!isAdmin && u.role === 'admin')
                           return (
                             <TR key={u.id}>
                               <TD>
@@ -517,11 +511,11 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                 <Select
                                   value={u.role || ''}
                                   onChange={(e) => handleUpdateRoleClick(u, e.target.value)}
-                                  disabled={isSelf || currentRole !== 'admin' || loading}
+                                  disabled={bloqueado || loading}
                                   aria-label="Alterar perfil de acesso"
                                   className="!py-1 !text-xs uppercase font-medium"
                                 >
-                                  <option value="admin">Administrador</option>
+                                  <option value="admin" disabled={!isAdmin}>Administrador</option>
                                   <option value="vendedor">Vendedor</option>
                                   <option value="advogado">Advogado</option>
                                   <option value="suporte">Suporte</option>
@@ -533,7 +527,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               <TD align="right">
                                 <div className="flex items-center justify-end gap-2">
                                   {/* Botão de Permissões */}
-                                  {currentRole === 'admin' && !isSelf && (
+                                  {!bloqueado && (
                                     <Button
                                       size="sm"
                                       variant="secondary"
@@ -549,7 +543,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                     size="sm"
                                     variant="secondary"
                                     onClick={() => handleDeleteClick(u)}
-                                    disabled={isSelf || currentRole !== 'admin' || loading}
+                                    disabled={bloqueado || loading}
                                     leftIcon={<IconTrash size={12} />}
                                     className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
                                   >

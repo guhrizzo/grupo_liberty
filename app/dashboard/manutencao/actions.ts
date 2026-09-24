@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
-import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
+import { adminDb, adminStorage } from '@/utils/firebase/admin'
+import { assertPageAccess } from '@/utils/permissions'
 import { recalcularCustoEfetivoTotal } from '@/app/dashboard/veiculos/actions'
 import {
   MANUTENCAO_STATUS,
@@ -19,35 +19,9 @@ import {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function getSessionUser() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
-
-  try {
-    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
-    return decodedClaims
-  } catch {
-    return null
-  }
-}
-
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const claims: any = user
-  const isAdminByClaim = claims.admin === true || claims.role === 'admin'
-  if (isAdminByClaim) return { user }
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Você precisa ser administrador para realizar esta ação.')
-  }
-
-  return { user }
+/** Quem tem acesso à aba `manutencao` pode fazer o CRUD dela. */
+async function assertAcesso() {
+  return { user: await assertPageAccess('manutencao') }
 }
 
 function parseCusto(value: unknown): number {
@@ -136,7 +110,7 @@ export async function getManutencoes(): Promise<Manutencao[]> {
 export async function createManutencao(formData: FormData): Promise<ManutencaoResponse> {
   let user: any
   try {
-    const res = await assertAdmin()
+    const res = await assertAcesso()
     user = res.user
   } catch (err: any) {
     return { error: err.message }
@@ -218,7 +192,7 @@ export async function updateManutencao(
   formData: FormData,
 ): Promise<ManutencaoResponse> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -301,7 +275,7 @@ export async function deleteManutencao(
   id: string,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -387,7 +361,7 @@ export async function getManutencoesPorVeiculos(
 ): Promise<Manutencao[]> {
   if (!veiculoIds || veiculoIds.length === 0) return []
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch {
     // falha silenciosa — propostas devem funcionar mesmo se a lista falhar
     return []
@@ -488,7 +462,7 @@ export async function darBaixaManutencao(
 ): Promise<BaixaManutencaoResponse> {
   let user: { uid: string; email?: string | null }
   try {
-    user = (await assertAdmin()).user as { uid: string; email?: string | null }
+    user = (await assertAcesso()).user as { uid: string; email?: string | null }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }
@@ -591,7 +565,7 @@ export async function estornarBaixaManutencao(
   id: string,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }

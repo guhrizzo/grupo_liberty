@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
-import { assertPodeGerarContratos, getSessionUser } from '@/utils/permissions'
+import { assertPodeGerarContratos } from '@/utils/permissions'
 import {
   CATEGORIAS_CONTRATO_FIXAS,
   type ContratoCategoria,
@@ -30,14 +30,6 @@ function slugifyCategoria(nome: string): string {
 
 const SLUGS_FIXOS = new Set(CATEGORIAS_CONTRATO_FIXAS.map((c) => c.slug))
 
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-  if (user.role !== 'admin') {
-    throw new Error('Acesso negado. Apenas administradores podem gerenciar categorias.')
-  }
-  return user
-}
 
 function serializeCategoria(
   id: string,
@@ -120,12 +112,12 @@ export async function listarCategoriasContrato(): Promise<ContratoCategoria[]> {
 }
 
 /**
- * Cria uma categoria custom ("Outros"). Gate: admin.
+ * Cria uma categoria custom ("Outros"). Gate: acesso à aba de contratos.
  */
 export async function criarCategoriaContrato(nome: string): Promise<CategoriaResult> {
   let user
   try {
-    user = await assertAdmin()
+    user = await assertPodeGerarContratos()
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }
@@ -172,14 +164,14 @@ export async function criarCategoriaContrato(nome: string): Promise<CategoriaRes
 
 /**
  * Renomeia uma categoria custom e propaga o nome para os contratos que a usam.
- * Gate: admin. Categorias fixas não podem ser renomeadas.
+ * Gate: acesso à aba de contratos. Categorias fixas não podem ser renomeadas.
  */
 export async function renomearCategoriaContrato(
   id: string,
   nome: string,
 ): Promise<CategoriaResult> {
   try {
-    await assertAdmin()
+    await assertPodeGerarContratos()
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }
@@ -242,12 +234,12 @@ export async function renomearCategoriaContrato(
 }
 
 /**
- * Remove uma categoria custom. Gate: admin. Bloqueia se houver contrato usando
+ * Remove uma categoria custom. Gate: acesso à aba de contratos. Bloqueia se houver contrato usando
  * e se a categoria for fixa.
  */
 export async function removerCategoriaContrato(id: string): Promise<SimpleResult> {
   try {
-    await assertAdmin()
+    await assertPodeGerarContratos()
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }

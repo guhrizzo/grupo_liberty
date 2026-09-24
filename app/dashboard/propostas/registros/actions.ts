@@ -11,7 +11,7 @@ import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
 async function assertAuthorized() {
   const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
-  if (!hasPageAccess(user, 'propostas', ['admin', 'vendedor'])) {
+  if (!hasPageAccess(user, 'propostas')) {
     throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
   }
   return user

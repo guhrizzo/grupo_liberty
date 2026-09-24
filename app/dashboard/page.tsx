@@ -14,6 +14,11 @@ import {
   type Icon,
 } from '@tabler/icons-react'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import {
+  temAcessoPagina,
+  type PermissionKey,
+  type UserPermissions,
+} from '@/constants/permissoes'
 
 export const metadata: Metadata = {
   title: 'Dashboard | Liberty Car',
@@ -25,7 +30,7 @@ type ModuleCard = {
   descricao: string
   icon: Icon
   badge: string
-  allowed: string[]
+  permissionKey: PermissionKey
 }
 
 const MODULES: ModuleCard[] = [
@@ -35,7 +40,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Cadastre novas contas de administradores, vendedores, advogados ou equipe de suporte.',
     icon: IconUsers,
     badge: 'Admin',
-    allowed: ['admin'],
+    permissionKey: 'usuarios',
   },
   {
     href: '/dashboard/veiculos',
@@ -43,7 +48,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Cadastre veículos com fotos, gerencie o estoque e controle as informações da frota.',
     icon: IconCar,
     badge: 'Admin',
-    allowed: ['admin'],
+    permissionKey: 'veiculos',
   },
   {
     href: '/dashboard/propostas',
@@ -51,7 +56,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Visualize e responda as mensagens de interesse e propostas de compra enviadas por clientes.',
     icon: IconMail,
     badge: 'Vendas',
-    allowed: ['admin', 'vendedor'],
+    permissionKey: 'propostas',
   },
   {
     href: '/dashboard/contratos',
@@ -59,7 +64,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Emissão e acompanhamento de contratos de compra e venda de veículos.',
     icon: IconFileText,
     badge: 'Vendas',
-    allowed: ['admin', 'advogado', 'vendedor'],
+    permissionKey: 'contratos',
   },
   {
     href: '/dashboard/financeiro',
@@ -67,7 +72,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Acompanhe faturamento, comissões, recebíveis e balanço financeiro das negociações.',
     icon: IconCurrencyDollar,
     badge: 'Financeiro',
-    allowed: ['admin', 'vendedor', 'advogado'],
+    permissionKey: 'financeiro',
   },
   {
     href: '/dashboard/juridico',
@@ -75,7 +80,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Acompanhe processos, contratos e prazos do departamento jurídico da Liberty Car.',
     icon: IconScale,
     badge: 'Jurídico',
-    allowed: ['admin', 'advogado'],
+    permissionKey: 'juridico',
   },
   {
     href: '/dashboard/manutencao',
@@ -83,7 +88,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Ordens de serviço, agendamentos, oficinas e histórico de manutenções dos veículos.',
     icon: IconTool,
     badge: 'Operações',
-    allowed: ['admin', 'vendedor', 'suporte'],
+    permissionKey: 'manutencao',
   },
   {
     href: '/dashboard/analytics',
@@ -91,7 +96,7 @@ const MODULES: ModuleCard[] = [
     descricao: 'Quantas pessoas acessam o site, quantas estão logadas e os veículos mais vistos.',
     icon: IconChartBar,
     badge: 'Admin',
-    allowed: ['admin'],
+    permissionKey: 'analytics',
   },
 ]
 
@@ -102,17 +107,21 @@ export default async function DashboardPage() {
 
   let user: { uid: string; email?: string | null } | null = null
   let role: string | null = null
+  let permissions: UserPermissions = {}
 
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     user = { uid: decoded.uid, email: decoded.email ?? null }
     const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
     role = profileDoc.data()?.role || null
+    permissions = profileDoc.data()?.permissions || {}
   } catch {
     return null
   }
 
-  const visibleModules = MODULES.filter((m) => !role || m.allowed.includes(role))
+  const visibleModules = MODULES.filter((m) =>
+    temAcessoPagina(role, permissions, m.permissionKey),
+  )
 
   return (
     <div className="space-y-8">

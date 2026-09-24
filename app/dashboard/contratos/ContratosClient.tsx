@@ -74,7 +74,7 @@ interface ContratosClientProps {
   veiculos: VeiculoOption[]
   userRole: string | null
   categorias: ContratoCategoria[]
-  isAdmin: boolean
+  podeGerenciarCategorias: boolean
 }
 
 const PAGE_SIZE = 20
@@ -94,7 +94,7 @@ export default function ContratosClient({
   initialContratos,
   veiculos,
   categorias: categoriasIniciais,
-  isAdmin,
+  podeGerenciarCategorias,
 }: ContratosClientProps) {
   const [contratos, setContratos] = useState<Contrato[]>(initialContratos)
   const [categorias, setCategorias] = useState<ContratoCategoria[]>(categoriasIniciais)
@@ -398,7 +398,7 @@ export default function ContratosClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isAdmin && (
+          {podeGerenciarCategorias && (
             <Button
               variant="secondary"
               leftIcon={<IconTags size={16} stroke={2} />}
@@ -875,7 +875,7 @@ export default function ContratosClient({
                 {c.nome}
               </option>
             ))}
-            {isAdmin && <option value={NOVA_CATEGORIA}>+ Outros (nova categoria)</option>}
+            {podeGerenciarCategorias && <option value={NOVA_CATEGORIA}>+ Outros (nova categoria)</option>}
           </Select>
 
           {categoriaUpload === NOVA_CATEGORIA && (
@@ -947,7 +947,7 @@ export default function ContratosClient({
         </form>
       </Modal>
 
-      {isAdmin && (
+      {podeGerenciarCategorias && (
         <GerenciarCategoriasModal
           open={gerenciarOpen}
           onClose={() => setGerenciarOpen(false)}
