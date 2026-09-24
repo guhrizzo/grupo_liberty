@@ -311,7 +311,14 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
     () => cobrancas.reduce((a, c) => a + c.parcelas.reduce((s, p) => s + p.valorPago, 0), 0),
     [cobrancas],
   )
-  const percentualGeralRecebido = totalGeral > 0 ? Math.min((totalPagoGeral / totalGeral) * 100, 100) : 0
+  // Multa/juros gerados entram no que é devido — senão quem pagou só o valor
+  // original apareceria como 100% recebido.
+  const encargosGeral = useMemo(
+    () => todasParcelas.reduce((a, p) => a + encargosDaParcela(p), 0),
+    [todasParcelas],
+  )
+  const devidoGeral = totalGeral + encargosGeral
+  const percentualGeralRecebido = devidoGeral > 0 ? Math.min((totalPagoGeral / devidoGeral) * 100, 100) : 0
 
   // Próximos vencimentos (7 dias)
   const proximosVencimentos = useMemo(() => {
@@ -1639,12 +1646,10 @@ function CobrancaCard({
   )
   const pagas = c.parcelas.filter((p) => p.pago).length
   const temAtraso = c.parcelas.some((p) => p.status === 'atrasado')
-  // Limitado a 100%: multa/juros pagos entram em `valorPago` e passariam do total.
-  const percentual = c.valorTotal > 0 ? Math.min((totalPago / c.valorTotal) * 100, 100) : 0
-  const encargosCobranca = c.parcelas.reduce(
-    (a, p) => a + (temEncargosAtivos(p) ? p.encargos!.multa + p.encargos!.juros : 0),
-    0,
-  )
+  const encargosCobranca = c.parcelas.reduce((a, p) => a + encargosDaParcela(p), 0)
+  // Progresso sobre o total devido (contrato + multa/juros gerados).
+  const devidoCobranca = c.valorTotal + encargosCobranca
+  const percentual = devidoCobranca > 0 ? Math.min((totalPago / devidoCobranca) * 100, 100) : 0
   const proxVenc = c.parcelas
     .filter((p) => !p.pago && p.status !== 'atrasado')
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))[0]
@@ -1978,6 +1983,11 @@ function CobrancaCard({
 /** A parcela gerou multa/juros e não está isenta. */
 function temEncargosAtivos(p: Parcela): boolean {
   return !!p.encargos && !p.encargosIsentos && p.encargos.multa + p.encargos.juros > 0.01
+}
+
+/** Multa + juros gerados pela parcela (0 se não houver ou se estiver isenta). */
+function encargosDaParcela(p: Parcela): number {
+  return temEncargosAtivos(p) ? p.encargos!.multa + p.encargos!.juros : 0
 }
 
 /** Valor da parcela com multa e juros por atraso (os juros param de correr ao quitar). */
