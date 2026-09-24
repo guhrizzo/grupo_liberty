@@ -12,7 +12,7 @@ export default async function AnunciosDashboardPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'anuncios', ['admin', 'vendedor'])) {
+  if (!hasPageAccess(user, 'anuncios')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

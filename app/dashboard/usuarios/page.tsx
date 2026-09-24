@@ -6,7 +6,7 @@ export default async function UsuariosPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'usuarios', ['admin'])) {
+  if (!hasPageAccess(user, 'usuarios')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

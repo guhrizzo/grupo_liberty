@@ -28,6 +28,7 @@ import {
   IconMoon,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
+import { temAcessoPagina, type PermissionKey } from '@/constants/permissoes'
 import { ConfirmDialog, useToast } from './ui'
 import { useDashboardTheme } from './DashboardThemeProvider'
 
@@ -35,8 +36,9 @@ type NavItem = {
   href: string
   label: string
   icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart'
-  roles: string[]
-  permissionKey?: string
+  /** Itens sem `permissionKey`: cargos que veem o item. */
+  roles?: string[]
+  permissionKey?: PermissionKey
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -50,77 +52,66 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/veiculos',
     label: 'Veículos',
     icon: 'car',
-    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
     permissionKey: 'veiculos',
   },
   {
     href: '/dashboard/consulta-fipe',
     label: 'Consulta FIPE',
     icon: 'search',
-    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
     permissionKey: 'consulta_fipe',
   },
   {
     href: '/dashboard/propostas',
     label: 'Propostas',
     icon: 'mail',
-    roles: ['admin', 'vendedor'],
     permissionKey: 'propostas',
   },
   {
     href: '/dashboard/anuncios',
     label: 'Anúncios',
     icon: 'megaphone',
-    roles: ['admin', 'vendedor'],
     permissionKey: 'anuncios',
   },
   {
     href: '/dashboard/contratos',
     label: 'Contratos',
     icon: 'file-text',
-    roles: ['admin', 'advogado', 'vendedor'],
     permissionKey: 'contratos',
   },
   {
     href: '/dashboard/financeiro',
     label: 'Financeiro',
     icon: 'finance',
-    roles: ['admin', 'vendedor', 'advogado'],
     permissionKey: 'financeiro',
   },
   {
     href: '/dashboard/cobrancas',
     label: 'Cobranças',
     icon: 'receipt',
-    roles: ['admin', 'vendedor'],
     permissionKey: 'cobrancas',
   },
   {
     href: '/dashboard/juridico',
     label: 'Jurídico',
     icon: 'scales',
-    roles: ['admin', 'advogado'],
     permissionKey: 'juridico',
   },
   {
     href: '/dashboard/manutencao',
     label: 'Manutenção',
     icon: 'wrench',
-    roles: ['admin', 'vendedor', 'suporte'],
     permissionKey: 'manutencao',
   },
   {
     href: '/dashboard/usuarios',
     label: 'Usuários',
     icon: 'users',
-    roles: ['admin'],
     permissionKey: 'usuarios',
   },
   {
     href: '/dashboard/analytics',
     label: 'Visitantes',
     icon: 'chart',
-    roles: ['admin'],
     permissionKey: 'analytics',
   },
   {
@@ -231,14 +222,10 @@ export default function DashboardShell({
   }
 
   const allowedItems = NAV_ITEMS.filter((item) => {
+    if (item.permissionKey) return temAcessoPagina(role, permissions, item.permissionKey)
     if (!role) return false
     if (role === 'admin') return true
-
-    if (item.permissionKey && permissions[item.permissionKey] !== undefined) {
-      return permissions[item.permissionKey] === true
-    }
-
-    return item.roles.includes(role)
+    return item.roles?.includes(role) ?? false
   })
 
   const isActive = (href: string) =>

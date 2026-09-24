@@ -10,7 +10,7 @@ export default async function CobrancasPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'cobrancas', ['admin', 'vendedor'])) {
+  if (!hasPageAccess(user, 'cobrancas')) {
     redirect('/dashboard?error=acesso_negado')
   }
 
@@ -26,6 +26,7 @@ export default async function CobrancasPage() {
       cobrancas={cobrancas}
       veiculos={veiculos}
       currentRole={user.role}
+      canEdit={hasPageAccess(user, 'cobrancas')}
       currentUserName={currentUserName}
     />
   )

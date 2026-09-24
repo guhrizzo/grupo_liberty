@@ -14,7 +14,7 @@ export default async function ContratosPage() {
     redirect('/login')
   }
 
-  if (!hasPageAccess(session, 'contratos', ['admin', 'advogado', 'vendedor'])) {
+  if (!hasPageAccess(session, 'contratos')) {
     redirect('/dashboard?error=acesso_negado')
   }
 
@@ -77,7 +77,7 @@ export default async function ContratosPage() {
       veiculos={veiculos}
       userRole={session.role}
       categorias={categorias}
-      isAdmin={session.role === 'admin'}
+      podeGerenciarCategorias={hasPageAccess(session, 'contratos')}
     />
   )
 }

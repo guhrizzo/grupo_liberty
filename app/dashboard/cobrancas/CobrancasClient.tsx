@@ -68,6 +68,8 @@ interface CobrancasClientProps {
   cobrancas: Cobranca[]
   veiculos: Veiculo[]
   currentRole: string | null
+  /** Acesso à aba de cobranças = pode fazer o CRUD. */
+  canEdit: boolean
   currentUserName: string
 }
 
@@ -77,10 +79,6 @@ function mesLabel(anoMes: string): string {
   const [ano, mes] = anoMes.split('-')
   const data = new Date(Number(ano), Number(mes) - 1, 1)
   return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
-}
-
-function ehVendedor(role: string | null): boolean {
-  return role === 'admin' || role === 'vendedor'
 }
 
 /** Cobrança quite = todas as parcelas já pagas (fila terminada). */
@@ -228,12 +226,11 @@ function MoneyHint({ value }: { value: string }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function CobrancasClient({ cobrancas, veiculos, currentRole, currentUserName }: CobrancasClientProps) {
+export default function CobrancasClient({ cobrancas, veiculos, currentRole, canEdit, currentUserName }: CobrancasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
 
-  const canEdit = ehVendedor(currentRole)
 
   // ─── UI state ──────────────────────────────────────────────────────────────
 

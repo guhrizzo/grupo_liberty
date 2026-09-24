@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { logout } from '@/app/login/actions'
 import DashboardShell from '@/app/components/DashboardShell'
 import { ChangelogModal } from '@/app/components/ChangelogModal'
+import { temAcessoPagina } from '@/constants/permissoes'
 
 export default async function DashboardLayout({
   children,
@@ -36,7 +37,7 @@ export default async function DashboardLayout({
 
   let propostasPendentesCount = 0
   let anunciosPendentesCount = 0
-  if (['admin', 'vendedor'].includes(role || '')) {
+  if (temAcessoPagina(role, permissions, 'propostas')) {
     try {
       const snap = await adminDb
         .collection('propostas')
@@ -46,6 +47,8 @@ export default async function DashboardLayout({
     } catch (e) {
       console.error('[DashboardLayout] Erro ao buscar propostas pendentes:', e)
     }
+  }
+  if (temAcessoPagina(role, permissions, 'anuncios')) {
     try {
       const snap = await adminDb
         .collection('anuncios')

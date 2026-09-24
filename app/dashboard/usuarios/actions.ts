@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { assertPageAccess, type SessionUser } from '@/utils/permissions'
 
 export type CreateUserResponse = {
   success?: string
@@ -16,37 +16,35 @@ export type CreateUserResponse = {
 
 const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin']
 
-async function getSessionUser() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
+/** Quem tem acesso à aba `usuarios` pode fazer o CRUD dela. */
+async function assertAcesso(): Promise<SessionUser> {
+  return assertPageAccess('usuarios')
+}
 
-  try {
-    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
-    return decodedClaims
-  } catch (error) {
-    return null
+/**
+ * Trava contra escalada de privilégio: quem não é admin (mas recebeu a aba de
+ * usuários) não cria/promove administradores nem altera/exclui contas de admin.
+ */
+function assertPodeAtribuirRole(actor: SessionUser, role: string) {
+  if (role === 'admin' && actor.role !== 'admin') {
+    throw new Error('Apenas administradores podem atribuir o perfil de administrador.')
   }
 }
 
-async function assertAdmin() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autorizado. Faça login novamente.')
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || profile?.role !== 'admin') {
-    throw new Error('Acesso negado. Apenas administradores podem gerenciar usuários.')
+async function assertPodeAlterarUsuario(actor: SessionUser, userId: string) {
+  if (actor.role === 'admin') return
+  const alvo = await adminDb.collection('profiles').doc(userId).get()
+  if (alvo.data()?.role === 'admin') {
+    throw new Error('Apenas administradores podem alterar contas de administrador.')
   }
 }
 
 /**
- * Busca todos os perfis de usuários cadastrados (somente admin).
+ * Busca todos os perfis de usuários cadastrados (quem tem acesso à aba de usuários).
  */
 export async function getAllUsersAction() {
   try {
-    await assertAdmin()
+    await assertAcesso()
   } catch (err: any) {
     throw new Error(err.message)
   }
@@ -79,19 +77,20 @@ export async function getAllUsersAction() {
 }
 
 /**
- * Atualiza permissões granulares de um usuário (somente admin).
+ * Atualiza permissões granulares de um usuário (quem tem acesso à aba de usuários).
  */
 export async function updateUserPermissionsAction(
   userId: string,
   permissions: Record<string, boolean>,
 ): Promise<{ success?: string; error?: string }> {
+  if (!userId) return { error: 'ID de usuário inválido.' }
+
   try {
-    await assertAdmin()
+    const actor = await assertAcesso()
+    await assertPodeAlterarUsuario(actor, userId)
   } catch (err: any) {
     return { error: err.message }
   }
-
-  if (!userId) return { error: 'ID de usuário inválido.' }
 
   const sanitized: Record<string, boolean> = {}
   for (const [key, value] of Object.entries(permissions || {})) {
@@ -113,17 +112,19 @@ export async function updateUserPermissionsAction(
 }
 
 /**
- * Atualiza a role de um usuário (somente admin).
+ * Atualiza a role de um usuário (quem tem acesso à aba de usuários).
  */
 export async function updateUserRoleAction(userId: string, newRole: string): Promise<{ success?: string; error?: string }> {
-  try {
-    await assertAdmin()
-  } catch (err: any) {
-    return { error: err.message }
-  }
-
   if (!ROLES_VALIDOS.includes(newRole)) {
     return { error: 'Perfil de acesso inválido.' }
+  }
+
+  try {
+    const actor = await assertAcesso()
+    assertPodeAtribuirRole(actor, newRole)
+    await assertPodeAlterarUsuario(actor, userId)
+  } catch (err: any) {
+    return { error: err.message }
   }
 
   try {
@@ -140,11 +141,12 @@ export async function updateUserRoleAction(userId: string, newRole: string): Pro
 }
 
 /**
- * Exclui um usuário do Firebase Auth e Firestore (somente admin).
+ * Exclui um usuário do Firebase Auth e Firestore (quem tem acesso à aba de usuários).
  */
 export async function deleteUserAction(userId: string): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAdmin()
+    const actor = await assertAcesso()
+    await assertPodeAlterarUsuario(actor, userId)
   } catch (err: any) {
     return { error: err.message }
   }
@@ -164,8 +166,9 @@ export async function deleteUserAction(userId: string): Promise<{ success?: stri
 }
  
 export async function createUserAction(formData: FormData): Promise<CreateUserResponse> {
+  let actor: SessionUser
   try {
-    await assertAdmin()
+    actor = await assertAcesso()
   } catch (err: any) {
     return { error: err.message }
   }
@@ -190,6 +193,12 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
 
   if (!ROLES_VALIDOS.includes(role)) {
     return { error: 'Perfil de acesso inválido.' }
+  }
+
+  try {
+    assertPodeAtribuirRole(actor, role)
+  } catch (err: any) {
+    return { error: err.message }
   }
 
   try {

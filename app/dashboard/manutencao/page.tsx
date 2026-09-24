@@ -13,7 +13,7 @@ export default async function ManutencaoPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'manutencao', ['admin', 'vendedor', 'suporte'])) {
+  if (!hasPageAccess(user, 'manutencao')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

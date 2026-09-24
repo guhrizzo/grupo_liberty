@@ -12,7 +12,7 @@ export default async function VeiculosPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'veiculos', ['admin', 'vendedor', 'advogado', 'suporte'])) {
+  if (!hasPageAccess(user, 'veiculos')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

@@ -12,7 +12,7 @@ export default async function AnalyticsPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'analytics', ['admin'])) {
+  if (!hasPageAccess(user, 'analytics')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from 'react'
+import { temAcessoPagina } from '@/constants/permissoes'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -124,8 +125,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentRole = currentUser?.role
-  const canEdit =
-    currentRole === 'admin' || currentUser?.permissions?.veiculos === true
+  const canEdit = temAcessoPagina(currentRole, currentUser?.permissions, 'veiculos')
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
@@ -252,10 +252,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // Contratos (PDFs anexados ao veículo) — ficam abaixo das fotos no formulário.
   // Em cadastro os PDFs ficam pendentes e sobem após o veículo ser criado;
   // em edição já lista os contratos existentes e permite remover na hora.
-  const canManageContratos =
-    currentRole === 'admin' ||
-    (currentRole === 'advogado' && currentUser?.permissions?.contratos !== false) ||
-    currentUser?.permissions?.contratos === true
+  const canManageContratos = temAcessoPagina(currentRole, currentUser?.permissions, 'contratos')
   const contratoInputRef = useRef<HTMLInputElement>(null)
   const [contratosExistentes, setContratosExistentes] = useState<VeiculoContrato[]>([])
   const [contratosLoading, setContratosLoading] = useState(false)

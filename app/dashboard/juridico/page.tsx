@@ -18,7 +18,7 @@ export default async function JuridicoPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'juridico', ['admin', 'advogado'])) {
+  if (!hasPageAccess(user, 'juridico')) {
     redirect('/dashboard?error=acesso_negado')
   }
 

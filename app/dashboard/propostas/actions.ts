@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
+import { assertPageAccess } from '@/utils/permissions'
 import { sendPropostaStatusEmail } from '@/utils/email/send-proposta-email'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
@@ -69,31 +69,10 @@ export interface Proposta {
   user_phone?: string
 }
 
-async function getSessionUser() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
-
-  try {
-    const decodedClaims = await adminAuth.verifySessionCookie(session, true)
-    return decodedClaims
-  } catch {
-    return null
-  }
-}
-
+/** Quem tem acesso à aba `propostas` pode fazer o CRUD dela. */
 async function assertAuthorized() {
-  const user = await getSessionUser()
-  if (!user) throw new Error('Não autenticado.')
-
-  const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-  const profile = profileDoc.data()
-
-  if (!profileDoc.exists || !profile || !['admin', 'vendedor'].includes(profile.role)) {
-    throw new Error('Acesso negado. Apenas administradores e vendedores podem acessar.')
-  }
-
-  return { user, role: profile.role }
+  const user = await assertPageAccess('propostas')
+  return { user, role: user.role }
 }
 
 /**

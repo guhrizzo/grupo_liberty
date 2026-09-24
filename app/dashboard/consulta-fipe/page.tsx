@@ -9,7 +9,7 @@ export default async function ConsultaFipePage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
-  if (!hasPageAccess(user, 'consulta_fipe', ['admin', 'vendedor', 'advogado', 'suporte'])) {
+  if (!hasPageAccess(user, 'consulta_fipe')) {
     redirect('/dashboard?error=acesso_negado')
   }
 
