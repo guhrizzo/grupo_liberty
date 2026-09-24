@@ -15,6 +15,10 @@ export interface ComprovantePagamentoData {
   quitada: boolean
   /** Código curto de referência do recibo (derivado do id do pagamento). */
   referencia: string
+  /** Parte deste pagamento que quitou multa/juros por atraso (0/ausente se nenhuma). */
+  encargosPagosAgora?: number
+  /** Parte deste pagamento que abateu o valor da parcela. */
+  principalPagoAgora?: number
 }
 
 function formatCurrencyBR(value: number): string {
@@ -54,6 +58,8 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
     valorRestante,
     quitada,
   } = data
+  const encargosPagosAgora = data.encargosPagosAgora ?? 0
+  const principalPagoAgora = data.principalPagoAgora ?? valorPagoAgora
 
   const badgeLabel = quitada ? 'PARCELA PAGA' : 'PAGAMENTO PARCIAL'
   const badgeBg = quitada ? '#ecfdf5' : '#fffbeb'
@@ -93,6 +99,27 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
                           </table>
                         </td>
                       </tr>`
+
+  const linhaEncargos =
+    encargosPagosAgora > 0.01
+      ? `
+                      <tr>
+                        <td style="border-top:1px solid #e4e4e7;padding-top:14px;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                            <tr>
+                              <td width="50%" style="vertical-align:top;">
+                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Multa e juros por atraso</p>
+                                <p style="margin:0;font-size:16px;font-weight:800;color:#09090b;">${formatCurrencyBR(encargosPagosAgora)}</p>
+                              </td>
+                              <td width="50%" style="vertical-align:top;">
+                                <p style="margin:0 0 4px;font-size:10px;font-weight:700;color:#a1a1aa;letter-spacing:1px;text-transform:uppercase;">Abatido da parcela</p>
+                                <p style="margin:0;font-size:16px;font-weight:800;color:#09090b;">${formatCurrencyBR(principalPagoAgora)}</p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>`
+      : ''
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -229,7 +256,7 @@ export function renderComprovantePagamentoEmail(data: ComprovantePagamentoData):
                             </tr>
                           </table>
                         </td>
-                      </tr>${linhaSaldo}
+                      </tr>${linhaEncargos}${linhaSaldo}
                     </table>
                   </td>
                 </tr>

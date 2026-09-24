@@ -7,6 +7,14 @@ import { processarLembretesCobranca } from '@/utils/cobrancas/processar-lembrete
 import { sendCobrancaLembreteEmail } from '@/utils/email/send-cobranca-lembrete-email'
 import { sendCobrancaAtrasoEmail } from '@/utils/email/send-cobranca-atraso-email'
 import { sendComprovantePagamentoEmail } from '@/utils/email/send-comprovante-pagamento-email'
+import {
+  calcularEncargos,
+  diasEntre,
+  hojeSaoPaulo,
+  type PagamentoEncargosInput,
+  type ResultadoEncargos,
+} from '@/utils/cobrancas/encargos'
+import { ENCARGOS_PADRAO } from '@/constants/encargos'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -23,6 +31,21 @@ export interface Pagamento {
   // Id da receita lançada automaticamente em /dashboard/financeiro para este
   // pagamento (null se nunca teve, ou se o vínculo já foi desfeito).
   transacaoId: string | null
+  // Divisão calculada (não gravada) — quanto do pagamento quitou encargos por
+  // atraso e quanto abateu a parcela. Ver utils/cobrancas/encargos.ts.
+  paraEncargos: number
+  paraPrincipal: number
+}
+
+/** Encargos por atraso da parcela, calculados até hoje. */
+export interface EncargosParcela {
+  multa: number
+  juros: number
+  diasAtraso: number
+  /** Ainda não pagos (entram em `valorRestante`). */
+  pendentes: number
+  /** Já quitados por pagamentos. */
+  pagos: number
 }
 
 export interface Parcela {
@@ -32,10 +55,17 @@ export interface Parcela {
   valorParcela: number
   dataVencimento: string // YYYY-MM-DD
   status: StatusParcela
-  pago: boolean // true somente quando quitada (valorPago >= valorParcela)
+  pago: boolean // true somente quando quitada (principal e encargos zerados)
   pagoEm: string | null // data do último pagamento registrado
-  valorPago: number // soma de todos os pagamentos registrados
-  valorRestante: number // valorParcela - valorPago (nunca negativo)
+  valorPago: number // soma de todos os pagamentos registrados (inclui encargos pagos)
+  valorRestante: number // total devido hoje: principal em aberto + encargos pendentes
+  principalRestante: number // só o que falta da parcela em si, sem encargos
+  encargos: EncargosParcela | null // null quando a parcela não gerou encargos
+  // Isenção manual de multa/juros (com a isenção, a parcela é calculada sem encargos)
+  encargosIsentos: boolean
+  encargosIsentosPor: string | null
+  encargosIsentosMotivo: string | null
+  encargosIsentosEm: string | null
   pagamentos: Pagamento[]
   // Marcadores dos 3 momentos fixos de envio de e-mail
   lembrete3dEnviadoEm: string | null // e-mail enviado 3 dias antes do vencimento
@@ -65,6 +95,9 @@ export interface Cobranca {
   diasAvisoAntecedencia: number | null
   /** true = notificações por e-mail ativas (3 dias antes, no dia, 1 dia após) */
   avisarAtraso: boolean
+  // Encargos por atraso contratados (0 em cobranças anteriores à regra)
+  multaPct: number
+  jurosMensalPct: number
   criadoEm: string
   criadoPorUid: string | null
   parcelas: Parcela[]
@@ -111,16 +144,64 @@ function toDateString(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
+interface TaxasEncargos {
+  multaPct: number
+  jurosMensalPct: number
+}
+
+/** Taxas gravadas na cobrança — cobranças anteriores à regra não têm (= 0). */
+function taxasDaCobranca(data: FirebaseFirestore.DocumentData | undefined): TaxasEncargos {
+  return {
+    multaPct: typeof data?.multaPct === 'number' ? data.multaPct : 0,
+    jurosMensalPct: typeof data?.jurosMensalPct === 'number' ? data.jurosMensalPct : 0,
+  }
+}
+
+/** Roda o cálculo de encargos de uma parcela (dados crus do Firestore). */
+function calcularParcela(
+  parcela: FirebaseFirestore.DocumentData,
+  taxas: TaxasEncargos,
+  pagamentos: PagamentoEncargosInput[],
+  referencia: string = hojeSaoPaulo(),
+): ResultadoEncargos {
+  return calcularEncargos({
+    valorParcela: parcela.valorParcela,
+    dataVencimento: parcela.dataVencimento,
+    multaPct: taxas.multaPct,
+    jurosMensalPct: taxas.jurosMensalPct,
+    isento: Boolean(parcela.encargosIsentos),
+    pagamentos,
+    referencia,
+  })
+}
+
+function pagamentosDoSnap(snap: FirebaseFirestore.QuerySnapshot): PagamentoEncargosInput[] {
+  return snap.docs.map((doc) => {
+    const d = doc.data()
+    return { id: doc.id, valor: d.valor || 0, data: d.data, criadoEm: d.criadoEm }
+  })
+}
+
+function agruparPagamentosPorParcela(
+  snap: FirebaseFirestore.QuerySnapshot,
+): Map<string, PagamentoEncargosInput[]> {
+  const map = new Map<string, PagamentoEncargosInput[]>()
+  for (const doc of snap.docs) {
+    const d = doc.data()
+    const list = map.get(d.parcelaId) ?? []
+    list.push({ id: doc.id, valor: d.valor || 0, data: d.data, criadoEm: d.criadoEm })
+    map.set(d.parcelaId, list)
+  }
+  return map
+}
+
 function computeStatus(
   dataVencimento: string,
   valorPago: number,
-  valorParcela: number,
+  calculo: ResultadoEncargos,
 ): StatusParcela {
-  if (valorPago >= valorParcela - EPSILON) return 'pago'
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const venc = new Date(dataVencimento + 'T00:00:00')
-  if (venc < hoje) return 'atrasado'
+  if (calculo.totalDevido <= EPSILON) return 'pago'
+  if (diasEntre(dataVencimento, hojeSaoPaulo()) > 0) return 'atrasado'
   if (valorPago > 0) return 'parcial'
   return 'pendente'
 }
@@ -134,6 +215,8 @@ function serializePagamento(id: string, data: FirebaseFirestore.DocumentData): P
     data: data.data,
     criadoEm: data.criadoEm,
     transacaoId: data.transacaoId ?? null,
+    paraEncargos: 0,
+    paraPrincipal: data.valor,
   }
 }
 
@@ -141,11 +224,20 @@ function serializeParcela(
   id: string,
   data: FirebaseFirestore.DocumentData,
   pagamentos: Pagamento[],
+  taxas: TaxasEncargos,
 ): Parcela {
   const valorParcela = data.valorParcela
-  const pagamentosOrdenados = [...pagamentos].sort((a, b) => a.data.localeCompare(b.data))
+  const calculo = calcularParcela(data, taxas, pagamentos)
+  const divisaoPorId = new Map(calculo.divisao.map((d) => [d.pagamentoId, d]))
+  const pagamentosOrdenados = [...pagamentos]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map((p) => {
+      const d = divisaoPorId.get(p.id)
+      return d ? { ...p, paraEncargos: d.paraEncargos, paraPrincipal: d.paraPrincipal } : p
+    })
   const valorPago = round2(pagamentosOrdenados.reduce((s, p) => s + p.valor, 0))
-  const status = computeStatus(data.dataVencimento, valorPago, valorParcela)
+  const status = computeStatus(data.dataVencimento, valorPago, calculo)
+  const temEncargos = calculo.multa + calculo.juros > EPSILON
   return {
     id,
     cobrancaId: data.cobrancaId,
@@ -159,7 +251,21 @@ function serializeParcela(
         ? pagamentosOrdenados[pagamentosOrdenados.length - 1].data
         : null,
     valorPago,
-    valorRestante: Math.max(round2(valorParcela - valorPago), 0),
+    valorRestante: calculo.totalDevido,
+    principalRestante: calculo.principalRestante,
+    encargos: temEncargos
+      ? {
+          multa: calculo.multa,
+          juros: calculo.juros,
+          diasAtraso: calculo.diasAtraso,
+          pendentes: calculo.encargosPendentes,
+          pagos: calculo.encargosPagos,
+        }
+      : null,
+    encargosIsentos: Boolean(data.encargosIsentos),
+    encargosIsentosPor: data.encargosIsentosPor ?? null,
+    encargosIsentosMotivo: data.encargosIsentosMotivo ?? null,
+    encargosIsentosEm: data.encargosIsentosEm ?? null,
     pagamentos: pagamentosOrdenados,
     lembrete3dEnviadoEm: data.lembrete3dEnviadoEm ?? null,
     lembrete0dEnviadoEm: data.lembrete0dEnviadoEm ?? null,
@@ -249,9 +355,19 @@ export async function getCobrancas(): Promise<Cobranca[]> {
     pagamentosPorParcela.set(pg.parcelaId, list)
   }
 
+  const taxasPorCobranca = new Map<string, TaxasEncargos>(
+    cobrancasSnap.docs.map((doc) => [doc.id, taxasDaCobranca(doc.data())]),
+  )
+
   const parcelasPorCobranca = new Map<string, Parcela[]>()
   for (const doc of parcelasSnap.docs) {
-    const p = serializeParcela(doc.id, doc.data(), pagamentosPorParcela.get(doc.id) ?? [])
+    const data = doc.data()
+    const p = serializeParcela(
+      doc.id,
+      data,
+      pagamentosPorParcela.get(doc.id) ?? [],
+      taxasPorCobranca.get(data.cobrancaId) ?? taxasDaCobranca(undefined),
+    )
     const list = parcelasPorCobranca.get(p.cobrancaId) ?? []
     list.push(p)
     parcelasPorCobranca.set(p.cobrancaId, list)
@@ -278,6 +394,7 @@ export async function getCobrancas(): Promise<Cobranca[]> {
           ? data.diasAvisoAntecedencia
           : null,
       avisarAtraso: Boolean(data.avisarAtraso),
+      ...(taxasPorCobranca.get(doc.id) ?? taxasDaCobranca(data)),
       criadoEm: data.criadoEm,
       criadoPorUid: data.criadoPorUid ?? null,
       parcelas: parcelasPorCobranca.get(doc.id) ?? [],
@@ -342,6 +459,9 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       tipo,
       diasAvisoAntecedencia,
       avisarAtraso,
+      // Taxa contratada fica gravada — mudar o padrão não afeta esta cobrança.
+      multaPct: ENCARGOS_PADRAO.multaPct,
+      jurosMensalPct: ENCARGOS_PADRAO.jurosMensalPct,
       criadoEm: new Date().toISOString(),
       criadoPorUid: uid,
     })
@@ -567,34 +687,27 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
       adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
     ])
 
-    const pagoPorParcela = new Map<string, number>()
-    for (const doc of pagamentosSnap.docs) {
-      const data = doc.data()
-      pagoPorParcela.set(data.parcelaId, (pagoPorParcela.get(data.parcelaId) ?? 0) + (data.valor || 0))
-    }
-
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
+    const pagamentosPorParcela = agruparPagamentosPorParcela(pagamentosSnap)
+    const taxas = taxasDaCobranca(cobranca)
+    const hoje = hojeSaoPaulo()
 
     // Escolhe a parcela em aberto mais urgente (menor `diasRestantes`,
     // negativo = atrasada). Parcelas já quitadas são ignoradas.
     let alvo: {
       parcela: FirebaseFirestore.DocumentData
-      valorRestante: number
+      calculo: ResultadoEncargos
       diasRestantes: number
     } | null = null
 
     for (const parcelaDoc of parcelasSnap.docs) {
       const parcela = parcelaDoc.data()
-      const valorPago = pagoPorParcela.get(parcelaDoc.id) ?? 0
-      const valorRestante = round2(Math.max(parcela.valorParcela - valorPago, 0))
-      if (valorRestante <= EPSILON) continue // já quitada
+      const calculo = calcularParcela(parcela, taxas, pagamentosPorParcela.get(parcelaDoc.id) ?? [], hoje)
+      if (calculo.totalDevido <= EPSILON) continue // já quitada
 
-      const venc = new Date(parcela.dataVencimento + 'T00:00:00')
-      const diasRestantes = Math.round((venc.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24))
+      const diasRestantes = diasEntre(hoje, parcela.dataVencimento)
 
       if (!alvo || diasRestantes < alvo.diasRestantes) {
-        alvo = { parcela, valorRestante, diasRestantes }
+        alvo = { parcela, calculo, diasRestantes }
       }
     }
 
@@ -626,9 +739,18 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
             veiculoResumo,
             numeroParcela: alvo.parcela.numeroParcela,
             numeroParcelas,
-            valorRestante: alvo.valorRestante,
+            valorRestante: alvo.calculo.principalRestante,
             dataVencimento: alvo.parcela.dataVencimento,
             diasAtraso: Math.abs(alvo.diasRestantes),
+            encargos:
+              alvo.calculo.encargosPendentes > EPSILON
+                ? {
+                    multa: alvo.calculo.multa,
+                    juros: alvo.calculo.juros,
+                    pendentes: alvo.calculo.encargosPendentes,
+                  }
+                : undefined,
+            totalDevido: alvo.calculo.totalDevido,
           })
         : await sendCobrancaLembreteEmail({
             clienteNome,
@@ -683,35 +805,53 @@ export async function registrarPagamento(
     if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
     const parcelaData = parcelaDoc.data()!
 
-    const pagamentosSnap = await adminDb
-      .collection('cobranca_pagamentos')
-      .where('parcelaId', '==', parcelaId)
-      .get()
-    const totalPago = round2(
-      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
-    )
-    const saldo = round2(parcelaData.valorParcela - totalPago)
+    const [pagamentosSnap, cobrancaDoc] = await Promise.all([
+      adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', parcelaId).get(),
+      // Dados da cobrança: taxas de encargos + descrição da receita no financeiro.
+      adminDb.collection('cobrancas').doc(parcelaData.cobrancaId).get(),
+    ])
+    const cobranca = cobrancaDoc.data()
+    const taxas = taxasDaCobranca(cobranca)
+    const pagamentosExistentes = pagamentosDoSnap(pagamentosSnap)
+    const totalPago = round2(pagamentosExistentes.reduce((s, p) => s + p.valor, 0))
+
+    // Devido na data do pagamento (principal + multa/juros até essa data).
+    const antes = calcularParcela(parcelaData, taxas, pagamentosExistentes, data)
+    const saldo = antes.totalDevido
 
     if (saldo <= EPSILON) return { error: 'Esta parcela já está totalmente paga.' }
     const valorArredondado = round2(valor)
-    if (valorArredondado > saldo + EPSILON) {
-      return {
-        error: `Valor maior que o saldo restante (R$ ${saldo.toFixed(2).replace('.', ',')}).`,
-      }
-    }
-
-    // Busca dados da cobrança para descrever a receita no financeiro.
-    const cobrancaDoc = await adminDb.collection('cobrancas').doc(parcelaData.cobrancaId).get()
-    const cobranca = cobrancaDoc.data()
 
     // Gera o id do pagamento antes de gravar (sem custo de rede) para poder
     // guardar o vínculo dos dois lados desde a criação.
     const pagamentoRef = adminDb.collection('cobranca_pagamentos').doc()
 
+    // Simula com o novo pagamento: rejeita se sobrar valor além do devido, e
+    // descobre quanto dele vai para encargos e quanto abate a parcela.
+    const depois = calcularParcela(
+      parcelaData,
+      taxas,
+      [...pagamentosExistentes, { id: pagamentoRef.id, valor: valorArredondado, data, criadoEm: new Date().toISOString() }],
+      data,
+    )
+    if (valorArredondado > saldo + EPSILON || depois.excedente > EPSILON) {
+      return {
+        error: `Valor maior que o total devido em ${data.split('-').reverse().join('/')} (R$ ${saldo.toFixed(2).replace('.', ',')}).`,
+      }
+    }
+    const divisao = depois.divisao.find((d) => d.pagamentoId === pagamentoRef.id)
+    const encargosPagosAgora = divisao?.paraEncargos ?? 0
+    const principalPagoAgora = divisao?.paraPrincipal ?? valorArredondado
+
+    const descricaoBase = cobranca
+      ? `Parcela ${parcelaData.numeroParcela}/${cobranca.numeroParcelas} — ${cobranca.clienteNome} (${cobranca.veiculoResumo})`
+      : `Parcela ${parcelaData.numeroParcela} — cobrança`
+
     const transacaoId = await registrarReceitaCobranca({
-      descricao: cobranca
-        ? `Parcela ${parcelaData.numeroParcela}/${cobranca.numeroParcelas} — ${cobranca.clienteNome} (${cobranca.veiculoResumo})`
-        : `Parcela ${parcelaData.numeroParcela} — cobrança`,
+      descricao:
+        encargosPagosAgora > EPSILON
+          ? `${descricaoBase} — inclui R$ ${encargosPagosAgora.toFixed(2).replace('.', ',')} de multa/juros`
+          : descricaoBase,
       valor: valorArredondado,
       data,
       uid,
@@ -729,7 +869,7 @@ export async function registrarPagamento(
       transacaoId: transacaoId ?? null,
     })
 
-    const restante = round2(saldo - valorArredondado)
+    const restante = depois.totalDevido
     const quitada = restante <= EPSILON
 
     // Comprovante ao cliente (e-mail HTML + recibo PDF). Best-effort: qualquer
@@ -759,6 +899,8 @@ export async function registrarPagamento(
           valorRestante: Math.max(restante, 0),
           quitada,
           referencia: pagamentoRef.id.slice(0, 8).toUpperCase(),
+          encargosPagosAgora,
+          principalPagoAgora,
         })
         comprovante = ok
           ? { status: 'enviado', email: clienteEmail }
@@ -827,10 +969,11 @@ export async function enviarComprovantePagamento(
       .collection('cobranca_pagamentos')
       .where('parcelaId', '==', pagamento.parcelaId)
       .get()
-    const valorPagoAcumulado = round2(
-      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
-    )
-    const valorRestante = Math.max(round2(parcela.valorParcela - valorPagoAcumulado), 0)
+    const pagamentosParcela = pagamentosDoSnap(pagamentosSnap)
+    const valorPagoAcumulado = round2(pagamentosParcela.reduce((s, p) => s + p.valor, 0))
+    const calculo = calcularParcela(parcela, taxasDaCobranca(cobranca), pagamentosParcela, pagamento.data)
+    const divisao = calculo.divisao.find((d) => d.pagamentoId === pagamentoId)
+    const valorRestante = calculo.totalDevido
     const quitada = valorRestante <= EPSILON
 
     const ok = await sendComprovantePagamentoEmail({
@@ -847,6 +990,8 @@ export async function enviarComprovantePagamento(
       valorRestante,
       quitada,
       referencia: pagamentoId.slice(0, 8).toUpperCase(),
+      encargosPagosAgora: divisao?.paraEncargos ?? 0,
+      principalPagoAgora: divisao?.paraPrincipal ?? pagamento.valor,
     })
 
     revalidatePath('/dashboard/cobrancas')
@@ -895,18 +1040,22 @@ export async function editarValorParcela(
     if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
     const parcelaData = parcelaDoc.data()!
 
-    const pagamentosSnap = await adminDb
-      .collection('cobranca_pagamentos')
-      .where('parcelaId', '==', parcelaId)
-      .get()
-    const totalPago = round2(
-      pagamentosSnap.docs.reduce((s, doc) => s + (doc.data().valor || 0), 0),
+    const [pagamentosSnap, cobrancaTaxasDoc] = await Promise.all([
+      adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', parcelaId).get(),
+      adminDb.collection('cobrancas').doc(parcelaData.cobrancaId).get(),
+    ])
+    // Compara com o que já abateu a PARCELA — a parte dos pagamentos que foi
+    // para multa/juros não conta.
+    const { principalPago } = calcularParcela(
+      parcelaData,
+      taxasDaCobranca(cobrancaTaxasDoc.data()),
+      pagamentosDoSnap(pagamentosSnap),
     )
 
     const valorArredondado = round2(novoValor)
-    if (valorArredondado < totalPago - EPSILON) {
+    if (valorArredondado < principalPago - EPSILON) {
       return {
-        error: `O novo valor não pode ser menor que o já pago (R$ ${totalPago.toFixed(2).replace('.', ',')}).`,
+        error: `O novo valor não pode ser menor que o já pago da parcela (R$ ${principalPago.toFixed(2).replace('.', ',')}).`,
       }
     }
 
@@ -939,6 +1088,57 @@ export async function editarValorParcela(
   } catch (err: any) {
     console.error('[editarValorParcela]', err)
     return { error: 'Erro ao editar o valor da parcela.' }
+  }
+}
+
+/**
+ * Isenta (ou remove a isenção de) multa e juros por atraso de uma parcela.
+ * Com a isenção, a parcela é calculada como se não houvesse encargos — o que
+ * os pagamentos já tinham quitado de encargos passa a abater a parcela.
+ * Exige o nome de quem está isentando; o motivo é opcional.
+ */
+export async function isentarEncargos(
+  parcelaId: string,
+  isentar: boolean,
+  isentadoPor: string,
+  motivo?: string,
+): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!parcelaId) return { error: 'Parcela inválida.' }
+    const nome = (isentadoPor || '').trim()
+    if (isentar && !nome) return { error: 'Informe o nome de quem está isentando.' }
+
+    const parcelaRef = adminDb.collection('cobranca_parcelas').doc(parcelaId)
+    const parcelaDoc = await parcelaRef.get()
+    if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
+
+    await parcelaRef.update(
+      isentar
+        ? {
+            encargosIsentos: true,
+            encargosIsentosPor: nome,
+            encargosIsentosMotivo: (motivo || '').trim() || null,
+            encargosIsentosEm: new Date().toISOString(),
+          }
+        : {
+            encargosIsentos: false,
+            encargosIsentosPor: null,
+            encargosIsentosMotivo: null,
+            encargosIsentosEm: null,
+          },
+    )
+
+    revalidatePath('/dashboard/cobrancas')
+    return { success: isentar ? 'Multa e juros isentos nesta parcela.' : 'Isenção removida — encargos voltaram a ser cobrados.' }
+  } catch (err) {
+    console.error('[isentarEncargos]', err)
+    return { error: 'Erro ao atualizar a isenção.' }
   }
 }
 

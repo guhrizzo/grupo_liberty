@@ -178,6 +178,8 @@ export default function ReciboPagamentoDocument(props: ReciboPagamentoDocumentPr
     referencia,
     emitidoEm,
   } = props
+  const encargosPagosAgora = props.encargosPagosAgora ?? 0
+  const principalPagoAgora = props.principalPagoAgora ?? valorPagoAgora
 
   const badgeStyle = quitada
     ? { borderColor: COLORS.green, backgroundColor: COLORS.greenBg }
@@ -249,12 +251,26 @@ export default function ReciboPagamentoDocument(props: ReciboPagamentoDocumentPr
               {fmtMoney(valorPagoAgora)}
             </Text>
           </View>
+          {encargosPagosAgora > 0.01 ? (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>   Multa e juros por atraso</Text>
+                <Text style={styles.rowValue}>{fmtMoney(encargosPagosAgora)}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>   Abatido da parcela</Text>
+                <Text style={styles.rowValue}>{fmtMoney(principalPagoAgora)}</Text>
+              </View>
+            </>
+          ) : null}
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Total pago nesta parcela</Text>
             <Text style={styles.rowValue}>{fmtMoney(valorPagoAcumulado)}</Text>
           </View>
           <View style={styles.rowLast}>
-            <Text style={styles.rowLabel}>Saldo restante nesta parcela</Text>
+            <Text style={styles.rowLabel}>
+              {encargosPagosAgora > 0.01 ? 'Saldo restante (com encargos)' : 'Saldo restante nesta parcela'}
+            </Text>
             <Text style={styles.rowValue}>{fmtMoney(valorRestante)}</Text>
           </View>
         </View>

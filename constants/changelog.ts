@@ -24,6 +24,20 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-24-encargos-atraso',
+    date: '2026-09-24',
+    title: 'Multa e juros por atraso nas cobranças',
+    tag: 'novo',
+    items: [
+      'Cobranças novas cobram multa de 5% + juros de 10% ao mês, calculados por dia de atraso (30 dias = 10%).',
+      'A parcela atrasada mostra a multa, os juros e o total atualizado do dia.',
+      'Ao registrar um pagamento, o valor sugerido já inclui os encargos até a data escolhida; o pagamento quita primeiro multa/juros e depois a parcela.',
+      'Botão "Isentar" retira multa e juros de uma parcela, registrando quem isentou e o motivo.',
+      'E-mail de atraso e comprovante de pagamento (e-mail + PDF) mostram os encargos.',
+      'Cobranças cadastradas antes desta atualização continuam sem encargos.',
+    ],
+  },
+  {
     id: '2026-09-10-veiculos-vendidos',
     date: '2026-09-10',
     title: 'Veículos vendidos no site',
