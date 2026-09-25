@@ -42,10 +42,10 @@ import {
 import { estoqueEstadoDe, type EstoqueEstado } from './public'
 import {
   listarContratosVeiculoAction,
-  anexarContratoVeiculoAction,
   removerContratoVeiculoAction,
   type VeiculoContrato,
 } from '@/app/veiculos/[id]/actions'
+import { anexarContratoVeiculo } from '@/app/veiculos/[id]/anexarContrato'
 import { listarCategoriasContrato } from '@/app/dashboard/contratos/categorias.actions'
 import { listarManutencoesVeiculo } from '@/app/dashboard/manutencao/actions'
 import type { ContratoCategoria } from '@/app/dashboard/contratos/types'
@@ -811,13 +811,13 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
           setContratosUploadProgress(true)
           let falhas = 0
           for (const { file, descricao, enviarJuridico, categoriaId } of novosContratos) {
-            const fd = new FormData()
-            fd.set('veiculoId', vehicleId)
-            fd.set('pdf', file)
-            if (descricao.trim()) fd.set('descricao', descricao.trim())
-            fd.set('enviarJuridico', enviarJuridico ? 'true' : 'false')
-            fd.set('categoriaId', categoriaId)
-            const res = await anexarContratoVeiculoAction(fd)
+            const res = await anexarContratoVeiculo({
+              veiculoId: vehicleId,
+              file,
+              categoriaId,
+              descricao: descricao.trim() || null,
+              enviarJuridico,
+            })
             if (res.error) falhas++
           }
           setContratosUploadProgress(false)

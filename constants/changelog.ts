@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-25-contrato-upload-direto',
+    date: '2026-09-25',
+    title: 'Contratos grandes voltam a ser anexados',
+    tag: 'correcao',
+    items: [
+      'PDFs de contrato acima de ~4,5MB falhavam ao anexar, mesmo dentro do limite de 10MB. Agora o arquivo vai direto para o armazenamento e qualquer PDF de até 10MB funciona.',
+    ],
+  },
+  {
     id: '2026-09-24-encargos-atraso',
     date: '2026-09-24',
     title: 'Multa e juros por atraso nas cobranças',
