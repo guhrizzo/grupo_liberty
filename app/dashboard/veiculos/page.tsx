@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getVehicles } from './actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import VeiculosClient from './VeiculosClient'
 
 export const metadata = {
@@ -16,7 +16,7 @@ export default async function VeiculosPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const veiculos = await getVehicles()
+  const veiculos = await listarVeiculos()
 
   const clientUser = {
     id: user.uid,

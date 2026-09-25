@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import { toPublicVeiculo } from '@/app/dashboard/veiculos/public'
 
 export const dynamic = 'force-dynamic'
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   // recebendo só 6 (a vitrine "Escolha um carro do nosso estoque").
   const limit = Math.min(Number(searchParams.get('limit')) || 6, 500)
 
-  const todosVeiculos = await getVehicles()
+  const todosVeiculos = await listarVeiculos()
   const disponiveis = todosVeiculos
     .filter((v) => v.publico === true && !v.vendidoEm)
     .map(toPublicVeiculo)
