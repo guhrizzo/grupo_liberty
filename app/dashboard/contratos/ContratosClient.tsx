@@ -24,10 +24,8 @@ import {
   removerCategoriaContrato,
   definirCategoriaContrato,
 } from './categorias.actions'
-import {
-  anexarContratoVeiculoAction,
-  removerContratoVeiculoAction,
-} from '@/app/veiculos/[id]/actions'
+import { removerContratoVeiculoAction } from '@/app/veiculos/[id]/actions'
+import { anexarContratoVeiculo } from '@/app/veiculos/[id]/anexarContrato'
 import {
   Button,
   Input,
@@ -136,9 +134,6 @@ export default function ContratosClient({
       toast.error('Selecione um veículo.')
       return
     }
-    formData.set('veiculoId', selectedVeiculoId)
-    formData.set('enviarJuridico', enviarJuridico ? 'true' : 'false')
-
     const file = formData.get('pdf') as File | null
     if (!file || file.size === 0) {
       toast.error('Selecione um arquivo PDF.')
@@ -178,9 +173,13 @@ export default function ContratosClient({
         categoriaId = nova.categoria.id
         categoriaNome = nova.categoria.nome
       }
-      formData.set('categoriaId', categoriaId)
-
-      const res = await anexarContratoVeiculoAction(formData)
+      const res = await anexarContratoVeiculo({
+        veiculoId: selectedVeiculoId,
+        file,
+        categoriaId,
+        descricao: String(formData.get('descricao') ?? '').trim() || null,
+        enviarJuridico,
+      })
       if (res.error) {
         toast.error(res.error)
         return

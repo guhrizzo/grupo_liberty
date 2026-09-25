@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { assertPodeGerarContratos } from '@/utils/permissions'
 import { validarCPF } from '@/utils/validadorCpf'
@@ -257,14 +257,47 @@ export async function listarContratosGeradosVeiculoAction(
 }
 
 /**
- * Anexa um PDF de contrato ao veículo. Recebe FormData com:
- * - veiculoId: string
- * - pdf: File (application/pdf, máx. 10MB)
- * - descricao: string opcional
+ * Anexar contrato = 3 passos, para o PDF não passar pela Vercel (que recusa
+ * corpos acima de ~4,5MB antes de chegar no código):
+ *   1. `iniciarUploadContratoVeiculoAction` valida permissão/veículo/categoria
+ *      e abre uma sessão de upload resumível no Storage;
+ *   2. o navegador envia o PDF direto para a URL da sessão
+ *      (ver `anexarContratoVeiculo` em ./anexarContrato.ts);
+ *   3. `concluirUploadContratoVeiculoAction` confere o arquivo enviado e grava
+ *      o documento em `veiculo_contratos`.
  */
-export async function anexarContratoVeiculoAction(
-  formData: FormData,
-): Promise<VeiculoContratoResponse> {
+
+function storagePathContrato(veiculoId: string, contratoId: string): string {
+  return `veiculos/${veiculoId}/contratos/${contratoId}.pdf`
+}
+
+async function validarVeiculoECategoria(
+  veiculoId: string,
+  categoriaId: string,
+): Promise<{ error: string } | { categoriaNome: string }> {
+  const veiculoDoc = await adminDb.collection('veiculos').doc(veiculoId).get()
+  if (!veiculoDoc.exists) return { error: 'Veículo não encontrado.' }
+
+  const categoriaDoc = await adminDb
+    .collection('contrato_categorias')
+    .doc(categoriaId)
+    .get()
+  if (!categoriaDoc.exists) return { error: 'Categoria inválida.' }
+
+  return { categoriaNome: String(categoriaDoc.data()!.nome ?? '') }
+}
+
+export interface IniciarUploadContratoInput {
+  veiculoId: string
+  categoriaId: string
+  fileName: string
+  fileType: string
+  size: number
+}
+
+export async function iniciarUploadContratoVeiculoAction(
+  input: IniciarUploadContratoInput,
+): Promise<{ error?: string; contratoId?: string; uploadUrl?: string }> {
   let user: Awaited<ReturnType<typeof assertPodeGerarContratos>>
   try {
     user = await assertPodeGerarContratos()
@@ -272,26 +305,21 @@ export async function anexarContratoVeiculoAction(
     return { error: err instanceof Error ? err.message : 'Acesso negado.' }
   }
 
-  const veiculoId = sanitizeString(formData.get('veiculoId'), 200)
-  const file = formData.get('pdf')
-  const descricao = sanitizeOptional(formData.get('descricao'), 500)
-  const categoriaId = sanitizeString(formData.get('categoriaId'), 200)
-  const enviarJuridicoRaw = formData.get('enviarJuridico')
-  const enviarJuridico =
-    enviarJuridicoRaw === 'on' ||
-    enviarJuridicoRaw === 'true' ||
-    enviarJuridicoRaw === '1'
+  const veiculoId = sanitizeString(input?.veiculoId, 200)
+  const categoriaId = sanitizeString(input?.categoriaId, 200)
+  const fileName = sanitizeString(input?.fileName, 500)
+  const size = Number(input?.size)
 
   if (!veiculoId) return { error: 'Veículo não especificado.' }
-  if (!(file instanceof File) || file.size === 0) {
+  if (!fileName || !Number.isFinite(size) || size <= 0) {
     return { error: 'Selecione um arquivo PDF.' }
   }
-  if (file.size > MAX_PDF_SIZE) {
+  if (size > MAX_PDF_SIZE) {
     return { error: 'Arquivo excede o limite de 10MB.' }
   }
   const isPdf =
-    file.type === 'application/pdf' ||
-    file.name.toLowerCase().endsWith('.pdf')
+    input.fileType === 'application/pdf' ||
+    fileName.toLowerCase().endsWith('.pdf')
   if (!isPdf) {
     return { error: 'Apenas arquivos PDF são permitidos.' }
   }
@@ -300,82 +328,120 @@ export async function anexarContratoVeiculoAction(
   }
 
   try {
-    const veiculoDoc = await adminDb.collection('veiculos').doc(veiculoId).get()
-    if (!veiculoDoc.exists) {
-      return { error: 'Veículo não encontrado.' }
-    }
+    const validacao = await validarVeiculoECategoria(veiculoId, categoriaId)
+    if ('error' in validacao) return validacao
 
-    const categoriaDoc = await adminDb
-      .collection('contrato_categorias')
-      .doc(categoriaId)
-      .get()
-    if (!categoriaDoc.exists) {
-      return { error: 'Categoria inválida.' }
-    }
-    const categoriaNome = String(categoriaDoc.data()!.nome ?? '')
+    const contratoId = adminDb.collection('veiculo_contratos').doc().id
+    const fileRef = adminStorage
+      .bucket()
+      .file(storagePathContrato(veiculoId, contratoId))
 
-    const contratoRef = adminDb.collection('veiculo_contratos').doc()
-    const contratoId = contratoRef.id
-    const storagePath = `veiculos/${veiculoId}/contratos/${contratoId}.pdf`
-    const fileName = sanitizeFileName(file.name)
-    const now = new Date().toISOString()
-
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const bucket = adminStorage.bucket()
-    const fileRef = bucket.file(storagePath)
-
-    let storageOk = false
-    try {
-      await fileRef.save(buffer, {
-        metadata: {
-          contentType: 'application/pdf',
-          metadata: {
-            veiculoId,
-            contratoId,
-            uploadedBy: user.uid,
-            descricao: descricao ?? '',
-          },
-        },
-      })
-      storageOk = true
-
-      const contrato: VeiculoContrato = {
-        id: contratoId,
-        veiculoId,
-        fileName,
-        descricao,
-        storagePath,
+    // O `origin` da requisição libera o CORS da sessão para o navegador que
+    // vai fazer o PUT, sem precisar configurar CORS no bucket.
+    const origin = (await headers()).get('origin') ?? undefined
+    const [uploadUrl] = await fileRef.createResumableUpload({
+      origin,
+      metadata: {
         contentType: 'application/pdf',
-        size: file.size,
-        uploadedByUid: user.uid,
-        uploadedByEmail: user.email,
-        uploadedAt: now,
-        enviarJuridico,
-        categoriaId,
-        categoriaNome,
-      }
+        metadata: { veiculoId, contratoId, uploadedBy: user.uid },
+      },
+    })
 
-      await contratoRef.set(contrato)
+    return { contratoId, uploadUrl }
+  } catch (err: unknown) {
+    console.error('Erro ao iniciar upload de contrato:', err)
+    return { error: 'Erro ao preparar o envio do contrato.' }
+  }
+}
 
-      revalidatePath(`/veiculos/${veiculoId}`)
-      if (enviarJuridico) revalidatePath('/dashboard/juridico')
-      return { success: 'Contrato anexado com sucesso.', contrato }
-    } catch (innerErr: unknown) {
-      // Cleanup: se o upload no Storage sucedeu mas o set no Firestore falhou,
-      // remove o arquivo órfão.
-      if (storageOk) {
-        try {
-          await fileRef.delete()
-        } catch (cleanupErr) {
-          console.error('Falha ao limpar PDF órfão no Storage:', cleanupErr)
-        }
-      }
-      throw innerErr
+export interface ConcluirUploadContratoInput {
+  veiculoId: string
+  contratoId: string
+  categoriaId: string
+  fileName: string
+  descricao?: string | null
+  enviarJuridico?: boolean
+}
+
+export async function concluirUploadContratoVeiculoAction(
+  input: ConcluirUploadContratoInput,
+): Promise<VeiculoContratoResponse> {
+  let user: Awaited<ReturnType<typeof assertPodeGerarContratos>>
+  try {
+    user = await assertPodeGerarContratos()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  const veiculoId = sanitizeString(input?.veiculoId, 200)
+  const contratoId = sanitizeString(input?.contratoId, 200)
+  const categoriaId = sanitizeString(input?.categoriaId, 200)
+  const descricao = sanitizeOptional(input?.descricao, 500)
+  const enviarJuridico = input?.enviarJuridico === true
+
+  if (!veiculoId || !contratoId || !categoriaId) {
+    return { error: 'Dados inválidos.' }
+  }
+  // Os ids viram caminho no Storage — nada de "/" ou "..".
+  if (!/^[A-Za-z0-9_-]+$/.test(veiculoId) || !/^[A-Za-z0-9]+$/.test(contratoId)) {
+    return { error: 'Dados inválidos.' }
+  }
+
+  const storagePath = storagePathContrato(veiculoId, contratoId)
+  const fileRef = adminStorage.bucket().file(storagePath)
+
+  try {
+    const contratoRef = adminDb.collection('veiculo_contratos').doc(contratoId)
+    if ((await contratoRef.get()).exists) {
+      return { error: 'Contrato já registrado.' }
     }
+
+    const [existe] = await fileRef.exists()
+    if (!existe) {
+      return { error: 'O arquivo não chegou ao servidor. Tente anexar novamente.' }
+    }
+
+    // Metadados vêm da sessão aberta no passo 1 — o navegador não os altera.
+    const [meta] = await fileRef.getMetadata()
+    const size = Number(meta.size)
+    if (meta.metadata?.uploadedBy !== user.uid) {
+      return { error: 'Acesso negado.' }
+    }
+    if (!Number.isFinite(size) || size <= 0 || size > MAX_PDF_SIZE) {
+      await fileRef.delete().catch(() => {})
+      return { error: 'Arquivo excede o limite de 10MB.' }
+    }
+
+    const validacao = await validarVeiculoECategoria(veiculoId, categoriaId)
+    if ('error' in validacao) {
+      await fileRef.delete().catch(() => {})
+      return validacao
+    }
+
+    const contrato: VeiculoContrato = {
+      id: contratoId,
+      veiculoId,
+      fileName: sanitizeFileName(sanitizeString(input.fileName, 500)),
+      descricao,
+      storagePath,
+      contentType: 'application/pdf',
+      size,
+      uploadedByUid: user.uid,
+      uploadedByEmail: user.email,
+      uploadedAt: new Date().toISOString(),
+      enviarJuridico,
+      categoriaId,
+      categoriaNome: validacao.categoriaNome,
+    }
+
+    await contratoRef.set(contrato)
+
+    revalidatePath(`/veiculos/${veiculoId}`)
+    if (enviarJuridico) revalidatePath('/dashboard/juridico')
+    return { success: 'Contrato anexado com sucesso.', contrato }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao anexar contrato.'
-    console.error('Erro ao anexar contrato do veículo:', err)
+    console.error('Erro ao concluir upload de contrato:', err)
     return { error: message }
   }
 }
