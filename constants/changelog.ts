@@ -24,6 +24,19 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-25-galeria-fotos-mobile',
+    date: '2026-09-25',
+    title: 'Galeria de fotos em tela cheia no celular',
+    tag: 'melhoria',
+    items: [
+      'Ao ampliar as fotos de um veículo pelo celular, a foto agora ocupa a tela inteira — antes, fotos em pé ficavam pequenas no meio da tela.',
+      'Deslize para o lado para trocar de foto e para baixo para fechar.',
+      'Miniaturas de todas as fotos na parte de baixo: toque em uma para ir direto até ela.',
+      'Com a foto ampliada (toque nela), arraste o dedo para ver os detalhes.',
+      'Vale para a página do veículo no site e para as fotos do estoque e dos anúncios no painel.',
+    ],
+  },
+  {
     id: '2026-09-25-contrato-upload-direto',
     date: '2026-09-25',
     title: 'Contratos grandes voltam a ser anexados',
