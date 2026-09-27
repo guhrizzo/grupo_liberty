@@ -57,6 +57,11 @@ function parseValor(raw: unknown): number {
  */
 export async function getTransacoes(mes?: string): Promise<Transacao[]> {
   try {
+    await assertAcesso()
+  } catch {
+    return []
+  }
+  try {
     const colecao = adminDb.collection('transacoes')
 
     const consulta = ehMesValido(mes)
@@ -111,6 +116,11 @@ export async function getIntervaloDeMeses(): Promise<{
   primeiro: string | null
   ultimo: string | null
 }> {
+  try {
+    await assertAcesso()
+  } catch {
+    return { primeiro: null, ultimo: null }
+  }
   const mesDaPonta = async (direcao: 'asc' | 'desc') => {
     const snapshot = await adminDb
       .collection('transacoes')

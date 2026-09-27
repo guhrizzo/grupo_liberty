@@ -1,7 +1,7 @@
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { redirect } from 'next/navigation'
 import ContratosClient from './ContratosClient'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import { listarTodosContratosVeiculoAction } from '@/app/veiculos/[id]/actions'
 import { listarCategoriasContrato } from './categorias.actions'
 
@@ -19,7 +19,7 @@ export default async function ContratosPage() {
   }
 
   // Lista veículos para o filtro de busca
-  const veiculosList = await getVehicles()
+  const veiculosList = await listarVeiculos()
   const veiculos = veiculosList.map((v) => ({
     id: v.id,
     marca: v.marca,

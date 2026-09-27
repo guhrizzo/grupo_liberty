@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
+import { listarVeiculos } from '@/utils/veiculos/listar'
 import { getManutencoes } from './actions'
 import ManutencaoClient from './ManutencaoClient'
 
@@ -18,7 +18,7 @@ export default async function ManutencaoPage() {
   }
 
   const [veiculos, initialManutencoes] = await Promise.all([
-    getVehicles(),
+    listarVeiculos(),
     getManutencoes(),
   ])
 

@@ -44,6 +44,11 @@ async function assertAcesso() {
  */
 export async function getProcessos(): Promise<Processo[]> {
   try {
+    await assertAcesso()
+  } catch {
+    return []
+  }
+  try {
     const snapshot = await adminDb
       .collection('processos')
       .orderBy('created_at', 'desc')

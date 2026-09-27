@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { adminDb, adminStorage } from '@/utils/firebase/admin'
-import { assertPageAccess } from '@/utils/permissions'
-import { recalcularCustoEfetivoTotal } from '@/app/dashboard/veiculos/actions'
+import { assertPageAccess, getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { recalcularCustoEfetivoTotal } from '@/utils/veiculos/custo-efetivo'
 import {
   MANUTENCAO_STATUS,
   isManutencaoBaixada,
@@ -68,6 +68,11 @@ function parsePecasConserto(value: unknown): Manutencao['pecasConserto'] {
  * Lista todas as manutenções cadastradas, mais recentes primeiro.
  */
 export async function getManutencoes(): Promise<Manutencao[]> {
+  try {
+    await assertAcesso()
+  } catch {
+    return []
+  }
   try {
     const snapshot = await adminDb
       .collection('manutencoes')
@@ -316,13 +321,15 @@ export async function deleteManutencao(
 
 /**
  * Manutenções **baixadas** de um único veículo, resumidas para compor o
- * "Custo efetivo total" no cadastro de veículo. Leitura sem gate de admin —
- * mesma postura de `getManutencoes`; devolve só tipo e valor.
+ * "Custo efetivo total" no cadastro de veículo. Liberado para quem tem acesso
+ * à aba de veículos ou de manutenção; devolve só tipo e valor.
  */
 export async function listarManutencoesVeiculo(
   veiculoId: string,
 ): Promise<Array<{ id: string; tipo: string; custo: number }>> {
   if (!veiculoId) return []
+  const user = await getSessionUser()
+  if (!hasPageAccess(user, 'veiculos') && !hasPageAccess(user, 'manutencao')) return []
   try {
     const snap = await adminDb
       .collection('manutencoes')
