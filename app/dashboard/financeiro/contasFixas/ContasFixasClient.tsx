@@ -25,7 +25,7 @@ import {
 } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { deleteTransacao } from '../actions'
-import { maskMoneyIntuitivo, moneyFromNumber } from '../money'
+import { maskMoneyIntuitivo, moneyFromNumber, parseMoneyIntuitivo } from '../money'
 import { hojeNoFuso, rotuloMes, type Mes } from '../periodo'
 import {
   createContaFixa,
@@ -164,7 +164,9 @@ export default function ContasFixasClient({
     setValor('')
     setPeriodicidade('mensal')
     setDiaVencimento('')
-    setMesVencimento('')
+    // O Select exibe a primeira opção quando o valor é vazio — começa no mês
+    // em tela para o que aparece ser o que é enviado.
+    setMesVencimento(String(Number(mes.slice(5))))
     setObservacao('')
     setFieldErrors({})
     setFormAberto(true)
@@ -177,7 +179,7 @@ export default function ContasFixasClient({
     setValor(moneyFromNumber(conta.valor))
     setPeriodicidade(conta.periodicidade)
     setDiaVencimento(String(conta.diaVencimento))
-    setMesVencimento(conta.mesVencimento ? String(conta.mesVencimento) : '')
+    setMesVencimento(String(conta.mesVencimento ?? Number(mes.slice(5))))
     setObservacao(conta.observacao ?? '')
     setFieldErrors({})
     setFormAberto(true)
@@ -217,7 +219,9 @@ export default function ContasFixasClient({
     const fd = new FormData()
     fd.set('nome', nome)
     fd.set('categoria', categoria)
-    fd.set('valor', valor)
+    // Envia o número já convertido (como o FinanceiroClient): a máscara exibe
+    // "1.500", que o parser do servidor leria como 1,5.
+    fd.set('valor', String(parseMoneyIntuitivo(valor)))
     fd.set('periodicidade', periodicidade)
     fd.set('diaVencimento', diaVencimento)
     fd.set('mesVencimento', mesVencimento)
@@ -247,7 +251,7 @@ export default function ContasFixasClient({
     e.preventDefault()
     if (!pagando) return
     const fd = new FormData()
-    fd.set('valor', valorPago)
+    fd.set('valor', String(parseMoneyIntuitivo(valorPago)))
     fd.set('data', dataPagamento)
     const ok = await executar(() => marcarContaFixaPaga(pagando.conta.id, mes, fd))
     if (ok) setPagando(null)
@@ -571,7 +575,6 @@ export default function ContasFixasClient({
                 label="Mês do vencimento"
                 value={mesVencimento}
                 onChange={(e) => setMesVencimento(e.target.value)}
-                placeholder="Escolha o mês"
                 error={fieldErrors.mesVencimento}
               >
                 {NOMES_MESES.map((m, i) => (
