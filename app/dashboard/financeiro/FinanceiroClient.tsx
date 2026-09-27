@@ -40,6 +40,8 @@ import {
 } from './money'
 import { createTransacao, updateTransacao, deleteTransacao } from './actions'
 import ComprovanteTransacao from './ComprovanteTransacao'
+import ContasFixasClient from './contasFixas/ContasFixasClient'
+import type { ContaFixa, PagamentoContaFixa } from './contasFixas/types'
 import {
   deslocarMes,
   hojeNoFuso,
@@ -59,12 +61,17 @@ import {
   type TransacaoTipo,
 } from './types'
 
+export type AbaFinanceiro = 'lancamentos' | 'contas-fixas'
+
 export default function FinanceiroClient({
   initialTransacoes,
   mes,
   mesFixadoNaUrl,
   primeiroMes,
   ultimoMes,
+  aba,
+  contasFixas,
+  pagamentosContasFixas,
 }: {
   initialTransacoes: Transacao[]
   /** Mês exibido (`YYYY-MM`). */
@@ -73,6 +80,10 @@ export default function FinanceiroClient({
   mesFixadoNaUrl: boolean
   primeiroMes: string | null
   ultimoMes: string | null
+  aba: AbaFinanceiro
+  /** Só carregadas quando a aba Contas fixas está ativa. */
+  contasFixas: ContaFixa[]
+  pagamentosContasFixas: PagamentoContaFixa[]
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -154,15 +165,29 @@ export default function FinanceiroClient({
   const temMesAnterior = mesesDisponiveis.includes(deslocarMes(mes, -1))
   const temMesSeguinte = mesesDisponiveis.includes(deslocarMes(mes, 1))
 
+  /**
+   * Monta a URL do Financeiro para um mês/aba. Sem `mes` quando é o mês
+   * corrente: assim a página volta a seguir o relógio e a virada automática do
+   * dia 1 volta a valer. Sem `aba` quando é Lançamentos (a aba padrão).
+   */
+  function urlDoFinanceiro(destino: { mes: Mes; aba: AbaFinanceiro }) {
+    const params = new URLSearchParams()
+    if (destino.mes !== mesCorrente) params.set('mes', destino.mes)
+    if (destino.aba !== 'lancamentos') params.set('aba', destino.aba)
+    const query = params.toString()
+    return query ? `/dashboard/financeiro?${query}` : '/dashboard/financeiro'
+  }
+
   function irParaMes(destino: Mes) {
     iniciarNavegacao(() => {
-      // Sem query quando é o mês corrente: assim a página volta a seguir o
-      // relógio e a virada automática do dia 1 volta a valer.
-      router.push(
-        destino === mesCorrente
-          ? '/dashboard/financeiro'
-          : `/dashboard/financeiro?mes=${destino}`,
-      )
+      router.push(urlDoFinanceiro({ mes: destino, aba }))
+    })
+  }
+
+  function irParaAba(destino: AbaFinanceiro) {
+    if (destino === aba) return
+    iniciarNavegacao(() => {
+      router.push(urlDoFinanceiro({ mes, aba: destino }))
     })
   }
 
@@ -348,6 +373,7 @@ export default function FinanceiroClient({
           </p>
         </div>
 
+        {aba === 'lancamentos' && (
         <button
           onClick={openCreate}
           disabled={navegando}
@@ -356,6 +382,37 @@ export default function FinanceiroClient({
           <IconPlus size={16} stroke={2.5} />
           Novo Lançamento
         </button>
+        )}
+      </div>
+
+      {/* Abas do Financeiro */}
+      <div
+        role="tablist"
+        aria-label="Seções do Financeiro"
+        className="inline-flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2"
+      >
+        {(
+          [
+            ['lancamentos', 'Lançamentos'],
+            ['contas-fixas', 'Contas fixas'],
+          ] as const
+        ).map(([valor, rotulo]) => (
+          <button
+            key={valor}
+            type="button"
+            role="tab"
+            aria-selected={aba === valor}
+            onClick={() => irParaAba(valor)}
+            disabled={navegando}
+            className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors cursor-pointer disabled:cursor-wait ${
+              aba === valor
+                ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
+            }`}
+          >
+            {rotulo}
+          </button>
+        ))}
       </div>
 
       {/* Seletor de período — tudo abaixo daqui é escopado neste mês. */}
@@ -425,10 +482,21 @@ export default function FinanceiroClient({
         <span className="ml-auto text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">
           {navegando
             ? 'Carregando…'
-            : `${transacoes.length} ${transacoes.length === 1 ? 'lançamento' : 'lançamentos'} em ${rotuloMesCurto(mes)}`}
+            : aba === 'lancamentos'
+              ? `${transacoes.length} ${transacoes.length === 1 ? 'lançamento' : 'lançamentos'} em ${rotuloMesCurto(mes)}`
+              : `Contas fixas de ${rotuloMesCurto(mes)}`}
         </span>
       </div>
 
+      {aba === 'contas-fixas' ? (
+        <ContasFixasClient
+          contas={contasFixas}
+          pagamentos={pagamentosContasFixas}
+          mes={mes}
+          navegando={navegando}
+        />
+      ) : (
+      <>
       {/* Cards de Métricas — todos referentes ao mês selecionado */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
@@ -632,6 +700,8 @@ export default function FinanceiroClient({
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Modal Criar / Editar */}
       {showModal && (

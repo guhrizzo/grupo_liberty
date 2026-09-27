@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import type { DocumentData } from 'firebase-admin/firestore'
 import { adminDb } from '@/utils/firebase/admin'
 import { assertPageAccess } from '@/utils/permissions'
 import { ehMesValido, mesAtual, rotuloMesCurto } from '../periodo'
@@ -34,6 +35,10 @@ function parseValor(raw: unknown): number {
     s = s.replace(',', '.')
   }
   return parseFloat(s)
+}
+
+function mensagemDeErro(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 function texto(formData: FormData, campo: string): string {
@@ -73,7 +78,7 @@ function validarConta(formData: FormData) {
   }
 }
 
-function paraContaFixa(id: string, data: any): ContaFixa {
+function paraContaFixa(id: string, data: DocumentData | undefined = {}): ContaFixa {
   return {
     id,
     nome: data.nome || '',
@@ -98,7 +103,7 @@ export async function getContasFixas(): Promise<ContaFixa[]> {
   try {
     await assertAcesso()
     const snapshot = await adminDb.collection(COLECAO).orderBy('nome').get()
-    return snapshot.docs.map((doc: any) => paraContaFixa(doc.id, doc.data()))
+    return snapshot.docs.map((doc) => paraContaFixa(doc.id, doc.data()))
   } catch (error) {
     console.error('Erro ao buscar contas fixas:', error)
     return []
@@ -122,9 +127,9 @@ export async function getPagamentosContasFixas(
     )
     const docs = await adminDb.getAll(...refs)
     const pagamentos: PagamentoContaFixa[] = []
-    docs.forEach((doc: any, i: number) => {
+    docs.forEach((doc, i) => {
       if (!doc.exists) return
-      const data = doc.data()
+      const data = doc.data() ?? {}
       pagamentos.push({
         contaId: contaIds[i],
         transacaoId: doc.id,
@@ -142,11 +147,11 @@ export async function getPagamentosContasFixas(
 // ─── Cadastro ────────────────────────────────────────────────────────────────
 
 export async function createContaFixa(formData: FormData): Promise<ContaFixaResponse> {
-  let user: any
+  let user: Awaited<ReturnType<typeof assertAcesso>>
   try {
     user = await assertAcesso()
-  } catch (err: any) {
-    return { error: err.message }
+  } catch (err) {
+    return { error: mensagemDeErro(err) }
   }
 
   const { dados, fieldErrors } = validarConta(formData)
@@ -166,16 +171,16 @@ export async function createContaFixa(formData: FormData): Promise<ContaFixaResp
     })
     revalidatePath('/dashboard/financeiro')
     return { success: 'Conta fixa cadastrada!' }
-  } catch (error: any) {
-    return { error: `Erro ao cadastrar conta fixa: ${error.message}` }
+  } catch (error) {
+    return { error: `Erro ao cadastrar conta fixa: ${mensagemDeErro(error)}` }
   }
 }
 
 export async function updateContaFixa(id: string, formData: FormData): Promise<ContaFixaResponse> {
   try {
     await assertAcesso()
-  } catch (err: any) {
-    return { error: err.message }
+  } catch (err) {
+    return { error: mensagemDeErro(err) }
   }
   if (!id) return { error: 'ID inválido.' }
 
@@ -191,16 +196,16 @@ export async function updateContaFixa(id: string, formData: FormData): Promise<C
     await ref.update({ ...dados, updated_at: new Date().toISOString() })
     revalidatePath('/dashboard/financeiro')
     return { success: 'Conta fixa atualizada!' }
-  } catch (error: any) {
-    return { error: `Erro ao atualizar conta fixa: ${error.message}` }
+  } catch (error) {
+    return { error: `Erro ao atualizar conta fixa: ${mensagemDeErro(error)}` }
   }
 }
 
 export async function setContaFixaAtiva(id: string, ativa: boolean): Promise<ContaFixaResponse> {
   try {
     await assertAcesso()
-  } catch (err: any) {
-    return { error: err.message }
+  } catch (err) {
+    return { error: mensagemDeErro(err) }
   }
   if (!id) return { error: 'ID inválido.' }
 
@@ -211,8 +216,8 @@ export async function setContaFixaAtiva(id: string, ativa: boolean): Promise<Con
     await ref.update({ ativa, updated_at: new Date().toISOString() })
     revalidatePath('/dashboard/financeiro')
     return { success: ativa ? 'Conta fixa reativada!' : 'Conta fixa desativada!' }
-  } catch (error: any) {
-    return { error: `Erro ao atualizar conta fixa: ${error.message}` }
+  } catch (error) {
+    return { error: `Erro ao atualizar conta fixa: ${mensagemDeErro(error)}` }
   }
 }
 
@@ -220,8 +225,8 @@ export async function setContaFixaAtiva(id: string, ativa: boolean): Promise<Con
 export async function deleteContaFixa(id: string): Promise<ContaFixaResponse> {
   try {
     await assertAcesso()
-  } catch (err: any) {
-    return { error: err.message }
+  } catch (err) {
+    return { error: mensagemDeErro(err) }
   }
   if (!id) return { error: 'ID inválido.' }
 
@@ -229,8 +234,8 @@ export async function deleteContaFixa(id: string): Promise<ContaFixaResponse> {
     await adminDb.collection(COLECAO).doc(id).delete()
     revalidatePath('/dashboard/financeiro')
     return { success: 'Conta fixa removida!' }
-  } catch (error: any) {
-    return { error: `Erro ao remover conta fixa: ${error.message}` }
+  } catch (error) {
+    return { error: `Erro ao remover conta fixa: ${mensagemDeErro(error)}` }
   }
 }
 
@@ -246,11 +251,11 @@ export async function marcarContaFixaPaga(
   mes: string,
   formData: FormData,
 ): Promise<ContaFixaResponse> {
-  let user: any
+  let user: Awaited<ReturnType<typeof assertAcesso>>
   try {
     user = await assertAcesso()
-  } catch (err: any) {
-    return { error: err.message }
+  } catch (err) {
+    return { error: mensagemDeErro(err) }
   }
   if (!contaId || !ehMesValido(mes)) return { error: 'Conta ou mês inválido.' }
 
@@ -290,12 +295,13 @@ export async function marcarContaFixaPaga(
 
     revalidatePath('/dashboard/financeiro')
     return { success: 'Conta marcada como paga e lançada no Financeiro!' }
-  } catch (error: any) {
+  } catch (error) {
     // 6 = ALREADY_EXISTS (gRPC) — o lançamento deste mês já existe.
-    if (error?.code === 6 || error?.code === 'already-exists') {
+    const code = (error as { code?: unknown } | null)?.code
+    if (code === 6 || code === 'already-exists') {
       revalidatePath('/dashboard/financeiro')
       return { error: 'Esta conta já foi marcada como paga neste mês.' }
     }
-    return { error: `Erro ao marcar conta como paga: ${error.message}` }
+    return { error: `Erro ao marcar conta como paga: ${mensagemDeErro(error)}` }
   }
 }
