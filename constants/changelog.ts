@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-27-contas-fixas',
+    date: '2026-09-27',
+    title: 'Contas fixas no Financeiro',
+    tag: 'novo',
+    items: [
+      'Nova aba "Contas fixas" dentro do Financeiro para cadastrar aluguel, luz, internet e outras contas que se repetem (mensais ou anuais).',
+      'Veja no mês o que já foi pago, o que vence hoje e o que está vencido.',
+      'Ao marcar uma conta como paga, a despesa entra automaticamente nos lançamentos do mês.',
+    ],
+  },
+  {
     id: '2026-09-25-galeria-fotos-mobile',
     date: '2026-09-25',
     title: 'Galeria de fotos em tela cheia no celular',
