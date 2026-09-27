@@ -85,6 +85,8 @@ export async function getTransacoes(mes?: string): Promise<Transacao[]> {
         origemPagamentoId: data.origemPagamentoId ?? null,
         origemCobrancaId: data.origemCobrancaId ?? null,
         origemParcelaId: data.origemParcelaId ?? null,
+        origemContaFixaId: data.origemContaFixaId ?? null,
+        competencia: data.competencia ?? null,
         comprovante: data.comprovante ?? null,
       })
     })

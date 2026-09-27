@@ -12,6 +12,7 @@ export type TransacaoCategoria =
   | 'Manutenção'
   | 'Documentação'
   | 'Serviço Legal'
+  | 'Conta Fixa'
   | 'Outros'
 
 export const TRANSACAO_CATEGORIAS: TransacaoCategoria[] = [
@@ -20,6 +21,7 @@ export const TRANSACAO_CATEGORIAS: TransacaoCategoria[] = [
   'Manutenção',
   'Documentação',
   'Serviço Legal',
+  'Conta Fixa',
   'Outros',
 ]
 
@@ -54,6 +56,11 @@ export interface Transacao {
   origemPagamentoId?: string | null
   origemCobrancaId?: string | null
   origemParcelaId?: string | null
+  // Vínculo com uma conta fixa (lançamento criado ao marcar a conta como paga
+  // na aba Contas fixas). `competencia` é o mês de referência da conta
+  // (`YYYY-MM`), que pode diferir do mês de `data` (conta paga em atraso).
+  origemContaFixaId?: string | null
+  competencia?: string | null
   // Comprovante (nota fiscal/recibo) anexado — null/undefined = nenhum ainda.
   comprovante?: TransacaoComprovante | null
 }
