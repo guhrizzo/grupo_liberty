@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-27-contas-fixas-nao-pagas',
+    date: '2026-09-27',
+    title: 'Contas fixas não pagas em destaque',
+    tag: 'melhoria',
+    items: [
+      'Contas fixas vencidas e não pagas aparecem em vermelho no topo do Financeiro — nas abas "Lançamentos" e "Contas fixas" —, em qualquer mês que você estiver vendo.',
+      'Dá para marcar como paga direto dali — a conta some do aviso assim que é paga.',
+    ],
+  },
+  {
     id: '2026-09-27-contas-fixas',
     date: '2026-09-27',
     title: 'Contas fixas no Financeiro',

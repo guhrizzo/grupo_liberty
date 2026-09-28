@@ -41,7 +41,8 @@ import {
 import { createTransacao, updateTransacao, deleteTransacao } from './actions'
 import ComprovanteTransacao from './ComprovanteTransacao'
 import ContasFixasClient from './contasFixas/ContasFixasClient'
-import type { ContaFixa, PagamentoContaFixa } from './contasFixas/types'
+import ContasNaoPagas from './contasFixas/ContasNaoPagas'
+import type { ContaFixa, ContaFixaPendente, PagamentoContaFixa } from './contasFixas/types'
 import {
   deslocarMes,
   hojeNoFuso,
@@ -72,6 +73,7 @@ export default function FinanceiroClient({
   aba,
   contasFixas,
   pagamentosContasFixas,
+  pendenciasContasFixas,
 }: {
   initialTransacoes: Transacao[]
   /** Mês exibido (`YYYY-MM`). */
@@ -84,6 +86,8 @@ export default function FinanceiroClient({
   /** Só carregadas quando a aba Contas fixas está ativa. */
   contasFixas: ContaFixa[]
   pagamentosContasFixas: PagamentoContaFixa[]
+  /** Carregadas nas duas abas: o aviso de não pagas aparece em ambas. */
+  pendenciasContasFixas: ContaFixaPendente[]
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -492,11 +496,14 @@ export default function FinanceiroClient({
         <ContasFixasClient
           contas={contasFixas}
           pagamentos={pagamentosContasFixas}
+          pendencias={pendenciasContasFixas}
           mes={mes}
           navegando={navegando}
         />
       ) : (
       <>
+      <ContasNaoPagas pendencias={pendenciasContasFixas} navegando={navegando} />
+
       {/* Cards de Métricas — todos referentes ao mês selecionado */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">

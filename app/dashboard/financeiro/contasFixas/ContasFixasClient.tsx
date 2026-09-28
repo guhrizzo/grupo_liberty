@@ -30,14 +30,15 @@ import { hojeNoFuso, rotuloMes, type Mes } from '../periodo'
 import {
   createContaFixa,
   deleteContaFixa,
-  marcarContaFixaPaga,
   setContaFixaAtiva,
   updateContaFixa,
 } from './actions'
+import ContasNaoPagas, { ModalPagamentoContaFixa, type AlvoPagamento } from './ContasNaoPagas'
 import { contasDoMes, type ItemContaDoMes } from './regras'
 import type {
   ContaFixa,
   ContaFixaFieldErrors,
+  ContaFixaPendente,
   ContaFixaPeriodicidade,
   ContaFixaResponse,
   ContaFixaStatus,
@@ -111,11 +112,13 @@ const BOTAO_ICONE =
 export default function ContasFixasClient({
   contas,
   pagamentos,
+  pendencias,
   mes,
   navegando,
 }: {
   contas: ContaFixa[]
   pagamentos: PagamentoContaFixa[]
+  pendencias: ContaFixaPendente[]
   mes: Mes
   navegando: boolean
 }) {
@@ -236,26 +239,7 @@ export default function ContasFixasClient({
   }
 
   // ─── Marcar como paga ─────────────────────────────────────────────────────
-  const [pagando, setPagando] = useState<ItemContaDoMes | null>(null)
-  const [valorPago, setValorPago] = useState('')
-  const [dataPagamento, setDataPagamento] = useState('')
-
-  function abrirPagamento(item: ItemContaDoMes) {
-    setPagando(item)
-    setValorPago(moneyFromNumber(item.conta.valor))
-    setDataPagamento(hojeNoFuso())
-    setFieldErrors({})
-  }
-
-  async function confirmarPagamento(e: React.FormEvent) {
-    e.preventDefault()
-    if (!pagando) return
-    const fd = new FormData()
-    fd.set('valor', String(parseMoneyIntuitivo(valorPago)))
-    fd.set('data', dataPagamento)
-    const ok = await executar(() => marcarContaFixaPaga(pagando.conta.id, mes, fd))
-    if (ok) setPagando(null)
-  }
+  const [pagando, setPagando] = useState<AlvoPagamento | null>(null)
 
   // ─── Desfazer pagamento / excluir / ativar ────────────────────────────────
   const [desfazendo, setDesfazendo] = useState<ItemContaDoMes | null>(null)
@@ -282,6 +266,8 @@ export default function ContasFixasClient({
 
   return (
     <div className="space-y-6">
+      <ContasNaoPagas pendencias={pendencias} navegando={navegando} />
+
       {/* Cards do mês */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className={CARD}>
@@ -370,7 +356,9 @@ export default function ContasFixasClient({
             {itens.map((item) => (
               <li
                 key={item.conta.id}
-                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between ${
+                  item.status === 'vencida' ? 'bg-rose-50 adobe-dark:bg-rose-500/10' : ''
+                }`}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -404,7 +392,7 @@ export default function ContasFixasClient({
                       size="sm"
                       disabled={ocupado}
                       leftIcon={<IconCircleCheck size={16} />}
-                      onClick={() => abrirPagamento(item)}
+                      onClick={() => setPagando({ ...item, mes })}
                     >
                       Marcar como paga
                     </Button>
@@ -611,49 +599,7 @@ export default function ContasFixasClient({
         </form>
       </Modal>
 
-      {/* Modal: marcar como paga */}
-      <Modal
-        open={!!pagando}
-        onClose={() => !submitting && setPagando(null)}
-        title={pagando ? `Pagar ${pagando.conta.nome}` : ''}
-        description={
-          pagando
-            ? `Referente a ${rotuloMes(mes)} · vence ${dataBR(pagando.vencimento)}. A despesa entra no Financeiro na data do pagamento.`
-            : undefined
-        }
-      >
-        <form onSubmit={confirmarPagamento} className="mt-4 space-y-5">
-          <Input
-            label="Valor pago (R$)"
-            value={valorPago}
-            onChange={(e) => setValorPago(maskMoneyIntuitivo(e.target.value))}
-            inputMode="decimal"
-            error={fieldErrors.valor}
-            required
-          />
-          <Input
-            label="Data do pagamento"
-            type="date"
-            value={dataPagamento}
-            onChange={(e) => setDataPagamento(e.target.value)}
-            error={fieldErrors.data}
-            required
-          />
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setPagando(null)}
-              disabled={submitting}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" variant="liberty" loading={submitting}>
-              Confirmar pagamento
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <ModalPagamentoContaFixa alvo={pagando} onClose={() => setPagando(null)} />
 
       <ConfirmDialog
         open={!!desfazendo}

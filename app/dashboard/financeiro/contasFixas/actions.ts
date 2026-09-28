@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache'
 import type { DocumentData } from 'firebase-admin/firestore'
 import { adminDb } from '@/utils/firebase/admin'
 import { assertPageAccess } from '@/utils/permissions'
-import { ehMesValido, mesAtual, rotuloMesCurto } from '../periodo'
-import { idLancamentoContaFixa } from './regras'
+import { ehMesValido, hojeNoFuso, mesAtual, rotuloMesCurto } from '../periodo'
+import { competenciasVencidas, idLancamentoContaFixa, ordenarPendencias, vencimentoNoMes } from './regras'
 import type {
   ContaFixa,
   ContaFixaFieldErrors,
+  ContaFixaPendente,
   ContaFixaPeriodicidade,
   ContaFixaResponse,
   PagamentoContaFixa,
@@ -140,6 +141,38 @@ export async function getPagamentosContasFixas(
     return pagamentos
   } catch (error) {
     console.error('Erro ao buscar pagamentos de contas fixas:', error)
+    return []
+  }
+}
+
+/**
+ * Contas vencidas e não pagas em qualquer mês (até `MESES_PENDENCIA` para
+ * trás). Relê as contas no servidor em vez de confiar em dados do cliente; o
+ * pagamento de cada competência é o lançamento de ID determinístico.
+ */
+export async function getContasFixasPendentes(): Promise<ContaFixaPendente[]> {
+  try {
+    await assertAcesso()
+    const hoje = hojeNoFuso()
+    const snapshot = await adminDb.collection(COLECAO).get()
+    const candidatas = snapshot.docs.flatMap((doc) => {
+      const conta = paraContaFixa(doc.id, doc.data())
+      return competenciasVencidas(conta, hoje).map((mes) => ({
+        conta,
+        mes,
+        vencimento: vencimentoNoMes(conta, mes),
+      }))
+    })
+    if (candidatas.length === 0) return []
+
+    const docs = await adminDb.getAll(
+      ...candidatas.map((c) =>
+        adminDb.collection('transacoes').doc(idLancamentoContaFixa(c.conta.id, c.mes)),
+      ),
+    )
+    return ordenarPendencias(candidatas.filter((_, i) => !docs[i].exists))
+  } catch (error) {
+    console.error('Erro ao buscar contas fixas pendentes:', error)
     return []
   }
 }

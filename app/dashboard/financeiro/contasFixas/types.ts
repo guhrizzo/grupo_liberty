@@ -33,6 +33,15 @@ export interface PagamentoContaFixa {
   data: string
 }
 
+/** Conta vencida e não paga numa competência (qualquer mês, não só o em tela). */
+export interface ContaFixaPendente {
+  conta: ContaFixa
+  /** Competência (`YYYY-MM`) em aberto. */
+  mes: string
+  /** `YYYY-MM-DD` do vencimento nessa competência. */
+  vencimento: string
+}
+
 export type ContaFixaStatus = 'paga' | 'a_vencer' | 'vence_hoje' | 'vencida'
 
 export type ContaFixaFieldErrors = {
