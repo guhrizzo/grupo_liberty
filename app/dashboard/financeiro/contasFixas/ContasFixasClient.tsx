@@ -38,6 +38,7 @@ import { contasDoMes, type ItemContaDoMes } from './regras'
 import type {
   ContaFixa,
   ContaFixaFieldErrors,
+  ContaFixaPendente,
   ContaFixaPeriodicidade,
   ContaFixaResponse,
   ContaFixaStatus,
@@ -100,6 +101,9 @@ function Selo({ status }: { status: ContaFixaStatus }) {
   )
 }
 
+/** Conta + competência a pagar — do mês em tela ou de uma pendência de outro mês. */
+type AlvoPagamento = Pick<ContaFixaPendente, 'conta' | 'mes' | 'vencimento'>
+
 const CARD =
   'rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
 const CARD_ROTULO =
@@ -111,11 +115,13 @@ const BOTAO_ICONE =
 export default function ContasFixasClient({
   contas,
   pagamentos,
+  pendencias,
   mes,
   navegando,
 }: {
   contas: ContaFixa[]
   pagamentos: PagamentoContaFixa[]
+  pendencias: ContaFixaPendente[]
   mes: Mes
   navegando: boolean
 }) {
@@ -145,6 +151,7 @@ export default function ContasFixasClient({
 
   const qtdAbertas = itens.filter((i) => !i.pagamento).length
   const qtdVencidas = itens.filter((i) => i.status === 'vencida').length
+  const totalPendente = pendencias.reduce((soma, p) => soma + p.conta.valor, 0)
 
   // ─── Formulário de conta ──────────────────────────────────────────────────
   const [formAberto, setFormAberto] = useState(false)
@@ -236,13 +243,13 @@ export default function ContasFixasClient({
   }
 
   // ─── Marcar como paga ─────────────────────────────────────────────────────
-  const [pagando, setPagando] = useState<ItemContaDoMes | null>(null)
+  const [pagando, setPagando] = useState<AlvoPagamento | null>(null)
   const [valorPago, setValorPago] = useState('')
   const [dataPagamento, setDataPagamento] = useState('')
 
-  function abrirPagamento(item: ItemContaDoMes) {
-    setPagando(item)
-    setValorPago(moneyFromNumber(item.conta.valor))
+  function abrirPagamento(alvo: AlvoPagamento) {
+    setPagando(alvo)
+    setValorPago(moneyFromNumber(alvo.conta.valor))
     setDataPagamento(hojeNoFuso())
     setFieldErrors({})
   }
@@ -253,7 +260,7 @@ export default function ContasFixasClient({
     const fd = new FormData()
     fd.set('valor', String(parseMoneyIntuitivo(valorPago)))
     fd.set('data', dataPagamento)
-    const ok = await executar(() => marcarContaFixaPaga(pagando.conta.id, mes, fd))
+    const ok = await executar(() => marcarContaFixaPaga(pagando.conta.id, pagando.mes, fd))
     if (ok) setPagando(null)
   }
 
@@ -282,6 +289,64 @@ export default function ContasFixasClient({
 
   return (
     <div className="space-y-6">
+      {/* Não pagas — de qualquer mês, ficam aqui até serem pagas */}
+      {pendencias.length > 0 && (
+        <div className="rounded-2xl border border-rose-300 bg-rose-50 shadow-xs overflow-hidden adobe-dark:border-rose-500/40 adobe-dark:bg-rose-500/10">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-rose-200 p-6 adobe-dark:border-rose-500/30">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 shrink-0 rounded-xl bg-rose-600 text-white flex items-center justify-center">
+                <IconAlertTriangle size={20} stroke={2} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-rose-700 adobe-dark:text-rose-300">
+                  {pendencias.length === 1 ? 'Conta não paga' : `${pendencias.length} contas não pagas`}
+                </h3>
+                <p className="text-xs text-rose-600 mt-0.5 adobe-dark:text-rose-300/80">
+                  Vencidas e ainda sem pagamento, de qualquer mês. Somem daqui quando forem pagas.
+                </p>
+              </div>
+            </div>
+            <span className="text-lg font-black text-rose-700 adobe-dark:text-rose-300">
+              {formatCurrency(totalPendente)}
+            </span>
+          </div>
+          <ul className="divide-y divide-rose-200 adobe-dark:divide-rose-500/30">
+            {pendencias.map((p) => (
+              <li
+                key={`${p.conta.id}_${p.mes}`}
+                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-sm text-rose-800 adobe-dark:text-rose-200">
+                      {p.conta.nome}
+                    </span>
+                    <Selo status="vencida" />
+                  </div>
+                  <p className="mt-1 text-xs text-rose-600 adobe-dark:text-rose-300/80">
+                    Referente a {rotuloMes(p.mes)} · venceu {dataBR(p.vencimento)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between gap-4 sm:justify-end">
+                  <span className="text-sm font-black text-rose-700 adobe-dark:text-rose-300">
+                    {formatCurrency(p.conta.valor)}
+                  </span>
+                  <Button
+                    variant="liberty"
+                    size="sm"
+                    disabled={ocupado}
+                    leftIcon={<IconCircleCheck size={16} />}
+                    onClick={() => abrirPagamento(p)}
+                  >
+                    Marcar como paga
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Cards do mês */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className={CARD}>
@@ -370,7 +435,9 @@ export default function ContasFixasClient({
             {itens.map((item) => (
               <li
                 key={item.conta.id}
-                className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between ${
+                  item.status === 'vencida' ? 'bg-rose-50 adobe-dark:bg-rose-500/10' : ''
+                }`}
               >
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
@@ -404,7 +471,7 @@ export default function ContasFixasClient({
                       size="sm"
                       disabled={ocupado}
                       leftIcon={<IconCircleCheck size={16} />}
-                      onClick={() => abrirPagamento(item)}
+                      onClick={() => abrirPagamento({ ...item, mes })}
                     >
                       Marcar como paga
                     </Button>
@@ -618,7 +685,7 @@ export default function ContasFixasClient({
         title={pagando ? `Pagar ${pagando.conta.nome}` : ''}
         description={
           pagando
-            ? `Referente a ${rotuloMes(mes)} · vence ${dataBR(pagando.vencimento)}. A despesa entra no Financeiro na data do pagamento.`
+            ? `Referente a ${rotuloMes(pagando.mes)} · vence ${dataBR(pagando.vencimento)}. A despesa entra no Financeiro na data do pagamento.`
             : undefined
         }
       >

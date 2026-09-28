@@ -2,8 +2,8 @@
 // Funções puras, usadas no servidor (leitura dos pagamentos) e no cliente
 // (montagem da lista do mês).
 
-import { intervaloDoMes, type Mes } from '../periodo'
-import type { ContaFixa, ContaFixaStatus, PagamentoContaFixa } from './types'
+import { deslocarMes, intervaloDoMes, type Mes } from '../periodo'
+import type { ContaFixa, ContaFixaPendente, ContaFixaStatus, PagamentoContaFixa } from './types'
 
 /**
  * ID do lançamento em `transacoes` que representa o pagamento de uma conta num
@@ -71,4 +71,31 @@ export function contasDoMes(
       if (pa !== pb) return pa - pb
       return a.vencimento.localeCompare(b.vencimento) || a.conta.nome.localeCompare(b.conta.nome)
     })
+}
+
+/** Quantos meses para trás procurar contas não pagas. */
+export const MESES_PENDENCIA = 24
+
+/**
+ * Competências em que a conta já venceu (vencimento antes de `hoje`) — candidatas
+ * a pendência, sem olhar pagamento. Vai do mês de cadastro (limitado a
+ * `MESES_PENDENCIA` meses atrás) até o mês de `hoje`.
+ */
+export function competenciasVencidas(conta: ContaFixa, hoje: string): Mes[] {
+  const mesHoje = hoje.slice(0, 7)
+  const limite = deslocarMes(mesHoje, -(MESES_PENDENCIA - 1))
+  let mes = conta.mesInicio > limite ? conta.mesInicio : limite
+  const meses: Mes[] = []
+  while (mes <= mesHoje) {
+    if (contaVenceNoMes(conta, mes) && vencimentoNoMes(conta, mes) < hoje) meses.push(mes)
+    mes = deslocarMes(mes, 1)
+  }
+  return meses
+}
+
+/** Pendências por vencimento (mais antiga primeiro). */
+export function ordenarPendencias(pendencias: ContaFixaPendente[]): ContaFixaPendente[] {
+  return [...pendencias].sort(
+    (a, b) => a.vencimento.localeCompare(b.vencimento) || a.conta.nome.localeCompare(b.conta.nome),
+  )
 }

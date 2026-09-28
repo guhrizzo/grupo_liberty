@@ -2,7 +2,11 @@ import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getTransacoes, getIntervaloDeMeses } from './actions'
 import { ehMesValido, mesAtual } from './periodo'
-import { getContasFixas, getPagamentosContasFixas } from './contasFixas/actions'
+import {
+  getContasFixas,
+  getContasFixasPendentes,
+  getPagamentosContasFixas,
+} from './contasFixas/actions'
 import FinanceiroClient, { type AbaFinanceiro } from './FinanceiroClient'
 
 export const metadata = {
@@ -35,10 +39,11 @@ export default async function FinanceiroPage({
   const mes = mesFixadoNaUrl ? mesBruto : mesAtual()
 
   // Transações e intervalo sempre: o seletor de mês depende deles nas duas abas.
-  const [transacoes, intervalo, contasFixas] = await Promise.all([
+  const [transacoes, intervalo, contasFixas, pendenciasContasFixas] = await Promise.all([
     getTransacoes(mes),
     getIntervaloDeMeses(),
     aba === 'contas-fixas' ? getContasFixas() : Promise.resolve([]),
+    aba === 'contas-fixas' ? getContasFixasPendentes() : Promise.resolve([]),
   ])
   const pagamentosContasFixas =
     aba === 'contas-fixas'
@@ -58,6 +63,7 @@ export default async function FinanceiroPage({
       aba={aba}
       contasFixas={contasFixas}
       pagamentosContasFixas={pagamentosContasFixas}
+      pendenciasContasFixas={pendenciasContasFixas}
     />
   )
 }
