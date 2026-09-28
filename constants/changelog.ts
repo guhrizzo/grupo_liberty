@@ -29,7 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Contas fixas não pagas em destaque',
     tag: 'melhoria',
     items: [
-      'Contas fixas vencidas e não pagas aparecem em vermelho no topo da aba "Contas fixas", em qualquer mês que você estiver vendo.',
+      'Contas fixas vencidas e não pagas aparecem em vermelho no topo do Financeiro — nas abas "Lançamentos" e "Contas fixas" —, em qualquer mês que você estiver vendo.',
       'Dá para marcar como paga direto dali — a conta some do aviso assim que é paga.',
     ],
   },

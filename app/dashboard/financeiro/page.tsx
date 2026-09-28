@@ -43,7 +43,7 @@ export default async function FinanceiroPage({
     getTransacoes(mes),
     getIntervaloDeMeses(),
     aba === 'contas-fixas' ? getContasFixas() : Promise.resolve([]),
-    aba === 'contas-fixas' ? getContasFixasPendentes() : Promise.resolve([]),
+    getContasFixasPendentes(),
   ])
   const pagamentosContasFixas =
     aba === 'contas-fixas'
