@@ -135,3 +135,6 @@ export type ProspeccaoResponse = {
   error?: string
   prospeccao?: Prospeccao
 }
+
+/** Abas da página do Jurídico (?aba=). */
+export type AbaJuridico = 'processos' | 'prospeccao'
