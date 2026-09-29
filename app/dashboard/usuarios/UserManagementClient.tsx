@@ -37,6 +37,7 @@ const PERMISSION_TABS = [
   { key: 'financeiro',    label: 'Financeiro' },
   { key: 'cobrancas',     label: 'Cobranças' },
   { key: 'juridico',      label: 'Jurídico' },
+  { key: 'leads',         label: 'Leads' },
   { key: 'manutencao',    label: 'Manutenção' },
   { key: 'usuarios',      label: 'Usuários' },
   { key: 'analytics',     label: 'Visitantes' },
@@ -312,6 +313,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                   onChange={(e) => setRole(e.target.value)}
                 >
                   <option value="vendedor">Vendedor</option>
+                  <option value="vendedor_externo">Vendedor externo</option>
                   <option value="advogado">Advogado</option>
                   <option value="suporte">Suporte</option>
                   <option value="admin" disabled={!isAdmin}>Administrador</option>
@@ -394,6 +396,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                     <option value="all">Todos os perfis</option>
                     <option value="admin">Administrador</option>
                     <option value="vendedor">Vendedor</option>
+                    <option value="vendedor_externo">Vendedor externo</option>
                     <option value="advogado">Advogado</option>
                     <option value="suporte">Suporte</option>
                   </Select>
@@ -443,6 +446,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               >
                                 <option value="admin" disabled={!isAdmin}>Administrador</option>
                                 <option value="vendedor">Vendedor</option>
+                                <option value="vendedor_externo">Vendedor externo</option>
                                 <option value="advogado">Advogado</option>
                                 <option value="suporte">Suporte</option>
                               </Select>
@@ -517,6 +521,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                 >
                                   <option value="admin" disabled={!isAdmin}>Administrador</option>
                                   <option value="vendedor">Vendedor</option>
+                                  <option value="vendedor_externo">Vendedor externo</option>
                                   <option value="advogado">Advogado</option>
                                   <option value="suporte">Suporte</option>
                                 </Select>

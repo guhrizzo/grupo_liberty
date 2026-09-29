@@ -14,7 +14,7 @@ export type CreateUserResponse = {
   }
 }
 
-const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin']
+const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'admin']
 
 /** Quem tem acesso à aba `usuarios` pode fazer o CRUD dela. */
 async function assertAcesso(): Promise<SessionUser> {

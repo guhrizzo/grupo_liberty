@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
-import { assertPageAccess } from '@/utils/permissions'
+import { assertAlgumaAba } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { normalizarProspeccao } from './prospeccao-parse'
 import { emailValido } from './prospeccao-proposta'
@@ -13,6 +13,17 @@ import type { Prospeccao, ProspeccaoInput, ProspeccaoResponse } from './types'
 // como o CPF dos processos (ver actions.ts).
 
 const COLLECTION = 'juridico_prospeccao'
+
+// Os mesmos registros aparecem no Jurídico (sub-aba Prospecção) e na aba
+// Leads: quem tem acesso a qualquer uma das duas faz o CRUD.
+function assertAcesso() {
+  return assertAlgumaAba(['juridico', 'leads'])
+}
+
+function revalidar() {
+  revalidatePath('/dashboard/juridico')
+  revalidatePath('/dashboard/leads')
+}
 const IMPORT_MAX = 400
 
 function erroMsg(err: unknown, fallback: string): string {
@@ -43,7 +54,7 @@ function serializar(id: string, data: FirebaseFirestore.DocumentData): Prospecca
 /** Lista as prospecções, mais recentes primeiro. */
 export async function getProspeccoes(): Promise<Prospeccao[]> {
   try {
-    await assertPageAccess('juridico')
+    await assertAcesso()
   } catch {
     return []
   }
@@ -63,7 +74,7 @@ export async function salvarProspeccao(
 ): Promise<ProspeccaoResponse> {
   let user
   try {
-    user = await assertPageAccess('juridico')
+    user = await assertAcesso()
   } catch (err) {
     return { error: erroMsg(err, 'Acesso negado.') }
   }
@@ -78,7 +89,7 @@ export async function salvarProspeccao(
       const doc = await ref.get()
       if (!doc.exists) return { error: 'Registro não encontrado.' }
       await ref.update({ ...paraGravar(dados), updated_at: now })
-      revalidatePath('/dashboard/juridico')
+      revalidar()
       return {
         success: 'Prospecção atualizada.',
         prospeccao: { ...serializar(id, doc.data()!), ...dados, updated_at: now },
@@ -87,7 +98,7 @@ export async function salvarProspeccao(
 
     const ref = adminDb.collection(COLLECTION).doc()
     await ref.set({ ...paraGravar(dados), created_by: user.uid, created_at: now, updated_at: now })
-    revalidatePath('/dashboard/juridico')
+    revalidar()
     return {
       success: 'Prospecção cadastrada.',
       prospeccao: {
@@ -110,7 +121,7 @@ export async function importarProspeccoes(
 ): Promise<{ success?: string; error?: string; importados?: number }> {
   let user
   try {
-    user = await assertPageAccess('juridico')
+    user = await assertAcesso()
   } catch (err) {
     return { error: erroMsg(err, 'Acesso negado.') }
   }
@@ -138,7 +149,7 @@ export async function importarProspeccoes(
       })
     })
     await batch.commit()
-    revalidatePath('/dashboard/juridico')
+    revalidar()
     return {
       success: `${validos.length} registro(s) importado(s).`,
       importados: validos.length,
@@ -151,7 +162,7 @@ export async function importarProspeccoes(
 /** Remove uma prospecção. */
 export async function deleteProspeccao(id: string): Promise<{ success?: string; error?: string }> {
   try {
-    await assertPageAccess('juridico')
+    await assertAcesso()
   } catch (err) {
     return { error: erroMsg(err, 'Acesso negado.') }
   }
@@ -161,7 +172,7 @@ export async function deleteProspeccao(id: string): Promise<{ success?: string; 
     const doc = await ref.get()
     if (!doc.exists) return { error: 'Registro não encontrado.' }
     await ref.delete()
-    revalidatePath('/dashboard/juridico')
+    revalidar()
     return { success: 'Prospecção removida.' }
   } catch (error) {
     return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
@@ -173,7 +184,7 @@ export async function deleteProspeccoes(
   ids: string[],
 ): Promise<{ success?: string; error?: string; removidos?: number }> {
   try {
-    await assertPageAccess('juridico')
+    await assertAcesso()
   } catch (err) {
     return { error: erroMsg(err, 'Acesso negado.') }
   }
@@ -188,7 +199,7 @@ export async function deleteProspeccoes(
       }
       await batch.commit()
     }
-    revalidatePath('/dashboard/juridico')
+    revalidar()
     return { success: `${unicos.length} registro(s) removido(s).`, removidos: unicos.length }
   } catch (error) {
     return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
@@ -197,11 +208,11 @@ export async function deleteProspeccoes(
 
 /**
  * Uma prospecção pelo id — usada para preencher /dashboard/propostas/nova
- * (?prospeccao=<id>). Exige acesso ao jurídico; sem ele, devolve null.
+ * (?prospeccao=<id>). Exige acesso ao Jurídico ou a Leads; sem ele, devolve null.
  */
 export async function getProspeccao(id: string): Promise<Prospeccao | null> {
   try {
-    await assertPageAccess('juridico')
+    await assertAcesso()
   } catch {
     return null
   }
@@ -225,7 +236,7 @@ export async function enviarOfertaEmail(
   dados: { valor: number; assunto: string; mensagem: string },
 ): Promise<{ success?: string; error?: string; prospeccao?: Prospeccao }> {
   try {
-    await assertPageAccess('juridico')
+    await assertAcesso()
   } catch (err) {
     return { error: erroMsg(err, 'Acesso negado.') }
   }
@@ -257,7 +268,7 @@ export async function enviarOfertaEmail(
 
     const now = new Date().toISOString()
     await ref.update({ ultimoEmailEm: now, ultimoEmailValor: valor })
-    revalidatePath('/dashboard/juridico')
+    revalidar()
     return {
       success: `E-mail enviado para ${atual.email}.`,
       prospeccao: { ...atual, ultimoEmailEm: now, ultimoEmailValor: valor },

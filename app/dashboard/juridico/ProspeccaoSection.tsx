@@ -339,8 +339,13 @@ function CartaoProspeccao({
 
 export default function ProspeccaoSection({
   initialProspeccoes,
+  podeGerarProposta,
+  titulo = 'Prospecção de clientes',
 }: {
   initialProspeccoes: Prospeccao[]
+  /** Sem acesso à aba Propostas, o botão "Proposta" não aparece. */
+  podeGerarProposta: boolean
+  titulo?: string
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -639,16 +644,18 @@ export default function ProspeccaoSection({
             <IconMail size={13} />
           </Button>
         )}
-        <Button
-          size="sm"
-          variant="liberty"
-          onClick={() => gerarProposta(p)}
-          leftIcon={<IconFileText size={12} />}
-          title="Gerar proposta (PDF) com os dados desta linha"
-          className={compacto ? 'flex-1' : undefined}
-        >
-          Proposta
-        </Button>
+        {podeGerarProposta && (
+          <Button
+            size="sm"
+            variant="liberty"
+            onClick={() => gerarProposta(p)}
+            leftIcon={<IconFileText size={12} />}
+            title="Gerar proposta (PDF) com os dados desta linha"
+            className={compacto ? 'flex-1' : undefined}
+          >
+            Proposta
+          </Button>
+        )}
         {compacto ? (
           <Button size="sm" variant="secondary" onClick={() => abrirEdicao(p)} aria-label="Editar">
             <IconPencil size={13} />
@@ -718,7 +725,7 @@ export default function ProspeccaoSection({
         <div>
           <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight text-neutral-950">
             <IconUserSearch size={20} className="text-liberty-deep" />
-            Prospecção de clientes
+            {titulo}
             <span className="inline-flex min-w-[22px] items-center justify-center rounded-full bg-liberty/15 px-2 text-xs font-bold text-liberty-deep">
               {itens.length}
             </span>

@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-29-leads',
+    date: '2026-09-29',
+    title: 'Aba Leads e cargo Vendedor externo',
+    tag: 'novo',
+    items: [
+      'Nova aba "Leads" no menu, com a mesma lista da Prospecção de clientes do Jurídico (WhatsApp, e-mail de oferta, Maps/Waze, importação da planilha).',
+      'Novo cargo "Vendedor externo" em Usuários: por padrão acessa só a aba Leads. O admin pode liberar outras abas, como Propostas, nas permissões.',
+      'Prospecção no celular agora aparece em cartões, mostra 30 registros por página e ganhou o campo Placa.',
+    ],
+  },
+  {
     id: '2026-09-28-juridico-prospeccao',
     date: '2026-09-28',
     title: 'Prospecção de clientes no Jurídico',

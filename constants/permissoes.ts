@@ -20,6 +20,7 @@ export type PermissionKey =
   | 'financeiro'
   | 'cobrancas'
   | 'juridico'
+  | 'leads'
   | 'manutencao'
   | 'usuarios'
   | 'analytics'
@@ -35,6 +36,7 @@ export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   financeiro: ['admin', 'vendedor', 'advogado'],
   cobrancas: ['admin', 'vendedor'],
   juridico: ['admin', 'advogado'],
+  leads: ['admin', 'vendedor_externo'],
   manutencao: ['admin', 'vendedor', 'suporte'],
   usuarios: ['admin'],
   analytics: ['admin'],

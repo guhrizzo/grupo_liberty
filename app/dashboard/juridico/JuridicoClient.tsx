@@ -124,6 +124,7 @@ export default function JuridicoClient({
   initialContagem,
   contratosJuridico,
   initialProspeccoes,
+  podeGerarProposta,
 }: {
   aba: AbaJuridico
   currentRole: string
@@ -134,6 +135,7 @@ export default function JuridicoClient({
   initialContagem: AnotacoesContagem
   contratosJuridico: VeiculoContrato[]
   initialProspeccoes: Prospeccao[]
+  podeGerarProposta: boolean
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
@@ -489,7 +491,12 @@ export default function JuridicoClient({
         ))}
       </div>
 
-      {aba === 'prospeccao' && <ProspeccaoSection initialProspeccoes={initialProspeccoes} />}
+      {aba === 'prospeccao' && (
+        <ProspeccaoSection
+          initialProspeccoes={initialProspeccoes}
+          podeGerarProposta={podeGerarProposta}
+        />
+      )}
 
       {aba === 'processos' && (
         <>

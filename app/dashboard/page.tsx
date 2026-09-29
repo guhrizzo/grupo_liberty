@@ -10,6 +10,7 @@ import {
   IconFileText,
   IconCurrencyDollar,
   IconChartBar,
+  IconTargetArrow,
   IconArrowRight,
   type Icon,
 } from '@tabler/icons-react'
@@ -81,6 +82,14 @@ const MODULES: ModuleCard[] = [
     icon: IconScale,
     badge: 'Jurídico',
     permissionKey: 'juridico',
+  },
+  {
+    href: '/dashboard/leads',
+    titulo: 'Leads',
+    descricao: 'Clientes com veículo financiado para contato por WhatsApp, e-mail e oferta.',
+    icon: IconTargetArrow,
+    badge: 'Comercial',
+    permissionKey: 'leads',
   },
   {
     href: '/dashboard/manutencao',

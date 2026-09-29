@@ -61,6 +61,7 @@ export default async function JuridicoPage({
       initialContagem={initialContagem}
       contratosJuridico={contratosJuridico}
       initialProspeccoes={prospeccoes}
+      podeGerarProposta={hasPageAccess(user, 'propostas')}
     />
   )
 }

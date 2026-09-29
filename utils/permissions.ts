@@ -18,7 +18,7 @@ export interface SessionUser {
 
 export type { PermissionKey, UserPermissions }
 
-export const ROLES_VALIDOS = ['vendedor', 'advogado', 'suporte', 'admin'] as const
+export const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'admin'] as const
 export type RoleValido = (typeof ROLES_VALIDOS)[number]
 
 /**
@@ -61,6 +61,19 @@ export async function assertPageAccess(key: PermissionKey): Promise<SessionUser>
   const user = await getSessionUser()
   if (!user) throw new Error('Não autenticado.')
   if (!hasPageAccess(user, key)) {
+    throw new Error('Acesso negado. Você não tem permissão para acessar esta área.')
+  }
+  return user
+}
+
+/**
+ * Garante acesso a pelo menos uma das abas. Para dados que aparecem em mais
+ * de uma aba (ex.: prospecção, no Jurídico e em Leads).
+ */
+export async function assertAlgumaAba(keys: PermissionKey[]): Promise<SessionUser> {
+  const user = await getSessionUser()
+  if (!user) throw new Error('Não autenticado.')
+  if (!keys.some((k) => hasPageAccess(user, k))) {
     throw new Error('Acesso negado. Você não tem permissão para acessar esta área.')
   }
   return user

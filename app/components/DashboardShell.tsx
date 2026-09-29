@@ -18,6 +18,7 @@ import {
   IconBug,
   IconSpeakerphone,
   IconChartBar,
+  IconTargetArrow,
   IconMenu2,
 
   IconLogout,
@@ -35,7 +36,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   permissionKey?: PermissionKey
@@ -46,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard',
     label: 'Visão Geral',
     icon: 'home',
-    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
     href: '/dashboard/veiculos',
@@ -97,6 +98,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'juridico',
   },
   {
+    href: '/dashboard/leads',
+    label: 'Leads',
+    icon: 'target',
+    permissionKey: 'leads',
+  },
+  {
     href: '/dashboard/manutencao',
     label: 'Manutenção',
     icon: 'wrench',
@@ -118,13 +125,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/novidades',
     label: 'Novidades',
     icon: 'sparkles',
-    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
     href: '/dashboard/feedback',
     label: 'Bugs & Melhorias',
     icon: 'bug',
-    roles: ['admin', 'vendedor', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
 ]
 
@@ -159,6 +166,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconSpeakerphone className={cls} stroke={2} />
     case 'chart':
       return <IconChartBar className={cls} stroke={2} />
+    case 'target':
+      return <IconTargetArrow className={cls} stroke={2} />
   }
 }
 
@@ -173,6 +182,7 @@ function initialsFor(name: string | null | undefined, email: string) {
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrador',
   vendedor: 'Vendedor',
+  vendedor_externo: 'Vendedor externo',
   advogado: 'Advogado',
   suporte: 'Suporte',
 }
