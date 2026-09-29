@@ -121,7 +121,8 @@ export default function ProspeccaoSection({
 
   const [importOpen, setImportOpen] = useState(false)
   const [importTexto, setImportTexto] = useState('')
-  const previa = useMemo(() => parseLinhasPlanilha(importTexto), [importTexto])
+  const leitura = useMemo(() => parseLinhasPlanilha(importTexto), [importTexto])
+  const previa = leitura.registros
 
   function abrirNovo() {
     setEditing(null)
@@ -504,27 +505,71 @@ export default function ProspeccaoSection({
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Colar da planilha"
-        description="Copie as linhas na planilha (com ou sem o cabeçalho) e cole abaixo. As colunas precisam estar na mesma ordem da tabela."
+        description="Copie as linhas na planilha e cole abaixo. Copie junto a linha do cabeçalho: assim as colunas são reconhecidas pelo nome, mesmo fora de ordem."
         size="lg"
+        className="max-h-[90vh] overflow-y-auto sm:max-w-5xl"
       >
         <div className="space-y-3 pt-2">
           <Textarea
             value={importTexto}
             onChange={(e) => setImportTexto(e.target.value)}
-            rows={8}
-            placeholder="Número do processo	Comarca	Nome do Executado	..."
+            rows={6}
+            placeholder="Cole aqui (Ctrl+V) as linhas copiadas da planilha"
             className="font-mono text-xs"
           />
           <p className="text-xs text-neutral-500">
-            {importTexto.trim()
-              ? previa.length > 0
-                ? `${previa.length} registro(s) reconhecido(s): ${previa
-                    .slice(0, 3)
-                    .map((p) => p.nomeExecutado)
-                    .join(', ')}${previa.length > 3 ? '…' : ''}`
-                : 'Nenhuma linha reconhecida. Verifique se as colunas estão separadas por TAB (copiadas da planilha).'
-              : 'Aguardando conteúdo colado.'}
+            {!importTexto.trim()
+              ? 'Aguardando conteúdo colado.'
+              : previa.length === 0
+                ? 'Nenhuma linha reconhecida. Copie as células direto da planilha (colunas separadas por TAB).'
+                : `${previa.length} registro(s) reconhecido(s) · colunas ${
+                    leitura.porCabecalho
+                      ? 'identificadas pelo cabeçalho'
+                      : 'pela posição (sem cabeçalho: precisam estar na mesma ordem da tabela)'
+                  }${leitura.ignoradas > 0 ? ` · ${leitura.ignoradas} linha(s) sem nome ignorada(s)` : ''}. Confira a prévia:`}
           </p>
+          {previa.length > 0 && (
+            <div className="max-h-72 overflow-auto rounded-lg border border-neutral-200">
+              <table className="w-full border-collapse text-left text-[11px]">
+                <thead className="sticky top-0 bg-neutral-50">
+                  <tr>
+                    {PROSPECCAO_COLUNAS.map(({ key, label }) => (
+                      <th
+                        key={key}
+                        className="whitespace-nowrap border-b border-neutral-200 px-2 py-1.5 font-semibold text-neutral-700"
+                      >
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {previa.slice(0, 20).map((p, i) => (
+                    <tr key={i}>
+                      {PROSPECCAO_COLUNAS.map(({ key }) => {
+                        const vazio = p[key] === null || p[key] === ''
+                        return (
+                          <td
+                            key={key}
+                            className={`px-2 py-1 ${key === 'endereco' ? 'min-w-[220px]' : 'whitespace-nowrap'} ${
+                              vazio ? 'text-neutral-300' : 'text-neutral-800'
+                            }`}
+                          >
+                            {celula({ ...p, id: '', created_at: '', updated_at: '' }, key)}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {previa.length > 20 && (
+                <p className="border-t border-neutral-200 px-2 py-1.5 text-[11px] text-neutral-500">
+                  + {previa.length - 20} registro(s) não mostrados na prévia.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => setImportOpen(false)}>
               Cancelar
