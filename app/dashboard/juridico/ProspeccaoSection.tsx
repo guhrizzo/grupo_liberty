@@ -42,6 +42,28 @@ const MONEY: Chave[] = ['valorEntrada', 'valorFinanciado', 'valorParcela']
 const INTS: Chave[] = ['parcelasContrato', 'parcelasPagas']
 const PHONES: Chave[] = ['telefone1', 'telefone2', 'telefone3']
 
+const PLACEHOLDERS: Record<Chave, string> = {
+  numeroProcesso: '0000000-00.0000.0.00.0000',
+  comarca: 'Ex: São Manuel',
+  nomeExecutado: 'Nome completo do executado',
+  cpfCnpj: '000.000.000-00',
+  banco: 'Ex: Banco Votorantim S.A.',
+  veiculo: 'Ex: Fiat Palio Attractive 1.4 8V Evo 4P',
+  anoModelo: '2013/2014',
+  valorEntrada: '0,00',
+  valorFinanciado: '0,00',
+  parcelasContrato: 'Ex: 60',
+  parcelasPagas: 'Ex: 29',
+  ultimoMesPago: 'Ex: jan/26',
+  valorParcela: '0,00',
+  telefone1: '(00) 00000-0000',
+  telefone2: '(00) 00000-0000',
+  telefone3: '(00) 00000-0000',
+  renegociacaoEm: 'Ex: 15/02/2026',
+  email: 'nome@exemplo.com',
+  endereco: 'Rua, número, bairro, cidade/UF, CEP',
+}
+
 const PAGE_SIZE = 15
 
 function formVazio(): FormState {
@@ -335,15 +357,7 @@ export default function ProspeccaoSection({
               label={key === 'nomeExecutado' ? `${label} *` : label}
               value={form[key]}
               onChange={(e) => setForm((f) => ({ ...f, [key]: mascarar(key, e.target.value) }))}
-              placeholder={
-                MONEY.includes(key)
-                  ? '0,00'
-                  : key === 'ultimoMesPago'
-                    ? 'jan/26'
-                    : key === 'anoModelo'
-                      ? '2013/2014'
-                      : undefined
-              }
+              placeholder={PLACEHOLDERS[key]}
               inputMode={MONEY.includes(key) || INTS.includes(key) ? 'numeric' : undefined}
               type={key === 'email' ? 'email' : 'text'}
               autoComplete="off"
