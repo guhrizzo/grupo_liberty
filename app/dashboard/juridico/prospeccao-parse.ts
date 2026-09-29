@@ -1,9 +1,10 @@
 // Normalização dos dados de prospecção. Usado tanto no cliente (prévia da
 // importação da planilha) quanto no servidor (saneamento antes de gravar).
 
+import { maskPlate } from '@/utils/masks'
 import type { ProspeccaoInput } from './types'
 
-/** Ordem das colunas da planilha do jurídico (usada na importação e na tabela). */
+/** Ordem das colunas na tela e no formulário. */
 export const PROSPECCAO_COLUNAS: { key: keyof ProspeccaoInput; label: string }[] = [
   { key: 'numeroProcesso', label: 'Número do processo' },
   { key: 'comarca', label: 'Comarca' },
@@ -12,6 +13,7 @@ export const PROSPECCAO_COLUNAS: { key: keyof ProspeccaoInput; label: string }[]
   { key: 'banco', label: 'Banco' },
   { key: 'veiculo', label: 'Veículo' },
   { key: 'anoModelo', label: 'Ano/Modelo' },
+  { key: 'placa', label: 'Placa' },
   { key: 'valorEntrada', label: 'Valor de Entrada' },
   { key: 'valorFinanciado', label: 'Valor Financiado' },
   { key: 'parcelasContrato', label: 'Quantidade de Parcelas do Contrato' },
@@ -24,6 +26,16 @@ export const PROSPECCAO_COLUNAS: { key: keyof ProspeccaoInput; label: string }[]
   { key: 'renegociacaoEm', label: 'Renegociação em' },
   { key: 'email', label: 'E-mail' },
   { key: 'endereco', label: 'Endereço' },
+]
+
+/**
+ * Ordem para colar planilha SEM cabeçalho. A Placa entrou depois das 19
+ * colunas originais, então fica por último: planilhas antigas (sem placa)
+ * continuam alinhando. Com cabeçalho, as colunas são casadas pelo nome.
+ */
+const ORDEM_POSICIONAL: (keyof ProspeccaoInput)[] = [
+  ...PROSPECCAO_COLUNAS.map((c) => c.key).filter((k) => k !== 'placa'),
+  'placa',
 ]
 
 const MONEY_KEYS = new Set<keyof ProspeccaoInput>([
@@ -72,6 +84,7 @@ export function normalizarProspeccao(raw: Partial<Record<keyof ProspeccaoInput, 
   }
   const r = out as unknown as ProspeccaoInput
   r.email = r.email.toLowerCase()
+  r.placa = maskPlate(r.placa)
   return r
 }
 
@@ -147,6 +160,7 @@ function chaveDoCabecalho(celula: string): keyof ProspeccaoInput | null {
   if (!h) return null
   const w = ` ${h} `
   if (h.includes('renegocia')) return 'renegociacaoEm'
+  if (h.includes('placa')) return 'placa'
   if (h.includes('processo')) return 'numeroProcesso'
   if (h.includes('comarca')) return 'comarca'
   if (h.includes('executado') || h === 'nome') return 'nomeExecutado'
@@ -201,7 +215,7 @@ export interface ResultadoPlanilha {
 /**
  * Converte o texto colado da planilha em registros. Com o cabeçalho junto, as
  * colunas são casadas pelo nome (ordem e colunas extras não importam); sem
- * ele, pela posição na ordem de PROSPECCAO_COLUNAS.
+ * ele, pela posição em ORDEM_POSICIONAL.
  */
 export function parseLinhasPlanilha(texto: string): ResultadoPlanilha {
   const linhas = lerTsv(texto)
@@ -221,10 +235,10 @@ export function parseLinhasPlanilha(texto: string): ResultadoPlanilha {
     } else {
       // Sem cabeçalho: descarta colunas vazias sobrando à esquerda (seleção
       // que começou uma coluna antes).
-      while (celulas.length > PROSPECCAO_COLUNAS.length && !celulas[0].trim()) {
+      while (celulas.length > ORDEM_POSICIONAL.length && !celulas[0].trim()) {
         celulas = celulas.slice(1)
       }
-      PROSPECCAO_COLUNAS.forEach(({ key }, i) => {
+      ORDEM_POSICIONAL.forEach((key, i) => {
         raw[key] = celulas[i] ?? ''
       })
     }

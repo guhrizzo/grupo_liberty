@@ -67,6 +67,7 @@ export interface PropostaPrefill {
   veiculo_marca: string
   veiculo_modelo: string
   veiculo_ano: string
+  veiculo_placa: string
   banco: string
   valor_parcela: string
   parcelas_totais: string
@@ -85,6 +86,8 @@ export function prospeccaoParaProposta(p: ProspeccaoInput): PropostaPrefill {
     veiculo_marca: marca,
     veiculo_modelo: modelo,
     veiculo_ano: anos ? anos[anos.length - 1] : '',
+    // Com placa, o formulário da proposta busca marca/modelo/FIPE sozinho.
+    veiculo_placa: p.placa,
     banco: sugerirBancoPorNome(p.banco)?.nome ?? p.banco,
     valor_parcela: moneyFromNumber(p.valorParcela),
     parcelas_totais: p.parcelasContrato != null ? String(p.parcelasContrato) : '',

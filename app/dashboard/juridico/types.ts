@@ -110,6 +110,7 @@ export interface ProspeccaoInput {
   banco: string
   veiculo: string
   anoModelo: string
+  placa: string
   valorEntrada: number | null
   valorFinanciado: number | null
   parcelasContrato: number | null

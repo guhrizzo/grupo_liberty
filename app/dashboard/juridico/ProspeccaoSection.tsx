@@ -30,7 +30,7 @@ import {
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatCurrency, formatDate } from '@/utils/format'
-import { maskCPFCNPJ, maskMoney, maskPhone, moneyFromNumber, parseMoney } from '@/utils/masks'
+import { maskCPFCNPJ, maskMoney, maskPhone, maskPlate, moneyFromNumber, parseMoney } from '@/utils/masks'
 import {
   salvarProspeccao,
   importarProspeccoes,
@@ -63,6 +63,7 @@ const PLACEHOLDERS: Record<Chave, string> = {
   banco: 'Ex: Banco Votorantim S.A.',
   veiculo: 'Ex: Fiat Palio Attractive 1.4 8V Evo 4P',
   anoModelo: '2013/2014',
+  placa: 'ABC1D23',
   valorEntrada: '0,00',
   valorFinanciado: '0,00',
   parcelasContrato: 'Ex: 60',
@@ -97,6 +98,7 @@ function mascarar(key: Chave, v: string): string {
   if (MONEY.includes(key)) return maskMoney(v)
   if (INTS.includes(key)) return v.replace(/\D/g, '').slice(0, 4)
   if (key === 'cpfCnpj') return maskCPFCNPJ(v)
+  if (key === 'placa') return maskPlate(v)
   if (PHONES.includes(key)) return maskPhone(v)
   return v
 }
@@ -286,6 +288,11 @@ function CartaoProspeccao({
           {p.veiculo || 'Veículo não consta'}
           {p.anoModelo ? <span className="font-normal text-neutral-500"> · {p.anoModelo}</span> : null}
         </p>
+        {p.placa && (
+          <span className="mt-1.5 inline-block rounded border border-neutral-300 bg-white px-1.5 py-0.5 font-mono text-[11px] font-bold tracking-wider text-neutral-800">
+            {p.placa}
+          </span>
+        )}
         <p className="mt-0.5 break-words text-xs text-neutral-500">{ou(p.banco)}</p>
       </div>
 
@@ -679,6 +686,11 @@ export default function ProspeccaoSection({
         .join(' ')
         .toLowerCase()
       if (texto.includes(term)) return true
+      // Placa sem hífen/espaço: "abc1234" acha "ABC-1234".
+      const termPlaca = term.replace(/[^a-z0-9]/g, '')
+      if (termPlaca.length >= 3 && p.placa.toLowerCase().replace(/[^a-z0-9]/g, '').includes(termPlaca)) {
+        return true
+      }
       return termDigits.length >= 3 && p.cpfCnpj.replace(/\D/g, '').includes(termDigits)
     })
   }, [itens, debouncedSearch])
@@ -747,7 +759,7 @@ export default function ProspeccaoSection({
       </div>
 
       <Input
-        placeholder="Buscar por nome, CPF, processo, banco, veículo..."
+        placeholder="Buscar por nome, CPF, placa, processo, banco..."
         value={search}
         onChange={(e) => {
           setSearch(e.target.value)
