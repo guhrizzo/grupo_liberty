@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import {
   IconPlus,
@@ -13,6 +14,8 @@ import {
   IconMail,
   IconBrandGoogleMaps,
   IconBrandWaze,
+  IconArrowsMaximize,
+  IconArrowsMinimize,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -353,6 +356,23 @@ export default function ProspeccaoSection({
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 250)
   const [page, setPage] = useState(1)
+
+  // Tela cheia: a lista cobre o painel inteiro (menu lateral incluso).
+  const [telaCheia, setTelaCheia] = useState(false)
+  useEffect(() => {
+    if (!telaCheia) return
+    const overflowAnterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => {
+      // Esc com modal aberto fecha só o modal.
+      if (e.key === 'Escape' && !document.querySelector('[role="dialog"]')) setTelaCheia(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = overflowAnterior
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [telaCheia])
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Prospeccao | null>(null)
@@ -719,7 +739,7 @@ export default function ProspeccaoSection({
     })
   }
 
-  return (
+  const conteudo = (
     <section className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
@@ -765,15 +785,28 @@ export default function ProspeccaoSection({
         </div>
       </div>
 
-      <Input
-        placeholder="Buscar por nome, CPF, placa, processo, banco..."
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value)
-          setPage(1)
-        }}
-        containerClassName="w-full sm:w-96"
-      />
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder="Buscar por nome, CPF, placa, processo, banco..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value)
+            setPage(1)
+          }}
+          containerClassName="w-full sm:w-96"
+        />
+        <Button
+          variant="secondary"
+          onClick={() => setTelaCheia((v) => !v)}
+          leftIcon={
+            telaCheia ? <IconArrowsMinimize size={16} stroke={2.2} /> : <IconArrowsMaximize size={16} stroke={2.2} />
+          }
+          title={telaCheia ? 'Sair da tela cheia (Esc)' : 'Ver a lista em tela cheia'}
+          className="shrink-0"
+        >
+          <span className="hidden sm:inline">{telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</span>
+        </Button>
+      </div>
 
       {selecionados.size > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-2.5 text-xs">
@@ -1218,5 +1251,11 @@ export default function ProspeccaoSection({
         tone="danger"
       />
     </section>
+  )
+
+  if (!telaCheia) return conteudo
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-auto bg-neutral-50 p-4 sm:p-6">{conteudo}</div>,
+    document.body,
   )
 }

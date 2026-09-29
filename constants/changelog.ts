@@ -30,8 +30,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'novo',
     items: [
       'Nova aba "Leads" no menu, com a mesma lista da Prospecção de clientes do Jurídico (WhatsApp, e-mail de oferta, Maps/Waze, importação da planilha).',
-      'Novo cargo "Vendedor externo" em Usuários: por padrão acessa só a aba Leads. O admin pode liberar outras abas, como Propostas, nas permissões.',
-      'Prospecção no celular agora aparece em cartões, mostra 30 registros por página e ganhou o campo Placa.',
+      'Novo cargo "Vendedor externo" em Usuários: por padrão acessa Leads, Propostas e Consulta FIPE. O admin pode liberar ou bloquear abas nas permissões.',
+      'Prospecção no celular agora aparece em cartões, mostra 30 registros por página, ganhou o campo Placa e um botão de tela cheia.',
     ],
   },
   {

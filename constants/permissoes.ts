@@ -29,8 +29,8 @@ export type UserPermissions = Partial<Record<PermissionKey, boolean>>
 
 export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   veiculos: ['admin', 'vendedor', 'advogado', 'suporte'],
-  consulta_fipe: ['admin', 'vendedor', 'advogado', 'suporte'],
-  propostas: ['admin', 'vendedor'],
+  consulta_fipe: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+  propostas: ['admin', 'vendedor', 'vendedor_externo'],
   anuncios: ['admin', 'vendedor'],
   contratos: ['admin', 'advogado', 'vendedor'],
   financeiro: ['admin', 'vendedor', 'advogado'],
