@@ -22,7 +22,6 @@ import {
   Input,
   Textarea,
   Modal,
-  Table,
   THead,
   TBody,
   TR,
@@ -851,11 +850,17 @@ export default function ProspeccaoSection({
         </div>
       ) : (
         <>
-        <div className="hidden overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs md:block">
-          <Table className="text-xs">
+        {/* Altura limitada à tela: a barra de rolagem horizontal fica sempre
+            visível no rodapé da caixa e o cabeçalho das colunas fica fixo. */}
+        <div
+          className={`hidden overflow-auto rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
+            telaCheia ? 'max-h-[calc(100dvh-14rem)]' : 'max-h-[calc(100dvh-8rem)]'
+          }`}
+        >
+          <table className="w-full border-collapse text-left text-xs text-neutral-600 adobe-dark:text-adobe-text-md">
             <THead>
               <tr>
-                <TH className="w-8 !px-3">
+                <TH className="sticky top-0 z-10 w-8 bg-neutral-50 !px-3">
                   <input
                     type="checkbox"
                     checked={paginaToda}
@@ -865,11 +870,11 @@ export default function ProspeccaoSection({
                   />
                 </TH>
                 {PROSPECCAO_COLUNAS.map(({ key, label }) => (
-                  <TH key={key} className="whitespace-nowrap !px-3 text-[10px]">
+                  <TH key={key} className="sticky top-0 z-10 whitespace-nowrap bg-neutral-50 !px-3 text-[10px]">
                     {label}
                   </TH>
                 ))}
-                <TH align="right" className="sticky right-0 bg-neutral-50 !px-3 text-[10px]">
+                <TH align="right" className="sticky right-0 top-0 z-20 bg-neutral-50 !px-3 text-[10px]">
                   Ações
                 </TH>
               </tr>
@@ -914,8 +919,7 @@ export default function ProspeccaoSection({
                 </TR>
               ))}
             </TBody>
-          </Table>
-
+          </table>
         </div>
 
         {/* Celular: um cartão por registro (19 colunas não cabem numa tabela). */}
