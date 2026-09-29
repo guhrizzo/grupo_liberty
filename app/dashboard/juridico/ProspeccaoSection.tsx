@@ -553,7 +553,7 @@ export default function ProspeccaoSection({
             onClick={() => setConfirmLote('selecionados')}
             disabled={submitting}
             leftIcon={<IconTrash size={12} />}
-            className="ml-auto !border-rose-300 !text-rose-600 hover:!bg-rose-100"
+            className="ml-auto !border-rose-300 !text-rose-600 hover:!bg-rose-100 adobe-dark:!border-rose-500/40 adobe-dark:!text-rose-300 adobe-dark:hover:!bg-rose-500/20"
           >
             Excluir selecionados
           </Button>
@@ -631,7 +631,7 @@ export default function ProspeccaoSection({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Abrir no Google Maps"
-                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 adobe-dark:hover:border-sky-400/50 adobe-dark:hover:bg-sky-500/20 adobe-dark:hover:text-sky-200"
                               >
                                 <IconBrandGoogleMaps size={12} />
                                 Maps
@@ -641,7 +641,7 @@ export default function ProspeccaoSection({
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Abrir no Waze"
-                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 adobe-dark:hover:border-cyan-400/50 adobe-dark:hover:bg-cyan-500/20 adobe-dark:hover:text-cyan-200"
                               >
                                 <IconBrandWaze size={12} />
                                 Waze
@@ -679,7 +679,11 @@ export default function ProspeccaoSection({
                               : 'Enviar e-mail com oferta pelo veículo'
                           }
                           aria-label={`Enviar e-mail para ${p.nomeExecutado}`}
-                          className={p.ultimoEmailEm ? '!border-sky-300 !text-sky-700' : undefined}
+                          className={
+                            p.ultimoEmailEm
+                              ? '!border-sky-300 !text-sky-700 adobe-dark:!border-sky-400/50 adobe-dark:!text-sky-300'
+                              : undefined
+                          }
                         >
                           <IconMail size={13} />
                         </Button>
