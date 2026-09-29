@@ -156,3 +156,30 @@ export async function deleteProspeccao(id: string): Promise<{ success?: string; 
     return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
   }
 }
+
+/** Remove várias prospecções de uma vez (seleção ou "excluir tudo"). */
+export async function deleteProspeccoes(
+  ids: string[],
+): Promise<{ success?: string; error?: string; removidos?: number }> {
+  try {
+    await assertPageAccess('juridico')
+  } catch (err) {
+    return { error: erroMsg(err, 'Acesso negado.') }
+  }
+  const unicos = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => typeof x === 'string' && x))]
+  if (unicos.length === 0) return { error: 'Nenhum registro selecionado.' }
+  try {
+    // Firestore aceita até 500 operações por batch.
+    for (let i = 0; i < unicos.length; i += 400) {
+      const batch = adminDb.batch()
+      for (const id of unicos.slice(i, i + 400)) {
+        batch.delete(adminDb.collection(COLLECTION).doc(id))
+      }
+      await batch.commit()
+    }
+    revalidatePath('/dashboard/juridico')
+    return { success: `${unicos.length} registro(s) removido(s).`, removidos: unicos.length }
+  } catch (error) {
+    return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
+  }
+}

@@ -31,6 +31,7 @@ import {
   importarProspeccoes,
   getProspeccoes,
   deleteProspeccao,
+  deleteProspeccoes,
 } from './prospeccao-actions'
 import { PROSPECCAO_COLUNAS, parseLinhasPlanilha } from './prospeccao-parse'
 import type { Prospeccao, ProspeccaoInput } from './types'
@@ -114,6 +115,9 @@ export default function ProspeccaoSection({
   const [form, setForm] = useState<FormState>(formVazio)
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Prospeccao | null>(null)
+  // Seleção múltipla para exclusão em lote.
+  const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set())
+  const [confirmLote, setConfirmLote] = useState<'selecionados' | 'tudo' | null>(null)
 
   const [importOpen, setImportOpen] = useState(false)
   const [importTexto, setImportTexto] = useState('')
@@ -185,6 +189,11 @@ export default function ProspeccaoSection({
   async function handleDelete(p: Prospeccao) {
     setConfirmDelete(null)
     setItens((prev) => prev.filter((x) => x.id !== p.id))
+    setSelecionados((prev) => {
+      const next = new Set(prev)
+      next.delete(p.id)
+      return next
+    })
     const res = await deleteProspeccao(p.id)
     if (res.error) {
       toast.error(res.error)
@@ -193,6 +202,41 @@ export default function ProspeccaoSection({
       toast.success(res.success || 'Removido.')
     }
     router.refresh()
+  }
+
+  function alternar(id: string) {
+    setSelecionados((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function handleDeleteLote() {
+    const modo = confirmLote
+    setConfirmLote(null)
+    if (!modo || submitting) return
+    const ids = modo === 'tudo' ? itens.map((p) => p.id) : [...selecionados]
+    if (ids.length === 0) return
+    setSubmitting(true)
+    try {
+      const res = await deleteProspeccoes(ids)
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+      const removidos = new Set(ids)
+      setItens((prev) => prev.filter((p) => !removidos.has(p.id)))
+      setSelecionados(new Set())
+      setPage(1)
+      toast.success(res.success || 'Removidos.')
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const filtrados = useMemo(() => {
@@ -211,6 +255,19 @@ export default function ProspeccaoSection({
   const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
   const visiveis = filtrados.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const paginaToda = visiveis.length > 0 && visiveis.every((p) => selecionados.has(p.id))
+  const filtradosTodos = filtrados.length > 0 && filtrados.every((p) => selecionados.has(p.id))
+
+  function alternarPagina() {
+    setSelecionados((prev) => {
+      const next = new Set(prev)
+      for (const p of visiveis) {
+        if (paginaToda) next.delete(p.id)
+        else next.add(p.id)
+      }
+      return next
+    })
+  }
 
   return (
     <section className="space-y-3">
@@ -228,6 +285,17 @@ export default function ProspeccaoSection({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {itens.length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmLote('tudo')}
+              disabled={submitting}
+              leftIcon={<IconTrash size={16} stroke={2.2} />}
+              className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+            >
+              Excluir tudo
+            </Button>
+          )}
           <Button
             variant="secondary"
             onClick={() => setImportOpen(true)}
@@ -251,6 +319,41 @@ export default function ProspeccaoSection({
         containerClassName="w-full sm:w-96"
       />
 
+      {selecionados.size > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-2.5 text-xs">
+          <span className="font-bold text-neutral-900">
+            {selecionados.size} selecionado{selecionados.size === 1 ? '' : 's'}
+          </span>
+          {!filtradosTodos && (
+            <button
+              type="button"
+              onClick={() => setSelecionados(new Set(filtrados.map((p) => p.id)))}
+              className="font-semibold text-liberty-deep hover:underline cursor-pointer"
+            >
+              Selecionar todos os {filtrados.length}
+              {debouncedSearch.trim() ? ' da busca' : ''}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setSelecionados(new Set())}
+            className="font-semibold text-neutral-500 hover:text-neutral-800 cursor-pointer"
+          >
+            Limpar seleção
+          </button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setConfirmLote('selecionados')}
+            disabled={submitting}
+            leftIcon={<IconTrash size={12} />}
+            className="ml-auto !border-rose-300 !text-rose-600 hover:!bg-rose-100"
+          >
+            Excluir selecionados
+          </Button>
+        </div>
+      )}
+
       {visiveis.length === 0 ? (
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-10 text-center text-sm text-neutral-500">
           {itens.length === 0
@@ -262,6 +365,15 @@ export default function ProspeccaoSection({
           <Table className="text-xs">
             <THead>
               <tr>
+                <TH className="w-8 !px-3">
+                  <input
+                    type="checkbox"
+                    checked={paginaToda}
+                    onChange={alternarPagina}
+                    aria-label="Selecionar todos desta página"
+                    className="h-4 w-4 cursor-pointer accent-liberty-deep"
+                  />
+                </TH>
                 {PROSPECCAO_COLUNAS.map(({ key, label }) => (
                   <TH key={key} className="whitespace-nowrap !px-3 text-[10px]">
                     {label}
@@ -274,7 +386,16 @@ export default function ProspeccaoSection({
             </THead>
             <TBody>
               {visiveis.map((p) => (
-                <TR key={p.id}>
+                <TR key={p.id} className={selecionados.has(p.id) ? 'bg-rose-50/50' : undefined}>
+                  <TD className="w-8 !px-3">
+                    <input
+                      type="checkbox"
+                      checked={selecionados.has(p.id)}
+                      onChange={() => alternar(p.id)}
+                      aria-label={`Selecionar ${p.nomeExecutado}`}
+                      className="h-4 w-4 cursor-pointer accent-liberty-deep"
+                    />
+                  </TD>
                   {PROSPECCAO_COLUNAS.map(({ key }) => {
                     const vazio = p[key] === null || p[key] === ''
                     return (
@@ -433,6 +554,24 @@ export default function ProspeccaoSection({
           ) : null
         }
         confirmLabel="Remover"
+        tone="danger"
+      />
+
+      <ConfirmDialog
+        open={!!confirmLote}
+        onClose={() => setConfirmLote(null)}
+        onConfirm={handleDeleteLote}
+        title={confirmLote === 'tudo' ? 'Excluir todas as prospecções?' : 'Excluir selecionados?'}
+        description={
+          <>
+            Serão removidos{' '}
+            <strong>
+              {confirmLote === 'tudo' ? itens.length : selecionados.size} registro(s)
+            </strong>
+            {confirmLote === 'tudo' ? ' (a tabela inteira)' : ''}. Esta ação não pode ser desfeita.
+          </>
+        }
+        confirmLabel="Excluir"
         tone="danger"
       />
     </section>
