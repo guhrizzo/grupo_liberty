@@ -151,6 +151,54 @@ function linksMapa(endereco: string): { maps: string; waze: string } {
   }
 }
 
+/** Botões Maps / Waze para o endereço (tabela e cartões). */
+function LinksMapa({ endereco, grande }: { endereco: string; grande?: boolean }) {
+  const { maps, waze } = linksMapa(endereco)
+  const tam = grande ? ' !px-2.5 !py-1.5 !text-xs' : ''
+  return (
+    <div className="mt-1 flex gap-1.5">
+      <a
+        href={maps}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Abrir no Google Maps"
+        className={"inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 adobe-dark:hover:border-sky-400/50 adobe-dark:hover:bg-sky-500/20 adobe-dark:hover:text-sky-200" + tam}
+      >
+        <IconBrandGoogleMaps size={grande ? 14 : 12} />
+        Maps
+      </a>
+      <a
+        href={waze}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Abrir no Waze"
+        className={"inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 adobe-dark:hover:border-cyan-400/50 adobe-dark:hover:bg-cyan-500/20 adobe-dark:hover:text-cyan-200" + tam}
+      >
+        <IconBrandWaze size={grande ? 14 : 12} />
+        Waze
+      </a>
+    </div>
+  )
+}
+
+/** Telefone: vira link de WhatsApp quando é celular válido. */
+function Telefone({ valor, nome }: { valor: string; nome: string }) {
+  const numero = numeroWhatsapp(valor)
+  if (!numero) return <>{valor || 'Não consta'}</>
+  return (
+    <a
+      href={linkWhatsapp(numero, nome)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Conversar no WhatsApp"
+      className="inline-flex items-center gap-1.5 font-medium text-emerald-700 hover:underline"
+    >
+      <IconBrandWhatsapp size={14} className="shrink-0" />
+      {valor}
+    </a>
+  )
+}
+
 function primeiroNomeFmt(nome: string): string {
   const n = nome.split(/\s+/)[0] ?? ''
   return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()
@@ -179,6 +227,107 @@ function mensagemPadrao(p: ProspeccaoInput, valor: string): string {
     'Se tiver interesse, é só responder este e-mail ou nos chamar no WhatsApp.',
     'Atenciosamente,\nEquipe Liberty Car',
   ].join('\n\n')
+}
+
+function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-neutral-400">{label}</dt>
+      <dd className="mt-0.5 break-words text-[13px] text-neutral-800">{children}</dd>
+    </div>
+  )
+}
+
+function CartaoProspeccao({
+  p,
+  selecionado,
+  onSelecionar,
+  acoes,
+}: {
+  p: Prospeccao
+  selecionado: boolean
+  onSelecionar: () => void
+  acoes: React.ReactNode
+}) {
+  const ou = (v: string) => v || 'Não consta'
+  const parcelas =
+    p.parcelasPagas != null || p.parcelasContrato != null
+      ? `${p.parcelasPagas ?? '?'} de ${p.parcelasContrato ?? '?'} pagas`
+      : 'Não consta'
+  const telefones = [p.telefone1, p.telefone2, p.telefone3].filter(Boolean)
+  return (
+    <article
+      className={`rounded-xl border bg-white p-4 shadow-xs ${
+        selecionado ? 'border-rose-300 bg-rose-50/50' : 'border-neutral-200'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={selecionado}
+          onChange={onSelecionar}
+          aria-label={`Selecionar ${p.nomeExecutado}`}
+          className="mt-1 h-4 w-4 shrink-0 cursor-pointer accent-liberty-deep"
+        />
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-sm font-bold text-neutral-900">{p.nomeExecutado}</h3>
+          <p className="mt-0.5 text-xs text-neutral-500">
+            {p.cpfCnpj || 'CPF não consta'}
+            {p.comarca ? ` · ${p.comarca}` : ''}
+          </p>
+          {p.numeroProcesso && (
+            <p className="mt-0.5 break-all font-mono text-[11px] text-neutral-400">{p.numeroProcesso}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2.5">
+        <p className="break-words text-[13px] font-semibold text-neutral-900">
+          {p.veiculo || 'Veículo não consta'}
+          {p.anoModelo ? <span className="font-normal text-neutral-500"> · {p.anoModelo}</span> : null}
+        </p>
+        <p className="mt-0.5 break-words text-xs text-neutral-500">{ou(p.banco)}</p>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+        <Campo label="Financiado">{celula(p, 'valorFinanciado')}</Campo>
+        <Campo label="Entrada">{celula(p, 'valorEntrada')}</Campo>
+        <Campo label="Parcela">{celula(p, 'valorParcela')}</Campo>
+        <Campo label="Parcelas">{parcelas}</Campo>
+        <Campo label="Último mês pago">{ou(p.ultimoMesPago)}</Campo>
+        <Campo label="Renegociação">{ou(p.renegociacaoEm)}</Campo>
+      </dl>
+
+      <dl className="mt-3 space-y-2.5 border-t border-neutral-100 pt-3">
+        <Campo label="Telefones">
+          {telefones.length === 0 ? (
+            'Não consta'
+          ) : (
+            <span className="flex flex-col gap-1">
+              {telefones.map((t, i) => (
+                <Telefone key={i} valor={t} nome={p.nomeExecutado} />
+              ))}
+            </span>
+          )}
+        </Campo>
+        <Campo label="E-mail">
+          <span className="break-all">{ou(p.email)}</span>
+        </Campo>
+        <Campo label="Endereço">
+          {p.endereco ? (
+            <>
+              {p.endereco}
+              <LinksMapa endereco={p.endereco} grande />
+            </>
+          ) : (
+            'Não consta'
+          )}
+        </Campo>
+      </dl>
+
+      <div className="mt-4 flex items-stretch gap-2 border-t border-neutral-100 pt-3">{acoes}</div>
+    </article>
+  )
 }
 
 export default function ProspeccaoSection({
@@ -445,6 +594,82 @@ export default function ProspeccaoSection({
     }
   }
 
+  /** Botões de ação de uma linha (tabela e cartão). No cartão (compacto),
+   *  "Editar" vira só ícone e "Proposta" estica, para caber numa linha. */
+  function acoes(p: Prospeccao, compacto = false) {
+    const wpp = primeiroWhatsapp(p)
+    return (
+      <>
+        {wpp && (
+          <a
+            href={linkWhatsapp(wpp, p.nomeExecutado)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Conversar no WhatsApp"
+            aria-label={`WhatsApp de ${p.nomeExecutado}`}
+            className="inline-flex min-h-8 items-center justify-center rounded-lg bg-emerald-500 px-2.5 text-white transition-colors hover:bg-emerald-600"
+          >
+            <IconBrandWhatsapp size={15} />
+          </a>
+        )}
+        {emailValido(p.email) && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => abrirEmail(p)}
+            title={
+              p.ultimoEmailEm
+                ? `Último e-mail em ${formatDate(p.ultimoEmailEm)}`
+                : 'Enviar e-mail com oferta pelo veículo'
+            }
+            aria-label={`Enviar e-mail para ${p.nomeExecutado}`}
+            className={
+              p.ultimoEmailEm
+                ? '!border-sky-300 !text-sky-700 adobe-dark:!border-sky-400/50 adobe-dark:!text-sky-300'
+                : undefined
+            }
+          >
+            <IconMail size={13} />
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="liberty"
+          onClick={() => gerarProposta(p)}
+          leftIcon={<IconFileText size={12} />}
+          title="Gerar proposta (PDF) com os dados desta linha"
+          className={compacto ? 'flex-1' : undefined}
+        >
+          Proposta
+        </Button>
+        {compacto ? (
+          <Button size="sm" variant="secondary" onClick={() => abrirEdicao(p)} aria-label="Editar">
+            <IconPencil size={13} />
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => abrirEdicao(p)}
+            aria-label="Editar"
+            leftIcon={<IconPencil size={12} />}
+          >
+            Editar
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => setConfirmDelete(p)}
+          aria-label="Remover"
+          className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+        >
+          <IconTrash size={12} />
+        </Button>
+      </>
+    )
+  }
+
   const filtrados = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase()
     if (!term) return itens
@@ -490,14 +715,14 @@ export default function ProspeccaoSection({
             Executados em processos, com dados do financiamento e contato.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {itens.length > 0 && (
             <Button
               variant="secondary"
               onClick={() => setConfirmLote('tudo')}
               disabled={submitting}
               leftIcon={<IconTrash size={16} stroke={2.2} />}
-              className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
+              className="order-3 !border-rose-200 !text-rose-600 hover:!bg-rose-50 sm:order-none"
             >
               Excluir tudo
             </Button>
@@ -506,10 +731,16 @@ export default function ProspeccaoSection({
             variant="secondary"
             onClick={() => setImportOpen(true)}
             leftIcon={<IconTableImport size={16} stroke={2.2} />}
+            className="order-2 sm:order-none"
           >
             Colar da planilha
           </Button>
-          <Button variant="liberty" onClick={abrirNovo} leftIcon={<IconPlus size={16} stroke={2.5} />}>
+          <Button
+            variant="liberty"
+            onClick={abrirNovo}
+            leftIcon={<IconPlus size={16} stroke={2.5} />}
+            className="order-1 col-span-2 sm:order-none"
+          >
             Nova prospecção
           </Button>
         </div>
@@ -567,7 +798,8 @@ export default function ProspeccaoSection({
             : 'Nenhum registro encontrado para essa busca.'}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+        <>
+        <div className="hidden overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs md:block">
           <Table className="text-xs">
             <THead>
               <tr>
@@ -611,42 +843,12 @@ export default function ProspeccaoSection({
                           key === 'nomeExecutado' ? 'font-semibold text-neutral-900' : ''
                         } ${vazio ? 'text-neutral-400' : ''}`}
                       >
-                        {PHONES.includes(key) && numeroWhatsapp(String(p[key] ?? '')) ? (
-                          <a
-                            href={linkWhatsapp(numeroWhatsapp(String(p[key]))!, p.nomeExecutado)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Conversar no WhatsApp"
-                            className="inline-flex items-center gap-1.5 font-medium text-emerald-700 hover:underline"
-                          >
-                            <IconBrandWhatsapp size={14} className="shrink-0" />
-                            {celula(p, key)}
-                          </a>
+                        {PHONES.includes(key) && p[key] ? (
+                          <Telefone valor={String(p[key])} nome={p.nomeExecutado} />
                         ) : key === 'endereco' && p.endereco ? (
                           <div>
                             <div>{p.endereco}</div>
-                            <div className="mt-1 flex gap-1.5">
-                              <a
-                                href={linksMapa(p.endereco).maps}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Abrir no Google Maps"
-                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 adobe-dark:hover:border-sky-400/50 adobe-dark:hover:bg-sky-500/20 adobe-dark:hover:text-sky-200"
-                              >
-                                <IconBrandGoogleMaps size={12} />
-                                Maps
-                              </a>
-                              <a
-                                href={linksMapa(p.endereco).waze}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="Abrir no Waze"
-                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 adobe-dark:hover:border-cyan-400/50 adobe-dark:hover:bg-cyan-500/20 adobe-dark:hover:text-cyan-200"
-                              >
-                                <IconBrandWaze size={12} />
-                                Waze
-                              </a>
-                            </div>
+                            <LinksMapa endereco={p.endereco} />
                           </div>
                         ) : (
                           celula(p, key)
@@ -655,99 +857,63 @@ export default function ProspeccaoSection({
                     )
                   })}
                   <TD align="right" className="sticky right-0 bg-white !px-3">
-                    <div className="inline-flex gap-1.5">
-                      {primeiroWhatsapp(p) && (
-                        <a
-                          href={linkWhatsapp(primeiroWhatsapp(p)!, p.nomeExecutado)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Conversar no WhatsApp"
-                          aria-label={`WhatsApp de ${p.nomeExecutado}`}
-                          className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-2.5 text-white transition-colors hover:bg-emerald-600"
-                        >
-                          <IconBrandWhatsapp size={15} />
-                        </a>
-                      )}
-                      {emailValido(p.email) && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => abrirEmail(p)}
-                          title={
-                            p.ultimoEmailEm
-                              ? `Último e-mail em ${formatDate(p.ultimoEmailEm)}`
-                              : 'Enviar e-mail com oferta pelo veículo'
-                          }
-                          aria-label={`Enviar e-mail para ${p.nomeExecutado}`}
-                          className={
-                            p.ultimoEmailEm
-                              ? '!border-sky-300 !text-sky-700 adobe-dark:!border-sky-400/50 adobe-dark:!text-sky-300'
-                              : undefined
-                          }
-                        >
-                          <IconMail size={13} />
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="liberty"
-                        onClick={() => gerarProposta(p)}
-                        leftIcon={<IconFileText size={12} />}
-                        title="Gerar proposta (PDF) com os dados desta linha"
-                      >
-                        Proposta
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => abrirEdicao(p)}
-                        aria-label="Editar"
-                        leftIcon={<IconPencil size={12} />}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setConfirmDelete(p)}
-                        aria-label="Remover"
-                        className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
-                      >
-                        <IconTrash size={12} />
-                      </Button>
-                    </div>
+                    <div className="inline-flex gap-1.5">{acoes(p)}</div>
                   </TD>
                 </TR>
               ))}
             </TBody>
           </Table>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between gap-3 border-t border-neutral-200 bg-neutral-50/60 px-4 py-3">
-              <span className="text-xs text-neutral-500">
-                Página {safePage} de {totalPages} · {filtrados.length} registros
-              </span>
-              <div className="inline-flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setPage((x) => Math.max(1, x - 1))}
-                  disabled={safePage === 1}
-                >
-                  Anterior
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setPage((x) => Math.min(totalPages, x + 1))}
-                  disabled={safePage === totalPages}
-                >
-                  Próxima
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Celular: um cartão por registro (19 colunas não cabem numa tabela). */}
+        <div className="space-y-3 md:hidden">
+          <label className="flex items-center gap-2 px-1 text-xs font-semibold text-neutral-600">
+            <input
+              type="checkbox"
+              checked={paginaToda}
+              onChange={alternarPagina}
+              className="h-4 w-4 cursor-pointer accent-liberty-deep"
+            />
+            Selecionar todos desta página
+          </label>
+          {visiveis.map((p) => (
+            <CartaoProspeccao
+              key={p.id}
+              p={p}
+              selecionado={selecionados.has(p.id)}
+              onSelecionar={() => alternar(p.id)}
+              acoes={acoes(p, true)}
+            />
+          ))}
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex flex-col items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xs sm:flex-row">
+            <span className="text-xs text-neutral-500">
+              Página {safePage} de {totalPages} · {filtrados.length} registros
+            </span>
+            <div className="inline-flex gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPage((x) => Math.max(1, x - 1))}
+                disabled={safePage === 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPage((x) => Math.min(totalPages, x + 1))}
+                disabled={safePage === totalPages}
+              >
+                Próxima
+              </Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       <Modal
