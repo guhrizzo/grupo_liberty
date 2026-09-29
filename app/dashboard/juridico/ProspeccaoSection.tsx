@@ -11,6 +11,8 @@ import {
   IconFileText,
   IconBrandWhatsapp,
   IconMail,
+  IconBrandGoogleMaps,
+  IconBrandWaze,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -138,6 +140,15 @@ function primeiroWhatsapp(p: Prospeccao): string | null {
     if (n) return n
   }
   return null
+}
+
+/** Links de navegação para o endereço (busca por texto nos dois apps). */
+function linksMapa(endereco: string): { maps: string; waze: string } {
+  const q = encodeURIComponent(endereco)
+  return {
+    maps: `https://www.google.com/maps/search/?api=1&query=${q}`,
+    waze: `https://waze.com/ul?q=${q}&navigate=yes`,
+  }
 }
 
 function primeiroNomeFmt(nome: string): string {
@@ -611,6 +622,32 @@ export default function ProspeccaoSection({
                             <IconBrandWhatsapp size={14} className="shrink-0" />
                             {celula(p, key)}
                           </a>
+                        ) : key === 'endereco' && p.endereco ? (
+                          <div>
+                            <div>{p.endereco}</div>
+                            <div className="mt-1 flex gap-1.5">
+                              <a
+                                href={linksMapa(p.endereco).maps}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir no Google Maps"
+                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700"
+                              >
+                                <IconBrandGoogleMaps size={12} />
+                                Maps
+                              </a>
+                              <a
+                                href={linksMapa(p.endereco).waze}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir no Waze"
+                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 transition-colors hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+                              >
+                                <IconBrandWaze size={12} />
+                                Waze
+                              </a>
+                            </div>
+                          </div>
                         ) : (
                           celula(p, key)
                         )}
