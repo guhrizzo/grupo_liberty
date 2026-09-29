@@ -9,6 +9,7 @@ import {
   IconUserSearch,
   IconTableImport,
   IconFileText,
+  IconBrandWhatsapp,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -102,6 +103,38 @@ function celula(p: Prospeccao, key: Chave): string {
   if (MONEY.includes(key)) return formatCurrency(v as number)
   if (INTS.includes(key)) return `${v} parcelas`
   return String(v)
+}
+
+/**
+ * Número de celular BR no formato do wa.me (55 + DDD + 9 dígitos), ou null
+ * se não for um celular válido. Aceita número com 55/0 na frente e celular
+ * antigo de 8 dígitos (acrescenta o 9). Fixo não tem botão.
+ */
+function numeroWhatsapp(telefone: string): string | null {
+  let d = telefone.replace(/\D/g, '')
+  if ((d.length === 12 || d.length === 13) && d.startsWith('55')) d = d.slice(2)
+  // 0 de operadora antes do DDD (014 99876-5432).
+  if (d.length === 12 && d.startsWith('0')) d = d.slice(1)
+  if (!/^[1-9]{2}/.test(d)) return null
+  if (d.length === 10 && /[6-9]/.test(d[2])) d = `${d.slice(0, 2)}9${d.slice(2)}`
+  if (d.length !== 11 || d[2] !== '9' || !/^[1-9]{2}$/.test(d.slice(0, 2))) return null
+  return `55${d}`
+}
+
+function linkWhatsapp(numero: string, nome: string): string {
+  const primeiroNome = nome.split(/\s+/)[0] ?? ''
+  const nomeFmt = primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1).toLowerCase()
+  const texto = encodeURIComponent(`Olá, ${nomeFmt}! Tudo bem? Aqui é da Liberty Car.`)
+  return `https://wa.me/${numero}?text=${texto}`
+}
+
+/** Primeiro celular com WhatsApp válido entre os três telefones. */
+function primeiroWhatsapp(p: Prospeccao): string | null {
+  for (const t of [p.telefone1, p.telefone2, p.telefone3]) {
+    const n = numeroWhatsapp(t)
+    if (n) return n
+  }
+  return null
 }
 
 export default function ProspeccaoSection({
@@ -473,12 +506,37 @@ export default function ProspeccaoSection({
                           key === 'nomeExecutado' ? 'font-semibold text-neutral-900' : ''
                         } ${vazio ? 'text-neutral-400' : ''}`}
                       >
-                        {celula(p, key)}
+                        {PHONES.includes(key) && numeroWhatsapp(String(p[key] ?? '')) ? (
+                          <a
+                            href={linkWhatsapp(numeroWhatsapp(String(p[key]))!, p.nomeExecutado)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Conversar no WhatsApp"
+                            className="inline-flex items-center gap-1.5 font-medium text-emerald-700 hover:underline"
+                          >
+                            <IconBrandWhatsapp size={14} className="shrink-0" />
+                            {celula(p, key)}
+                          </a>
+                        ) : (
+                          celula(p, key)
+                        )}
                       </TD>
                     )
                   })}
                   <TD align="right" className="sticky right-0 bg-white !px-3">
                     <div className="inline-flex gap-1.5">
+                      {primeiroWhatsapp(p) && (
+                        <a
+                          href={linkWhatsapp(primeiroWhatsapp(p)!, p.nomeExecutado)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Conversar no WhatsApp"
+                          aria-label={`WhatsApp de ${p.nomeExecutado}`}
+                          className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-2.5 text-white transition-colors hover:bg-emerald-600"
+                        >
+                          <IconBrandWhatsapp size={15} />
+                        </a>
+                      )}
                       <Button
                         size="sm"
                         variant="liberty"
