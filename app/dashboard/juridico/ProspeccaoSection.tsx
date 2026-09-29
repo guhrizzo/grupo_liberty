@@ -77,7 +77,7 @@ const PLACEHOLDERS: Record<Chave, string> = {
   endereco: 'Rua, número, bairro, cidade/UF, CEP',
 }
 
-const PAGE_SIZE = 15
+const PAGE_SIZE = 30
 
 function formVazio(): FormState {
   return Object.fromEntries(PROSPECCAO_COLUNAS.map(({ key }) => [key, ''])) as FormState
