@@ -183,3 +183,23 @@ export async function deleteProspeccoes(
     return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
   }
 }
+
+/**
+ * Uma prospecção pelo id — usada para preencher /dashboard/propostas/nova
+ * (?prospeccao=<id>). Exige acesso ao jurídico; sem ele, devolve null.
+ */
+export async function getProspeccao(id: string): Promise<Prospeccao | null> {
+  try {
+    await assertPageAccess('juridico')
+  } catch {
+    return null
+  }
+  if (!id) return null
+  try {
+    const doc = await adminDb.collection(COLLECTION).doc(id).get()
+    return doc.exists ? serializar(doc.id, doc.data()!) : null
+  } catch (error) {
+    console.error('Erro ao buscar prospecção:', error)
+    return null
+  }
+}

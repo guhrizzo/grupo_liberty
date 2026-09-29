@@ -8,6 +8,7 @@ import {
   IconTrash,
   IconUserSearch,
   IconTableImport,
+  IconFileText,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -34,6 +35,11 @@ import {
   deleteProspeccoes,
 } from './prospeccao-actions'
 import { PROSPECCAO_COLUNAS, parseLinhasPlanilha } from './prospeccao-parse'
+import {
+  CAMPO_PENDENTE_LABEL,
+  pendenciasParaProposta,
+  type CampoPendente,
+} from './prospeccao-proposta'
 import type { Prospeccao, ProspeccaoInput } from './types'
 
 type Chave = keyof ProspeccaoInput
@@ -119,6 +125,17 @@ export default function ProspeccaoSection({
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set())
   const [confirmLote, setConfirmLote] = useState<'selecionados' | 'tudo' | null>(null)
 
+  // Gerar proposta: se faltar dado obrigatório do formulário de proposta,
+  // pede aqui (e salva na prospecção) antes de abrir /dashboard/propostas/nova.
+  const [propostaDe, setPropostaDe] = useState<Prospeccao | null>(null)
+  const [pendentes, setPendentes] = useState<{ campo: CampoPendente; motivo: string }[]>([])
+  const [propostaForm, setPropostaForm] = useState<Record<CampoPendente, string>>({
+    cpfCnpj: '',
+    telefone1: '',
+    email: '',
+    veiculo: '',
+  })
+
   const [importOpen, setImportOpen] = useState(false)
   const [importTexto, setImportTexto] = useState('')
   const leitura = useMemo(() => parseLinhasPlanilha(importTexto), [importTexto])
@@ -203,6 +220,56 @@ export default function ProspeccaoSection({
       toast.success(res.success || 'Removido.')
     }
     router.refresh()
+  }
+
+  function abrirProposta(p: Prospeccao) {
+    router.push(`/dashboard/propostas/nova?prospeccao=${encodeURIComponent(p.id)}`)
+  }
+
+  function gerarProposta(p: Prospeccao) {
+    const pend = pendenciasParaProposta(p)
+    if (pend.length === 0) {
+      abrirProposta(p)
+      return
+    }
+    setPendentes(pend)
+    setPropostaForm({
+      cpfCnpj: p.cpfCnpj,
+      telefone1: p.telefone1,
+      email: p.email,
+      veiculo: p.veiculo,
+    })
+    setPropostaDe(p)
+  }
+
+  async function handleCompletarProposta(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!propostaDe || submitting) return
+    // salvarProspeccao só lê as colunas da planilha; id/datas são ignorados.
+    const atualizado = { ...propostaDe, ...propostaForm }
+    const aindaFalta = pendenciasParaProposta(atualizado)
+    if (aindaFalta.length > 0) {
+      setPendentes(aindaFalta)
+      toast.error('Ainda faltam dados: ' + aindaFalta.map((x) => CAMPO_PENDENTE_LABEL[x.campo]).join(', ') + '.')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await salvarProspeccao(propostaDe.id, atualizado)
+      if (res.error || !res.prospeccao) {
+        toast.error(res.error || 'Erro ao salvar.')
+        return
+      }
+      const salvo = res.prospeccao
+      setItens((prev) => prev.map((x) => (x.id === salvo.id ? salvo : x)))
+      setPropostaDe(null)
+      toast.success('Dados salvos na prospecção. Abrindo a proposta...')
+      abrirProposta(salvo)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function alternar(id: string) {
@@ -414,6 +481,15 @@ export default function ProspeccaoSection({
                     <div className="inline-flex gap-1.5">
                       <Button
                         size="sm"
+                        variant="liberty"
+                        onClick={() => gerarProposta(p)}
+                        leftIcon={<IconFileText size={12} />}
+                        title="Gerar proposta (PDF) com os dados desta linha"
+                      >
+                        Proposta
+                      </Button>
+                      <Button
+                        size="sm"
                         variant="secondary"
                         onClick={() => abrirEdicao(p)}
                         aria-label="Editar"
@@ -583,6 +659,48 @@ export default function ProspeccaoSection({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!propostaDe}
+        onClose={() => setPropostaDe(null)}
+        title="Complete antes de gerar a proposta"
+        description={
+          propostaDe
+            ? `Faltam dados obrigatórios da proposta de ${propostaDe.nomeExecutado}. O que você preencher fica salvo nesta prospecção.`
+            : undefined
+        }
+      >
+        <form onSubmit={handleCompletarProposta} className="space-y-3 pt-2">
+          {pendentes.map(({ campo, motivo }) => (
+            <Input
+              key={campo}
+              label={CAMPO_PENDENTE_LABEL[campo]}
+              value={propostaForm[campo]}
+              onChange={(e) => {
+                const v = e.target.value
+                setPropostaForm((f) => ({
+                  ...f,
+                  [campo]:
+                    campo === 'cpfCnpj' ? maskCPFCNPJ(v) : campo === 'telefone1' ? maskPhone(v) : v,
+                }))
+              }}
+              error={motivo}
+              placeholder={PLACEHOLDERS[campo]}
+              type={campo === 'email' ? 'email' : 'text'}
+              inputMode={campo === 'cpfCnpj' || campo === 'telefone1' ? 'numeric' : undefined}
+              autoComplete="off"
+            />
+          ))}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setPropostaDe(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="liberty" disabled={submitting}>
+              {submitting ? 'Salvando...' : 'Salvar e abrir proposta'}
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       <ConfirmDialog

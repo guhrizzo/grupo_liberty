@@ -44,9 +44,12 @@ import { validarCPF } from '@/utils/validadorCpf'
 import { getBancoByNome } from '@/constants/bancos'
 import { type CreatePropostaInput } from '../actions'
 import { createPropostaRegistrada } from '../registros/actions'
+import type { PropostaPrefill } from '@/app/dashboard/juridico/prospeccao-proposta'
 
 interface CadastrarPropostaClientProps {
   veiculos?: Array<{ id: string; marca: string; modelo: string; preco: number | null; ano?: number | null; foto?: string | null }>
+  /** Dados vindos da aba Jurídico → Prospecção (?prospeccao=<id>). */
+  prefill?: { origem: string; dados: PropostaPrefill }
 }
 
 type SectionKey = 'cliente' | 'veiculo' | 'pendencias' | 'parcelas' | 'pecas' | 'proposta' | 'previa'
@@ -212,7 +215,7 @@ function SectionBody({ children, last }: { children: React.ReactNode; last?: boo
   )
 }
 
-export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarPropostaClientProps) {
+export default function CadastrarPropostaClient({ veiculos = [], prefill }: CadastrarPropostaClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [creating, setCreating] = useState(false)
@@ -221,7 +224,7 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
   const [searchingPlaca, setSearchingPlaca] = useState(false)
 
   const [openSections, setOpenSections] = useState<Set<SectionKey>>(
-    () => new Set<SectionKey>(['cliente', 'veiculo']),
+    () => new Set<SectionKey>(prefill ? ['cliente', 'veiculo', 'parcelas'] : ['cliente', 'veiculo']),
   )
 
   const toggleSection = useCallback((id: SectionKey) => {
@@ -272,6 +275,8 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
     pecas: [],
 
     valor_proposta: '',
+
+    ...prefill?.dados,
   })
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData | 'pecas', string>>>({})
   const [dividaEditadaManualmente, setDividaEditadaManualmente] = useState(false)
@@ -856,6 +861,17 @@ export default function CadastrarPropostaClient({ veiculos = [] }: CadastrarProp
           </button>
         </div>
       </header>
+
+      {prefill && (
+        <div className="flex items-start gap-2.5 rounded-xl border border-liberty/30 bg-liberty/5 px-4 py-3 text-xs text-neutral-700">
+          <IconSparkles size={16} className="mt-0.5 shrink-0 text-liberty-deep" />
+          <p>
+            Dados preenchidos a partir da prospecção de{' '}
+            <strong className="text-neutral-900">{prefill.origem}</strong> (Jurídico). Informe a
+            placa ou o valor FIPE do veículo e confira os demais campos antes de gerar o PDF.
+          </p>
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}

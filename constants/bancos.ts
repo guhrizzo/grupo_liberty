@@ -76,6 +76,41 @@ export function getBancoByNome(nome: string | null | undefined): BancoInfo | nul
   return BANCOS.find((b) => b.nome.toLowerCase() === alvo) ?? null
 }
 
+const PALAVRAS_GENERICAS = new Set(['banco', 'financeira', 'sa', 's', 'a', 'do', 'de', 'da', 'credito', 'financiamento', 'e'])
+
+function tokensBanco(nome: string): string[] {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9+]+/)
+    .filter((t) => t && !PALAVRAS_GENERICAS.has(t))
+}
+
+/**
+ * Casa um nome de banco escrito livremente (ex.: "BANCO VOTORANTIM S.A.",
+ * vindo de planilha) com a tabela. Tenta o nome exato; senão escolhe o banco
+ * com a maior fração de palavras significativas presentes no texto.
+ */
+export function sugerirBancoPorNome(nome: string | null | undefined): BancoInfo | null {
+  const exato = getBancoByNome(nome)
+  if (exato) return exato
+  const alvo = new Set(tokensBanco(nome ?? ''))
+  if (alvo.size === 0) return null
+  let melhor: BancoInfo | null = null
+  let melhorScore = 0
+  for (const b of BANCOS) {
+    const tokens = tokensBanco(b.nome)
+    if (tokens.length === 0) continue
+    const score = tokens.filter((t) => alvo.has(t)).length / tokens.length
+    if (score > melhorScore) {
+      melhor = b
+      melhorScore = score
+    }
+  }
+  return melhor
+}
+
 /** Monta a opção de label que vai no dropdown de seleção. */
 export function bancoOptionLabel(info: BancoInfo): string {
   const q = info.quitacaoPercent != null ? `${info.quitacaoPercent}%` : '—'
