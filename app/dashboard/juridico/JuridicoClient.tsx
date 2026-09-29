@@ -43,12 +43,19 @@ import {
   getAnotacoesGerais,
   getAnotacoesProcesso,
 } from './actions'
-import type { Processo, ProcessoStatus, AnotacoesContagem, Anotacao } from './types'
+import type {
+  Processo,
+  ProcessoStatus,
+  AnotacoesContagem,
+  Anotacao,
+  Prospeccao,
+} from './types'
 import type { ClienteVeiculoInfo } from './actions'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import type { VeiculoContrato } from '@/app/veiculos/[id]/actions'
 import { VeiculoPicker } from './VeiculoPicker'
 import AnotacoesModal from './AnotacoesModal'
+import ProspeccaoSection from './ProspeccaoSection'
 
 type Status = ProcessoStatus
 
@@ -113,6 +120,7 @@ export default function JuridicoClient({
   clientesPorVeiculo,
   initialContagem,
   contratosJuridico,
+  initialProspeccoes,
 }: {
   currentRole: string
   currentUid: string
@@ -121,6 +129,7 @@ export default function JuridicoClient({
   clientesPorVeiculo: Record<string, ClienteVeiculoInfo>
   initialContagem: AnotacoesContagem
   contratosJuridico: VeiculoContrato[]
+  initialProspeccoes: Prospeccao[]
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
@@ -890,6 +899,8 @@ export default function JuridicoClient({
           </Table>
         </div>
       )}
+
+      <ProspeccaoSection initialProspeccoes={initialProspeccoes} />
 
       {!isAdmin && (
         <p className="text-[11px] text-neutral-400">

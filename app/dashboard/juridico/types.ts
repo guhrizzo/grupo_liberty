@@ -97,3 +97,41 @@ export interface AnotacoesContagem {
   geral: number
   porProcesso: Record<string, number>
 }
+
+// ─── Prospecção de clientes ─────────────────────────────────────────────────
+// Executados (processos de busca e apreensão etc.) que o jurídico prospecta
+// como potenciais clientes. Colunas espelham a planilha usada pelo setor.
+
+export interface ProspeccaoInput {
+  numeroProcesso: string
+  comarca: string
+  nomeExecutado: string
+  cpfCnpj: string
+  banco: string
+  veiculo: string
+  anoModelo: string
+  valorEntrada: number | null
+  valorFinanciado: number | null
+  parcelasContrato: number | null
+  parcelasPagas: number | null
+  ultimoMesPago: string
+  valorParcela: number | null
+  telefone1: string
+  telefone2: string
+  telefone3: string
+  renegociacaoEm: string
+  email: string
+  endereco: string
+}
+
+export interface Prospeccao extends ProspeccaoInput {
+  id: string
+  created_at: string
+  updated_at: string
+}
+
+export type ProspeccaoResponse = {
+  success?: string
+  error?: string
+  prospeccao?: Prospeccao
+}

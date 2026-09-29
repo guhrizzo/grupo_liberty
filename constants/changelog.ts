@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-09-28-juridico-prospeccao',
+    date: '2026-09-28',
+    title: 'Prospecção de clientes no Jurídico',
+    tag: 'novo',
+    items: [
+      'Nova tabela "Prospecção de clientes" na aba Jurídico, com processo, executado, banco, veículo, dados do financiamento e contatos.',
+      'Cadastre um registro de cada vez ou use "Colar da planilha" para importar várias linhas copiadas do Excel de uma vez.',
+    ],
+  },
+  {
     id: '2026-09-27-contas-fixas-nao-pagas',
     date: '2026-09-27',
     title: 'Contas fixas não pagas em destaque',
