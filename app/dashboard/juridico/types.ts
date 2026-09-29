@@ -126,6 +126,9 @@ export interface ProspeccaoInput {
 
 export interface Prospeccao extends ProspeccaoInput {
   id: string
+  /** Último e-mail de oferta enviado pela aba (data ISO e valor ofertado). */
+  ultimoEmailEm: string | null
+  ultimoEmailValor: number | null
   created_at: string
   updated_at: string
 }

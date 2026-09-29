@@ -10,6 +10,7 @@ import {
   IconTableImport,
   IconFileText,
   IconBrandWhatsapp,
+  IconMail,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -26,19 +27,21 @@ import {
   useToast,
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
-import { formatCurrency } from '@/utils/format'
-import { maskCPFCNPJ, maskMoney, maskPhone, moneyFromNumber } from '@/utils/masks'
+import { formatCurrency, formatDate } from '@/utils/format'
+import { maskCPFCNPJ, maskMoney, maskPhone, moneyFromNumber, parseMoney } from '@/utils/masks'
 import {
   salvarProspeccao,
   importarProspeccoes,
   getProspeccoes,
   deleteProspeccao,
   deleteProspeccoes,
+  enviarOfertaEmail,
 } from './prospeccao-actions'
 import { PROSPECCAO_COLUNAS, parseLinhasPlanilha } from './prospeccao-parse'
 import {
   CAMPO_PENDENTE_LABEL,
   pendenciasParaProposta,
+  emailValido,
   type CampoPendente,
 } from './prospeccao-proposta'
 import type { Prospeccao, ProspeccaoInput } from './types'
@@ -97,7 +100,7 @@ function mascarar(key: Chave, v: string): string {
 }
 
 /** Valor da célula como aparece na planilha. */
-function celula(p: Prospeccao, key: Chave): string {
+function celula(p: ProspeccaoInput, key: Chave): string {
   const v = p[key]
   if (v === null || v === '') return 'Não consta'
   if (MONEY.includes(key)) return formatCurrency(v as number)
@@ -137,6 +140,36 @@ function primeiroWhatsapp(p: Prospeccao): string | null {
   return null
 }
 
+function primeiroNomeFmt(nome: string): string {
+  const n = nome.split(/\s+/)[0] ?? ''
+  return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()
+}
+
+function assuntoPadrao(p: ProspeccaoInput): string {
+  const curto = p.veiculo.split(/\s+/).slice(0, 2).join(' ')
+  return curto
+    ? `Proposta de compra do seu ${curto} | Liberty Car`
+    : 'Proposta de compra do seu veículo | Liberty Car'
+}
+
+/** Texto inicial do e-mail de oferta; o valor entra formatado. */
+function mensagemPadrao(p: ProspeccaoInput, valor: string): string {
+  const veiculo = [p.veiculo || 'veículo', p.anoModelo ? `(${p.anoModelo})` : '']
+    .filter(Boolean)
+    .join(' ')
+  const valorTxt = valor ? `R$ ${valor}` : 'R$ ____'
+  const banco = p.banco
+    ? ` Cuidamos de toda a negociação da quitação do financiamento junto ao ${p.banco}, sem burocracia para você.`
+    : ''
+  return [
+    `Olá, ${primeiroNomeFmt(p.nomeExecutado)}!`,
+    `Somos da Liberty Car e temos interesse em comprar o seu ${veiculo}.`,
+    `Podemos oferecer ${valorTxt} pelo veículo.${banco}`,
+    'Se tiver interesse, é só responder este e-mail ou nos chamar no WhatsApp.',
+    'Atenciosamente,\nEquipe Liberty Car',
+  ].join('\n\n')
+}
+
 export default function ProspeccaoSection({
   initialProspeccoes,
 }: {
@@ -157,6 +190,14 @@ export default function ProspeccaoSection({
   // Seleção múltipla para exclusão em lote.
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set())
   const [confirmLote, setConfirmLote] = useState<'selecionados' | 'tudo' | null>(null)
+
+  // E-mail de oferta pelo veículo.
+  const [emailDe, setEmailDe] = useState<Prospeccao | null>(null)
+  const [ofertaValor, setOfertaValor] = useState('')
+  const [ofertaAssunto, setOfertaAssunto] = useState('')
+  const [ofertaMensagem, setOfertaMensagem] = useState('')
+  // Enquanto o texto não for editado à mão, ele acompanha o valor digitado.
+  const [mensagemEditada, setMensagemEditada] = useState(false)
 
   // Gerar proposta: se faltar dado obrigatório do formulário de proposta,
   // pede aqui (e salva na prospecção) antes de abrir /dashboard/propostas/nova.
@@ -253,6 +294,59 @@ export default function ProspeccaoSection({
       toast.success(res.success || 'Removido.')
     }
     router.refresh()
+  }
+
+  function abrirEmail(p: Prospeccao) {
+    const valor = moneyFromNumber(p.ultimoEmailValor)
+    setOfertaValor(valor)
+    setOfertaAssunto(assuntoPadrao(p))
+    setOfertaMensagem(mensagemPadrao(p, valor))
+    setMensagemEditada(false)
+    setEmailDe(p)
+  }
+
+  function mudarValorOferta(v: string) {
+    const valor = maskMoney(v)
+    setOfertaValor(valor)
+    if (!mensagemEditada && emailDe) setOfertaMensagem(mensagemPadrao(emailDe, valor))
+  }
+
+  async function handleEnviarEmail(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!emailDe || submitting) return
+    const valor = parseMoney(ofertaValor)
+    if (!valor || valor <= 0) {
+      toast.error('Informe o valor da oferta.')
+      return
+    }
+    if (!ofertaMensagem.trim() || !ofertaAssunto.trim()) {
+      toast.error('Preencha o assunto e a mensagem.')
+      return
+    }
+    if (ofertaMensagem.includes('R$ ____')) {
+      toast.error('A mensagem ainda tem o valor em branco (R$ ____).')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await enviarOfertaEmail(emailDe.id, {
+        valor,
+        assunto: ofertaAssunto,
+        mensagem: ofertaMensagem,
+      })
+      if (res.error || !res.prospeccao) {
+        toast.error(res.error || 'Erro ao enviar.')
+        return
+      }
+      const salvo = res.prospeccao
+      setItens((prev) => prev.map((x) => (x.id === salvo.id ? salvo : x)))
+      setEmailDe(null)
+      toast.success(res.success || 'E-mail enviado.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function abrirProposta(p: Prospeccao) {
@@ -537,6 +631,22 @@ export default function ProspeccaoSection({
                           <IconBrandWhatsapp size={15} />
                         </a>
                       )}
+                      {emailValido(p.email) && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => abrirEmail(p)}
+                          title={
+                            p.ultimoEmailEm
+                              ? `Último e-mail em ${formatDate(p.ultimoEmailEm)}`
+                              : 'Enviar e-mail com oferta pelo veículo'
+                          }
+                          aria-label={`Enviar e-mail para ${p.nomeExecutado}`}
+                          className={p.ultimoEmailEm ? '!border-sky-300 !text-sky-700' : undefined}
+                        >
+                          <IconMail size={13} />
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="liberty"
@@ -689,7 +799,7 @@ export default function ProspeccaoSection({
                               vazio ? 'text-neutral-300' : 'text-neutral-800'
                             }`}
                           >
-                            {celula({ ...p, id: '', created_at: '', updated_at: '' }, key)}
+                            {celula(p, key)}
                           </td>
                         )
                       })}
@@ -717,6 +827,92 @@ export default function ProspeccaoSection({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={!!emailDe}
+        onClose={() => !submitting && setEmailDe(null)}
+        title="Oferta por e-mail"
+        description={emailDe ? `Para: ${emailDe.email} · com cópia para a equipe` : undefined}
+        size="lg"
+        className="max-h-[90vh] overflow-y-auto"
+      >
+        {emailDe && (
+          <form onSubmit={handleEnviarEmail} className="space-y-3 pt-2">
+            {emailDe.ultimoEmailEm && (
+              <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                Já foi enviado um e-mail em {formatDate(emailDe.ultimoEmailEm)}
+                {emailDe.ultimoEmailValor != null
+                  ? ` com oferta de ${formatCurrency(emailDe.ultimoEmailValor)}`
+                  : ''}
+                .
+              </p>
+            )}
+            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+              <Input
+                label="Valor da oferta *"
+                value={ofertaValor}
+                onChange={(e) => mudarValorOferta(e.target.value)}
+                placeholder="0,00"
+                inputMode="numeric"
+                autoComplete="off"
+                leftIcon={<span className="text-xs font-semibold">R$</span>}
+              />
+              <Input
+                label="Assunto"
+                value={ofertaAssunto}
+                onChange={(e) => setOfertaAssunto(e.target.value)}
+                maxLength={200}
+              />
+            </div>
+            <Textarea
+              label="Mensagem"
+              value={ofertaMensagem}
+              onChange={(e) => {
+                setOfertaMensagem(e.target.value)
+                setMensagemEditada(true)
+              }}
+              rows={11}
+              maxLength={5000}
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-neutral-500">
+              <span>
+                O e-mail sai com a marca Liberty Car, um quadro com veículo e valor ofertado e um
+                botão de WhatsApp. Respostas vão para a equipe.
+              </span>
+              {mensagemEditada && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOfertaMensagem(mensagemPadrao(emailDe, ofertaValor))
+                    setMensagemEditada(false)
+                  }}
+                  className="font-semibold text-liberty-deep hover:underline cursor-pointer"
+                >
+                  Restaurar texto padrão
+                </button>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 pt-1">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEmailDe(null)}
+                disabled={submitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                variant="liberty"
+                disabled={submitting}
+                leftIcon={<IconMail size={14} />}
+              >
+                {submitting ? 'Enviando...' : 'Enviar e-mail'}
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <Modal

@@ -32,6 +32,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Nova tabela "Prospecção de clientes" na aba Jurídico, com processo, executado, banco, veículo, dados do financiamento e contatos.',
       'Cadastre um registro de cada vez ou use "Colar da planilha" para importar várias linhas copiadas do Excel de uma vez.',
       'Botão "Proposta" em cada linha abre o cadastro de proposta já preenchido (cliente, veículo, banco e parcelas). Se faltar CPF, telefone, e-mail ou veículo, o sistema pede antes.',
+      'Quem tem celular válido ganha botão de WhatsApp; quem tem e-mail ganha botão para enviar uma oferta pelo veículo, com texto pronto e editável.',
     ],
   },
   {

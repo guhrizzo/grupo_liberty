@@ -5,6 +5,8 @@ import { adminDb } from '@/utils/firebase/admin'
 import { assertPageAccess } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { normalizarProspeccao } from './prospeccao-parse'
+import { emailValido } from './prospeccao-proposta'
+import { sendProspeccaoOfertaEmail } from '@/utils/email/send-prospeccao-oferta-email'
 import type { Prospeccao, ProspeccaoInput, ProspeccaoResponse } from './types'
 
 // Prospecção de clientes do jurídico. CPF/CNPJ é gravado criptografado,
@@ -31,6 +33,8 @@ function serializar(id: string, data: FirebaseFirestore.DocumentData): Prospecca
   return {
     id,
     ...normalizarProspeccao({ ...data, cpfCnpj: decryptOrRaw(data.cpfCnpj) }),
+    ultimoEmailEm: data.ultimoEmailEm ?? null,
+    ultimoEmailValor: typeof data.ultimoEmailValor === 'number' ? data.ultimoEmailValor : null,
     created_at: data.created_at ?? '',
     updated_at: data.updated_at ?? data.created_at ?? '',
   }
@@ -77,7 +81,7 @@ export async function salvarProspeccao(
       revalidatePath('/dashboard/juridico')
       return {
         success: 'Prospecção atualizada.',
-        prospeccao: { id, ...dados, created_at: doc.data()?.created_at ?? now, updated_at: now },
+        prospeccao: { ...serializar(id, doc.data()!), ...dados, updated_at: now },
       }
     }
 
@@ -86,7 +90,14 @@ export async function salvarProspeccao(
     revalidatePath('/dashboard/juridico')
     return {
       success: 'Prospecção cadastrada.',
-      prospeccao: { id: ref.id, ...dados, created_at: now, updated_at: now },
+      prospeccao: {
+        id: ref.id,
+        ...dados,
+        ultimoEmailEm: null,
+        ultimoEmailValor: null,
+        created_at: now,
+        updated_at: now,
+      },
     }
   } catch (error) {
     return { error: `Erro ao salvar: ${erroMsg(error, 'erro inesperado')}` }
@@ -201,5 +212,57 @@ export async function getProspeccao(id: string): Promise<Prospeccao | null> {
   } catch (error) {
     console.error('Erro ao buscar prospecção:', error)
     return null
+  }
+}
+
+/**
+ * Envia por e-mail uma oferta pelo veículo do executado. O destinatário é
+ * sempre o e-mail salvo na prospecção (não vem do navegador). Grava data e
+ * valor do envio para a tabela mostrar quando o último e-mail saiu.
+ */
+export async function enviarOfertaEmail(
+  id: string,
+  dados: { valor: number; assunto: string; mensagem: string },
+): Promise<{ success?: string; error?: string; prospeccao?: Prospeccao }> {
+  try {
+    await assertPageAccess('juridico')
+  } catch (err) {
+    return { error: erroMsg(err, 'Acesso negado.') }
+  }
+
+  const valor = Number(dados?.valor)
+  const assunto = String(dados?.assunto ?? '').trim().slice(0, 200)
+  const mensagem = String(dados?.mensagem ?? '').trim()
+  if (!id) return { error: 'ID inválido.' }
+  if (!Number.isFinite(valor) || valor <= 0) return { error: 'Informe o valor da oferta.' }
+  if (!assunto) return { error: 'Informe o assunto.' }
+  if (!mensagem) return { error: 'Escreva a mensagem.' }
+  if (mensagem.length > 5000) return { error: 'A mensagem passa de 5000 caracteres.' }
+
+  try {
+    const ref = adminDb.collection(COLLECTION).doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Registro não encontrado.' }
+    const atual = serializar(doc.id, doc.data()!)
+    if (!emailValido(atual.email)) return { error: 'Este registro não tem e-mail válido.' }
+
+    const envio = await sendProspeccaoOfertaEmail({
+      para: atual.email,
+      assunto,
+      mensagem,
+      veiculo: [atual.veiculo, atual.anoModelo].filter(Boolean).join(' · ') || 'seu veículo',
+      valorOferta: valor,
+    })
+    if (!envio.ok) return { error: `E-mail não enviado: ${envio.erro}` }
+
+    const now = new Date().toISOString()
+    await ref.update({ ultimoEmailEm: now, ultimoEmailValor: valor })
+    revalidatePath('/dashboard/juridico')
+    return {
+      success: `E-mail enviado para ${atual.email}.`,
+      prospeccao: { ...atual, ultimoEmailEm: now, ultimoEmailValor: valor },
+    }
+  } catch (error) {
+    return { error: `Erro ao enviar: ${erroMsg(error, 'erro inesperado')}` }
   }
 }
