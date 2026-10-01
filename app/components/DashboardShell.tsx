@@ -19,6 +19,7 @@ import {
   IconSpeakerphone,
   IconChartBar,
   IconTargetArrow,
+  IconChecklist,
   IconMenu2,
 
   IconLogout,
@@ -36,7 +37,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   permissionKey?: PermissionKey
@@ -122,6 +123,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'analytics',
   },
   {
+    href: '/dashboard/tarefas',
+    label: 'Tarefas',
+    icon: 'checklist',
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+  },
+  {
     href: '/dashboard/novidades',
     label: 'Novidades',
     icon: 'sparkles',
@@ -168,6 +175,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconChartBar className={cls} stroke={2} />
     case 'target':
       return <IconTargetArrow className={cls} stroke={2} />
+    case 'checklist':
+      return <IconChecklist className={cls} stroke={2} />
   }
 }
 
@@ -194,6 +203,7 @@ interface DashboardShellProps {
   logoutAction: () => Promise<void>
   propostasPendentesCount?: number
   anunciosPendentesCount?: number
+  tarefasPendentesCount?: number
   permissions?: Record<string, boolean>
 }
 
@@ -204,6 +214,7 @@ export default function DashboardShell({
   logoutAction,
   propostasPendentesCount = 0,
   anunciosPendentesCount = 0,
+  tarefasPendentesCount = 0,
   permissions = {},
 }: DashboardShellProps) {
   const pathname = usePathname()
@@ -370,7 +381,9 @@ export default function DashboardShell({
                 ? propostasPendentesCount
                 : item.href === '/dashboard/anuncios'
                   ? anunciosPendentesCount
-                  : 0
+                  : item.href === '/dashboard/tarefas'
+                    ? tarefasPendentesCount
+                    : 0
 
             return (
               <li key={item.href}>

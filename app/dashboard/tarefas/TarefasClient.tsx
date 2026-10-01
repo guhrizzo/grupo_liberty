@@ -1,0 +1,657 @@
+'use client'
+
+import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  IconAlertTriangle,
+  IconCalendarDue,
+  IconCheck,
+  IconChecklist,
+  IconLock,
+  IconLockOpen,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+  IconUser,
+  IconX,
+} from '@tabler/icons-react'
+import {
+  Breadcrumb,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Textarea,
+  useToast,
+} from '@/app/components/ui'
+import { formatDate, formatDateTime } from '@/utils/format'
+import {
+  TAREFA_DESCRICAO_MAX,
+  TAREFA_MOTIVO_MAX,
+  TAREFA_STATUS,
+  TAREFA_STATUS_ORDEM,
+  TAREFA_TITULO_MAX,
+  tarefaAtrasada,
+  type TarefaStatus,
+} from '@/constants/tarefas'
+import type { Tarefa, TarefaFieldErrors, UsuarioOpcao } from './types'
+import { definirTarefaFechada, excluirTarefa, responderTarefa, salvarTarefa } from './actions'
+
+interface TarefasClientProps {
+  tarefas: Tarefa[]
+  usuarios: UsuarioOpcao[]
+  admSupremo: boolean
+  meuUid: string
+  /** `YYYY-MM-DD` no fuso do negócio — vem do servidor para não divergir. */
+  hoje: string
+}
+
+const CARD =
+  'rounded-2xl border border-neutral-200 bg-white shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
+const CHIP =
+  'shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer'
+const CHIP_OFF =
+  'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
+const CHIP_GROUP =
+  'flex items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
+
+function Badge({ className, children }: { className: string; children: React.ReactNode }) {
+  return (
+    <span
+      className={
+        'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ' +
+        className
+      }
+    >
+      {children}
+    </span>
+  )
+}
+
+export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, hoje }: TarefasClientProps) {
+  const router = useRouter()
+  const toast = useToast()
+  const [isPending, startTransition] = useTransition()
+
+  const [verFechadas, setVerFechadas] = useState(false)
+  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'atrasadas' | TarefaStatus>('todos')
+  const [filtroResponsavel, setFiltroResponsavel] = useState('')
+
+  const [editando, setEditando] = useState<Tarefa | 'nova' | null>(null)
+  const [excluirId, setExcluirId] = useState<string | null>(null)
+
+  const abertas = useMemo(() => tarefas.filter((t) => !t.fechada), [tarefas])
+  const fechadas = useMemo(() => tarefas.filter((t) => t.fechada), [tarefas])
+
+  const contagem = useMemo(() => {
+    const c = { pendente: 0, atrasadas: 0, concluida: 0, nao_concluida: 0 }
+    for (const t of abertas) {
+      c[t.status]++
+      if (tarefaAtrasada(t, hoje)) c.atrasadas++
+    }
+    return c
+  }, [abertas, hoje])
+
+  const filtradas = useMemo(() => {
+    return (verFechadas ? fechadas : abertas).filter((t) => {
+      if (filtroResponsavel && t.responsavelUid !== filtroResponsavel) return false
+      if (filtroStatus === 'atrasadas') return tarefaAtrasada(t, hoje)
+      if (filtroStatus !== 'todos' && t.status !== filtroStatus) return false
+      return true
+    })
+  }, [verFechadas, abertas, fechadas, filtroResponsavel, filtroStatus, hoje])
+
+  const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel
+
+  const executar = useCallback(
+    (acao: () => Promise<{ success?: string; error?: string }>, onOk?: () => void) => {
+      startTransition(async () => {
+        const result = await acao()
+        if (result.error) toast.error(result.error)
+        else {
+          toast.success(result.success || 'Feito.')
+          onOk?.()
+          router.refresh()
+        }
+      })
+    },
+    [router, toast],
+  )
+
+  const handleExcluir = useCallback(() => {
+    if (!excluirId) return
+    executar(() => excluirTarefa(excluirId), () => setExcluirId(null))
+  }, [excluirId, executar])
+
+  return (
+    <div className="space-y-5 pb-28 md:space-y-6 md:pb-0">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="hidden md:block">
+            <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Tarefas' }]} />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight text-neutral-950 md:mt-1 md:text-3xl adobe-dark:text-adobe-text-hi">
+            Tarefas
+          </h1>
+          <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm adobe-dark:text-adobe-text-lo">
+            {admSupremo
+              ? 'Atribua tarefas com prazo e acompanhe as respostas da equipe.'
+              : 'Suas tarefas. Marque como concluída ou explique por que não concluiu.'}
+          </p>
+        </div>
+        {admSupremo && (
+          <Button
+            variant="liberty"
+            leftIcon={<IconPlus size={16} stroke={2.5} />}
+            onClick={() => setEditando('nova')}
+          >
+            Nova tarefa
+          </Button>
+        )}
+      </header>
+
+      <section aria-label="Resumo" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {(
+          [
+            { label: 'Pendentes', value: contagem.pendente, cls: '' },
+            { label: 'Atrasadas', value: contagem.atrasadas, cls: contagem.atrasadas > 0 ? 'text-rose-600 adobe-dark:text-rose-400' : '' },
+            { label: 'Concluídas', value: contagem.concluida, cls: '' },
+            { label: 'Não concluídas', value: contagem.nao_concluida, cls: '' },
+          ] as const
+        ).map((k) => (
+          <div key={k.label} className={CARD + ' p-4'}>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">
+              {k.label}
+            </p>
+            <p
+              className={
+                'mt-1 text-2xl font-bold tabular-nums ' +
+                (k.cls || 'text-neutral-950 adobe-dark:text-adobe-text-hi')
+              }
+            >
+              {k.value}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* Filtros */}
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+        <div className={CHIP_GROUP}>
+          {(
+            [
+              { id: false, label: `Abertas (${abertas.length})` },
+              { id: true, label: `Fechadas (${fechadas.length})` },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={String(opt.id)}
+              type="button"
+              onClick={() => setVerFechadas(opt.id)}
+              className={CHIP + ' ' + (verFechadas === opt.id ? 'bg-liberty text-white shadow-xs' : CHIP_OFF)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={CHIP_GROUP}>
+          {(
+            [
+              { id: 'todos', label: 'Todos' },
+              ...TAREFA_STATUS_ORDEM.map((s) => ({ id: s, label: TAREFA_STATUS[s].label })),
+              { id: 'atrasadas', label: 'Atrasadas' },
+            ] as { id: 'todos' | 'atrasadas' | TarefaStatus; label: string }[]
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setFiltroStatus(opt.id)}
+              className={
+                CHIP +
+                ' ' +
+                (filtroStatus === opt.id
+                  ? 'bg-neutral-950 text-white shadow-xs adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                  : CHIP_OFF)
+              }
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {admSupremo && usuarios.length > 0 && (
+          <div className="lg:w-60">
+            <Select
+              aria-label="Filtrar por responsável"
+              value={filtroResponsavel}
+              onChange={(e) => setFiltroResponsavel(e.target.value)}
+              options={[
+                { value: '', label: 'Todos os responsáveis' },
+                ...usuarios.map((u) => ({ value: u.uid, label: u.nome })),
+              ]}
+            />
+          </div>
+        )}
+
+        {filtrosAtivos && (
+          <button
+            type="button"
+            onClick={() => {
+              setFiltroStatus('todos')
+              setFiltroResponsavel('')
+            }}
+            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer lg:self-auto adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
+          >
+            <IconX size={12} stroke={2} />
+            Limpar
+          </button>
+        )}
+      </div>
+
+      {/* Lista */}
+      {tarefas.length === 0 ? (
+        <EmptyState
+          icon={<IconChecklist size={24} stroke={1.5} />}
+          title={admSupremo ? 'Nenhuma tarefa criada' : 'Nenhuma tarefa para você'}
+          description={
+            admSupremo
+              ? 'Crie uma tarefa, escolha o responsável e defina o prazo.'
+              : 'Quando a administração atribuir uma tarefa a você, ela aparece aqui.'
+          }
+          action={
+            admSupremo ? (
+              <Button
+                variant="liberty"
+                size="sm"
+                leftIcon={<IconPlus size={14} stroke={2.5} />}
+                onClick={() => setEditando('nova')}
+              >
+                Nova tarefa
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : filtradas.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm font-semibold text-neutral-500 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-lo">
+          {verFechadas ? 'Nenhuma tarefa fechada' : 'Nenhuma tarefa aberta'}
+          {filtrosAtivos ? ' com esses filtros.' : '.'}
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {filtradas.map((t) => (
+            <TarefaCard
+              key={t.id}
+              tarefa={t}
+              hoje={hoje}
+              admSupremo={admSupremo}
+              souResponsavel={t.responsavelUid === meuUid}
+              busy={isPending}
+              onResponder={(status, motivo, onOk) =>
+                executar(() => responderTarefa(t.id, status, motivo), onOk)
+              }
+              onEditar={() => setEditando(t)}
+              onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
+              onExcluir={() => setExcluirId(t.id)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {admSupremo && (
+        <TarefaModal
+          // Remonta a cada abertura para reiniciar o formulário.
+          key={editando === null ? 'fechado' : editando === 'nova' ? 'nova' : editando.id}
+          open={editando !== null}
+          tarefa={editando === 'nova' ? null : editando}
+          usuarios={usuarios}
+          hoje={hoje}
+          onClose={() => setEditando(null)}
+          onSaved={() => {
+            setEditando(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!excluirId}
+        onClose={() => setExcluirId(null)}
+        onConfirm={handleExcluir}
+        title="Excluir tarefa?"
+        description="A tarefa e a resposta do responsável serão apagadas. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        tone="danger"
+        loading={isPending}
+      />
+    </div>
+  )
+}
+
+// ─── Card ────────────────────────────────────────────────────────────────────
+
+function TarefaCard({
+  tarefa: t,
+  hoje,
+  admSupremo,
+  souResponsavel,
+  busy,
+  onResponder,
+  onEditar,
+  onFechar,
+  onExcluir,
+}: {
+  tarefa: Tarefa
+  hoje: string
+  admSupremo: boolean
+  souResponsavel: boolean
+  busy: boolean
+  onResponder: (status: TarefaStatus, motivo: string | null, onOk?: () => void) => void
+  onEditar: () => void
+  onFechar: (fechada: boolean) => void
+  onExcluir: () => void
+}) {
+  const [motivoAberto, setMotivoAberto] = useState(false)
+  const [motivo, setMotivo] = useState(t.motivo ?? '')
+  const atrasada = tarefaAtrasada(t, hoje)
+  const podeResponder = souResponsavel && !t.fechada
+
+  return (
+    <li className={CARD + ' p-4 space-y-3' + (atrasada ? ' border-rose-300 adobe-dark:border-rose-500/40' : '')}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className={TAREFA_STATUS[t.status].classes}>{TAREFA_STATUS[t.status].label}</Badge>
+        {atrasada && (
+          <Badge className="border-rose-300 bg-rose-600 text-white adobe-dark:border-rose-500/40">
+            <IconAlertTriangle size={11} stroke={2.5} />
+            Atrasada
+          </Badge>
+        )}
+        {t.fechada && (
+          <Badge className="border-neutral-200 bg-neutral-100 text-neutral-600 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md">
+            <IconLock size={11} stroke={2.5} />
+            Fechada
+          </Badge>
+        )}
+      </div>
+
+      <div>
+        <p className="text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">{t.titulo}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          <span
+            className={
+              'inline-flex items-center gap-1 ' +
+              (atrasada ? 'font-bold text-rose-600 adobe-dark:text-rose-400' : '')
+            }
+          >
+            <IconCalendarDue size={12} stroke={2} />
+            Prazo: {formatDate(t.prazo)}
+          </span>
+          {admSupremo && (
+            <span className="inline-flex items-center gap-1">
+              <IconUser size={12} stroke={2} />
+              {t.responsavelNome}
+            </span>
+          )}
+          {!admSupremo && <span>Criada por {t.criadoPorNome}</span>}
+        </p>
+      </div>
+
+      {t.descricao && (
+        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-700 adobe-dark:text-adobe-text-md">
+          {t.descricao}
+        </p>
+      )}
+
+      {t.status !== 'pendente' && (
+        <div
+          className={
+            'rounded-xl border p-3 text-[13px] ' +
+            (t.status === 'concluida'
+              ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800 adobe-dark:border-emerald-500/30 adobe-dark:bg-emerald-500/10 adobe-dark:text-emerald-200'
+              : 'border-rose-200 bg-rose-50/60 text-rose-800 adobe-dark:border-rose-500/30 adobe-dark:bg-rose-500/10 adobe-dark:text-rose-200')
+          }
+        >
+          <p className="font-bold">
+            {t.status === 'concluida' ? 'Marcada como concluída' : 'Não concluída'}
+            {t.respondidoEm && (
+              <span className="font-medium opacity-70"> · {formatDateTime(t.respondidoEm)}</span>
+            )}
+          </p>
+          {t.motivo && <p className="mt-1 whitespace-pre-wrap">Motivo: {t.motivo}</p>}
+        </div>
+      )}
+
+      {podeResponder && (
+        <div className="space-y-2">
+          {motivoAberto ? (
+            <div className="space-y-2">
+              <Textarea
+                label="Por que não concluiu?"
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                rows={3}
+                maxLength={TAREFA_MOTIVO_MAX}
+                autoFocus
+              />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  loading={busy}
+                  disabled={!motivo.trim()}
+                  onClick={() => onResponder('nao_concluida', motivo, () => setMotivoAberto(false))}
+                >
+                  Enviar motivo
+                </Button>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => setMotivoAberto(false)}>
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {t.status !== 'concluida' && (
+                <Button
+                  variant="liberty"
+                  size="sm"
+                  leftIcon={<IconCheck size={14} stroke={2.5} />}
+                  loading={busy}
+                  onClick={() => onResponder('concluida', null)}
+                >
+                  Concluí
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<IconX size={14} stroke={2.5} />}
+                disabled={busy}
+                onClick={() => setMotivoAberto(true)}
+              >
+                {t.status === 'nao_concluida' ? 'Editar motivo' : 'Não concluí'}
+              </Button>
+              {t.status !== 'pendente' && (
+                <Button variant="ghost" size="sm" disabled={busy} onClick={() => onResponder('pendente', null)}>
+                  Desfazer resposta
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {admSupremo && (
+        <div className="flex flex-wrap items-center gap-1 border-t border-neutral-100 pt-3 adobe-dark:border-adobe-line">
+          <AcaoAdm onClick={onEditar} disabled={busy} icon={<IconPencil size={13} stroke={2} />}>
+            Editar
+          </AcaoAdm>
+          <AcaoAdm
+            onClick={() => onFechar(!t.fechada)}
+            disabled={busy}
+            icon={t.fechada ? <IconLockOpen size={13} stroke={2} /> : <IconLock size={13} stroke={2} />}
+          >
+            {t.fechada ? 'Reabrir' : 'Fechar'}
+          </AcaoAdm>
+          <AcaoAdm onClick={onExcluir} disabled={busy} icon={<IconTrash size={13} stroke={2} />} danger>
+            Excluir
+          </AcaoAdm>
+        </div>
+      )}
+    </li>
+  )
+}
+
+function AcaoAdm({
+  onClick,
+  disabled,
+  icon,
+  danger,
+  children,
+}: {
+  onClick: () => void
+  disabled: boolean
+  icon: React.ReactNode
+  danger?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={
+        'inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-bold transition-ui cursor-pointer disabled:opacity-50 ' +
+        (danger
+          ? 'text-rose-600 hover:bg-rose-50 adobe-dark:text-rose-400 adobe-dark:hover:bg-rose-500/10'
+          : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3')
+      }
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+// ─── Modal criar/editar ──────────────────────────────────────────────────────
+
+function TarefaModal({
+  open,
+  tarefa,
+  usuarios,
+  hoje,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  tarefa: Tarefa | null
+  usuarios: UsuarioOpcao[]
+  hoje: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const toast = useToast()
+  const [titulo, setTitulo] = useState(tarefa?.titulo ?? '')
+  const [descricao, setDescricao] = useState(tarefa?.descricao ?? '')
+  const [prazo, setPrazo] = useState(tarefa?.prazo ?? '')
+  const [responsavelUid, setResponsavelUid] = useState(tarefa?.responsavelUid ?? '')
+  const [errors, setErrors] = useState<TarefaFieldErrors>({})
+  const [salvando, setSalvando] = useState(false)
+
+  // Responsável antigo que não está mais na lista (ex.: perdeu o cargo) continua selecionável.
+  const opcoes = useMemo(() => {
+    const lista = usuarios.map((u) => ({ value: u.uid, label: u.email ? `${u.nome} (${u.email})` : u.nome }))
+    if (tarefa && !usuarios.some((u) => u.uid === tarefa.responsavelUid)) {
+      lista.unshift({ value: tarefa.responsavelUid, label: tarefa.responsavelNome })
+    }
+    return [{ value: '', label: 'Selecione o responsável' }, ...lista]
+  }, [usuarios, tarefa])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSalvando(true)
+    try {
+      const fd = new FormData()
+      if (tarefa) fd.append('id', tarefa.id)
+      fd.append('titulo', titulo)
+      fd.append('descricao', descricao)
+      fd.append('prazo', prazo)
+      fd.append('responsavelUid', responsavelUid)
+      const result = await salvarTarefa(fd)
+      setErrors(result.fieldErrors ?? {})
+      if (result.error) {
+        if (!result.fieldErrors) toast.error(result.error)
+        return
+      }
+      toast.success(result.success || 'Tarefa salva.')
+      onSaved()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const trocandoResponsavel = !!tarefa && tarefa.status !== 'pendente' && responsavelUid !== tarefa.responsavelUid
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => !salvando && onClose()}
+      title={tarefa ? 'Editar tarefa' : 'Nova tarefa'}
+      description={tarefa ? undefined : 'Escolha o responsável e o prazo.'}
+    >
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <Input
+          label="Título"
+          value={titulo}
+          onChange={(e) => setTitulo(e.target.value)}
+          placeholder="Ex: ligar para o cliente do Corolla"
+          maxLength={TAREFA_TITULO_MAX}
+          error={errors.titulo}
+          required
+          autoFocus
+        />
+        <Textarea
+          label="Descrição (opcional)"
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Detalhes do que precisa ser feito."
+          rows={4}
+          maxLength={TAREFA_DESCRICAO_MAX}
+          error={errors.descricao}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Select
+            label="Responsável"
+            value={responsavelUid}
+            onChange={(e) => setResponsavelUid(e.target.value)}
+            options={opcoes}
+            error={errors.responsavelUid}
+          />
+          <Input
+            label="Prazo"
+            type="date"
+            value={prazo}
+            min={tarefa ? undefined : hoje}
+            onChange={(e) => setPrazo(e.target.value)}
+            error={errors.prazo}
+            required
+          />
+        </div>
+        {trocandoResponsavel && (
+          <p className="text-[11px] font-semibold text-amber-700 adobe-dark:text-amber-300">
+            Trocar o responsável apaga a resposta atual e volta a tarefa para pendente.
+          </p>
+        )}
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button type="submit" variant="liberty" loading={salvando}>
+            {tarefa ? 'Salvar' : 'Criar tarefa'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
