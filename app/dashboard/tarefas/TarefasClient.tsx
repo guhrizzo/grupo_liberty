@@ -55,7 +55,7 @@ const CHIP =
 const CHIP_OFF =
   'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
 const CHIP_GROUP =
-  'flex items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
+  'flex max-w-full items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
 
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
@@ -178,7 +178,7 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
       </section>
 
       {/* Filtros */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <div className={CHIP_GROUP}>
           {(
             [
@@ -223,7 +223,7 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
         </div>
 
         {admSupremo && usuarios.length > 0 && (
-          <div className="lg:w-60">
+          <div className="w-full sm:w-60">
             <Select
               aria-label="Filtrar por responsável"
               value={filtroResponsavel}
@@ -243,7 +243,7 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
               setFiltroStatus('todos')
               setFiltroResponsavel('')
             }}
-            className="inline-flex shrink-0 items-center gap-1 self-start rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer lg:self-auto adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
+            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
           >
             <IconX size={12} stroke={2} />
             Limpar
@@ -620,14 +620,14 @@ function TarefaModal({
           maxLength={TAREFA_DESCRICAO_MAX}
           error={errors.descricao}
         />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="Responsável"
-            value={responsavelUid}
-            onChange={(e) => setResponsavelUid(e.target.value)}
-            options={opcoes}
-            error={errors.responsavelUid}
-          />
+        <Select
+          label="Responsável"
+          value={responsavelUid}
+          onChange={(e) => setResponsavelUid(e.target.value)}
+          options={opcoes}
+          error={errors.responsavelUid}
+        />
+        <div className="sm:w-1/2">
           <Input
             label="Prazo"
             type="date"
