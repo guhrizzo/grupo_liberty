@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import { getTransacoes, getIntervaloDeMeses } from './actions'
 import { ehMesValido, mesAtual } from './periodo'
 import {
@@ -64,6 +64,7 @@ export default async function FinanceiroPage({
       contasFixas={contasFixas}
       pagamentosContasFixas={pagamentosContasFixas}
       pendenciasContasFixas={pendenciasContasFixas}
+      podeVerResumo={isAdmSupremo(user)}
     />
   )
 }

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { OWNER_EMAIL } from '@/constants/feedback'
 import {
+  ehAdmSupremo,
   temAcessoPagina,
   type PermissionKey,
   type UserPermissions,
@@ -122,6 +123,11 @@ export function canManageVeiculos(user: SessionUser | null | undefined): boolean
 export function isOwner(user: SessionUser | null | undefined): boolean {
   const email = user?.email?.toLowerCase().trim()
   return !!email && email === OWNER_EMAIL.toLowerCase()
+}
+
+/** Gate do "ADM supremo" — ver `ADM_SUPREMO_EMAILS` em constants/permissoes. */
+export function isAdmSupremo(user: SessionUser | null | undefined): boolean {
+  return ehAdmSupremo(user?.email)
 }
 
 /**

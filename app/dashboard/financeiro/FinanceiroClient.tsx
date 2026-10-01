@@ -74,6 +74,7 @@ export default function FinanceiroClient({
   contasFixas,
   pagamentosContasFixas,
   pendenciasContasFixas,
+  podeVerResumo,
 }: {
   initialTransacoes: Transacao[]
   /** Mês exibido (`YYYY-MM`). */
@@ -88,6 +89,8 @@ export default function FinanceiroClient({
   pagamentosContasFixas: PagamentoContaFixa[]
   /** Carregadas nas duas abas: o aviso de não pagas aparece em ambas. */
   pendenciasContasFixas: ContaFixaPendente[]
+  /** Só o ADM supremo vê os cards de balanço/receitas/despesas do mês. */
+  podeVerResumo: boolean
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -504,7 +507,8 @@ export default function FinanceiroClient({
       <>
       <ContasNaoPagas pendencias={pendenciasContasFixas} navegando={navegando} />
 
-      {/* Cards de Métricas — todos referentes ao mês selecionado */}
+      {/* Cards de Métricas — todos referentes ao mês selecionado. Só ADM supremo. */}
+      {podeVerResumo && (
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
           <div className="flex items-center justify-between">
@@ -553,6 +557,7 @@ export default function FinanceiroClient({
           <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">Comissões, manutenção e taxas</p>
         </div>
       </div>
+      )}
 
       {/* Tabela de Lançamentos */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-xs overflow-hidden adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">

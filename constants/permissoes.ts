@@ -55,3 +55,18 @@ export function temAcessoPagina(
 
   return PAGE_DEFAULT_ROLES[key].includes(role)
 }
+
+/**
+ * "ADM supremo" — e-mails que veem dados restritos além do acesso normal às
+ * abas (ex.: balanço/receitas/despesas do mês no Financeiro). Exceção
+ * deliberada ao sistema de cargos, como o `OWNER_EMAIL` do feedback.
+ */
+export const ADM_SUPREMO_EMAILS: readonly string[] = [
+  'gurizzo943@gmail.com',
+  'otaviomoretto01@gmail.com',
+]
+
+export function ehAdmSupremo(email: string | null | undefined): boolean {
+  const e = email?.toLowerCase().trim()
+  return !!e && ADM_SUPREMO_EMAILS.includes(e)
+}
