@@ -119,6 +119,24 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
 
   const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel
 
+  // ADM supremo vê a lista separada por responsável (ordem alfabética);
+  // o usuário comum vê só as dele, sem cabeçalho.
+  const grupos = useMemo(() => {
+    if (!admSupremo) return [{ uid: null, nome: null, tarefas: filtradas, pendentes: 0, atrasadas: 0 }]
+    const porUid = new Map<string, { uid: string; nome: string; tarefas: Tarefa[]; pendentes: number; atrasadas: number }>()
+    for (const t of filtradas) {
+      let g = porUid.get(t.responsavelUid)
+      if (!g) {
+        g = { uid: t.responsavelUid, nome: t.responsavelNome, tarefas: [], pendentes: 0, atrasadas: 0 }
+        porUid.set(t.responsavelUid, g)
+      }
+      g.tarefas.push(t)
+      if (t.status === 'pendente' && !t.fechada) g.pendentes++
+      if (tarefaAtrasada(t, hoje)) g.atrasadas++
+    }
+    return [...porUid.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  }, [admSupremo, filtradas, hoje])
+
   const executar = useCallback(
     (acao: () => Promise<{ success?: string; error?: string }>, onOk?: () => void) => {
       startTransition(async () => {
@@ -297,25 +315,48 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
           {filtrosAtivos ? ' com esses filtros.' : '.'}
         </div>
       ) : (
-        <ul className="space-y-3">
-          {filtradas.map((t) => (
-            <TarefaCard
-              key={t.id}
-              tarefa={t}
-              hoje={hoje}
-              admSupremo={admSupremo}
-              souResponsavel={t.responsavelUid === meuUid}
-              busy={isPending}
-              onResponder={(status, comentario, onOk) =>
-                executar(() => responderTarefa(t.id, status, comentario), onOk)
-              }
-              onEditar={() => setEditando(t)}
-              onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
-              onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
-              onExcluir={() => setExcluirId(t.id)}
-            />
+        <div className="space-y-6">
+          {grupos.map((g) => (
+            <section key={g.uid ?? 'todas'} aria-label={g.nome ?? 'Tarefas'} className="space-y-3">
+              {g.nome && (
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-neutral-200 pb-2 adobe-dark:border-adobe-line">
+                  <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
+                    <IconUser size={15} stroke={2} />
+                    {g.nome}
+                  </h2>
+                  <p className="text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
+                    {g.tarefas.length} {g.tarefas.length === 1 ? 'tarefa' : 'tarefas'}
+                    {g.pendentes > 0 && ` · ${g.pendentes} pendente${g.pendentes === 1 ? '' : 's'}`}
+                    {g.atrasadas > 0 && (
+                      <span className="text-rose-600 adobe-dark:text-rose-400">
+                        {` · ${g.atrasadas} atrasada${g.atrasadas === 1 ? '' : 's'}`}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+              <ul className="space-y-3">
+                {g.tarefas.map((t) => (
+                  <TarefaCard
+                    key={t.id}
+                    tarefa={t}
+                    hoje={hoje}
+                    admSupremo={admSupremo}
+                    souResponsavel={t.responsavelUid === meuUid}
+                    busy={isPending}
+                    onResponder={(status, comentario, onOk) =>
+                      executar(() => responderTarefa(t.id, status, comentario), onOk)
+                    }
+                    onEditar={() => setEditando(t)}
+                    onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
+                    onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
+                    onExcluir={() => setExcluirId(t.id)}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
 
       {admSupremo && (
@@ -421,12 +462,6 @@ function TarefaCard({
             <IconCalendarDue size={12} stroke={2} />
             Prazo: {formatDate(t.prazo)}
           </span>
-          {admSupremo && (
-            <span className="inline-flex items-center gap-1">
-              <IconUser size={12} stroke={2} />
-              {t.responsavelNome}
-            </span>
-          )}
           {!admSupremo && <span>Criada por {t.criadoPorNome}</span>}
         </p>
       </div>
