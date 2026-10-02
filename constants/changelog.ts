@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-01-leads-filtro-excel',
+    date: '2026-10-01',
+    title: 'Filtro estilo Excel na lista de Leads',
+    tag: 'melhoria',
+    items: [
+      'Cada coluna da lista de Leads (e da Prospecção no Jurídico) ganhou a setinha de filtro, como no Excel: marque os valores que quer ver, pesquise dentro da coluna e classifique de A a Z ou do menor para o maior.',
+      'Dá para combinar filtros em várias colunas; a coluna filtrada fica com o funil destacado e "Limpar filtros" tira tudo de uma vez.',
+      'No celular, use o botão de funil ao lado da busca.',
+    ],
+  },
+  {
     id: '2026-10-01-tarefas',
     date: '2026-10-01',
     title: 'Aba Tarefas',
