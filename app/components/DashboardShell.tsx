@@ -123,8 +123,8 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'analytics',
   },
   {
-    href: '/dashboard/tarefas',
-    label: 'Tarefas',
+    href: '/dashboard/demandas',
+    label: 'Demandas',
     icon: 'checklist',
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
