@@ -221,8 +221,9 @@ export default function TarefasClient({
         ))}
       </section>
 
-      {/* No xl usa a mesma grade de 4 colunas (gap-3) dos cards de resumo: lista em 3, afazeres na 4ª. */}
-      <div className="grid gap-5 md:gap-6 xl:grid-cols-4 xl:items-start xl:gap-3">
+      {/* No xl usa a mesma grade de 4 colunas (gap-3) dos cards de resumo: lista em 3, afazeres na 4ª,
+          esticada até o fim da lista de tarefas. */}
+      <div className="grid gap-5 md:gap-6 xl:grid-cols-4 xl:gap-3">
         <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1 xl:col-span-3">
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-2">
@@ -375,7 +376,7 @@ export default function TarefasClient({
           )}
         </div>
 
-        <aside className="order-1 xl:order-2 xl:sticky xl:top-6">
+        <aside className="order-1 xl:order-2 xl:flex xl:flex-col">
           <ListaAfazeres inicial={afazeres} />
         </aside>
       </div>
@@ -843,7 +844,7 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
   const feitos = itens.filter((i) => i.feito)
 
   return (
-    <section aria-label="Meus afazeres" className={CARD + ' p-4 space-y-3'}>
+    <section aria-label="Meus afazeres" className={CARD + ' p-4 space-y-3 xl:flex-1'}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
