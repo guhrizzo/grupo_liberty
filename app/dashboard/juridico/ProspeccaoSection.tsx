@@ -16,6 +16,8 @@ import {
   IconBrandWaze,
   IconArrowsMaximize,
   IconArrowsMinimize,
+  IconFilter,
+  IconFilterOff,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -28,6 +30,7 @@ import {
   TH,
   TD,
   ConfirmDialog,
+  Select,
   useToast,
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
@@ -48,6 +51,17 @@ import {
   emailValido,
   type CampoPendente,
 } from './prospeccao-proposta'
+import {
+  aplicarFiltros,
+  colunaNumerica,
+  ordenar,
+  totalFiltrosAtivos,
+  valoresDistintos,
+  type ColunaFiltro,
+  type Filtros,
+  type Ordem,
+} from './prospeccao-filtro'
+import { FiltroColunaBotao, FiltroLista } from './FiltroColuna'
 import type { Prospeccao, ProspeccaoInput } from './types'
 
 type Chave = keyof ProspeccaoInput
@@ -355,6 +369,13 @@ export default function ProspeccaoSection({
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 250)
   const [page, setPage] = useState(1)
+
+  // Filtro estilo Excel por coluna + classificação (não ficam salvos).
+  const [filtros, setFiltros] = useState<Filtros>({})
+  const [ordem, setOrdem] = useState<Ordem>(null)
+  // Celular: os filtros abrem num modal, escolhendo a coluna.
+  const [filtrosMobileOpen, setFiltrosMobileOpen] = useState(false)
+  const [colunaMobile, setColunaMobile] = useState<ColunaFiltro>('nomeExecutado')
 
   // Tela cheia: a lista cobre o painel inteiro (menu lateral incluso).
   const [telaCheia, setTelaCheia] = useState(false)
@@ -703,7 +724,7 @@ export default function ProspeccaoSection({
     )
   }
 
-  const filtrados = useMemo(() => {
+  const buscados = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase()
     if (!term) return itens
     const termDigits = term.replace(/\D/g, '')
@@ -720,6 +741,48 @@ export default function ProspeccaoSection({
       return termDigits.length >= 3 && p.cpfCnpj.replace(/\D/g, '').includes(termDigits)
     })
   }, [itens, debouncedSearch])
+
+  const filtrados = useMemo(
+    () => ordenar(aplicarFiltros(buscados, filtros), ordem),
+    [buscados, filtros, ordem],
+  )
+  const qtdFiltros = totalFiltrosAtivos(filtros) + (ordem ? 1 : 0)
+
+  function aplicarFiltro(key: ColunaFiltro, sel: Set<string> | null) {
+    setFiltros((prev) => {
+      const next = { ...prev }
+      if (sel) next[key] = sel
+      else delete next[key]
+      return next
+    })
+    setPage(1)
+  }
+
+  function ordenarPor(key: ColunaFiltro, dir: 'asc' | 'desc') {
+    setOrdem({ key, dir })
+    setPage(1)
+  }
+
+  function limparFiltros() {
+    setFiltros({})
+    setOrdem(null)
+    setPage(1)
+  }
+
+  /** Menu de filtro da coluna (valores consideram busca + filtros das outras colunas). */
+  function filtroDe(key: ColunaFiltro, fechar: () => void) {
+    return (
+      <FiltroLista
+        valores={valoresDistintos(aplicarFiltros(buscados, filtros, key), key)}
+        selecionados={filtros[key]}
+        numerica={colunaNumerica(key)}
+        ordem={ordem?.key === key ? ordem.dir : null}
+        onAplicar={(sel) => aplicarFiltro(key, sel)}
+        onOrdenar={(dir) => ordenarPor(key, dir)}
+        onFechar={fechar}
+      />
+    )
+  }
 
   const totalPages = Math.max(1, Math.ceil(filtrados.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
@@ -805,7 +868,34 @@ export default function ProspeccaoSection({
         >
           <span className="hidden sm:inline">{telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</span>
         </Button>
+        <Button
+          variant="secondary"
+          onClick={() => setFiltrosMobileOpen(true)}
+          leftIcon={<IconFilter size={16} stroke={2.2} />}
+          title="Filtrar por coluna"
+          className={`shrink-0 md:hidden ${qtdFiltros > 0 ? '!border-liberty-deep/40 !text-liberty-deep' : ''}`}
+        >
+          {qtdFiltros > 0 ? qtdFiltros : null}
+        </Button>
+        {qtdFiltros > 0 && (
+          <Button
+            variant="secondary"
+            onClick={limparFiltros}
+            leftIcon={<IconFilterOff size={16} stroke={2.2} />}
+            title="Remover todos os filtros e a classificação"
+            className="shrink-0"
+          >
+            <span className="hidden sm:inline">Limpar filtros ({qtdFiltros})</span>
+          </Button>
+        )}
       </div>
+
+      {totalFiltrosAtivos(filtros) > 0 && (
+        <p className="text-xs text-neutral-500">
+          Mostrando <strong className="text-neutral-800">{filtrados.length}</strong> de {buscados.length}{' '}
+          registros com filtro.
+        </p>
+      )}
 
       {selecionados.size > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-rose-200 bg-rose-50/60 px-4 py-2.5 text-xs">
@@ -819,7 +909,7 @@ export default function ProspeccaoSection({
               className="font-semibold text-liberty-deep hover:underline cursor-pointer"
             >
               Selecionar todos os {filtrados.length}
-              {debouncedSearch.trim() ? ' da busca' : ''}
+              {debouncedSearch.trim() ? ' da busca' : totalFiltrosAtivos(filtros) > 0 ? ' do filtro' : ''}
             </button>
           )}
           <button
@@ -846,7 +936,14 @@ export default function ProspeccaoSection({
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-10 text-center text-sm text-neutral-500">
           {itens.length === 0
             ? 'Nenhuma prospecção cadastrada. Cadastre uma ou cole as linhas da planilha.'
-            : 'Nenhum registro encontrado para essa busca.'}
+            : 'Nenhum registro encontrado para essa busca ou filtro.'}
+          {itens.length > 0 && totalFiltrosAtivos(filtros) > 0 && (
+            <div className="mt-3">
+              <Button size="sm" variant="secondary" onClick={limparFiltros} leftIcon={<IconFilterOff size={14} />}>
+                Limpar filtros
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -871,7 +968,16 @@ export default function ProspeccaoSection({
                 </TH>
                 {PROSPECCAO_COLUNAS.map(({ key, label }) => (
                   <TH key={key} className="sticky top-0 z-10 whitespace-nowrap bg-neutral-50 !px-3 text-[10px]">
-                    {label}
+                    <div className="flex items-center gap-1.5">
+                      {label}
+                      <FiltroColunaBotao
+                        label={label}
+                        filtrada={!!filtros[key]}
+                        ordem={ordem?.key === key ? ordem.dir : null}
+                      >
+                        {(fechar) => filtroDe(key, fechar)}
+                      </FiltroColunaBotao>
+                    </div>
                   </TH>
                 ))}
                 <TH align="right" className="sticky right-0 top-0 z-20 bg-neutral-50 !px-3 text-[10px]">
@@ -971,6 +1077,38 @@ export default function ProspeccaoSection({
         )}
         </>
       )}
+
+      <Modal
+        open={filtrosMobileOpen}
+        onClose={() => setFiltrosMobileOpen(false)}
+        title="Filtrar por coluna"
+        size="sm"
+      >
+        <div className="space-y-3 pt-2">
+          <Select
+            label="Coluna"
+            options={PROSPECCAO_COLUNAS.map(({ key, label }) => ({
+              value: key,
+              label: `${label}${filtros[key] ? ' (filtrada)' : ''}`,
+            }))}
+            value={colunaMobile}
+            onChange={(e) => setColunaMobile(e.target.value as ColunaFiltro)}
+          />
+          {filtrosMobileOpen && (
+            <FiltroLista
+              key={colunaMobile}
+              valores={valoresDistintos(aplicarFiltros(buscados, filtros, colunaMobile), colunaMobile)}
+              selecionados={filtros[colunaMobile]}
+              numerica={colunaNumerica(colunaMobile)}
+              ordem={ordem?.key === colunaMobile ? ordem.dir : null}
+              onAplicar={(sel) => aplicarFiltro(colunaMobile, sel)}
+              onOrdenar={(dir) => ordenarPor(colunaMobile, dir)}
+              onFechar={() => setFiltrosMobileOpen(false)}
+              focarPesquisa={false}
+            />
+          )}
+        </div>
+      </Modal>
 
       <Modal
         open={formOpen}
