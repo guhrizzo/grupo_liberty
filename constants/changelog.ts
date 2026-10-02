@@ -24,6 +24,19 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-01-tarefas',
+    date: '2026-10-01',
+    title: 'Aba Tarefas',
+    tag: 'novo',
+    items: [
+      'Nova aba "Tarefas" no menu: a administração atribui tarefas com prazo a cada usuário.',
+      'Na tarefa, marque "Concluí" (com um comentário, se quiser) ou "Não concluí" explicando o motivo. Dá para mudar a resposta até a tarefa ser fechada.',
+      'O número ao lado de "Tarefas" no menu mostra quantas tarefas pendentes você tem; as atrasadas ficam em vermelho.',
+      'Tarefa concluída que não precisa mais aparecer? Use "Pedir ao ADM para excluir".',
+      '"Meus afazeres" na aba Tarefas: sua lista pessoal de to-do, só você vê. Marque, edite e limpe os concluídos.',
+    ],
+  },
+  {
     id: '2026-09-29-leads',
     date: '2026-09-29',
     title: 'Aba Leads e cargo Vendedor externo',

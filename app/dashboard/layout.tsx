@@ -60,6 +60,22 @@ export default async function DashboardLayout({
     }
   }
 
+  // Tarefas pendentes do próprio usuário (contador do menu). Só igualdade na
+  // query para não exigir índice composto; o resto é filtrado em memória.
+  let tarefasPendentesCount = 0
+  try {
+    const snap = await adminDb
+      .collection('tarefas')
+      .where('responsavelUid', '==', user.uid)
+      .get()
+    tarefasPendentesCount = snap.docs.filter((d) => {
+      const t = d.data()
+      return t.status === 'pendente' && t.fechada !== true
+    }).length
+  } catch (e) {
+    console.error('[DashboardLayout] Erro ao buscar tarefas pendentes:', e)
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
       <DashboardShell
@@ -69,6 +85,7 @@ export default async function DashboardLayout({
         logoutAction={logout}
         propostasPendentesCount={propostasPendentesCount}
         anunciosPendentesCount={anunciosPendentesCount}
+        tarefasPendentesCount={tarefasPendentesCount}
         permissions={permissions}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
