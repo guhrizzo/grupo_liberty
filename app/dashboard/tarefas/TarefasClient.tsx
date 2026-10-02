@@ -221,8 +221,9 @@ export default function TarefasClient({
         ))}
       </section>
 
-      <div className="grid gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-        <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1">
+      {/* No xl usa a mesma grade de 4 colunas (gap-3) dos cards de resumo: lista em 3, afazeres na 4ª. */}
+      <div className="grid gap-5 md:gap-6 xl:grid-cols-4 xl:items-start xl:gap-3">
+        <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1 xl:col-span-3">
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-2">
             <div className={CHIP_GROUP}>
