@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
 import { getProspeccoes } from '@/app/dashboard/juridico/prospeccao-actions'
 import ProspeccaoSection from '@/app/dashboard/juridico/ProspeccaoSection'
@@ -37,6 +37,8 @@ export default async function LeadsPage() {
         initialProspeccoes={prospeccoes}
         podeGerarProposta={hasPageAccess(user, 'propostas')}
         titulo="Lista de leads"
+        usuarioUid={user.uid}
+        podeExcluirVisitas={isAdmSupremo(user)}
       />
     </div>
   )

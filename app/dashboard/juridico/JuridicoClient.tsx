@@ -125,6 +125,7 @@ export default function JuridicoClient({
   contratosJuridico,
   initialProspeccoes,
   podeGerarProposta,
+  podeExcluirVisitas,
 }: {
   aba: AbaJuridico
   currentRole: string
@@ -136,6 +137,8 @@ export default function JuridicoClient({
   contratosJuridico: VeiculoContrato[]
   initialProspeccoes: Prospeccao[]
   podeGerarProposta: boolean
+  /** ADM supremo exclui visita de qualquer vendedor (prospecção). */
+  podeExcluirVisitas: boolean
 }) {
   const router = useRouter()
   const isAdmin = currentRole === 'admin'
@@ -495,6 +498,8 @@ export default function JuridicoClient({
         <ProspeccaoSection
           initialProspeccoes={initialProspeccoes}
           podeGerarProposta={podeGerarProposta}
+          usuarioUid={currentUid}
+          podeExcluirVisitas={podeExcluirVisitas}
         />
       )}
 

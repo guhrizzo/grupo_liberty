@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-02-leads-resultado-visita',
+    date: '2026-10-02',
+    title: 'Resultado da visita nos Leads',
+    tag: 'novo',
+    items: [
+      'Botão "Visita" em cada lead: marque o resultado (positiva, negativa, endereço não encontrado, não mora mais no endereço, ninguém em casa / não atendeu ou retornar), a data e uma observação.',
+      'Em "Retornar", informe a data de retorno; retornos de hoje e atrasados ficam em destaque.',
+      'Cada lead guarda o histórico de visitas; a lista mostra a última, e dá para filtrar pelas colunas "Última visita" e "Retornar em".',
+    ],
+  },
+  {
     id: '2026-10-01-leads-filtro-excel',
     date: '2026-10-01',
     title: 'Filtro estilo Excel na lista de Leads',

@@ -125,8 +125,33 @@ export interface ProspeccaoInput {
   endereco: string
 }
 
+/** Resultado de uma visita do vendedor ao cliente (ver prospeccao-visita.ts). */
+export type ResultadoVisita =
+  | 'positiva'
+  | 'negativa'
+  | 'endereco_nao_encontrado'
+  | 'nao_mora_mais'
+  | 'ninguem_em_casa'
+  | 'retornar'
+
+export interface VisitaLead {
+  id: string
+  resultado: ResultadoVisita
+  /** Dia da visita (YYYY-MM-DD). */
+  data: string
+  /** Quando voltar ao cliente (YYYY-MM-DD) — só no resultado "retornar". */
+  retornoEm: string | null
+  observacao: string
+  vendedorUid: string
+  vendedorNome: string
+  /** Quando foi registrada (ISO). */
+  criadoEm: string
+}
+
 export interface Prospeccao extends ProspeccaoInput {
   id: string
+  /** Histórico de visitas, mais recente primeiro. */
+  visitas: VisitaLead[]
   /** Último e-mail de oferta enviado pela aba (data ISO e valor ofertado). */
   ultimoEmailEm: string | null
   ultimoEmailValor: number | null

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import {
   getProcessos,
   getClientesPorVeiculo,
@@ -62,6 +62,7 @@ export default async function JuridicoPage({
       contratosJuridico={contratosJuridico}
       initialProspeccoes={prospeccoes}
       podeGerarProposta={hasPageAccess(user, 'propostas')}
+      podeExcluirVisitas={isAdmSupremo(user)}
     />
   )
 }

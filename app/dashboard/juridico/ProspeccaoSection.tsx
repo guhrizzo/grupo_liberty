@@ -18,6 +18,7 @@ import {
   IconArrowsMinimize,
   IconFilter,
   IconFilterOff,
+  IconClipboardCheck,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -62,6 +63,7 @@ import {
   type Ordem,
 } from './prospeccao-filtro'
 import { FiltroColunaBotao, FiltroLista } from './FiltroColuna'
+import { DataRetorno, UltimaVisita, VisitasModal } from './VisitaLead'
 import type { Prospeccao, ProspeccaoInput } from './types'
 
 type Chave = keyof ProspeccaoInput
@@ -95,6 +97,13 @@ const PLACEHOLDERS: Record<Chave, string> = {
 }
 
 const PAGE_SIZE = 30
+
+/** Colunas da tabela: as da planilha + as da última visita, logo após o nome. */
+const COLUNAS_TABELA: { key: ColunaFiltro; label: string }[] = PROSPECCAO_COLUNAS.flatMap((c) =>
+  c.key === 'nomeExecutado'
+    ? [c, { key: 'ultimaVisita' as const, label: 'Última visita' }, { key: 'retornoEm' as const, label: 'Retornar em' }]
+    : [c],
+)
 
 function formVazio(): FormState {
   return Object.fromEntries(PROSPECCAO_COLUNAS.map(({ key }) => [key, ''])) as FormState
@@ -260,11 +269,13 @@ function CartaoProspeccao({
   p,
   selecionado,
   onSelecionar,
+  onVisita,
   acoes,
 }: {
   p: Prospeccao
   selecionado: boolean
   onSelecionar: () => void
+  onVisita: () => void
   acoes: React.ReactNode
 }) {
   const ou = (v: string) => v || 'Não consta'
@@ -312,6 +323,26 @@ function CartaoProspeccao({
         <p className="mt-0.5 break-words text-xs text-neutral-500">{ou(p.banco)}</p>
       </div>
 
+      <div className="mt-3 rounded-lg border border-neutral-200 px-3 py-2.5">
+        <dl className="grid grid-cols-2 gap-x-3">
+          <Campo label="Última visita">
+            <UltimaVisita p={p} />
+          </Campo>
+          <Campo label="Retornar em">
+            {p.visitas[0]?.retornoEm ? <DataRetorno data={p.visitas[0].retornoEm} /> : '—'}
+          </Campo>
+        </dl>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={onVisita}
+          leftIcon={<IconClipboardCheck size={13} />}
+          className="mt-2.5 w-full"
+        >
+          Registrar visita
+        </Button>
+      </div>
+
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
         <Campo label="Financiado">{celula(p, 'valorFinanciado')}</Campo>
         <Campo label="Entrada">{celula(p, 'valorEntrada')}</Campo>
@@ -357,11 +388,17 @@ export default function ProspeccaoSection({
   initialProspeccoes,
   podeGerarProposta,
   titulo = 'Prospecção de clientes',
+  usuarioUid,
+  podeExcluirVisitas = false,
 }: {
   initialProspeccoes: Prospeccao[]
   /** Sem acesso à aba Propostas, o botão "Proposta" não aparece. */
   podeGerarProposta: boolean
   titulo?: string
+  /** Quem está logado — pode excluir as visitas que registrou. */
+  usuarioUid: string
+  /** ADM supremo: exclui visita de qualquer vendedor. */
+  podeExcluirVisitas?: boolean
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -399,6 +436,8 @@ export default function ProspeccaoSection({
   const [form, setForm] = useState<FormState>(formVazio)
   const [submitting, setSubmitting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<Prospeccao | null>(null)
+  // Resultado de visita do vendedor (checklist + histórico).
+  const [visitasDe, setVisitasDe] = useState<Prospeccao | null>(null)
   // Seleção múltipla para exclusão em lote.
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set())
   const [confirmLote, setConfirmLote] = useState<'selecionados' | 'tudo' | null>(null)
@@ -648,10 +687,28 @@ export default function ProspeccaoSection({
 
   /** Botões de ação de uma linha (tabela e cartão). No cartão (compacto),
    *  "Editar" vira só ícone e "Proposta" estica, para caber numa linha. */
+  function atualizarLead(p: Prospeccao) {
+    setItens((prev) => prev.map((x) => (x.id === p.id ? p : x)))
+    setVisitasDe((atual) => (atual?.id === p.id ? p : atual))
+  }
+
   function acoes(p: Prospeccao, compacto = false) {
     const wpp = primeiroWhatsapp(p)
     return (
       <>
+        {/* No cartão o botão de visita fica junto do resumo da visita. */}
+        {!compacto && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setVisitasDe(p)}
+            leftIcon={<IconClipboardCheck size={12} />}
+            title="Registrar o resultado da visita e ver o histórico"
+            aria-label={`Visitas de ${p.nomeExecutado}`}
+          >
+            Visita
+          </Button>
+        )}
         {wpp && (
           <a
             href={linkWhatsapp(wpp, p.nomeExecutado)}
@@ -966,7 +1023,7 @@ export default function ProspeccaoSection({
                     className="h-4 w-4 cursor-pointer accent-liberty-deep"
                   />
                 </TH>
-                {PROSPECCAO_COLUNAS.map(({ key, label }) => (
+                {COLUNAS_TABELA.map(({ key, label }) => (
                   <TH key={key} className="sticky top-0 z-10 whitespace-nowrap bg-neutral-50 !px-3 text-[10px]">
                     <div className="flex items-center gap-1.5">
                       {label}
@@ -997,7 +1054,29 @@ export default function ProspeccaoSection({
                       className="h-4 w-4 cursor-pointer accent-liberty-deep"
                     />
                   </TD>
-                  {PROSPECCAO_COLUNAS.map(({ key }) => {
+                  {COLUNAS_TABELA.map(({ key }) => {
+                    if (key === 'ultimaVisita') {
+                      return (
+                        <TD key={key} className="!px-3">
+                          <button
+                            type="button"
+                            onClick={() => setVisitasDe(p)}
+                            title="Registrar visita / ver histórico"
+                            className="cursor-pointer text-left"
+                          >
+                            <UltimaVisita p={p} />
+                          </button>
+                        </TD>
+                      )
+                    }
+                    if (key === 'retornoEm') {
+                      const r = p.visitas[0]?.retornoEm
+                      return (
+                        <TD key={key} className={`whitespace-nowrap !px-3 ${r ? '' : 'text-neutral-400'}`}>
+                          {r ? <DataRetorno data={r} /> : '—'}
+                        </TD>
+                      )
+                    }
                     const vazio = p[key] === null || p[key] === ''
                     return (
                       <TD
@@ -1045,6 +1124,7 @@ export default function ProspeccaoSection({
               p={p}
               selecionado={selecionados.has(p.id)}
               onSelecionar={() => alternar(p.id)}
+              onVisita={() => setVisitasDe(p)}
               acoes={acoes(p, true)}
             />
           ))}
@@ -1078,6 +1158,14 @@ export default function ProspeccaoSection({
         </>
       )}
 
+      <VisitasModal
+        lead={visitasDe}
+        onClose={() => setVisitasDe(null)}
+        onAtualizado={atualizarLead}
+        usuarioUid={usuarioUid}
+        podeExcluirTodas={podeExcluirVisitas}
+      />
+
       <Modal
         open={filtrosMobileOpen}
         onClose={() => setFiltrosMobileOpen(false)}
@@ -1087,7 +1175,7 @@ export default function ProspeccaoSection({
         <div className="space-y-3 pt-2">
           <Select
             label="Coluna"
-            options={PROSPECCAO_COLUNAS.map(({ key, label }) => ({
+            options={COLUNAS_TABELA.map(({ key, label }) => ({
               value: key,
               label: `${label}${filtros[key] ? ' (filtrada)' : ''}`,
             }))}

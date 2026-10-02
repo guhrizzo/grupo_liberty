@@ -2,12 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
-import { assertAlgumaAba } from '@/utils/permissions'
+import { assertAlgumaAba, isAdmSupremo } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { normalizarProspeccao } from './prospeccao-parse'
 import { emailValido } from './prospeccao-proposta'
+import {
+  OBSERVACAO_MAX,
+  dataValida,
+  normalizarVisitas,
+  ordenarVisitas,
+  resultadoValido,
+} from './prospeccao-visita'
 import { sendProspeccaoOfertaEmail } from '@/utils/email/send-prospeccao-oferta-email'
-import type { Prospeccao, ProspeccaoInput, ProspeccaoResponse } from './types'
+import type { Prospeccao, ProspeccaoInput, ProspeccaoResponse, VisitaLead } from './types'
 
 // Prospecção de clientes do jurídico. CPF/CNPJ é gravado criptografado,
 // como o CPF dos processos (ver actions.ts).
@@ -44,6 +51,7 @@ function serializar(id: string, data: FirebaseFirestore.DocumentData): Prospecca
   return {
     id,
     ...normalizarProspeccao({ ...data, cpfCnpj: decryptOrRaw(data.cpfCnpj) }),
+    visitas: normalizarVisitas(data.visitas),
     ultimoEmailEm: data.ultimoEmailEm ?? null,
     ultimoEmailValor: typeof data.ultimoEmailValor === 'number' ? data.ultimoEmailValor : null,
     created_at: data.created_at ?? '',
@@ -104,6 +112,7 @@ export async function salvarProspeccao(
       prospeccao: {
         id: ref.id,
         ...dados,
+        visitas: [],
         ultimoEmailEm: null,
         ultimoEmailValor: null,
         created_at: now,
@@ -275,5 +284,92 @@ export async function enviarOfertaEmail(
     }
   } catch (error) {
     return { error: `Erro ao enviar: ${erroMsg(error, 'erro inesperado')}` }
+  }
+}
+
+/**
+ * Registra o resultado de uma visita do vendedor ao cliente. O histórico fica
+ * no próprio documento do lead (campo `visitas`).
+ */
+export async function registrarVisita(
+  id: string,
+  raw: { resultado?: unknown; data?: unknown; retornoEm?: unknown; observacao?: unknown },
+): Promise<ProspeccaoResponse> {
+  let user
+  try {
+    user = await assertAcesso()
+  } catch (err) {
+    return { error: erroMsg(err, 'Acesso negado.') }
+  }
+
+  if (!resultadoValido(raw.resultado)) return { error: 'Escolha o resultado da visita.' }
+  if (!dataValida(raw.data)) return { error: 'Informe a data da visita.' }
+  const resultado = raw.resultado
+  const data = raw.data
+  let retornoEm: string | null = null
+  if (resultado === 'retornar') {
+    if (!dataValida(raw.retornoEm)) return { error: 'Informe quando retornar ao cliente.' }
+    if (raw.retornoEm < data) return { error: 'O retorno não pode ser antes da visita.' }
+    retornoEm = raw.retornoEm
+  }
+  const observacao = String(raw.observacao ?? '').trim().slice(0, OBSERVACAO_MAX)
+
+  const visita: VisitaLead = {
+    id: crypto.randomUUID(),
+    resultado,
+    data,
+    retornoEm,
+    observacao,
+    vendedorUid: user.uid,
+    vendedorNome: user.name || user.email || 'Usuário',
+    criadoEm: new Date().toISOString(),
+  }
+
+  try {
+    const ref = adminDb.collection(COLLECTION).doc(id)
+    const atualizado = await adminDb.runTransaction(async (tx) => {
+      const doc = await tx.get(ref)
+      if (!doc.exists) return null
+      const visitas = ordenarVisitas([...normalizarVisitas(doc.data()!.visitas), visita])
+      tx.update(ref, { visitas })
+      return serializar(id, { ...doc.data()!, visitas })
+    })
+    if (!atualizado) return { error: 'Registro não encontrado.' }
+    revalidar()
+    return { success: 'Visita registrada.', prospeccao: atualizado }
+  } catch (error) {
+    return { error: `Erro ao registrar a visita: ${erroMsg(error, 'erro inesperado')}` }
+  }
+}
+
+/** Exclui uma visita — só quem registrou ou o ADM supremo. */
+export async function excluirVisita(id: string, visitaId: string): Promise<ProspeccaoResponse> {
+  let user
+  try {
+    user = await assertAcesso()
+  } catch (err) {
+    return { error: erroMsg(err, 'Acesso negado.') }
+  }
+
+  try {
+    const ref = adminDb.collection(COLLECTION).doc(id)
+    const res = await adminDb.runTransaction(async (tx) => {
+      const doc = await tx.get(ref)
+      if (!doc.exists) return { error: 'Registro não encontrado.' }
+      const visitas = normalizarVisitas(doc.data()!.visitas)
+      const alvo = visitas.find((v) => v.id === visitaId)
+      if (!alvo) return { error: 'Visita não encontrada.' }
+      if (alvo.vendedorUid !== user.uid && !isAdmSupremo(user)) {
+        return { error: 'Só quem registrou a visita pode excluí-la.' }
+      }
+      const restantes = visitas.filter((v) => v.id !== visitaId)
+      tx.update(ref, { visitas: restantes })
+      return { prospeccao: serializar(id, { ...doc.data()!, visitas: restantes }) }
+    })
+    if ('error' in res) return { error: res.error }
+    revalidar()
+    return { success: 'Visita excluída.', prospeccao: res.prospeccao }
+  } catch (error) {
+    return { error: `Erro ao excluir a visita: ${erroMsg(error, 'erro inesperado')}` }
   }
 }
