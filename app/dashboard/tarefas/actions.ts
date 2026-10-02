@@ -28,6 +28,7 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Tarefa {
     status: ehTarefaStatus(data.status) ? data.status : 'pendente',
     comentario: data.comentario ?? null,
     respondidoEm: data.respondidoEm ?? null,
+    exclusaoSolicitadaEm: data.exclusaoSolicitadaEm ?? null,
     fechada: data.fechada === true,
     fechadaEm: data.fechadaEm ?? null,
     criadoPorUid: data.criadoPorUid ?? '',
@@ -155,7 +156,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       const trocouResponsavel = doc.data()?.responsavelUid !== responsavelUid
       await ref.update(
         trocouResponsavel
-          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null }
+          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null, exclusaoSolicitadaEm: null }
           : dados,
       )
       revalidar()
@@ -167,6 +168,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       status: 'pendente',
       comentario: null,
       respondidoEm: null,
+      exclusaoSolicitadaEm: null,
       fechada: false,
       fechadaEm: null,
       criadoPorUid: user.uid,
@@ -220,6 +222,7 @@ export async function definirTarefaFechada(id: string, fechada: boolean): Promis
             status: 'pendente',
             comentario: null,
             respondidoEm: null,
+            exclusaoSolicitadaEm: null,
             atualizadoEm: now,
           },
     )
@@ -272,6 +275,8 @@ export async function responderTarefa(
       status,
       comentario: comentario || null,
       respondidoEm: status === 'pendente' ? null : now,
+      // O pedido de exclusão só vale para tarefa concluída.
+      ...(status === 'concluida' ? {} : { exclusaoSolicitadaEm: null }),
       atualizadoEm: now,
     })
     revalidar()
@@ -286,5 +291,48 @@ export async function responderTarefa(
   } catch (err) {
     console.error('[responderTarefa]', err)
     return { error: 'Erro ao enviar a resposta.' }
+  }
+}
+
+// ─── Pedido de exclusão ──────────────────────────────────────────────────────
+
+/**
+ * O responsável pede (ou cancela o pedido) para o ADM supremo excluir uma
+ * tarefa concluída. O ADM supremo também pode limpar o pedido (recusar).
+ */
+export async function definirPedidoExclusao(id: string, pedir: boolean): Promise<TarefaResponse> {
+  const user = await getSessionUser()
+  if (!user) return { error: 'Não autenticado.' }
+  if (!id) return { error: 'Tarefa inválida.' }
+
+  try {
+    const ref = adminDb.collection(COLECAO).doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Tarefa não encontrada.' }
+    const data = doc.data()!
+    const souResponsavel = data.responsavelUid === user.uid
+
+    if (pedir) {
+      if (!souResponsavel) return { error: 'Esta tarefa não é sua.' }
+      if (data.status !== 'concluida') {
+        return { error: 'Só dá para pedir a exclusão de uma tarefa concluída.' }
+      }
+    } else if (!souResponsavel && !isAdmSupremo(user)) {
+      return { error: 'Acesso negado.' }
+    }
+
+    const now = new Date().toISOString()
+    await ref.update({ exclusaoSolicitadaEm: pedir ? now : null, atualizadoEm: now })
+    revalidar()
+    return {
+      success: pedir
+        ? 'Pedido de exclusão enviado ao ADM.'
+        : souResponsavel
+          ? 'Pedido de exclusão cancelado.'
+          : 'Pedido de exclusão recusado.',
+    }
+  } catch (err) {
+    console.error('[definirPedidoExclusao]', err)
+    return { error: 'Erro ao atualizar o pedido de exclusão.' }
   }
 }

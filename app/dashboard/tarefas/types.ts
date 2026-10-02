@@ -15,6 +15,8 @@ export interface Tarefa {
   /** Motivo (não concluída, obrigatório) ou comentário (concluída, opcional). */
   comentario: string | null
   respondidoEm: string | null
+  /** ISO — responsável pediu ao ADM supremo para excluir (só tarefa concluída). */
+  exclusaoSolicitadaEm: string | null
   fechada: boolean
   fechadaEm: string | null
   criadoPorUid: string

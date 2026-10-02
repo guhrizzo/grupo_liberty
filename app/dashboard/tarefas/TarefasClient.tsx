@@ -37,7 +37,13 @@ import {
   type TarefaStatus,
 } from '@/constants/tarefas'
 import type { Tarefa, TarefaFieldErrors, UsuarioOpcao } from './types'
-import { definirTarefaFechada, excluirTarefa, responderTarefa, salvarTarefa } from './actions'
+import {
+  definirPedidoExclusao,
+  definirTarefaFechada,
+  excluirTarefa,
+  responderTarefa,
+  salvarTarefa,
+} from './actions'
 
 interface TarefasClientProps {
   tarefas: Tarefa[]
@@ -70,13 +76,16 @@ function Badge({ className, children }: { className: string; children: React.Rea
   )
 }
 
+/** `exclusao` = pedidos de exclusão (abertas e fechadas). */
+type FiltroStatus = 'todos' | 'atrasadas' | 'exclusao' | TarefaStatus
+
 export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, hoje }: TarefasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
 
   const [verFechadas, setVerFechadas] = useState(false)
-  const [filtroStatus, setFiltroStatus] = useState<'todos' | 'atrasadas' | TarefaStatus>('todos')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
   const [filtroResponsavel, setFiltroResponsavel] = useState('')
 
   const [editando, setEditando] = useState<Tarefa | 'nova' | null>(null)
@@ -94,14 +103,19 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
     return c
   }, [abertas, hoje])
 
+  const pedidosExclusao = useMemo(() => tarefas.filter((t) => !!t.exclusaoSolicitadaEm).length, [tarefas])
+
   const filtradas = useMemo(() => {
-    return (verFechadas ? fechadas : abertas).filter((t) => {
+    // Pedidos de exclusão ignoram a divisão abertas/fechadas: o ADM quer ver todos.
+    const base = filtroStatus === 'exclusao' ? tarefas : verFechadas ? fechadas : abertas
+    return base.filter((t) => {
       if (filtroResponsavel && t.responsavelUid !== filtroResponsavel) return false
       if (filtroStatus === 'atrasadas') return tarefaAtrasada(t, hoje)
+      if (filtroStatus === 'exclusao') return !!t.exclusaoSolicitadaEm
       if (filtroStatus !== 'todos' && t.status !== filtroStatus) return false
       return true
     })
-  }, [verFechadas, abertas, fechadas, filtroResponsavel, filtroStatus, hoje])
+  }, [tarefas, verFechadas, abertas, fechadas, filtroResponsavel, filtroStatus, hoje])
 
   const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel
 
@@ -203,7 +217,10 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
               { id: 'todos', label: 'Todos' },
               ...TAREFA_STATUS_ORDEM.map((s) => ({ id: s, label: TAREFA_STATUS[s].label })),
               { id: 'atrasadas', label: 'Atrasadas' },
-            ] as { id: 'todos' | 'atrasadas' | TarefaStatus; label: string }[]
+              ...(admSupremo || pedidosExclusao > 0
+                ? [{ id: 'exclusao', label: `Pedidos de exclusão (${pedidosExclusao})` }]
+                : []),
+            ] as { id: FiltroStatus; label: string }[]
           ).map((opt) => (
             <button
               key={opt.id}
@@ -294,6 +311,7 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
               }
               onEditar={() => setEditando(t)}
               onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
+              onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
               onExcluir={() => setExcluirId(t.id)}
             />
           ))}
@@ -342,6 +360,7 @@ function TarefaCard({
   onEditar,
   onFechar,
   onExcluir,
+  onPedidoExclusao,
 }: {
   tarefa: Tarefa
   hoje: string
@@ -352,6 +371,7 @@ function TarefaCard({
   onEditar: () => void
   onFechar: (fechada: boolean) => void
   onExcluir: () => void
+  onPedidoExclusao: (pedir: boolean) => void
 }) {
   // Formulário de resposta aberto: 'concluida' (comentário opcional) ou
   // 'nao_concluida' (motivo obrigatório).
@@ -373,6 +393,12 @@ function TarefaCard({
           <Badge className="border-rose-300 bg-rose-600 text-white adobe-dark:border-rose-500/40">
             <IconAlertTriangle size={11} stroke={2.5} />
             Atrasada
+          </Badge>
+        )}
+        {t.exclusaoSolicitadaEm && (
+          <Badge className="border-rose-200 bg-rose-50 text-rose-700 adobe-dark:border-rose-500/30 adobe-dark:bg-rose-500/10 adobe-dark:text-rose-300">
+            <IconTrash size={11} stroke={2.5} />
+            Exclusão solicitada
           </Badge>
         )}
         {t.fechada && (
@@ -507,6 +533,29 @@ function TarefaCard({
         </div>
       )}
 
+      {/* Pedido de exclusão: só o responsável (não-ADM) e só com a tarefa concluída. */}
+      {souResponsavel && !admSupremo && t.status === 'concluida' && !respondendo && (
+        <div className="border-t border-neutral-100 pt-3 adobe-dark:border-adobe-line">
+          {t.exclusaoSolicitadaEm ? (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+              Exclusão pedida em {formatDateTime(t.exclusaoSolicitadaEm)}.
+              <button
+                type="button"
+                onClick={() => onPedidoExclusao(false)}
+                disabled={busy}
+                className="font-bold text-neutral-700 underline-offset-2 hover:underline cursor-pointer disabled:opacity-50 adobe-dark:text-adobe-text-md"
+              >
+                Cancelar pedido
+              </button>
+            </p>
+          ) : (
+            <AcaoAdm onClick={() => onPedidoExclusao(true)} disabled={busy} icon={<IconTrash size={13} stroke={2} />} danger>
+              Pedir ao ADM para excluir
+            </AcaoAdm>
+          )}
+        </div>
+      )}
+
       {admSupremo && (
         <div className="flex flex-wrap items-center gap-1 border-t border-neutral-100 pt-3 adobe-dark:border-adobe-line">
           <AcaoAdm onClick={onEditar} disabled={busy} icon={<IconPencil size={13} stroke={2} />}>
@@ -522,6 +571,11 @@ function TarefaCard({
           <AcaoAdm onClick={onExcluir} disabled={busy} icon={<IconTrash size={13} stroke={2} />} danger>
             Excluir
           </AcaoAdm>
+          {t.exclusaoSolicitadaEm && (
+            <AcaoAdm onClick={() => onPedidoExclusao(false)} disabled={busy} icon={<IconX size={13} stroke={2} />}>
+              Recusar pedido
+            </AcaoAdm>
+          )}
         </div>
       )}
     </li>

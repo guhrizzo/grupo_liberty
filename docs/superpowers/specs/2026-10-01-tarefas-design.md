@@ -41,6 +41,7 @@ opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem
   status: 'pendente' | 'concluida' | 'nao_concluida'
   comentario: string | null // motivo (nao_concluida, obrigatório) ou comentário (concluida, opcional), até 1000
   respondidoEm: string | null  // ISO
+  exclusaoSolicitadaEm: string | null // responsável pediu exclusão (só concluída)
   fechada: boolean          // ADM fechou → usuário não pode mais responder
   fechadaEm: string | null
   criadoPorUid, criadoPorNome, criadoEm, atualizadoEm
@@ -58,6 +59,16 @@ opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem
 | Excluir | ✔ (com confirmação) | — | — |
 | Fechar / reabrir | ✔ (reabrir volta p/ pendente e limpa o comentário) | — | — |
 | Responder (concluída + comentário opcional / não concluída + motivo) | ✔ se for o responsável | ✔ enquanto `fechada = false` | — |
+
+## Pedido de exclusão
+
+- O responsável (não-ADM) vê "Pedir ao ADM para excluir" só quando a tarefa
+  está **concluída** (aberta ou fechada); pode cancelar o pedido.
+- O ADM supremo vê o selo "Exclusão solicitada", o filtro "Pedidos de
+  exclusão" (abertas + fechadas) e o botão "Recusar pedido" (limpa o pedido);
+  aprovar = o "Excluir" normal.
+- O pedido é limpo quando a tarefa deixa de estar concluída (desfazer, não
+  concluí, reabrir ou trocar o responsável).
 
 ## Tela
 
