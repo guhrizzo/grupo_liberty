@@ -44,7 +44,7 @@ import {
   definirTarefaFechada,
   excluirTarefa,
   responderTarefa,
-  salvarAnotacoes,
+  salvarMinhasAnotacoes,
   salvarTarefa,
 } from './actions'
 
@@ -55,6 +55,8 @@ interface TarefasClientProps {
   meuUid: string
   /** `YYYY-MM-DD` no fuso do negócio — vem do servidor para não divergir. */
   hoje: string
+  /** Bloco de anotações pessoal do usuário logado (privado). */
+  anotacoes: { texto: string; atualizadoEm: string | null }
 }
 
 const CARD =
@@ -82,7 +84,14 @@ function Badge({ className, children }: { className: string; children: React.Rea
 /** `exclusao` = pedidos de exclusão (abertas e fechadas). */
 type FiltroStatus = 'todos' | 'atrasadas' | 'exclusao' | TarefaStatus
 
-export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, hoje }: TarefasClientProps) {
+export default function TarefasClient({
+  tarefas,
+  usuarios,
+  admSupremo,
+  meuUid,
+  hoje,
+  anotacoes,
+}: TarefasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -212,156 +221,163 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
         ))}
       </section>
 
-      {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className={CHIP_GROUP}>
-          {(
-            [
-              { id: false, label: `Abertas (${abertas.length})` },
-              { id: true, label: `Fechadas (${fechadas.length})` },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={String(opt.id)}
-              type="button"
-              onClick={() => setVerFechadas(opt.id)}
-              className={CHIP + ' ' + (verFechadas === opt.id ? 'bg-liberty text-white shadow-xs' : CHIP_OFF)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
+        <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1">
+          {/* Filtros */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className={CHIP_GROUP}>
+              {(
+                [
+                  { id: false, label: `Abertas (${abertas.length})` },
+                  { id: true, label: `Fechadas (${fechadas.length})` },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={String(opt.id)}
+                  type="button"
+                  onClick={() => setVerFechadas(opt.id)}
+                  className={CHIP + ' ' + (verFechadas === opt.id ? 'bg-liberty text-white shadow-xs' : CHIP_OFF)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
 
-        <div className={CHIP_GROUP}>
-          {(
-            [
-              { id: 'todos', label: 'Todos' },
-              ...TAREFA_STATUS_ORDEM.map((s) => ({ id: s, label: TAREFA_STATUS[s].label })),
-              { id: 'atrasadas', label: 'Atrasadas' },
-              ...(admSupremo || pedidosExclusao > 0
-                ? [{ id: 'exclusao', label: `Pedidos de exclusão (${pedidosExclusao})` }]
-                : []),
-            ] as { id: FiltroStatus; label: string }[]
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setFiltroStatus(opt.id)}
-              className={
-                CHIP +
-                ' ' +
-                (filtroStatus === opt.id
-                  ? 'bg-neutral-950 text-white shadow-xs adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
-                  : CHIP_OFF)
-              }
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+            <div className={CHIP_GROUP}>
+              {(
+                [
+                  { id: 'todos', label: 'Todos' },
+                  ...TAREFA_STATUS_ORDEM.map((s) => ({ id: s, label: TAREFA_STATUS[s].label })),
+                  { id: 'atrasadas', label: 'Atrasadas' },
+                  ...(admSupremo || pedidosExclusao > 0
+                    ? [{ id: 'exclusao', label: `Pedidos de exclusão (${pedidosExclusao})` }]
+                    : []),
+                ] as { id: FiltroStatus; label: string }[]
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setFiltroStatus(opt.id)}
+                  className={
+                    CHIP +
+                    ' ' +
+                    (filtroStatus === opt.id
+                      ? 'bg-neutral-950 text-white shadow-xs adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                      : CHIP_OFF)
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
 
-        {admSupremo && usuarios.length > 0 && (
-          <div className="w-full sm:w-60">
-            <Select
-              aria-label="Filtrar por responsável"
-              value={filtroResponsavel}
-              onChange={(e) => setFiltroResponsavel(e.target.value)}
-              options={[
-                { value: '', label: 'Todos os responsáveis' },
-                ...usuarios.map((u) => ({ value: u.uid, label: u.nome })),
-              ]}
-            />
-          </div>
-        )}
+            {admSupremo && usuarios.length > 0 && (
+              <div className="w-full sm:w-60">
+                <Select
+                  aria-label="Filtrar por responsável"
+                  value={filtroResponsavel}
+                  onChange={(e) => setFiltroResponsavel(e.target.value)}
+                  options={[
+                    { value: '', label: 'Todos os responsáveis' },
+                    ...usuarios.map((u) => ({ value: u.uid, label: u.nome })),
+                  ]}
+                />
+              </div>
+            )}
 
-        {filtrosAtivos && (
-          <button
-            type="button"
-            onClick={() => {
-              setFiltroStatus('todos')
-              setFiltroResponsavel('')
-            }}
-            className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
-          >
-            <IconX size={12} stroke={2} />
-            Limpar
-          </button>
-        )}
-      </div>
-
-      {/* Lista */}
-      {tarefas.length === 0 ? (
-        <EmptyState
-          icon={<IconChecklist size={24} stroke={1.5} />}
-          title={admSupremo ? 'Nenhuma tarefa criada' : 'Nenhuma tarefa para você'}
-          description={
-            admSupremo
-              ? 'Crie uma tarefa, escolha o responsável e defina o prazo.'
-              : 'Quando a administração atribuir uma tarefa a você, ela aparece aqui.'
-          }
-          action={
-            admSupremo ? (
-              <Button
-                variant="liberty"
-                size="sm"
-                leftIcon={<IconPlus size={14} stroke={2.5} />}
-                onClick={() => setEditando('nova')}
+            {filtrosAtivos && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroStatus('todos')
+                  setFiltroResponsavel('')
+                }}
+                className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
               >
-                Nova tarefa
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : filtradas.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm font-semibold text-neutral-500 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-lo">
-          {verFechadas ? 'Nenhuma tarefa fechada' : 'Nenhuma tarefa aberta'}
-          {filtrosAtivos ? ' com esses filtros.' : '.'}
+                <IconX size={12} stroke={2} />
+                Limpar
+              </button>
+            )}
+          </div>
+
+          {/* Lista */}
+          {tarefas.length === 0 ? (
+            <EmptyState
+              icon={<IconChecklist size={24} stroke={1.5} />}
+              title={admSupremo ? 'Nenhuma tarefa criada' : 'Nenhuma tarefa para você'}
+              description={
+                admSupremo
+                  ? 'Crie uma tarefa, escolha o responsável e defina o prazo.'
+                  : 'Quando a administração atribuir uma tarefa a você, ela aparece aqui.'
+              }
+              action={
+                admSupremo ? (
+                  <Button
+                    variant="liberty"
+                    size="sm"
+                    leftIcon={<IconPlus size={14} stroke={2.5} />}
+                    onClick={() => setEditando('nova')}
+                  >
+                    Nova tarefa
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : filtradas.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm font-semibold text-neutral-500 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-lo">
+              {verFechadas ? 'Nenhuma tarefa fechada' : 'Nenhuma tarefa aberta'}
+              {filtrosAtivos ? ' com esses filtros.' : '.'}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {grupos.map((g) => (
+                <section key={g.uid ?? 'todas'} aria-label={g.nome ?? 'Tarefas'} className="space-y-3">
+                  {g.nome && (
+                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-neutral-200 pb-2 adobe-dark:border-adobe-line">
+                      <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
+                        <IconUser size={15} stroke={2} />
+                        {g.nome}
+                      </h2>
+                      <p className="text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
+                        {g.tarefas.length} {g.tarefas.length === 1 ? 'tarefa' : 'tarefas'}
+                        {g.pendentes > 0 && ` · ${g.pendentes} pendente${g.pendentes === 1 ? '' : 's'}`}
+                        {g.atrasadas > 0 && (
+                          <span className="text-rose-600 adobe-dark:text-rose-400">
+                            {` · ${g.atrasadas} atrasada${g.atrasadas === 1 ? '' : 's'}`}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  <ul className="space-y-3">
+                    {g.tarefas.map((t) => (
+                      <TarefaCard
+                        key={t.id}
+                        tarefa={t}
+                        hoje={hoje}
+                        admSupremo={admSupremo}
+                        souResponsavel={t.responsavelUid === meuUid}
+                        busy={isPending}
+                        onResponder={(status, comentario, onOk) =>
+                          executar(() => responderTarefa(t.id, status, comentario), onOk)
+                        }
+                        onEditar={() => setEditando(t)}
+                        onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
+                        onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
+                        onExcluir={() => setExcluirId(t.id)}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="space-y-6">
-          {grupos.map((g) => (
-            <section key={g.uid ?? 'todas'} aria-label={g.nome ?? 'Tarefas'} className="space-y-3">
-              {g.nome && (
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-neutral-200 pb-2 adobe-dark:border-adobe-line">
-                  <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
-                    <IconUser size={15} stroke={2} />
-                    {g.nome}
-                  </h2>
-                  <p className="text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
-                    {g.tarefas.length} {g.tarefas.length === 1 ? 'tarefa' : 'tarefas'}
-                    {g.pendentes > 0 && ` · ${g.pendentes} pendente${g.pendentes === 1 ? '' : 's'}`}
-                    {g.atrasadas > 0 && (
-                      <span className="text-rose-600 adobe-dark:text-rose-400">
-                        {` · ${g.atrasadas} atrasada${g.atrasadas === 1 ? '' : 's'}`}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              )}
-              <ul className="space-y-3">
-                {g.tarefas.map((t) => (
-                  <TarefaCard
-                    key={t.id}
-                    tarefa={t}
-                    hoje={hoje}
-                    admSupremo={admSupremo}
-                    souResponsavel={t.responsavelUid === meuUid}
-                    busy={isPending}
-                    onResponder={(status, comentario, onOk) =>
-                      executar(() => responderTarefa(t.id, status, comentario), onOk)
-                    }
-                    onEditar={() => setEditando(t)}
-                    onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
-                    onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
-                    onSalvarAnotacoes={(texto, onOk) => executar(() => salvarAnotacoes(t.id, texto), onOk)}
-                    onExcluir={() => setExcluirId(t.id)}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
+
+        <aside className="order-1 xl:order-2 xl:sticky xl:top-6">
+          <BlocoAnotacoes inicial={anotacoes} />
+        </aside>
+      </div>
 
       {admSupremo && (
         <TarefaModal
@@ -406,7 +422,6 @@ function TarefaCard({
   onFechar,
   onExcluir,
   onPedidoExclusao,
-  onSalvarAnotacoes,
 }: {
   tarefa: Tarefa
   hoje: string
@@ -418,7 +433,6 @@ function TarefaCard({
   onFechar: (fechada: boolean) => void
   onExcluir: () => void
   onPedidoExclusao: (pedir: boolean) => void
-  onSalvarAnotacoes: (texto: string, onOk: () => void) => void
 }) {
   // Formulário de resposta aberto: 'concluida' (comentário opcional) ou
   // 'nao_concluida' (motivo obrigatório).
@@ -500,13 +514,6 @@ function TarefaCard({
           )}
         </div>
       )}
-
-      <Anotacoes
-        tarefa={t}
-        podeEditar={podeResponder}
-        busy={busy}
-        onSalvar={onSalvarAnotacoes}
-      />
 
       {podeResponder && (
         <div className="space-y-2">
@@ -783,91 +790,67 @@ function TarefaModal({
   )
 }
 
-// ─── Anotações do responsável ────────────────────────────────────────────────
+// ─── Bloco de anotações pessoal ──────────────────────────────────────────────
 
-function Anotacoes({
-  tarefa: t,
-  podeEditar,
-  busy,
-  onSalvar,
-}: {
-  tarefa: Tarefa
-  /** Responsável com a tarefa aberta. Os demais (ADM) só leem. */
-  podeEditar: boolean
-  busy: boolean
-  onSalvar: (texto: string, onOk: () => void) => void
-}) {
-  const [editando, setEditando] = useState(false)
-  const [texto, setTexto] = useState('')
+function BlocoAnotacoes({ inicial }: { inicial: { texto: string; atualizadoEm: string | null } }) {
+  const toast = useToast()
+  const [texto, setTexto] = useState(inicial.texto)
+  const [salvo, setSalvo] = useState(inicial)
+  const [salvando, setSalvando] = useState(false)
+  const alterado = texto !== salvo.texto
 
-  if (!t.anotacoes && !podeEditar) return null
-
-  if (editando) {
-    return (
-      <div className="space-y-2">
-        <Textarea
-          label="Anotações"
-          placeholder="Anote o andamento, contatos, o que falta fazer…"
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          rows={4}
-          maxLength={TAREFA_ANOTACOES_MAX}
-          autoFocus
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button variant="liberty" size="sm" loading={busy} onClick={() => onSalvar(texto, () => setEditando(false))}>
-            Salvar anotações
-          </Button>
-          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setEditando(false)}>
-            Cancelar
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  if (!t.anotacoes) {
-    return (
-      <AcaoAdm
-        onClick={() => {
-          setTexto('')
-          setEditando(true)
-        }}
-        disabled={busy}
-        icon={<IconNotes size={13} stroke={2} />}
-      >
-        Adicionar anotação
-      </AcaoAdm>
-    )
+  async function salvar() {
+    setSalvando(true)
+    try {
+      const result = await salvarMinhasAnotacoes(texto)
+      if (result.error) toast.error(result.error)
+      else {
+        setSalvo({ texto, atualizadoEm: result.atualizadoEm ?? new Date().toISOString() })
+        toast.success(result.success || 'Anotações salvas.')
+      }
+    } finally {
+      setSalvando(false)
+    }
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">
-          <IconNotes size={12} stroke={2} />
-          Anotações
-          {t.anotacoesEm && (
-            <span className="font-medium normal-case tracking-normal"> · {formatDateTime(t.anotacoesEm)}</span>
-          )}
+    <section aria-label="Minhas anotações" className={CARD + ' p-4 space-y-3'}>
+      <div>
+        <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
+          <IconNotes size={16} stroke={2} />
+          Minhas anotações
+        </h2>
+        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          <IconLock size={11} stroke={2} />
+          Só você vê.
         </p>
-        {podeEditar && (
-          <button
-            type="button"
-            onClick={() => {
-              setTexto(t.anotacoes)
-              setEditando(true)
-            }}
-            disabled={busy}
-            className="text-[11px] font-bold text-neutral-600 hover:underline underline-offset-2 cursor-pointer disabled:opacity-50 adobe-dark:text-adobe-text-md"
-          >
-            Editar
-          </button>
-        )}
       </div>
-      <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-700 adobe-dark:text-adobe-text-md">
-        {t.anotacoes}
-      </p>
-    </div>
+      <Textarea
+        aria-label="Minhas anotações"
+        placeholder="Lembretes, contatos, andamento das tarefas…"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault()
+            if (alterado && !salvando) salvar()
+          }
+        }}
+        rows={6}
+        maxLength={TAREFA_ANOTACOES_MAX}
+      />
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          {alterado
+            ? 'Alterações não salvas'
+            : salvo.atualizadoEm
+              ? `Salvo em ${formatDateTime(salvo.atualizadoEm)}`
+              : ''}
+        </p>
+        <Button variant="liberty" size="sm" loading={salvando} disabled={!alterado} onClick={salvar}>
+          Salvar
+        </Button>
+      </div>
+    </section>
   )
 }

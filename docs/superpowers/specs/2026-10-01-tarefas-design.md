@@ -42,8 +42,6 @@ opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem
   comentario: string | null // motivo (nao_concluida, obrigatório) ou comentário (concluida, opcional), até 1000
   respondidoEm: string | null  // ISO
   exclusaoSolicitadaEm: string | null // responsável pediu exclusão (só concluída)
-  anotacoes: string         // anotações livres do responsável (ADM só lê), até 4000
-  anotacoesEm: string | null
   fechada: boolean          // ADM fechou → usuário não pode mais responder
   fechadaEm: string | null
   criadoPorUid, criadoPorNome, criadoEm, atualizadoEm
@@ -62,10 +60,12 @@ opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem
 | Fechar / reabrir | ✔ (reabrir volta p/ pendente e limpa o comentário) | — | — |
 | Responder (concluída + comentário opcional / não concluída + motivo) | ✔ se for o responsável | ✔ enquanto `fechada = false` | — |
 
-## Anotações e agrupamento
+## Anotações pessoais e agrupamento
 
-- Cada tarefa tem "Anotações": o responsável escreve/edita enquanto a tarefa
-  está aberta; o ADM supremo só lê. Trocar o responsável apaga as anotações.
+- Bloco "Minhas anotações" na aba (coluna lateral no `xl`, acima da lista
+  abaixo disso): texto livre **privado** de cada usuário — nem o ADM supremo
+  lê. Coleção `tarefas_anotacoes/{uid}` `{ texto, atualizadoEm }`, uid sempre
+  da sessão. Salvar por botão ou Ctrl+S.
 - A lista do ADM supremo é separada por responsável (ordem alfabética), com
   total, pendentes e atrasadas no cabeçalho de cada grupo.
 

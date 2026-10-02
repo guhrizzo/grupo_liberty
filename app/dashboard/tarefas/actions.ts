@@ -30,8 +30,6 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Tarefa {
     comentario: data.comentario ?? null,
     respondidoEm: data.respondidoEm ?? null,
     exclusaoSolicitadaEm: data.exclusaoSolicitadaEm ?? null,
-    anotacoes: data.anotacoes ?? '',
-    anotacoesEm: data.anotacoesEm ?? null,
     fechada: data.fechada === true,
     fechadaEm: data.fechadaEm ?? null,
     criadoPorUid: data.criadoPorUid ?? '',
@@ -159,7 +157,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       const trocouResponsavel = doc.data()?.responsavelUid !== responsavelUid
       await ref.update(
         trocouResponsavel
-          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null, exclusaoSolicitadaEm: null, anotacoes: '', anotacoesEm: null }
+          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null, exclusaoSolicitadaEm: null }
           : dados,
       )
       revalidar()
@@ -172,8 +170,6 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       comentario: null,
       respondidoEm: null,
       exclusaoSolicitadaEm: null,
-      anotacoes: '',
-      anotacoesEm: null,
       fechada: false,
       fechadaEm: null,
       criadoPorUid: user.uid,
@@ -342,33 +338,42 @@ export async function definirPedidoExclusao(id: string, pedir: boolean): Promise
   }
 }
 
-// ─── Anotações do responsável ────────────────────────────────────────────────
+// ─── Bloco de anotações pessoal ──────────────────────────────────────────────
+// Um documento por usuário em `tarefas_anotacoes/{uid}`. O uid vem sempre da
+// sessão: ninguém (nem o ADM supremo) lê ou grava o bloco de outra pessoa.
 
-/** O responsável guarda anotações livres na tarefa (o ADM supremo só lê). */
-export async function salvarAnotacoes(id: string, textoRaw: string): Promise<TarefaResponse> {
+const COLECAO_ANOTACOES = 'tarefas_anotacoes'
+
+export async function getMinhasAnotacoes(): Promise<{ texto: string; atualizadoEm: string | null }> {
+  try {
+    const user = await getSessionUser()
+    if (!user) return { texto: '', atualizadoEm: null }
+    const doc = await adminDb.collection(COLECAO_ANOTACOES).doc(user.uid).get()
+    const data = doc.data()
+    return { texto: data?.texto ?? '', atualizadoEm: data?.atualizadoEm ?? null }
+  } catch (err) {
+    console.error('[getMinhasAnotacoes]', err)
+    return { texto: '', atualizadoEm: null }
+  }
+}
+
+export async function salvarMinhasAnotacoes(
+  textoRaw: string,
+): Promise<TarefaResponse & { atualizadoEm?: string }> {
   const user = await getSessionUser()
   if (!user) return { error: 'Não autenticado.' }
-  if (!id) return { error: 'Tarefa inválida.' }
 
-  const texto = (textoRaw ?? '').trim()
+  const texto = typeof textoRaw === 'string' ? textoRaw : ''
   if (texto.length > TAREFA_ANOTACOES_MAX) {
     return { error: `Máximo de ${TAREFA_ANOTACOES_MAX} caracteres.` }
   }
 
   try {
-    const ref = adminDb.collection(COLECAO).doc(id)
-    const doc = await ref.get()
-    if (!doc.exists) return { error: 'Tarefa não encontrada.' }
-    const data = doc.data()!
-    if (data.responsavelUid !== user.uid) return { error: 'Esta tarefa não é sua.' }
-    if (data.fechada === true) return { error: 'Esta tarefa já foi fechada pelo ADM.' }
-
-    const now = new Date().toISOString()
-    await ref.update({ anotacoes: texto, anotacoesEm: texto ? now : null, atualizadoEm: now })
-    revalidar()
-    return { success: 'Anotações salvas.' }
+    const atualizadoEm = new Date().toISOString()
+    await adminDb.collection(COLECAO_ANOTACOES).doc(user.uid).set({ texto, atualizadoEm })
+    return { success: 'Anotações salvas.', atualizadoEm }
   } catch (err) {
-    console.error('[salvarAnotacoes]', err)
+    console.error('[salvarMinhasAnotacoes]', err)
     return { error: 'Erro ao salvar as anotações.' }
   }
 }

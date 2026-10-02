@@ -17,9 +17,6 @@ export interface Tarefa {
   respondidoEm: string | null
   /** ISO — responsável pediu ao ADM supremo para excluir (só tarefa concluída). */
   exclusaoSolicitadaEm: string | null
-  /** Anotações livres do responsável (o ADM supremo só lê). */
-  anotacoes: string
-  anotacoesEm: string | null
   fechada: boolean
   fechadaEm: string | null
   criadoPorUid: string
