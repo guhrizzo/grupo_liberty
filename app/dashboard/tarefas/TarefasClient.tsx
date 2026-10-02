@@ -9,6 +9,7 @@ import {
   IconChecklist,
   IconLock,
   IconLockOpen,
+  IconNotes,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -29,6 +30,7 @@ import {
 import { formatDate, formatDateTime } from '@/utils/format'
 import {
   TAREFA_DESCRICAO_MAX,
+  TAREFA_ANOTACOES_MAX,
   TAREFA_COMENTARIO_MAX,
   TAREFA_STATUS,
   TAREFA_STATUS_ORDEM,
@@ -42,6 +44,7 @@ import {
   definirTarefaFechada,
   excluirTarefa,
   responderTarefa,
+  salvarAnotacoes,
   salvarTarefa,
 } from './actions'
 
@@ -350,6 +353,7 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
                     onEditar={() => setEditando(t)}
                     onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
                     onPedidoExclusao={(pedir) => executar(() => definirPedidoExclusao(t.id, pedir))}
+                    onSalvarAnotacoes={(texto, onOk) => executar(() => salvarAnotacoes(t.id, texto), onOk)}
                     onExcluir={() => setExcluirId(t.id)}
                   />
                 ))}
@@ -402,6 +406,7 @@ function TarefaCard({
   onFechar,
   onExcluir,
   onPedidoExclusao,
+  onSalvarAnotacoes,
 }: {
   tarefa: Tarefa
   hoje: string
@@ -413,6 +418,7 @@ function TarefaCard({
   onFechar: (fechada: boolean) => void
   onExcluir: () => void
   onPedidoExclusao: (pedir: boolean) => void
+  onSalvarAnotacoes: (texto: string, onOk: () => void) => void
 }) {
   // Formulário de resposta aberto: 'concluida' (comentário opcional) ou
   // 'nao_concluida' (motivo obrigatório).
@@ -494,6 +500,13 @@ function TarefaCard({
           )}
         </div>
       )}
+
+      <Anotacoes
+        tarefa={t}
+        podeEditar={podeResponder}
+        busy={busy}
+        onSalvar={onSalvarAnotacoes}
+      />
 
       {podeResponder && (
         <div className="space-y-2">
@@ -767,5 +780,94 @@ function TarefaModal({
         </div>
       </form>
     </Modal>
+  )
+}
+
+// ─── Anotações do responsável ────────────────────────────────────────────────
+
+function Anotacoes({
+  tarefa: t,
+  podeEditar,
+  busy,
+  onSalvar,
+}: {
+  tarefa: Tarefa
+  /** Responsável com a tarefa aberta. Os demais (ADM) só leem. */
+  podeEditar: boolean
+  busy: boolean
+  onSalvar: (texto: string, onOk: () => void) => void
+}) {
+  const [editando, setEditando] = useState(false)
+  const [texto, setTexto] = useState('')
+
+  if (!t.anotacoes && !podeEditar) return null
+
+  if (editando) {
+    return (
+      <div className="space-y-2">
+        <Textarea
+          label="Anotações"
+          placeholder="Anote o andamento, contatos, o que falta fazer…"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={4}
+          maxLength={TAREFA_ANOTACOES_MAX}
+          autoFocus
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button variant="liberty" size="sm" loading={busy} onClick={() => onSalvar(texto, () => setEditando(false))}>
+            Salvar anotações
+          </Button>
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => setEditando(false)}>
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!t.anotacoes) {
+    return (
+      <AcaoAdm
+        onClick={() => {
+          setTexto('')
+          setEditando(true)
+        }}
+        disabled={busy}
+        icon={<IconNotes size={13} stroke={2} />}
+      >
+        Adicionar anotação
+      </AcaoAdm>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          <IconNotes size={12} stroke={2} />
+          Anotações
+          {t.anotacoesEm && (
+            <span className="font-medium normal-case tracking-normal"> · {formatDateTime(t.anotacoesEm)}</span>
+          )}
+        </p>
+        {podeEditar && (
+          <button
+            type="button"
+            onClick={() => {
+              setTexto(t.anotacoes)
+              setEditando(true)
+            }}
+            disabled={busy}
+            className="text-[11px] font-bold text-neutral-600 hover:underline underline-offset-2 cursor-pointer disabled:opacity-50 adobe-dark:text-adobe-text-md"
+          >
+            Editar
+          </button>
+        )}
+      </div>
+      <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-700 adobe-dark:text-adobe-text-md">
+        {t.anotacoes}
+      </p>
+    </div>
   )
 }

@@ -5,6 +5,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, isAdmSupremo, type SessionUser } from '@/utils/permissions'
 import {
   TAREFA_DESCRICAO_MAX,
+  TAREFA_ANOTACOES_MAX,
   TAREFA_COMENTARIO_MAX,
   TAREFA_TITULO_MAX,
   ehDataValida,
@@ -29,6 +30,8 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Tarefa {
     comentario: data.comentario ?? null,
     respondidoEm: data.respondidoEm ?? null,
     exclusaoSolicitadaEm: data.exclusaoSolicitadaEm ?? null,
+    anotacoes: data.anotacoes ?? '',
+    anotacoesEm: data.anotacoesEm ?? null,
     fechada: data.fechada === true,
     fechadaEm: data.fechadaEm ?? null,
     criadoPorUid: data.criadoPorUid ?? '',
@@ -156,7 +159,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       const trocouResponsavel = doc.data()?.responsavelUid !== responsavelUid
       await ref.update(
         trocouResponsavel
-          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null, exclusaoSolicitadaEm: null }
+          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null, exclusaoSolicitadaEm: null, anotacoes: '', anotacoesEm: null }
           : dados,
       )
       revalidar()
@@ -169,6 +172,8 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       comentario: null,
       respondidoEm: null,
       exclusaoSolicitadaEm: null,
+      anotacoes: '',
+      anotacoesEm: null,
       fechada: false,
       fechadaEm: null,
       criadoPorUid: user.uid,
@@ -334,5 +339,36 @@ export async function definirPedidoExclusao(id: string, pedir: boolean): Promise
   } catch (err) {
     console.error('[definirPedidoExclusao]', err)
     return { error: 'Erro ao atualizar o pedido de exclusão.' }
+  }
+}
+
+// ─── Anotações do responsável ────────────────────────────────────────────────
+
+/** O responsável guarda anotações livres na tarefa (o ADM supremo só lê). */
+export async function salvarAnotacoes(id: string, textoRaw: string): Promise<TarefaResponse> {
+  const user = await getSessionUser()
+  if (!user) return { error: 'Não autenticado.' }
+  if (!id) return { error: 'Tarefa inválida.' }
+
+  const texto = (textoRaw ?? '').trim()
+  if (texto.length > TAREFA_ANOTACOES_MAX) {
+    return { error: `Máximo de ${TAREFA_ANOTACOES_MAX} caracteres.` }
+  }
+
+  try {
+    const ref = adminDb.collection(COLECAO).doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Tarefa não encontrada.' }
+    const data = doc.data()!
+    if (data.responsavelUid !== user.uid) return { error: 'Esta tarefa não é sua.' }
+    if (data.fechada === true) return { error: 'Esta tarefa já foi fechada pelo ADM.' }
+
+    const now = new Date().toISOString()
+    await ref.update({ anotacoes: texto, anotacoesEm: texto ? now : null, atualizadoEm: now })
+    revalidar()
+    return { success: 'Anotações salvas.' }
+  } catch (err) {
+    console.error('[salvarAnotacoes]', err)
+    return { error: 'Erro ao salvar as anotações.' }
   }
 }

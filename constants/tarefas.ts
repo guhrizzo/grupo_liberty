@@ -28,6 +28,7 @@ export const TAREFA_STATUS_ORDEM: TarefaStatus[] = ['pendente', 'concluida', 'na
 export const TAREFA_TITULO_MAX = 140
 export const TAREFA_DESCRICAO_MAX = 4000
 export const TAREFA_COMENTARIO_MAX = 1000
+export const TAREFA_ANOTACOES_MAX = 4000
 
 export function ehTarefaStatus(v: unknown): v is TarefaStatus {
   return v === 'pendente' || v === 'concluida' || v === 'nao_concluida'

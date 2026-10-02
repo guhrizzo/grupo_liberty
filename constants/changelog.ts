@@ -33,6 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Na tarefa, marque "Concluí" (com um comentário, se quiser) ou "Não concluí" explicando o motivo. Dá para mudar a resposta até a tarefa ser fechada.',
       'O número ao lado de "Tarefas" no menu mostra quantas tarefas pendentes você tem; as atrasadas ficam em vermelho.',
       'Tarefa concluída que não precisa mais aparecer? Use "Pedir ao ADM para excluir".',
+      'Cada tarefa tem um campo de anotações para você registrar o andamento.',
     ],
   },
   {
