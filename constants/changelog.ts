@@ -30,7 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'novo',
     items: [
       'Nova aba "Tarefas" no menu: a administração atribui tarefas com prazo a cada usuário.',
-      'Na tarefa, marque "Concluí" ou "Não concluí" explicando o motivo. Dá para mudar a resposta até a tarefa ser fechada.',
+      'Na tarefa, marque "Concluí" (com um comentário, se quiser) ou "Não concluí" explicando o motivo. Dá para mudar a resposta até a tarefa ser fechada.',
       'O número ao lado de "Tarefas" no menu mostra quantas tarefas pendentes você tem; as atrasadas ficam em vermelho.',
     ],
   },

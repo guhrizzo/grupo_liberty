@@ -29,7 +29,7 @@ import {
 import { formatDate, formatDateTime } from '@/utils/format'
 import {
   TAREFA_DESCRICAO_MAX,
-  TAREFA_MOTIVO_MAX,
+  TAREFA_COMENTARIO_MAX,
   TAREFA_STATUS,
   TAREFA_STATUS_ORDEM,
   TAREFA_TITULO_MAX,
@@ -289,8 +289,8 @@ export default function TarefasClient({ tarefas, usuarios, admSupremo, meuUid, h
               admSupremo={admSupremo}
               souResponsavel={t.responsavelUid === meuUid}
               busy={isPending}
-              onResponder={(status, motivo, onOk) =>
-                executar(() => responderTarefa(t.id, status, motivo), onOk)
+              onResponder={(status, comentario, onOk) =>
+                executar(() => responderTarefa(t.id, status, comentario), onOk)
               }
               onEditar={() => setEditando(t)}
               onFechar={(fechada) => executar(() => definirTarefaFechada(t.id, fechada))}
@@ -348,13 +348,20 @@ function TarefaCard({
   admSupremo: boolean
   souResponsavel: boolean
   busy: boolean
-  onResponder: (status: TarefaStatus, motivo: string | null, onOk?: () => void) => void
+  onResponder: (status: TarefaStatus, comentario: string | null, onOk?: () => void) => void
   onEditar: () => void
   onFechar: (fechada: boolean) => void
   onExcluir: () => void
 }) {
-  const [motivoAberto, setMotivoAberto] = useState(false)
-  const [motivo, setMotivo] = useState(t.motivo ?? '')
+  // Formulário de resposta aberto: 'concluida' (comentário opcional) ou
+  // 'nao_concluida' (motivo obrigatório).
+  const [respondendo, setRespondendo] = useState<'concluida' | 'nao_concluida' | null>(null)
+  const [comentario, setComentario] = useState('')
+
+  function abrirResposta(status: 'concluida' | 'nao_concluida') {
+    setComentario(t.status === status ? (t.comentario ?? '') : '')
+    setRespondendo(status)
+  }
   const atrasada = tarefaAtrasada(t, hoje)
   const podeResponder = souResponsavel && !t.fechada
 
@@ -419,56 +426,74 @@ function TarefaCard({
               <span className="font-medium opacity-70"> · {formatDateTime(t.respondidoEm)}</span>
             )}
           </p>
-          {t.motivo && <p className="mt-1 whitespace-pre-wrap">Motivo: {t.motivo}</p>}
+          {t.comentario && (
+            <p className="mt-1 whitespace-pre-wrap">
+              {t.status === 'concluida' ? 'Comentário' : 'Motivo'}: {t.comentario}
+            </p>
+          )}
         </div>
       )}
 
       {podeResponder && (
         <div className="space-y-2">
-          {motivoAberto ? (
+          {respondendo ? (
             <div className="space-y-2">
               <Textarea
-                label="Por que não concluiu?"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
+                label={respondendo === 'concluida' ? 'Comentário (opcional)' : 'Por que não concluiu?'}
+                placeholder={respondendo === 'concluida' ? 'Ex: cliente confirmou a visita para sexta.' : undefined}
+                value={comentario}
+                onChange={(e) => setComentario(e.target.value)}
                 rows={3}
-                maxLength={TAREFA_MOTIVO_MAX}
+                maxLength={TAREFA_COMENTARIO_MAX}
                 autoFocus
               />
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant="danger"
+                  variant={respondendo === 'concluida' ? 'liberty' : 'danger'}
                   size="sm"
+                  leftIcon={
+                    respondendo === 'concluida' ? <IconCheck size={14} stroke={2.5} /> : undefined
+                  }
                   loading={busy}
-                  disabled={!motivo.trim()}
-                  onClick={() => onResponder('nao_concluida', motivo, () => setMotivoAberto(false))}
+                  disabled={respondendo === 'nao_concluida' && !comentario.trim()}
+                  onClick={() => onResponder(respondendo, comentario, () => setRespondendo(null))}
                 >
-                  Enviar motivo
+                  {respondendo === 'concluida' ? 'Confirmar conclusão' : 'Enviar motivo'}
                 </Button>
-                <Button variant="secondary" size="sm" disabled={busy} onClick={() => setMotivoAberto(false)}>
+                <Button variant="secondary" size="sm" disabled={busy} onClick={() => setRespondendo(null)}>
                   Cancelar
                 </Button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {t.status !== 'concluida' && (
-                <Button
-                  variant="liberty"
-                  size="sm"
-                  leftIcon={<IconCheck size={14} stroke={2.5} />}
-                  loading={busy}
-                  onClick={() => onResponder('concluida', null)}
-                >
-                  Concluí
-                </Button>
-              )}
+              <Button
+                variant={t.status === 'concluida' ? 'secondary' : 'liberty'}
+                size="sm"
+                leftIcon={
+                  t.status === 'concluida' ? (
+                    <IconPencil size={14} stroke={2.5} />
+                  ) : (
+                    <IconCheck size={14} stroke={2.5} />
+                  )
+                }
+                disabled={busy}
+                onClick={() => abrirResposta('concluida')}
+              >
+                {t.status === 'concluida' ? 'Editar comentário' : 'Concluí'}
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
-                leftIcon={<IconX size={14} stroke={2.5} />}
+                leftIcon={
+                  t.status === 'nao_concluida' ? (
+                    <IconPencil size={14} stroke={2.5} />
+                  ) : (
+                    <IconX size={14} stroke={2.5} />
+                  )
+                }
                 disabled={busy}
-                onClick={() => setMotivoAberto(true)}
+                onClick={() => abrirResposta('nao_concluida')}
               >
                 {t.status === 'nao_concluida' ? 'Editar motivo' : 'Não concluí'}
               </Button>

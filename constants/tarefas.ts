@@ -1,5 +1,5 @@
 // Tarefas — o ADM supremo atribui tarefas com prazo a um usuário, que responde
-// "concluída" ou "não concluída" (com motivo). Ver
+// "concluída" (comentário opcional) ou "não concluída" (com motivo). Ver
 // docs/superpowers/specs/2026-10-01-tarefas-design.md.
 // Não importa `server-only`: é usado no client e no servidor.
 
@@ -27,7 +27,7 @@ export const TAREFA_STATUS_ORDEM: TarefaStatus[] = ['pendente', 'concluida', 'na
 
 export const TAREFA_TITULO_MAX = 140
 export const TAREFA_DESCRICAO_MAX = 4000
-export const TAREFA_MOTIVO_MAX = 1000
+export const TAREFA_COMENTARIO_MAX = 1000
 
 export function ehTarefaStatus(v: unknown): v is TarefaStatus {
   return v === 'pendente' || v === 'concluida' || v === 'nao_concluida'

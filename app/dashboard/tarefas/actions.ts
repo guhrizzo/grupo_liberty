@@ -5,7 +5,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, isAdmSupremo, type SessionUser } from '@/utils/permissions'
 import {
   TAREFA_DESCRICAO_MAX,
-  TAREFA_MOTIVO_MAX,
+  TAREFA_COMENTARIO_MAX,
   TAREFA_TITULO_MAX,
   ehDataValida,
   ehTarefaStatus,
@@ -26,7 +26,7 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Tarefa {
     responsavelNome: data.responsavelNome ?? 'Usuário',
     responsavelEmail: data.responsavelEmail ?? '',
     status: ehTarefaStatus(data.status) ? data.status : 'pendente',
-    motivo: data.motivo ?? null,
+    comentario: data.comentario ?? null,
     respondidoEm: data.respondidoEm ?? null,
     fechada: data.fechada === true,
     fechadaEm: data.fechadaEm ?? null,
@@ -155,7 +155,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       const trocouResponsavel = doc.data()?.responsavelUid !== responsavelUid
       await ref.update(
         trocouResponsavel
-          ? { ...dados, status: 'pendente', motivo: null, respondidoEm: null }
+          ? { ...dados, status: 'pendente', comentario: null, respondidoEm: null }
           : dados,
       )
       revalidar()
@@ -165,7 +165,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
     await adminDb.collection(COLECAO).add({
       ...dados,
       status: 'pendente',
-      motivo: null,
+      comentario: null,
       respondidoEm: null,
       fechada: false,
       fechadaEm: null,
@@ -199,7 +199,7 @@ export async function excluirTarefa(id: string): Promise<TarefaResponse> {
   }
 }
 
-/** Fecha (trava a resposta) ou reabre (volta para pendente e limpa o motivo). */
+/** Fecha (trava a resposta) ou reabre (volta para pendente e limpa o comentário). */
 export async function definirTarefaFechada(id: string, fechada: boolean): Promise<TarefaResponse> {
   const check = await checarAdmSupremo()
   if ('error' in check) return { error: check.error }
@@ -218,7 +218,7 @@ export async function definirTarefaFechada(id: string, fechada: boolean): Promis
             fechada: false,
             fechadaEm: null,
             status: 'pendente',
-            motivo: null,
+            comentario: null,
             respondidoEm: null,
             atualizadoEm: now,
           },
@@ -234,24 +234,28 @@ export async function definirTarefaFechada(id: string, fechada: boolean): Promis
 // ─── Resposta do responsável ─────────────────────────────────────────────────
 
 /**
- * O responsável marca a tarefa como concluída, não concluída (com motivo) ou
- * desfaz a resposta (`pendente`). Bloqueado depois que o ADM supremo fecha.
+ * O responsável marca a tarefa como concluída (comentário opcional), não
+ * concluída (motivo obrigatório) ou desfaz a resposta (`pendente`).
+ * Bloqueado depois que o ADM supremo fecha.
  */
 export async function responderTarefa(
   id: string,
   status: string,
-  motivoRaw: string | null,
+  comentarioRaw: string | null,
 ): Promise<TarefaResponse> {
   const user = await getSessionUser()
   if (!user) return { error: 'Não autenticado.' }
   if (!id) return { error: 'Tarefa inválida.' }
   if (!ehTarefaStatus(status)) return { error: 'Resposta inválida.' }
 
-  const motivo = (motivoRaw ?? '').trim()
-  if (status === 'nao_concluida') {
-    if (!motivo) return { error: 'Explique por que não concluiu.', fieldErrors: { motivo: 'Obrigatório.' } }
-    if (motivo.length > TAREFA_MOTIVO_MAX) {
-      return { error: `Máximo de ${TAREFA_MOTIVO_MAX} caracteres.`, fieldErrors: { motivo: 'Muito longo.' } }
+  const comentario = status === 'pendente' ? '' : (comentarioRaw ?? '').trim()
+  if (status === 'nao_concluida' && !comentario) {
+    return { error: 'Explique por que não concluiu.', fieldErrors: { comentario: 'Obrigatório.' } }
+  }
+  if (comentario.length > TAREFA_COMENTARIO_MAX) {
+    return {
+      error: `Máximo de ${TAREFA_COMENTARIO_MAX} caracteres.`,
+      fieldErrors: { comentario: 'Muito longo.' },
     }
   }
 
@@ -266,7 +270,7 @@ export async function responderTarefa(
     const now = new Date().toISOString()
     await ref.update({
       status,
-      motivo: status === 'nao_concluida' ? motivo : null,
+      comentario: comentario || null,
       respondidoEm: status === 'pendente' ? null : now,
       atualizadoEm: now,
     })

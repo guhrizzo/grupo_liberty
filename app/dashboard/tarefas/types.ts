@@ -12,7 +12,8 @@ export interface Tarefa {
   responsavelNome: string
   responsavelEmail: string
   status: TarefaStatus
-  motivo: string | null
+  /** Motivo (não concluída, obrigatório) ou comentário (concluída, opcional). */
+  comentario: string | null
   respondidoEm: string | null
   fechada: boolean
   fechadaEm: string | null
@@ -34,7 +35,7 @@ export type TarefaFieldErrors = {
   descricao?: string
   prazo?: string
   responsavelUid?: string
-  motivo?: string
+  comentario?: string
 }
 
 export type TarefaResponse = {

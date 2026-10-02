@@ -6,8 +6,8 @@
 
 O ADM supremo (`ADM_SUPREMO_EMAILS` em `constants/permissoes.ts`: Gustavo e
 Otavio) cria tarefas com prazo e as atribui a um usuário. O usuário vê as
-próprias tarefas numa aba nova e responde: **concluída**, ou **não concluída**
-com o motivo. O ADM supremo tem CRUD total.
+próprias tarefas numa aba nova e responde: **concluída** (com comentário
+opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem CRUD total.
 
 ## Decisões (confirmadas com o Gustavo)
 
@@ -39,7 +39,7 @@ com o motivo. O ADM supremo tem CRUD total.
   responsavelNome: string   // snapshot p/ exibir
   responsavelEmail: string
   status: 'pendente' | 'concluida' | 'nao_concluida'
-  motivo: string | null     // obrigatório quando nao_concluida, até 1000
+  comentario: string | null // motivo (nao_concluida, obrigatório) ou comentário (concluida, opcional), até 1000
   respondidoEm: string | null  // ISO
   fechada: boolean          // ADM fechou → usuário não pode mais responder
   fechadaEm: string | null
@@ -56,14 +56,15 @@ com o motivo. O ADM supremo tem CRUD total.
 | Listar | todas | só as dele | nada |
 | Criar / editar (inclui trocar responsável e prazo) | ✔ | — | — |
 | Excluir | ✔ (com confirmação) | — | — |
-| Fechar / reabrir | ✔ (reabrir volta p/ pendente e limpa o motivo) | — | — |
-| Responder (concluída / não concluída + motivo) | ✔ se for o responsável | ✔ enquanto `fechada = false` | — |
+| Fechar / reabrir | ✔ (reabrir volta p/ pendente e limpa o comentário) | — | — |
+| Responder (concluída + comentário opcional / não concluída + motivo) | ✔ se for o responsável | ✔ enquanto `fechada = false` | — |
 
 ## Tela
 
 - **Usuário comum:** lista das suas tarefas, separadas em "Abertas" e
   "Fechadas". Cada cartão mostra título, descrição, prazo (vermelho se
-  atrasada), status e os botões "Concluí" / "Não concluí" (abre campo de motivo).
+  atrasada), status e os botões "Concluí" (abre comentário opcional) / "Não concluí" (abre
+  campo de motivo obrigatório).
   Depois de responder pode trocar a resposta enquanto não fechada.
 - **ADM supremo:** botão "Nova tarefa" (modal: título, descrição, responsável,
   prazo); filtros por responsável e status, alternância Abertas/Fechadas; em
