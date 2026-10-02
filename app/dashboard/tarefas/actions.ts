@@ -5,13 +5,14 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, isAdmSupremo, type SessionUser } from '@/utils/permissions'
 import {
   TAREFA_DESCRICAO_MAX,
-  TAREFA_ANOTACOES_MAX,
+  AFAZERES_MAX,
+  AFAZER_TEXTO_MAX,
   TAREFA_COMENTARIO_MAX,
   TAREFA_TITULO_MAX,
   ehDataValida,
   ehTarefaStatus,
 } from '@/constants/tarefas'
-import type { Tarefa, TarefaFieldErrors, TarefaResponse, UsuarioOpcao } from './types'
+import type { Afazer, Tarefa, TarefaFieldErrors, TarefaResponse, UsuarioOpcao } from './types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -338,42 +339,56 @@ export async function definirPedidoExclusao(id: string, pedir: boolean): Promise
   }
 }
 
-// ─── Bloco de anotações pessoal ──────────────────────────────────────────────
-// Um documento por usuário em `tarefas_anotacoes/{uid}`. O uid vem sempre da
-// sessão: ninguém (nem o ADM supremo) lê ou grava o bloco de outra pessoa.
+// ─── Lista de afazeres pessoal ───────────────────────────────────────────────
+// Um documento por usuário em `tarefas_afazeres/{uid}` com `itens: Afazer[]`.
+// O uid vem sempre da sessão: ninguém (nem o ADM supremo) lê ou grava a lista
+// de outra pessoa.
 
-const COLECAO_ANOTACOES = 'tarefas_anotacoes'
+const COLECAO_AFAZERES = 'tarefas_afazeres'
 
-export async function getMinhasAnotacoes(): Promise<{ texto: string; atualizadoEm: string | null }> {
+function normalizarAfazeres(raw: unknown): Afazer[] | null {
+  if (!Array.isArray(raw) || raw.length > AFAZERES_MAX) return null
+  const itens: Afazer[] = []
+  for (const it of raw) {
+    if (!it || typeof it !== 'object') return null
+    const { id, texto, feito } = it as Record<string, unknown>
+    if (typeof id !== 'string' || !id || id.length > 64) return null
+    if (typeof texto !== 'string') return null
+    const t = texto.trim()
+    if (!t || t.length > AFAZER_TEXTO_MAX) return null
+    itens.push({ id, texto: t, feito: feito === true })
+  }
+  return itens
+}
+
+export async function getMeusAfazeres(): Promise<Afazer[]> {
   try {
     const user = await getSessionUser()
-    if (!user) return { texto: '', atualizadoEm: null }
-    const doc = await adminDb.collection(COLECAO_ANOTACOES).doc(user.uid).get()
-    const data = doc.data()
-    return { texto: data?.texto ?? '', atualizadoEm: data?.atualizadoEm ?? null }
+    if (!user) return []
+    const doc = await adminDb.collection(COLECAO_AFAZERES).doc(user.uid).get()
+    return normalizarAfazeres(doc.data()?.itens) ?? []
   } catch (err) {
-    console.error('[getMinhasAnotacoes]', err)
-    return { texto: '', atualizadoEm: null }
+    console.error('[getMeusAfazeres]', err)
+    return []
   }
 }
 
-export async function salvarMinhasAnotacoes(
-  textoRaw: string,
-): Promise<TarefaResponse & { atualizadoEm?: string }> {
+/** Grava a lista inteira (o cliente atualiza na hora e manda o estado final). */
+export async function salvarMeusAfazeres(itensRaw: Afazer[]): Promise<TarefaResponse> {
   const user = await getSessionUser()
   if (!user) return { error: 'Não autenticado.' }
 
-  const texto = typeof textoRaw === 'string' ? textoRaw : ''
-  if (texto.length > TAREFA_ANOTACOES_MAX) {
-    return { error: `Máximo de ${TAREFA_ANOTACOES_MAX} caracteres.` }
-  }
+  const itens = normalizarAfazeres(itensRaw)
+  if (!itens) return { error: 'Lista inválida.' }
 
   try {
-    const atualizadoEm = new Date().toISOString()
-    await adminDb.collection(COLECAO_ANOTACOES).doc(user.uid).set({ texto, atualizadoEm })
-    return { success: 'Anotações salvas.', atualizadoEm }
+    await adminDb
+      .collection(COLECAO_AFAZERES)
+      .doc(user.uid)
+      .set({ itens, atualizadoEm: new Date().toISOString() })
+    return { success: 'Lista salva.' }
   } catch (err) {
-    console.error('[salvarMinhasAnotacoes]', err)
-    return { error: 'Erro ao salvar as anotações.' }
+    console.error('[salvarMeusAfazeres]', err)
+    return { error: 'Erro ao salvar a lista.' }
   }
 }

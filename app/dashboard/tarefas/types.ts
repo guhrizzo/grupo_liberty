@@ -25,6 +25,13 @@ export interface Tarefa {
   atualizadoEm: string
 }
 
+/** Item da lista de afazeres pessoal (privada) do usuário. */
+export interface Afazer {
+  id: string
+  texto: string
+  feito: boolean
+}
+
 /** Usuário que pode receber tarefas (seletor do ADM supremo). */
 export interface UsuarioOpcao {
   uid: string

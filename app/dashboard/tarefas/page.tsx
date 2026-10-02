@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, isAdmSupremo } from '@/utils/permissions'
 import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
-import { getMinhasAnotacoes, getTarefas, getUsuariosAtribuiveis } from './actions'
+import { getMeusAfazeres, getTarefas, getUsuariosAtribuiveis } from './actions'
 import TarefasClient from './TarefasClient'
 
 export const metadata = {
@@ -14,10 +14,10 @@ export default async function TarefasPage() {
   if (!user) redirect('/login')
 
   const admSupremo = isAdmSupremo(user)
-  const [tarefas, usuarios, anotacoes] = await Promise.all([
+  const [tarefas, usuarios, afazeres] = await Promise.all([
     getTarefas(),
     admSupremo ? getUsuariosAtribuiveis() : Promise.resolve([]),
-    getMinhasAnotacoes(),
+    getMeusAfazeres(),
   ])
 
   return (
@@ -27,7 +27,7 @@ export default async function TarefasPage() {
       admSupremo={admSupremo}
       meuUid={user.uid}
       hoje={hojeNoFuso()}
-      anotacoes={anotacoes}
+      afazeres={afazeres}
     />
   )
 }

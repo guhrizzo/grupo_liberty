@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useCallback, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   IconAlertTriangle,
@@ -9,7 +9,6 @@ import {
   IconChecklist,
   IconLock,
   IconLockOpen,
-  IconNotes,
   IconPencil,
   IconPlus,
   IconTrash,
@@ -30,7 +29,8 @@ import {
 import { formatDate, formatDateTime } from '@/utils/format'
 import {
   TAREFA_DESCRICAO_MAX,
-  TAREFA_ANOTACOES_MAX,
+  AFAZERES_MAX,
+  AFAZER_TEXTO_MAX,
   TAREFA_COMENTARIO_MAX,
   TAREFA_STATUS,
   TAREFA_STATUS_ORDEM,
@@ -38,13 +38,13 @@ import {
   tarefaAtrasada,
   type TarefaStatus,
 } from '@/constants/tarefas'
-import type { Tarefa, TarefaFieldErrors, UsuarioOpcao } from './types'
+import type { Afazer, Tarefa, TarefaFieldErrors, UsuarioOpcao } from './types'
 import {
   definirPedidoExclusao,
   definirTarefaFechada,
   excluirTarefa,
   responderTarefa,
-  salvarMinhasAnotacoes,
+  salvarMeusAfazeres,
   salvarTarefa,
 } from './actions'
 
@@ -55,8 +55,8 @@ interface TarefasClientProps {
   meuUid: string
   /** `YYYY-MM-DD` no fuso do negócio — vem do servidor para não divergir. */
   hoje: string
-  /** Bloco de anotações pessoal do usuário logado (privado). */
-  anotacoes: { texto: string; atualizadoEm: string | null }
+  /** Lista de afazeres pessoal do usuário logado (privada). */
+  afazeres: Afazer[]
 }
 
 const CARD =
@@ -90,7 +90,7 @@ export default function TarefasClient({
   admSupremo,
   meuUid,
   hoje,
-  anotacoes,
+  afazeres,
 }: TarefasClientProps) {
   const router = useRouter()
   const toast = useToast()
@@ -375,7 +375,7 @@ export default function TarefasClient({
         </div>
 
         <aside className="order-1 xl:order-2 xl:sticky xl:top-6">
-          <BlocoAnotacoes inicial={anotacoes} />
+          <ListaAfazeres inicial={afazeres} />
         </aside>
       </div>
 
@@ -790,67 +790,171 @@ function TarefaModal({
   )
 }
 
-// ─── Bloco de anotações pessoal ──────────────────────────────────────────────
+// ─── Lista de afazeres pessoal ───────────────────────────────────────────────
 
-function BlocoAnotacoes({ inicial }: { inicial: { texto: string; atualizadoEm: string | null } }) {
+function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
   const toast = useToast()
-  const [texto, setTexto] = useState(inicial.texto)
-  const [salvo, setSalvo] = useState(inicial)
-  const [salvando, setSalvando] = useState(false)
-  const alterado = texto !== salvo.texto
+  const [itens, setItens] = useState(inicial)
+  const [novo, setNovo] = useState('')
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editTexto, setEditTexto] = useState('')
+  const [salvando, setSalvando] = useState(0)
+  // Fila de gravações: cada mudança grava a lista inteira, na ordem em que aconteceu.
+  const filaRef = useRef<Promise<void>>(Promise.resolve())
 
-  async function salvar() {
-    setSalvando(true)
-    try {
-      const result = await salvarMinhasAnotacoes(texto)
-      if (result.error) toast.error(result.error)
-      else {
-        setSalvo({ texto, atualizadoEm: result.atualizadoEm ?? new Date().toISOString() })
-        toast.success(result.success || 'Anotações salvas.')
+  function persistir(proximos: Afazer[]) {
+    setItens(proximos)
+    setSalvando((n) => n + 1)
+    filaRef.current = filaRef.current.then(async () => {
+      try {
+        const result = await salvarMeusAfazeres(proximos)
+        if (result.error) toast.error(result.error)
+      } catch {
+        toast.error('Erro ao salvar a lista.')
+      } finally {
+        setSalvando((n) => n - 1)
       }
-    } finally {
-      setSalvando(false)
-    }
+    })
   }
 
+  function adicionar(e: React.FormEvent) {
+    e.preventDefault()
+    const texto = novo.trim()
+    if (!texto) return
+    if (itens.length >= AFAZERES_MAX) {
+      toast.error(`Limite de ${AFAZERES_MAX} itens. Limpe os concluídos.`)
+      return
+    }
+    persistir([...itens, { id: crypto.randomUUID(), texto, feito: false }])
+    setNovo('')
+  }
+
+  function concluirEdicao() {
+    if (!editandoId) return
+    const texto = editTexto.trim()
+    const atual = itens.find((i) => i.id === editandoId)
+    setEditandoId(null)
+    if (!atual || !texto || texto === atual.texto) return
+    persistir(itens.map((i) => (i.id === editandoId ? { ...i, texto } : i)))
+  }
+
+  const pendentes = itens.filter((i) => !i.feito)
+  const feitos = itens.filter((i) => i.feito)
+
   return (
-    <section aria-label="Minhas anotações" className={CARD + ' p-4 space-y-3'}>
-      <div>
-        <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
-          <IconNotes size={16} stroke={2} />
-          Minhas anotações
-        </h2>
-        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
-          <IconLock size={11} stroke={2} />
-          Só você vê.
+    <section aria-label="Meus afazeres" className={CARD + ' p-4 space-y-3'}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="inline-flex items-center gap-1.5 text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">
+            <IconChecklist size={16} stroke={2} />
+            Meus afazeres
+          </h2>
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+            <IconLock size={11} stroke={2} />
+            Só você vê.
+          </p>
+        </div>
+        <p className="text-[11px] font-semibold text-neutral-500 tabular-nums adobe-dark:text-adobe-text-lo">
+          {salvando > 0 ? 'Salvando…' : itens.length > 0 ? `${feitos.length} de ${itens.length} feitos` : ''}
         </p>
       </div>
-      <Textarea
-        aria-label="Minhas anotações"
-        placeholder="Lembretes, contatos, andamento das tarefas…"
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        onKeyDown={(e) => {
-          if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault()
-            if (alterado && !salvando) salvar()
-          }
-        }}
-        rows={6}
-        maxLength={TAREFA_ANOTACOES_MAX}
-      />
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
-          {alterado
-            ? 'Alterações não salvas'
-            : salvo.atualizadoEm
-              ? `Salvo em ${formatDateTime(salvo.atualizadoEm)}`
-              : ''}
-        </p>
-        <Button variant="liberty" size="sm" loading={salvando} disabled={!alterado} onClick={salvar}>
-          Salvar
+
+      <form onSubmit={adicionar} className="flex gap-2">
+        <Input
+          aria-label="Novo item"
+          placeholder="Adicionar item…"
+          value={novo}
+          onChange={(e) => setNovo(e.target.value)}
+          maxLength={AFAZER_TEXTO_MAX}
+          containerClassName="flex-1"
+        />
+        <Button type="submit" variant="liberty" aria-label="Adicionar item" disabled={!novo.trim()}>
+          <IconPlus size={16} stroke={2.5} />
         </Button>
-      </div>
+      </form>
+
+      {itens.length === 0 ? (
+        <p className="py-4 text-center text-[12px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          Nada por aqui. Anote o que precisa fazer.
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {[...pendentes, ...feitos].map((item) => (
+            <li
+              key={item.id}
+              className="group -mx-1.5 flex items-start gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-neutral-50 adobe-dark:hover:bg-adobe-bg-3"
+            >
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={item.feito}
+                aria-label={item.feito ? `Desmarcar "${item.texto}"` : `Marcar "${item.texto}" como feito`}
+                onClick={() =>
+                  persistir(itens.map((i) => (i.id === item.id ? { ...i, feito: !i.feito } : i)))
+                }
+                className={
+                  'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded border-2 transition-colors cursor-pointer ' +
+                  (item.feito
+                    ? 'border-liberty bg-liberty text-white'
+                    : 'border-neutral-300 bg-white hover:border-liberty adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2')
+                }
+              >
+                {item.feito && <IconCheck size={12} stroke={3} />}
+              </button>
+
+              {editandoId === item.id ? (
+                <input
+                  aria-label="Editar item"
+                  value={editTexto}
+                  onChange={(e) => setEditTexto(e.target.value)}
+                  onBlur={concluirEdicao}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') concluirEdicao()
+                    if (e.key === 'Escape') setEditandoId(null)
+                  }}
+                  maxLength={AFAZER_TEXTO_MAX}
+                  autoFocus
+                  className="min-w-0 flex-1 -my-px rounded border border-liberty/40 bg-white px-1 text-[13px] leading-[18px] text-neutral-900 outline-none adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-hi"
+                />
+              ) : (
+                <button
+                  type="button"
+                  title="Clique para editar"
+                  onClick={() => {
+                    setEditTexto(item.texto)
+                    setEditandoId(item.id)
+                  }}
+                  className={
+                    'min-w-0 flex-1 break-words text-left text-[13px] leading-[18px] cursor-text ' +
+                    (item.feito
+                      ? 'text-neutral-400 line-through adobe-dark:text-adobe-text-lo'
+                      : 'text-neutral-800 adobe-dark:text-adobe-text-md')
+                  }
+                >
+                  {item.texto}
+                </button>
+              )}
+
+              <button
+                type="button"
+                aria-label={`Remover "${item.texto}"`}
+                onClick={() => persistir(itens.filter((i) => i.id !== item.id))}
+                className="shrink-0 rounded p-0.5 text-neutral-400 transition-opacity hover:bg-rose-50 hover:text-rose-600 cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 adobe-dark:hover:bg-rose-500/10"
+              >
+                <IconX size={14} stroke={2} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {feitos.length > 0 && (
+        <div className="border-t border-neutral-100 pt-2 adobe-dark:border-adobe-line [&>button]:-ml-2">
+          <AcaoAdm onClick={() => persistir(pendentes)} disabled={false} icon={<IconTrash size={13} stroke={2} />}>
+            Limpar concluídos ({feitos.length})
+          </AcaoAdm>
+        </div>
+      )}
     </section>
   )
 }

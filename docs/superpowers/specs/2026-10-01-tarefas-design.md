@@ -60,12 +60,14 @@ opcional), ou **não concluída** com o motivo (obrigatório). O ADM supremo tem
 | Fechar / reabrir | ✔ (reabrir volta p/ pendente e limpa o comentário) | — | — |
 | Responder (concluída + comentário opcional / não concluída + motivo) | ✔ se for o responsável | ✔ enquanto `fechada = false` | — |
 
-## Anotações pessoais e agrupamento
+## Afazeres pessoais e agrupamento
 
-- Bloco "Minhas anotações" na aba (coluna lateral no `xl`, acima da lista
-  abaixo disso): texto livre **privado** de cada usuário — nem o ADM supremo
-  lê. Coleção `tarefas_anotacoes/{uid}` `{ texto, atualizadoEm }`, uid sempre
-  da sessão. Salvar por botão ou Ctrl+S.
+- Lista "Meus afazeres" na aba (coluna lateral no `xl`, acima da lista
+  abaixo disso): to-do **privado** de cada usuário — nem o ADM supremo lê.
+  Adicionar (Enter), marcar/desmarcar, editar clicando no texto, remover,
+  "Limpar concluídos". Salva sozinho a cada mudança (fila em ordem).
+  Coleção `tarefas_afazeres/{uid}` `{ itens: {id, texto, feito}[], atualizadoEm }`,
+  uid sempre da sessão; até 200 itens de 300 caracteres.
 - A lista do ADM supremo é separada por responsável (ordem alfabética), com
   total, pendentes e atrasadas no cabeçalho de cada grupo.
 

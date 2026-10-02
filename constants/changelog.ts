@@ -33,7 +33,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Na tarefa, marque "Concluí" (com um comentário, se quiser) ou "Não concluí" explicando o motivo. Dá para mudar a resposta até a tarefa ser fechada.',
       'O número ao lado de "Tarefas" no menu mostra quantas tarefas pendentes você tem; as atrasadas ficam em vermelho.',
       'Tarefa concluída que não precisa mais aparecer? Use "Pedir ao ADM para excluir".',
-      'Bloco "Minhas anotações" na aba Tarefas: um espaço só seu para lembretes e andamento (ninguém mais vê).',
+      '"Meus afazeres" na aba Tarefas: sua lista pessoal de to-do, só você vê. Marque, edite e limpe os concluídos.',
     ],
   },
   {
