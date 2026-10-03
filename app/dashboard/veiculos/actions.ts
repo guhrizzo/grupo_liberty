@@ -1,5 +1,6 @@
 'use server'
 
+import { ehDataValida } from '@/constants/tarefas'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
@@ -157,6 +158,8 @@ export interface Veiculo {
   custoAcumulado: number | null
   /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
   precoAquisicao: number | null
+  /** Data da compra (YYYY-MM-DD). Métricas usam esta data; sem ela, a de cadastro. */
+  dataAquisicao: string | null
   /** Soma interna: total de débitos + preço de aquisição. Derivado — não editável. */
   custoEfetivoTotal: number | null
   debitos: number | null
@@ -208,6 +211,7 @@ export type VeiculoFieldErrors = {
   valorParcela?: string
   custoAcumulado?: string
   precoAquisicao?: string
+  dataAquisicao?: string
   debitos?: string
   parcelasRestantes?: string
   taxaJuros?: string
@@ -282,6 +286,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
+        dataAquisicao: data.dataAquisicao ?? null,
         custoEfetivoTotal: data.custoEfetivoTotal ?? null,
         debitos: data.debitos ?? null,
         debitosItens: Array.isArray(data.debitosItens)
@@ -438,6 +443,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
+  const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -547,6 +553,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   if (precoAquisicao !== null && (Number.isNaN(precoAquisicao) || precoAquisicao < 0)) {
     fieldErrors.precoAquisicao = 'Preço de aquisição inválido.'
   }
+  if (dataAquisicao !== null && !ehDataValida(dataAquisicao)) {
+    fieldErrors.dataAquisicao = 'Data de aquisição inválida.'
+  }
   if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
     fieldErrors.debitos = 'Débitos inválido.'
   }
@@ -600,6 +609,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      dataAquisicao,
       custoEfetivoTotal,
       debitos,
       debitosItens,
@@ -705,6 +715,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
+  const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -814,6 +825,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   if (precoAquisicao !== null && (Number.isNaN(precoAquisicao) || precoAquisicao < 0)) {
     fieldErrors.precoAquisicao = 'Preço de aquisição inválido.'
   }
+  if (dataAquisicao !== null && !ehDataValida(dataAquisicao)) {
+    fieldErrors.dataAquisicao = 'Data de aquisição inválida.'
+  }
   if (debitos !== null && (Number.isNaN(debitos) || debitos < 0)) {
     fieldErrors.debitos = 'Débitos inválido.'
   }
@@ -887,6 +901,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      dataAquisicao,
       custoEfetivoTotal,
       debitos,
       debitosItens,

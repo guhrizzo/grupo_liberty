@@ -181,6 +181,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // Preço pago para adquirir o veículo. Valor interno de custo — não entra em
   // débitos, propostas, PDF nem no site.
   const [precoAquisicao, setPrecoAquisicao] = useState('')
+  const [dataAquisicao, setDataAquisicao] = useState('')
 
   // Acessória
   const [telefoneAcessoria, setTelefoneAcessoria] = useState('')
@@ -484,6 +485,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setValorParcela('')
     setCustoAcumulado('')
     setPrecoAquisicao('')
+    setDataAquisicao('')
     setManutencoesVeiculo([])
     setTelefoneAcessoria('')
     setDebitos('')
@@ -634,6 +636,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setPrecoAquisicao(
       veiculo.precoAquisicao ? formatCurrency(veiculo.precoAquisicao).replace('R$', '').trim() : '',
     )
+    setDataAquisicao(veiculo.dataAquisicao ?? '')
     setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
     setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
     if (Array.isArray(veiculo.debitosItens) && veiculo.debitosItens.length > 0) {
@@ -764,6 +767,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
       formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
+      formData.append('dataAquisicao', dataAquisicao)
       // Acessória
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       // Débitos
@@ -1722,9 +1726,22 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     ) : undefined
                   }
                 />
+                <div className="mt-3 sm:w-1/2">
+                  <Input
+                    id="dataAquisicao"
+                    label="Data de aquisição"
+                    type="date"
+                    value={dataAquisicao}
+                    onChange={(e) => setDataAquisicao(e.target.value)}
+                    error={fieldErrors.dataAquisicao}
+                    // No iOS o input de data tem largura mínima própria e pode vazar.
+                    className="min-w-0 appearance-none"
+                  />
+                </div>
                 <p className="mt-2 text-[10px] text-neutral-500">
-                  Valor pago para adquirir o veículo. Uso interno — não entra no total de
-                  débitos e não aparece em propostas, PDF ou no site.
+                  Valor pago e data da compra do veículo. Uso interno — não entra no total de
+                  débitos e não aparece em propostas, PDF ou no site. A data é usada nas métricas
+                  do Financeiro (sem ela, conta a data de cadastro).
                 </p>
               </div>
 
