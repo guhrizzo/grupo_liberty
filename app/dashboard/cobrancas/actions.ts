@@ -98,6 +98,8 @@ export interface Cobranca {
   // Encargos por atraso contratados (0 em cobranças anteriores à regra)
   multaPct: number
   jurosMensalPct: number
+  /** Só parcelas que vencem a partir desta data têm encargos (cobranças antigas). */
+  encargosDesde: string | null
   criadoEm: string
   criadoPorUid: string | null
   parcelas: Parcela[]
@@ -147,6 +149,7 @@ function toDateString(date: Date): string {
 interface TaxasEncargos {
   multaPct: number
   jurosMensalPct: number
+  encargosDesde: string | null
 }
 
 /** Taxas gravadas na cobrança — cobranças anteriores à regra não têm (= 0). */
@@ -154,6 +157,7 @@ function taxasDaCobranca(data: FirebaseFirestore.DocumentData | undefined): Taxa
   return {
     multaPct: typeof data?.multaPct === 'number' ? data.multaPct : 0,
     jurosMensalPct: typeof data?.jurosMensalPct === 'number' ? data.jurosMensalPct : 0,
+    encargosDesde: typeof data?.encargosDesde === 'string' ? data.encargosDesde : null,
   }
 }
 
@@ -169,6 +173,7 @@ function calcularParcela(
     dataVencimento: parcela.dataVencimento,
     multaPct: taxas.multaPct,
     jurosMensalPct: taxas.jurosMensalPct,
+    encargosDesde: taxas.encargosDesde,
     isento: Boolean(parcela.encargosIsentos),
     pagamentos,
     referencia,

@@ -12,6 +12,7 @@
 // - Cada pagamento quita primeiro os encargos pendentes, depois o principal
 //   (CC art. 354).
 // - Sem carência: vencimento + 1 dia já cobra multa + 1 dia de juros.
+// - Com `encargosDesde`, parcelas vencidas antes dessa data não têm encargos.
 
 import { DIAS_MES_JUROS } from '@/constants/encargos'
 
@@ -53,6 +54,12 @@ export interface CalcularEncargosInput {
   multaPct: number
   jurosMensalPct: number
   isento: boolean
+  /**
+   * Data de corte (`YYYY-MM-DD`): parcelas que venceram antes dela não têm
+   * encargos. Usada nas cobranças antigas, que passaram a cobrar multa/juros
+   * só das parcelas que vencem a partir dessa data. Ausente = sem corte.
+   */
+  encargosDesde?: string | null
   pagamentos: PagamentoEncargosInput[]
   /** Data até a qual os encargos são calculados (hoje, ou a data de um pagamento). */
   referencia: string // YYYY-MM-DD
@@ -84,8 +91,10 @@ export interface ResultadoEncargos {
 
 export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargos {
   const { valorParcela, dataVencimento, referencia } = input
-  const multaPct = input.isento ? 0 : Math.max(input.multaPct || 0, 0)
-  const jurosMensalPct = input.isento ? 0 : Math.max(input.jurosMensalPct || 0, 0)
+  const antesDoCorte = !!input.encargosDesde && dataVencimento < input.encargosDesde
+  const semEncargos = input.isento || antesDoCorte
+  const multaPct = semEncargos ? 0 : Math.max(input.multaPct || 0, 0)
+  const jurosMensalPct = semEncargos ? 0 : Math.max(input.jurosMensalPct || 0, 0)
   const taxaDia = jurosMensalPct / 100 / DIAS_MES_JUROS
 
   let principal = valorParcela

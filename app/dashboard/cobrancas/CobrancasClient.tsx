@@ -1301,7 +1301,11 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
           cliente={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.clienteNome ?? null}
           taxas={(() => {
             const cob = cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)
-            return { multaPct: cob?.multaPct ?? 0, jurosMensalPct: cob?.jurosMensalPct ?? 0 }
+            return {
+              multaPct: cob?.multaPct ?? 0,
+              jurosMensalPct: cob?.jurosMensalPct ?? 0,
+              encargosDesde: cob?.encargosDesde ?? null,
+            }
           })()}
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
@@ -2853,7 +2857,7 @@ function PagamentoModal({
   parcela: Parcela
   cliente: string | null
   /** Taxas de encargos da cobrança (0 em cobranças anteriores à regra). */
-  taxas: { multaPct: number; jurosMensalPct: number }
+  taxas: { multaPct: number; jurosMensalPct: number; encargosDesde: string | null }
   loading: boolean
   onClose: () => void
   onSubmit: (valor: number, data: string) => void
@@ -2875,6 +2879,7 @@ function PagamentoModal({
       dataVencimento: parcela.dataVencimento,
       multaPct: taxas.multaPct,
       jurosMensalPct: taxas.jurosMensalPct,
+      encargosDesde: taxas.encargosDesde,
       isento: parcela.encargosIsentos,
       pagamentos: extra
         ? [...parcela.pagamentos, { id: '__novo__', valor: extra.valor, data: referencia, criadoEm: '~' }]

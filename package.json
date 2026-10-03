@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "set-admin": "tsx scripts/set-admin.ts",
-    "fotos:webp": "tsx scripts/converter-fotos-webp.ts"
+    "fotos:webp": "tsx scripts/converter-fotos-webp.ts",
+    "encargos:antigas": "tsx scripts/encargos-cobrancas-antigas.ts"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",

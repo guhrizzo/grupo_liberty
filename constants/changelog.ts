@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-encargos-cobrancas-antigas',
+    date: '2026-10-03',
+    title: 'Multa e juros também nas cobranças antigas',
+    tag: 'melhoria',
+    items: [
+      'As cobranças criadas antes da regra de multa e juros passam a cobrar encargos por atraso, mas só nas parcelas que vencem a partir de 03/10/2026. Parcelas que venceram antes continuam sem multa e juros.',
+    ],
+  },
+  {
     id: '2026-10-03-visao-geral-metricas',
     date: '2026-10-03',
     title: 'Métricas mudaram para a Visão Geral',

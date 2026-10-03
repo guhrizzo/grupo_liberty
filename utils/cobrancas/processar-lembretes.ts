@@ -87,6 +87,7 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
         dataVencimento: parcela.dataVencimento,
         multaPct: typeof cobranca.multaPct === 'number' ? cobranca.multaPct : 0,
         jurosMensalPct: typeof cobranca.jurosMensalPct === 'number' ? cobranca.jurosMensalPct : 0,
+        encargosDesde: typeof cobranca.encargosDesde === 'string' ? cobranca.encargosDesde : null,
         isento: Boolean(parcela.encargosIsentos),
         pagamentos: pagamentosPorParcela.get(parcelaDoc.id) ?? [],
         referencia: hoje,
