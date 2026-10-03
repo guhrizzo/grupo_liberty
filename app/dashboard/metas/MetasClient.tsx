@@ -339,8 +339,12 @@ function MetaCard({
               ? `Meta superada em ${m.fechadas - m.quantidade}!`
               : 'Meta concluída!'
             : m.situacao === 'nao_batida'
-              ? `Faltaram ${faltam} carro${faltam === 1 ? '' : 's'}.`
-              : `Faltam ${faltam} carro${faltam === 1 ? '' : 's'} até o fim do mês.`}
+              ? faltam === 1
+                ? 'Faltou 1 carro.'
+                : `Faltaram ${faltam} carros.`
+              : faltam === 1
+                ? 'Falta 1 carro até o fim do mês.'
+                : `Faltam ${faltam} carros até o fim do mês.`}
         </p>
       </div>
 
