@@ -29,7 +29,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Multa e juros sobre o saldo em aberto',
     tag: 'melhoria',
     items: [
-      'Pagamento parcial agora abate primeiro a parcela. A multa (5%) e os juros (0,33% ao dia) passam a ser calculados só sobre o que ficou em aberto, contando a partir da data do pagamento.',
+      'A multa de 5% é cobrada logo após o vencimento, sobre o que estava em aberto naquele dia: se o cliente pagou parte da parcela até o vencimento, a multa fica só sobre o restante.',
+      'Pagamento parcial agora abate primeiro a parcela. Os juros (0,33% ao dia, nunca sobre a multa) passam a correr só sobre o que ficou em aberto, a partir da data do pagamento.',
       'Quem paga atrasado só o valor da parcela continua devendo a multa e os juros daquele dia.',
     ],
   },

@@ -6,13 +6,15 @@
 // recalcula sozinho.
 //
 // Regra (ver docs/superpowers/specs/2026-09-24-encargos-atraso-design.md):
-// - Multa de `multaPct`% sobre o saldo em aberto da parcela (uma vez).
-// - Juros simples de `jurosMensalPct`% a cada 30 dias, por dia, sobre o saldo
-//   em aberto, contados do vencimento ou do último pagamento (o mais recente).
-// - Cada pagamento abate primeiro a parcela; o que sobra paga a multa e os
-//   juros do dia. Pagamento parcial "zera" os encargos até ele: eles recomeçam
-//   sobre o saldo restante. O pagamento que quita a parcela deixa em aberto a
-//   multa/juros do dia que não cobrir (regra do Gustavo, 2026-10-03).
+// - Multa única de `multaPct`% no 1º dia de atraso, sobre o saldo da parcela
+//   naquele dia: pagamentos até o vencimento reduzem a base, os posteriores não.
+// - Juros simples de `jurosMensalPct`% a cada 30 dias, por dia, só sobre o
+//   saldo da parcela (nunca sobre a multa), contados do vencimento ou do
+//   último pagamento. Pagamento parcial "zera" os juros até ele: eles
+//   recomeçam sobre o saldo restante.
+// - Cada pagamento abate primeiro a parcela; o que sobra paga a multa e depois
+//   os juros. O pagamento que quita a parcela deixa em aberto a multa e os
+//   juros do dia que não cobrir (regra do Gustavo, 2026-10-03).
 // - Sem carência: vencimento + 1 dia já cobra multa + 1 dia de juros.
 // - Com `encargosDesde`, parcelas vencidas antes dessa data não têm encargos.
 
@@ -105,25 +107,30 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
   let principalPago = 0
   let encargosPagos = 0
   let excedente = 0
-  // Encargos que "viraram dívida": gerados no pagamento que quitou a parcela.
-  let multaGerada = 0
-  let jurosGerados = 0
-  // Desses, o que ainda não foi pago (não correm mais juros sobre eles).
-  let pendentesFixos = 0
-  // Juros correm a partir do vencimento ou do último pagamento, o que for depois.
+  // Multa: fixada no 1º dia de atraso sobre o saldo daquele dia (pagamentos
+  // até o vencimento reduzem a base; os posteriores, não).
+  let multa = 0
+  let multaAplicada = false
+  let multaPendente = 0
+  // Juros correm sobre o saldo, a partir do vencimento ou do último pagamento.
   let jurosDesde = dataVencimento
+  let jurosGerados = 0
+  // Juros do dia em que a parcela foi quitada sem cobri-los (não crescem mais).
+  let jurosFixos = 0
   const divisao: DivisaoPagamento[] = []
 
-  /** Multa e juros sobre o saldo em aberto, de `jurosDesde` até `ate`. */
-  function encargosAte(ate: string) {
-    const dias = Math.max(diasEntre(jurosDesde, ate), 0)
-    const atrasado = diasEntre(dataVencimento, ate) > 0
-    if (!atrasado || principal <= EPSILON) return { multa: 0, juros: 0, dias }
-    return {
-      multa: round2(principal * (multaPct / 100)),
-      juros: round2(principal * taxaDia * dias),
-      dias,
+  function aplicarMulta(ate: string) {
+    if (multaAplicada || diasEntre(dataVencimento, ate) <= 0) return
+    multaAplicada = true
+    if (principal > EPSILON) {
+      multa = round2(principal * (multaPct / 100))
+      multaPendente = multa
     }
+  }
+
+  function jurosAte(ate: string) {
+    if (principal <= EPSILON || diasEntre(dataVencimento, ate) <= 0) return 0
+    return round2(principal * taxaDia * Math.max(diasEntre(jurosDesde, ate), 0))
   }
 
   const ordenados = [...input.pagamentos].sort(
@@ -133,45 +140,54 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
 
   for (const pg of ordenados) {
     const valor = round2(pg.valor)
+    aplicarMulta(pg.data)
 
     // Parcela já quitada: o pagamento só pode ir para encargos que ficaram.
     if (principal <= EPSILON) {
-      const paraEncargos = round2(Math.min(valor, pendentesFixos))
-      pendentesFixos = round2(pendentesFixos - paraEncargos)
+      const paraMulta = round2(Math.min(valor, multaPendente))
+      multaPendente = round2(multaPendente - paraMulta)
+      const paraJuros = round2(Math.min(valor - paraMulta, jurosFixos))
+      jurosFixos = round2(jurosFixos - paraJuros)
+      const paraEncargos = round2(paraMulta + paraJuros)
       encargosPagos += paraEncargos
       excedente = round2(excedente + valor - paraEncargos)
       divisao.push({ pagamentoId: pg.id, paraEncargos, paraPrincipal: 0 })
       continue
     }
 
-    // O pagamento abate primeiro a parcela; o que sobra paga a multa e os
-    // juros devidos naquele dia.
-    const devidos = encargosAte(pg.data)
+    // O pagamento abate primeiro a parcela; o que sobra paga a multa e depois
+    // os juros devidos naquele dia.
+    const jurosDia = jurosAte(pg.data)
     const paraPrincipal = round2(Math.min(valor, principal))
-    const sobra = round2(valor - paraPrincipal)
-    const paraEncargos = round2(Math.min(sobra, devidos.multa + devidos.juros))
+    let sobra = round2(valor - paraPrincipal)
+    const paraMulta = round2(Math.min(sobra, multaPendente))
+    multaPendente = round2(multaPendente - paraMulta)
+    sobra = round2(sobra - paraMulta)
+    const paraJuros = round2(Math.min(sobra, jurosDia))
+    sobra = round2(sobra - paraJuros)
     principal = round2(principal - paraPrincipal)
-    excedente = round2(excedente + sobra - paraEncargos)
+    const paraEncargos = round2(paraMulta + paraJuros)
     principalPago += paraPrincipal
     encargosPagos += paraEncargos
+    excedente = round2(excedente + sobra)
 
     if (principal <= EPSILON) {
-      // Quitou a parcela: a multa e os juros do dia são devidos; o que não foi
-      // pago agora fica em aberto (sem novos juros).
-      multaGerada += devidos.multa
-      jurosGerados += devidos.juros
-      pendentesFixos = round2(pendentesFixos + devidos.multa + devidos.juros - paraEncargos)
+      // Quitou a parcela: os juros do dia são devidos; o que não foi pago fica
+      // em aberto (sem novos juros).
+      jurosGerados += jurosDia
+      jurosFixos = round2(jurosFixos + jurosDia - paraJuros)
     } else {
-      // Pagamento parcial: os encargos até aqui não são cobrados — recomeçam
-      // sobre o saldo restante a partir desta data.
+      // Pagamento parcial: os juros até aqui não são cobrados — recomeçam sobre
+      // o saldo a partir desta data. A multa já fixada continua devida.
       if (diasEntre(jurosDesde, pg.data) > 0) jurosDesde = pg.data
     }
     divisao.push({ pagamentoId: pg.id, paraEncargos, paraPrincipal })
   }
 
-  const abertos = encargosAte(referencia)
+  aplicarMulta(referencia)
+  const jurosAbertos = jurosAte(referencia)
   const principalRestante = Math.max(round2(principal), 0)
-  const encargosPendentes = round2(abertos.multa + abertos.juros + pendentesFixos)
+  const encargosPendentes = round2(multaPendente + jurosFixos + jurosAbertos)
 
   return {
     principalRestante,
@@ -179,10 +195,12 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
     encargosPendentes,
     encargosPagos: round2(encargosPagos),
     totalDevido: round2(principalRestante + encargosPendentes),
-    multa: round2(multaGerada + abertos.multa),
-    juros: round2(jurosGerados + abertos.juros),
+    multa: round2(multa),
+    juros: round2(jurosGerados + jurosAbertos),
     diasAtraso: Math.max(diasEntre(dataVencimento, referencia), 0),
-    diasJuros: abertos.dias,
+    diasJuros: taxaDia > 0 && principalRestante > EPSILON && diasEntre(dataVencimento, referencia) > 0
+      ? Math.max(diasEntre(jurosDesde, referencia), 0)
+      : 0,
     divisao,
     excedente,
   }
