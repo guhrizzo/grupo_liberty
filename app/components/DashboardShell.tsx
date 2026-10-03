@@ -63,13 +63,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/demandas',
     label: 'Demandas',
     icon: 'checklist',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/agenda',
     label: 'Agenda',
     icon: 'calendar',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/consulta-fipe',
@@ -147,13 +147,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/novidades',
     label: 'Novidades',
     icon: 'sparkles',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/feedback',
     label: 'Bugs & Melhorias',
     icon: 'bug',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/analytics',
@@ -217,6 +217,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrador',
   vendedor: 'Vendedor',
   vendedor_externo: 'Vendedor externo',
+  financeiro: 'Financeiro',
   advogado: 'Advogado',
   suporte: 'Suporte',
 }

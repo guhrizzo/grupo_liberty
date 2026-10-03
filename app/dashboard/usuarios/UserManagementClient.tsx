@@ -313,6 +313,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                 >
                   <option value="vendedor">Vendedor</option>
                   <option value="vendedor_externo">Vendedor externo</option>
+                  <option value="financeiro">Financeiro</option>
                   <option value="advogado">Advogado</option>
                   <option value="suporte">Suporte</option>
                   <option value="admin" disabled={!isAdmin}>Administrador</option>
@@ -396,6 +397,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                     <option value="admin">Administrador</option>
                     <option value="vendedor">Vendedor</option>
                     <option value="vendedor_externo">Vendedor externo</option>
+                    <option value="financeiro">Financeiro</option>
                     <option value="advogado">Advogado</option>
                     <option value="suporte">Suporte</option>
                   </Select>
@@ -446,6 +448,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                 <option value="admin" disabled={!isAdmin}>Administrador</option>
                                 <option value="vendedor">Vendedor</option>
                                 <option value="vendedor_externo">Vendedor externo</option>
+                                <option value="financeiro">Financeiro</option>
                                 <option value="advogado">Advogado</option>
                                 <option value="suporte">Suporte</option>
                               </Select>
@@ -521,6 +524,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                   <option value="admin" disabled={!isAdmin}>Administrador</option>
                                   <option value="vendedor">Vendedor</option>
                                   <option value="vendedor_externo">Vendedor externo</option>
+                                  <option value="financeiro">Financeiro</option>
                                   <option value="advogado">Advogado</option>
                                   <option value="suporte">Suporte</option>
                                 </Select>

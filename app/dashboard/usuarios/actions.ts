@@ -14,7 +14,7 @@ export type CreateUserResponse = {
   }
 }
 
-const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'admin']
+const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro', 'admin']
 
 /** Aba `usuarios` é exclusiva do ADM supremo (ver `ABAS_SOMENTE_ADM_SUPREMO`). */
 async function assertAcesso(): Promise<SessionUser> {

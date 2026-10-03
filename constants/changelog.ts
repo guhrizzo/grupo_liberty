@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-cargo-financeiro',
+    date: '2026-10-03',
+    title: 'Novo cargo "Financeiro"',
+    tag: 'novo',
+    items: [
+      'Novo cargo "Financeiro" em Usuários: acessa Financeiro e Cobranças, além de Demandas, Agenda, Novidades e Bugs & Melhorias. Como nos outros cargos, dá para liberar ou bloquear abas nas permissões de cada pessoa.',
+    ],
+  },
+  {
     id: '2026-10-03-modal-rolagem-mobile',
     date: '2026-10-03',
     title: 'Janelas longas rolam no celular',

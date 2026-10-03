@@ -20,7 +20,7 @@ export interface SessionUser {
 
 export type { PermissionKey, UserPermissions }
 
-export const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'admin'] as const
+export const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro', 'admin'] as const
 export type RoleValido = (typeof ROLES_VALIDOS)[number]
 
 /**
