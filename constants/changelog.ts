@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-metricas-cores',
+    date: '2026-10-03',
+    title: 'Cores dos gráficos da Visão Geral',
+    tag: 'melhoria',
+    items: [
+      'Botão "Cores" na Visão Geral: escolha a cor do faturamento, dos custos e do lucro negativo nos gráficos. A escolha é só sua e "Restaurar padrão" volta às cores originais.',
+    ],
+  },
+  {
     id: '2026-10-03-visao-geral-metricas',
     date: '2026-10-03',
     title: 'Métricas mudaram para a Visão Geral',
