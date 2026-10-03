@@ -209,6 +209,24 @@ export default function JuridicoClient({
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Processo | null>(null)
   const [search, setSearch] = useState('')
+  const [buscaContrato, setBuscaContrato] = useState('')
+  const [filtroContrato, setFiltroContrato] = useState<'todos' | 'pendentes' | 'registrados'>('todos')
+
+  const contratosPendentes = useMemo(
+    () => contratosJuridico.filter((c) => !c.processoId).length,
+    [contratosJuridico],
+  )
+
+  const contratosFiltrados = useMemo(() => {
+    const q = buscaContrato.trim().toLowerCase()
+    return contratosJuridico.filter((c) => {
+      if (filtroContrato === 'pendentes' && c.processoId) return false
+      if (filtroContrato === 'registrados' && !c.processoId) return false
+      if (!q) return true
+      return [c.descricao, c.fileName, c.uploadedByEmail, veiculoResumoPorId.get(c.veiculoId)]
+        .some((t) => (t ?? '').toLowerCase().includes(q))
+    })
+  }, [contratosJuridico, buscaContrato, filtroContrato, veiculoResumoPorId])
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
   const [confirmDelete, setConfirmDelete] = useState<Processo | null>(null)
   const [page, setPage] = useState(1)
@@ -428,118 +446,10 @@ export default function JuridicoClient({
   const fromItem = filtered.length === 0 ? 0 : start + 1
   const toItem = Math.min(start + PAGE_SIZE, filtered.length)
 
-  return (
-    <div className="space-y-6">
-      <Breadcrumb
-        items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Jurídico' }]}
-      />
-
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo Jurídico</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Gestão de processos, contratos e documentos legais do grupo Liberty Car.
-          </p>
-        </div>
-
-        {aba === 'processos' && (
-          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <Button
-              variant="secondary"
-              onClick={abrirMural}
-              leftIcon={<IconNotes size={16} stroke={2.5} />}
-            >
-              Anotações
-              {contagem.geral > 0 && (
-                <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-liberty/15 px-1.5 text-[11px] font-bold text-liberty-deep">
-                  {contagem.geral}
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="liberty"
-              onClick={openCreate}
-              leftIcon={<IconPlus size={16} stroke={2.5} />}
-            >
-              Novo Processo
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <div
-        role="tablist"
-        aria-label="Seções do Jurídico"
-        className="inline-flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2"
-      >
-        {(
-          [
-            ['processos', 'Processos', '/dashboard/juridico'],
-            ['prospeccao', 'Prospecção de clientes', '/dashboard/juridico?aba=prospeccao'],
-          ] as const
-        ).map(([valor, rotulo, href]) => (
-          <Link
-            key={valor}
-            href={href}
-            role="tab"
-            aria-selected={aba === valor}
-            className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
-              aba === valor
-                ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
-                : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
-            }`}
-          >
-            {rotulo}
-          </Link>
-        ))}
-      </div>
-
-      {aba === 'prospeccao' && (
-        <ProspeccaoSection
-          initialProspeccoes={initialProspeccoes}
-          podeGerarProposta={podeGerarProposta}
-          usuarioUid={currentUid}
-          podeExcluirVisitas={podeExcluirVisitas}
-        />
-      )}
-
-      {aba === 'processos' && (
-        <>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Input
-                placeholder="Buscar por título, cliente, número..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value)
-                  setPage(1)
-                }}
-                containerClassName="w-full sm:w-72"
-              />
-              <Select
-                value={filterStatus}
-                onChange={(e) => {
-                  setFilterStatus(e.target.value as 'todos' | Status)
-                  setPage(1)
-                }}
-                containerClassName="w-full sm:w-48"
-                aria-label="Filtrar por status"
-              >
-                <option value="todos">Todos os status</option>
-                <option value="em_andamento">Em andamento</option>
-                <option value="pendente">Pendente</option>
-                <option value="concluido">Concluído</option>
-                <option value="arquivado">Arquivado</option>
-              </Select>
-            </div>
-
-            <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
-              {filtered.length === 0
-                ? '0 processos'
-                : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
-            </div>
-          </div>
-
+  // Formulário de processo (novo/editar/converter contrato) + seletor de veículo:
+  // aparece na aba Processos e na aba Contratos recebidos ("Registrar como processo").
+  const formularioProcesso = (
+    <>
           {showForm && (
             <div
               ref={formRef}
@@ -754,6 +664,243 @@ export default function JuridicoClient({
             onSelect={handleSelectVeiculo}
           />
 
+    </>
+  )
+
+  return (
+    <div className="space-y-6">
+      <Breadcrumb
+        items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Jurídico' }]}
+      />
+
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo Jurídico</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Gestão de processos, contratos e documentos legais do grupo Liberty Car.
+          </p>
+        </div>
+
+        {aba === 'processos' && (
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="secondary"
+              onClick={abrirMural}
+              leftIcon={<IconNotes size={16} stroke={2.5} />}
+            >
+              Anotações
+              {contagem.geral > 0 && (
+                <span className="ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full bg-liberty/15 px-1.5 text-[11px] font-bold text-liberty-deep">
+                  {contagem.geral}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="liberty"
+              onClick={openCreate}
+              leftIcon={<IconPlus size={16} stroke={2.5} />}
+            >
+              Novo Processo
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div
+        role="tablist"
+        aria-label="Seções do Jurídico"
+        className="inline-flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2"
+      >
+        {(
+          [
+            ['processos', 'Processos', '/dashboard/juridico'],
+            ['contratos', `Contratos recebidos (${contratosJuridico.length})`, '/dashboard/juridico?aba=contratos'],
+            ['prospeccao', 'Prospecção de clientes', '/dashboard/juridico?aba=prospeccao'],
+          ] as const
+        ).map(([valor, rotulo, href]) => (
+          <Link
+            key={valor}
+            href={href}
+            role="tab"
+            aria-selected={aba === valor}
+            className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+              aba === valor
+                ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
+            }`}
+          >
+            {rotulo}
+          </Link>
+        ))}
+      </div>
+
+      {aba === 'prospeccao' && (
+        <ProspeccaoSection
+          initialProspeccoes={initialProspeccoes}
+          podeGerarProposta={podeGerarProposta}
+          usuarioUid={currentUid}
+          podeExcluirVisitas={podeExcluirVisitas}
+        />
+      )}
+
+      {aba === 'contratos' && (
+        <>
+          <p className="-mt-2 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">
+            Contratos anexados na aba Contratos e marcados como “Adicionar ao Jurídico”.
+          </p>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+              <Input
+                placeholder="Buscar por documento, veículo ou quem enviou..."
+                value={buscaContrato}
+                onChange={(e) => setBuscaContrato(e.target.value)}
+                containerClassName="w-full lg:w-80"
+              />
+              <div className="flex max-w-full gap-1 self-start overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
+                {(
+                  [
+                    ['todos', `Todos (${contratosJuridico.length})`],
+                    ['pendentes', `Pendentes (${contratosPendentes})`],
+                    ['registrados', `Já registrados (${contratosJuridico.length - contratosPendentes})`],
+                  ] as const
+                ).map(([valor, rotulo]) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setFiltroContrato(valor)}
+                    className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                      filtroContrato === valor
+                        ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                        : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
+          </div>
+
+          {formularioProcesso}
+
+          {contratosFiltrados.length === 0 ? (
+            <EmptyState
+              icon={<IconFileText size={24} />}
+              title={contratosJuridico.length === 0 ? 'Nenhum contrato recebido' : 'Nenhum contrato encontrado'}
+              description={
+                contratosJuridico.length === 0
+                  ? 'Contratos marcados como “Adicionar ao Jurídico” na aba Contratos aparecem aqui.'
+                  : 'Tente outra busca ou outro filtro.'
+              }
+            />
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
+              <Table>
+                <THead>
+                  <tr>
+                    <TH>Documento / Veículo</TH>
+                    <TH>Enviado por</TH>
+                    <TH>Data</TH>
+                    <TH align="right">Ações</TH>
+                  </tr>
+                </THead>
+                <TBody>
+                  {contratosFiltrados.map((c) => (
+                    <TR key={c.id}>
+                      <TD>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-semibold text-neutral-900">
+                            {c.descricao || c.fileName}
+                          </span>
+                          {c.processoId && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
+                              <IconScale size={11} /> registrado como processo
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-400">
+                          <IconCar size={11} stroke={2} />
+                          {veiculoResumoPorId.get(c.veiculoId) || c.veiculoId}
+                        </div>
+                      </TD>
+                      <TD className="text-xs text-neutral-600">{c.uploadedByEmail || '—'}</TD>
+                      <TD className="text-xs text-neutral-600 whitespace-nowrap">
+                        {formatDate(c.uploadedAt)}
+                      </TD>
+                      <TD align="right" className="whitespace-nowrap">
+                        <div className="inline-flex items-center gap-2">
+                          <a
+                            href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 cursor-pointer"
+                          >
+                            <IconFileDownload size={14} />
+                            Ver PDF
+                          </a>
+                          {c.processoId ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                              <IconScale size={14} />
+                              Processo criado
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="liberty"
+                              onClick={() => openConverterContrato(c)}
+                              leftIcon={<IconScale size={14} />}
+                            >
+                              Registrar como processo
+                            </Button>
+                          )}
+                        </div>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+          )}
+        </>
+      )}
+
+      {aba === 'processos' && (
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                placeholder="Buscar por título, cliente, número..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value)
+                  setPage(1)
+                }}
+                containerClassName="w-full sm:w-72"
+              />
+              <Select
+                value={filterStatus}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value as 'todos' | Status)
+                  setPage(1)
+                }}
+                containerClassName="w-full sm:w-48"
+                aria-label="Filtrar por status"
+              >
+                <option value="todos">Todos os status</option>
+                <option value="em_andamento">Em andamento</option>
+                <option value="pendente">Pendente</option>
+                <option value="concluido">Concluído</option>
+                <option value="arquivado">Arquivado</option>
+              </Select>
+            </div>
+
+            <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
+              {filtered.length === 0
+                ? '0 processos'
+                : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
+            </div>
+          </div>
+
+          {formularioProcesso}
+
           {visible.length === 0 ? (
             <EmptyState
               icon={<IconScale size={24} />}
@@ -863,91 +1010,6 @@ export default function JuridicoClient({
             </div>
           )}
 
-          {contratosJuridico.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-liberty/30 bg-liberty/[0.03] shadow-xs">
-              <div className="flex items-center gap-2 border-b border-liberty/20 bg-liberty/5 px-4 py-3">
-                <IconFileText size={18} className="shrink-0 text-liberty-deep" />
-                <div className="min-w-0">
-                  <h2 className="text-sm font-bold text-neutral-900">
-                    Contratos enviados pelo setor de Contratos
-                  </h2>
-                  <p className="text-[11px] text-neutral-500">
-                    Contratos anexados na aba Contratos e marcados como “Adicionar ao Jurídico”.
-                  </p>
-                </div>
-                <span className="ml-auto inline-flex min-w-[22px] items-center justify-center rounded-full bg-liberty/15 px-2 text-xs font-bold text-liberty-deep">
-                  {contratosJuridico.length}
-                </span>
-              </div>
-              <Table>
-                <THead>
-                  <tr>
-                    <TH>Documento / Veículo</TH>
-                    <TH>Enviado por</TH>
-                    <TH>Data</TH>
-                    <TH align="right">Ações</TH>
-                  </tr>
-                </THead>
-                <TBody>
-                  {contratosJuridico.map((c) => (
-                    <TR key={c.id}>
-                      <TD>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-neutral-900">
-                            {c.descricao || c.fileName}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full border border-liberty/30 bg-liberty/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-liberty-deep">
-                            <IconFileText size={11} /> via Contratos
-                          </span>
-                          {c.processoId && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">
-                              <IconScale size={11} /> registrado como processo
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1 text-[11px] text-neutral-400">
-                          <IconCar size={11} stroke={2} />
-                          {veiculoResumoPorId.get(c.veiculoId) || c.veiculoId}
-                        </div>
-                      </TD>
-                      <TD className="text-xs text-neutral-600">{c.uploadedByEmail || '—'}</TD>
-                      <TD className="text-xs text-neutral-600 whitespace-nowrap">
-                        {formatDate(c.uploadedAt)}
-                      </TD>
-                      <TD align="right" className="whitespace-nowrap">
-                        <div className="inline-flex items-center gap-2">
-                          <a
-                            href={`/api/veiculos/${c.veiculoId}/contratos/${c.id}/pdf`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 transition-colors hover:bg-neutral-100 cursor-pointer"
-                          >
-                            <IconFileDownload size={14} />
-                            Ver PDF
-                          </a>
-                          {c.processoId ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                              <IconScale size={14} />
-                              Processo criado
-                            </span>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="liberty"
-                              onClick={() => openConverterContrato(c)}
-                              leftIcon={<IconScale size={14} />}
-                            >
-                              Registrar como processo
-                            </Button>
-                          )}
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            </div>
-          )}
         </>
       )}
 

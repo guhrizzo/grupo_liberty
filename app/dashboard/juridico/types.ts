@@ -166,4 +166,4 @@ export type ProspeccaoResponse = {
 }
 
 /** Abas da página do Jurídico (?aba=). */
-export type AbaJuridico = 'processos' | 'prospeccao'
+export type AbaJuridico = 'processos' | 'contratos' | 'prospeccao'

@@ -30,8 +30,12 @@ export default async function JuridicoPage({
 
   const { aba: abaParam } = await searchParams
   const abaBruta = Array.isArray(abaParam) ? abaParam[0] : abaParam
-  const aba: AbaJuridico = abaBruta === 'prospeccao' ? 'prospeccao' : 'processos'
+  const aba: AbaJuridico =
+    abaBruta === 'prospeccao' ? 'prospeccao' : abaBruta === 'contratos' ? 'contratos' : 'processos'
   const emProcessos = aba === 'processos'
+  // A aba Contratos recebidos também abre o formulário de processo ("Registrar
+  // como processo"), que precisa de veículos e clientes.
+  const comFormulario = aba !== 'prospeccao'
 
   // Cada aba só carrega os próprios dados.
   const [
@@ -43,11 +47,12 @@ export default async function JuridicoPage({
     prospeccoes,
   ] = await Promise.all([
     emProcessos ? getProcessos() : Promise.resolve([]),
-    emProcessos ? getVehicles() : Promise.resolve([]),
-    emProcessos ? getClientesPorVeiculo() : Promise.resolve({}),
+    comFormulario ? getVehicles() : Promise.resolve([]),
+    comFormulario ? getClientesPorVeiculo() : Promise.resolve({}),
     getAnotacoesContagem(),
-    emProcessos ? getContratosEnviadosJuridico() : Promise.resolve([]),
-    emProcessos ? Promise.resolve([]) : getProspeccoes(),
+    // Sempre: o contador da aba Contratos recebidos aparece em todas as abas.
+    getContratosEnviadosJuridico(),
+    aba === 'prospeccao' ? getProspeccoes() : Promise.resolve([]),
   ])
 
   return (

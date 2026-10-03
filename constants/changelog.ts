@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-02-juridico-aba-contratos',
+    date: '2026-10-02',
+    title: 'Aba "Contratos recebidos" no Jurídico',
+    tag: 'melhoria',
+    items: [
+      'Os contratos enviados pelo setor de Contratos agora têm uma aba própria no Jurídico, em vez de ficarem no fim da lista de processos.',
+      'Dá para buscar por documento, veículo ou quem enviou e filtrar entre pendentes e já registrados como processo.',
+    ],
+  },
+  {
     id: '2026-10-02-acesso-adm-supremo',
     date: '2026-10-02',
     title: 'Visão Geral e Usuários só para a diretoria',
