@@ -5,7 +5,9 @@ import { getSessionUser, isAdmSupremo } from '@/utils/permissions'
 import { isManutencaoBaixada, valorManutencao } from '@/app/dashboard/manutencao/types'
 import { deslocarMes, intervaloDoMes, mesAtual } from './periodo'
 import {
+  COR_HEX,
   ehPeriodoMetricas,
+  type CoresMetricas,
   METRICAS_PERIODO_PADRAO,
   type MetricasFinanceiro,
   type MetricasMes,
@@ -88,5 +90,41 @@ export async function getMetricas(periodoBruto: number): Promise<MetricasFinance
   } catch (err) {
     console.error('[getMetricas]', err)
     return { periodo, meses: [...porMes.values()] }
+  }
+}
+
+// ─── Cores dos gráficos (por usuário, em profiles/{uid}.coresMetricas) ─────
+
+function limparCores(bruto: unknown): CoresMetricas {
+  const c = (bruto ?? {}) as Record<string, unknown>
+  const out: CoresMetricas = {}
+  for (const k of ['faturamento', 'custos', 'negativo'] as const) {
+    if (typeof c[k] === 'string' && COR_HEX.test(c[k] as string)) out[k] = (c[k] as string).toLowerCase()
+  }
+  return out
+}
+
+export async function getCoresMetricas(): Promise<CoresMetricas> {
+  const user = await getSessionUser()
+  if (!user || !isAdmSupremo(user)) return {}
+  try {
+    const doc = await adminDb.collection('profiles').doc(user.uid).get()
+    return limparCores(doc.data()?.coresMetricas)
+  } catch (err) {
+    console.error('[getCoresMetricas]', err)
+    return {}
+  }
+}
+
+/** Salva as cores do próprio ADM supremo; `{}` volta ao padrão. */
+export async function salvarCoresMetricas(cores: CoresMetricas): Promise<{ success?: string; error?: string }> {
+  const user = await getSessionUser()
+  if (!user || !isAdmSupremo(user)) return { error: 'Acesso negado.' }
+  try {
+    await adminDb.collection('profiles').doc(user.uid).set({ coresMetricas: limparCores(cores) }, { merge: true })
+    return { success: Object.keys(limparCores(cores)).length ? 'Cores salvas.' : 'Cores padrão restauradas.' }
+  } catch (err) {
+    console.error('[salvarCoresMetricas]', err)
+    return { error: 'Erro ao salvar as cores.' }
   }
 }

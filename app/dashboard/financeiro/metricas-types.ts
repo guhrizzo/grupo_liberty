@@ -27,6 +27,15 @@ export interface MetricasMes {
   manutencoesValor: number
 }
 
+/** Cores escolhidas pelo ADM supremo (hex `#rrggbb`); ausente = cor padrão. */
+export interface CoresMetricas {
+  faturamento?: string
+  custos?: string
+  negativo?: string
+}
+
+export const COR_HEX = /^#[0-9a-f]{6}$/i
+
 export interface MetricasFinanceiro {
   periodo: MetricasPeriodo
   /** Do mais antigo para o mais recente; o último é o mês corrente. */

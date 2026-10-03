@@ -2,18 +2,36 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconArrowDownRight, IconArrowUpRight, IconMinus, IconTable } from '@tabler/icons-react'
+import { IconArrowDownRight, IconArrowUpRight, IconMinus, IconPalette, IconTable } from '@tabler/icons-react'
 import { formatCurrency } from '@/utils/format'
 import { rotuloMes, rotuloMesCurto } from './periodo'
-import { METRICAS_PERIODOS, type MetricasFinanceiro, type MetricasMes, type MetricasPeriodo } from './metricas-types'
+import {
+  METRICAS_PERIODOS,
+  type CoresMetricas,
+  type MetricasFinanceiro,
+  type MetricasMes,
+  type MetricasPeriodo,
+} from './metricas-types'
+import { salvarCoresMetricas } from './metricas'
+import { Button, Modal, useToast } from '@/app/components/ui'
 
-// Cores validadas (dataviz, light e dark): categóricos 1 e 2 para faturamento
-// e custos; vermelho para lucro negativo. Texto nunca usa a cor da série.
+// Cores por variável CSS. Padrão validado (dataviz, light e dark): categóricos
+// 1 e 2 para faturamento e custos; vermelho para lucro negativo. O ADM supremo
+// pode trocar (inline style vence as classes, nos dois temas). Texto nunca
+// usa a cor da série.
 const COR = {
-  faturamento: 'bg-[#2a78d6] adobe-dark:bg-[#3987e5]',
-  custos: 'bg-[#eb6834] adobe-dark:bg-[#d95926]',
-  negativo: 'bg-[#e34948] adobe-dark:bg-[#e66767]',
+  faturamento: 'var(--cor-faturamento)',
+  custos: 'var(--cor-custos)',
+  negativo: 'var(--cor-negativo)',
 }
+// Padrões por tema num <style> próprio (o Tailwind não gera essas classes de
+// variável aqui). O tema escuro do painel é a classe `adobe-dark`.
+const CSS_CORES_PADRAO = `
+.metricas-cores { --cor-faturamento: #2a78d6; --cor-custos: #eb6834; --cor-negativo: #e34948; }
+.adobe-dark .metricas-cores, .adobe-dark.metricas-cores { --cor-faturamento: #3987e5; --cor-custos: #d95926; --cor-negativo: #e66767; }
+`
+/** Valor inicial dos seletores quando não há cor escolhida (padrão do tema claro). */
+const CORES_PADRAO_HEX: Required<CoresMetricas> = { faturamento: '#2a78d6', custos: '#eb6834', negativo: '#e34948' }
 
 const CARD =
   'rounded-2xl border border-neutral-200 bg-white shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
@@ -29,9 +47,15 @@ function moedaCompacta(n: number) {
   return `${sinal}R$ ${abs.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
 }
 
-export default function MetricasSection({ metricas }: { metricas: MetricasFinanceiro }) {
+export default function MetricasSection({ metricas, cores }: { metricas: MetricasFinanceiro; cores: CoresMetricas }) {
   const router = useRouter()
   const [verTabela, setVerTabela] = useState(false)
+  const [editandoCores, setEditandoCores] = useState(false)
+  const estiloCores = {
+    ...(cores.faturamento && { '--cor-faturamento': cores.faturamento }),
+    ...(cores.custos && { '--cor-custos': cores.custos }),
+    ...(cores.negativo && { '--cor-negativo': cores.negativo }),
+  } as React.CSSProperties
   const { meses, periodo } = metricas
   const atual = meses[meses.length - 1]
   const anterior = meses[meses.length - 2]
@@ -42,7 +66,8 @@ export default function MetricasSection({ metricas }: { metricas: MetricasFinanc
   }
 
   return (
-    <div className="space-y-5">
+    <div className="metricas-cores space-y-5" style={estiloCores}>
+      <style>{CSS_CORES_PADRAO}</style>
       {/* Período */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
         <div className="inline-flex gap-1 rounded-lg border border-neutral-200 p-1 adobe-dark:border-adobe-line">
@@ -65,15 +90,25 @@ export default function MetricasSection({ metricas }: { metricas: MetricasFinanc
         <span className="text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">
           {rotuloMesCurto(meses[0].mes)} a {rotuloMesCurto(atual.mes)} · lançamentos concluídos
         </span>
+        <div className="ml-auto flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setEditandoCores(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3"
+        >
+          <IconPalette size={14} stroke={2} />
+          Cores
+        </button>
         <button
           type="button"
           onClick={() => setVerTabela((v) => !v)}
           aria-pressed={verTabela}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 cursor-pointer adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3"
         >
           <IconTable size={14} stroke={2} />
           {verTabela ? 'Ver gráficos' : 'Ver tabela'}
         </button>
+        </div>
       </div>
 
       {/* Mês atual vs anterior */}
@@ -87,6 +122,8 @@ export default function MetricasSection({ metricas }: { metricas: MetricasFinanc
       <p className="-mt-2 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
         {rotuloMes(atual.mes)} (mês em aberto) comparado com {anterior ? rotuloMes(anterior.mes) : 'o mês anterior'}.
       </p>
+
+      {editandoCores && <CoresModal cores={cores} onClose={() => setEditandoCores(false)} />}
 
       {verTabela ? (
         <TabelaMetricas meses={meses} />
@@ -130,6 +167,82 @@ export default function MetricasSection({ metricas }: { metricas: MetricasFinanc
         </div>
       )}
     </div>
+  )
+}
+
+// ─── Escolha de cores ────────────────────────────────────────────────────────
+
+function CoresModal({ cores, onClose }: { cores: CoresMetricas; onClose: () => void }) {
+  const router = useRouter()
+  const toast = useToast()
+  const [valores, setValores] = useState<Required<CoresMetricas>>({ ...CORES_PADRAO_HEX, ...cores })
+  const [salvando, setSalvando] = useState(false)
+
+  async function salvar(novas: CoresMetricas) {
+    setSalvando(true)
+    try {
+      const r = await salvarCoresMetricas(novas)
+      if (r.error) {
+        toast.error(r.error)
+        return
+      }
+      toast.success(r.success || 'Cores salvas.')
+      onClose()
+      router.refresh()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const campos: { chave: keyof CoresMetricas; rotulo: string; dica: string }[] = [
+    { chave: 'faturamento', rotulo: 'Faturamento', dica: 'Também usada no lucro positivo, veículos e manutenções.' },
+    { chave: 'custos', rotulo: 'Custos', dica: 'Barras de custos ao lado do faturamento.' },
+    { chave: 'negativo', rotulo: 'Lucro negativo', dica: 'Meses em que os custos passaram do faturamento.' },
+  ]
+
+  return (
+    <Modal
+      open
+      onClose={() => !salvando && onClose()}
+      title="Cores dos gráficos"
+      description="Só muda para você. Escolha cores bem diferentes entre si para faturamento e custos."
+    >
+      <div className="mt-4 space-y-3">
+        {campos.map((f) => (
+          <label
+            key={f.chave}
+            className="flex cursor-pointer items-center gap-3 rounded-lg border border-neutral-200 p-3 adobe-dark:border-adobe-line"
+          >
+            <input
+              type="color"
+              value={valores[f.chave]}
+              onChange={(e) => setValores((v) => ({ ...v, [f.chave]: e.target.value }))}
+              className="h-10 w-14 shrink-0 cursor-pointer rounded-md border border-neutral-200 bg-transparent p-0.5 adobe-dark:border-adobe-line"
+            />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-neutral-900 adobe-dark:text-adobe-text-hi">{f.rotulo}</span>
+              <span className="block text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">{f.dica}</span>
+            </span>
+            <span className="ml-auto font-mono text-[11px] uppercase text-neutral-500 adobe-dark:text-adobe-text-lo">
+              {valores[f.chave]}
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+        <Button type="button" variant="ghost" size="sm" disabled={salvando} onClick={() => salvar({})}>
+          Restaurar padrão
+        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" size="sm" disabled={salvando} onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="liberty" size="sm" loading={salvando} onClick={() => salvar(valores)}>
+            Salvar
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -181,7 +294,7 @@ function Kpi({
 
 interface Serie {
   nome: string
-  /** Classes de fundo da barra (light + dark). */
+  /** Cor da barra (valor CSS, normalmente `var(--cor-…)`). */
   cor: string
   /** Cor para valores negativos (lucro). */
   corNegativo?: string
@@ -230,7 +343,7 @@ function Grafico({
           <span className="flex items-center gap-3">
             {series.map((s) => (
               <span key={s.nome} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-neutral-600 adobe-dark:text-adobe-text-md">
-                <span className={`h-2.5 w-2.5 rounded-sm ${s.cor}`} aria-hidden />
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: s.cor }} aria-hidden />
                 {s.nome}
               </span>
             ))}
@@ -289,13 +402,11 @@ function Grafico({
                     return (
                       <div key={s.nome} className="relative h-full w-full max-w-[28px]">
                         <div
-                          className={`absolute inset-x-0 ${negativo ? 'rounded-b-[4px]' : 'rounded-t-[4px]'} ${
-                            negativo && s.corNegativo ? s.corNegativo : s.cor
-                          }`}
+                          className={`absolute inset-x-0 ${negativo ? 'rounded-b-[4px]' : 'rounded-t-[4px]'}`}
                           style={
                             negativo
-                              ? { top: `${zeroPct}%`, height: `${alturaPct}%` }
-                              : { bottom: `${100 - zeroPct}%`, height: `${alturaPct}%` }
+                              ? { top: `${zeroPct}%`, height: `${alturaPct}%`, backgroundColor: s.corNegativo ?? s.cor }
+                              : { bottom: `${100 - zeroPct}%`, height: `${alturaPct}%`, backgroundColor: s.cor }
                           }
                         />
                       </div>
@@ -315,7 +426,8 @@ function Grafico({
                           <span className="inline-flex items-center gap-1.5">
                             <span
                               aria-hidden
-                              className={`h-2 w-2 rounded-sm ${s.valor(m) < 0 && s.corNegativo ? s.corNegativo : s.cor}`}
+                              className="h-2 w-2 rounded-sm"
+                              style={{ backgroundColor: s.valor(m) < 0 && s.corNegativo ? s.corNegativo : s.cor }}
                             />
                             {s.nome}
                           </span>

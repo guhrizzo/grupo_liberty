@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getSessionUser, isAdmSupremo } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
-import { getMetricas } from './financeiro/metricas'
+import { getCoresMetricas, getMetricas } from './financeiro/metricas'
 import MetricasSection from './financeiro/MetricasSection'
 
 export const metadata: Metadata = {
@@ -22,7 +22,10 @@ export default async function DashboardPage({
   if (!isAdmSupremo(user)) redirect('/dashboard/demandas')
 
   const { meses } = await searchParams
-  const metricas = await getMetricas(Number(Array.isArray(meses) ? meses[0] : meses))
+  const [metricas, cores] = await Promise.all([
+    getMetricas(Number(Array.isArray(meses) ? meses[0] : meses)),
+    getCoresMetricas(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -35,7 +38,7 @@ export default async function DashboardPage({
           Métricas da empresa mês a mês: faturamento, custos, lucro, veículos adquiridos e manutenções.
         </p>
       </div>
-      {metricas && <MetricasSection metricas={metricas} />}
+      {metricas && <MetricasSection metricas={metricas} cores={cores} />}
     </div>
   )
 }
