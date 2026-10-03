@@ -30,6 +30,8 @@ export interface Meta {
   quantidade: number | null
   /** Meta em R$ (soma do valor da proposta das fechadas). */
   valorMeta: number | null
+  /** Com as duas metas: `true` = precisa bater as duas; `false` = basta uma. */
+  exigirAmbas: boolean
   /** Bônus em R$ ao bater a meta. */
   bonus: number | null
   observacao: string

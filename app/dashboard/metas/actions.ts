@@ -42,19 +42,23 @@ async function checarAdmSupremo(): Promise<{ user: SessionUser } | { error: stri
 function alvosDa(data: FirebaseFirestore.DocumentData) {
   const quantidade = Number(data.quantidade) > 0 ? Number(data.quantidade) : null
   const valorMeta = Number(data.valorMeta) > 0 ? Number(data.valorMeta) : null
-  return { quantidade: quantidade ?? (valorMeta ? null : 1), valorMeta }
+  return { quantidade: quantidade ?? (valorMeta ? null : 1), valorMeta, exigirAmbas: data.exigirAmbas === true }
 }
 
-/** Basta bater uma das metas (veículos ou valor). */
+/**
+ * Meta batida: com um alvo só, bater ele; com os dois, bater um (padrão) ou
+ * os dois, conforme `exigirAmbas` (escolha do ADM supremo).
+ */
 function metaBatida(
-  alvos: { quantidade: number | null; valorMeta: number | null },
+  alvos: { quantidade: number | null; valorMeta: number | null; exigirAmbas: boolean },
   propostas: MetaProposta[],
 ) {
   const valorFechado = propostas.reduce((acc, p) => acc + p.valor, 0)
-  return (
-    (alvos.quantidade != null && propostas.length >= alvos.quantidade) ||
-    (alvos.valorMeta != null && valorFechado >= alvos.valorMeta)
-  )
+  const resultados = [
+    alvos.quantidade != null ? propostas.length >= alvos.quantidade : null,
+    alvos.valorMeta != null ? valorFechado >= alvos.valorMeta : null,
+  ].filter((r): r is boolean => r !== null)
+  return alvos.exigirAmbas ? resultados.every(Boolean) : resultados.some(Boolean)
 }
 
 function situacaoDa(mes: string, batida: boolean): MetaSituacao {
@@ -126,6 +130,7 @@ export async function getMetas(mes: string): Promise<Meta[]> {
           mes: data.mes,
           quantidade: alvos.quantidade,
           valorMeta: alvos.valorMeta,
+          exigirAmbas: alvos.quantidade != null && alvos.valorMeta != null && alvos.exigirAmbas,
           bonus: typeof data.bonus === 'number' ? data.bonus : null,
           observacao: data.observacao ?? '',
           bonusPagoEm: data.bonusPagoEm ?? null,
@@ -160,6 +165,8 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
   const quantidade = quantidadeBruta === '' ? null : Number(quantidadeBruta)
   const valorMetaBruto = ((formData.get('valorMeta') as string) || '').trim()
   const valorMeta = valorMetaBruto === '' ? null : Number(valorMetaBruto)
+  // Só faz sentido com as duas metas preenchidas.
+  const exigirAmbas = formData.get('exigirAmbas') === 'true' && quantidade !== null && valorMeta !== null
   const bonusBruto = ((formData.get('bonus') as string) || '').trim()
   const bonus = bonusBruto === '' ? null : Number(bonusBruto)
   const observacao = ((formData.get('observacao') as string) || '').trim()
@@ -204,7 +211,7 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
     if (id) {
       const ref = adminDb.collection(COLECAO).doc(id)
       if (!(await ref.get()).exists) return { error: 'Meta não encontrada.' }
-      await ref.update({ quantidade, valorMeta, bonus, observacao, atualizadoEm: now })
+      await ref.update({ quantidade, valorMeta, exigirAmbas, bonus, observacao, atualizadoEm: now })
       revalidar()
       return { success: 'Meta atualizada.' }
     }
@@ -217,6 +224,7 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
       mes,
       quantidade,
       valorMeta,
+      exigirAmbas,
       bonus,
       observacao,
       bonusPagoEm: null,

@@ -377,7 +377,7 @@ function MetaCard({
         )}
         {m.quantidade != null && m.valorMeta != null && m.situacao !== 'batida' && (
           <p className="text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
-            Basta bater uma das duas metas.
+            {m.exigirAmbas ? 'Precisa bater as duas metas.' : 'Basta bater uma das duas metas.'}
           </p>
         )}
         {m.situacao === 'batida' && (
@@ -541,6 +541,8 @@ function MetaModal({
   const [mes, setMes] = useState(meta?.mes ?? mesInicial)
   const [quantidade, setQuantidade] = useState(meta?.quantidade != null ? String(meta.quantidade) : '')
   const [valorMeta, setValorMeta] = useState(moneyFromNumber(meta?.valorMeta ?? null))
+  const [exigirAmbas, setExigirAmbas] = useState(meta?.exigirAmbas ?? false)
+  const temAsDuas = quantidade.trim() !== '' && valorMeta !== ''
   const [bonus, setBonus] = useState(moneyFromNumber(meta?.bonus ?? null))
   const [observacao, setObservacao] = useState(meta?.observacao ?? '')
   const [errors, setErrors] = useState<MetaFieldErrors>({})
@@ -556,6 +558,7 @@ function MetaModal({
       fd.append('mes', mes)
       fd.append('quantidade', quantidade)
       fd.append('valorMeta', valorMeta ? String(parseMoney(valorMeta)) : '')
+      fd.append('exigirAmbas', temAsDuas && exigirAmbas ? 'true' : 'false')
       fd.append('bonus', bonus ? String(parseMoney(bonus)) : '')
       fd.append('observacao', observacao)
       const result = await salvarMeta(fd)
@@ -626,9 +629,40 @@ function MetaModal({
             error={errors.valorMeta}
           />
         </div>
-        <p className="-mt-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
-          Preencha uma ou as duas. Com as duas, basta bater uma para ganhar o bônus.
-        </p>
+        {temAsDuas ? (
+          <div>
+            <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-wider text-neutral-700 adobe-dark:text-adobe-text-md">
+              Para ganhar o bônus
+            </p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+              {(
+                [
+                  { valor: false, label: 'Basta bater uma' },
+                  { valor: true, label: 'Bater as duas' },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={String(opt.valor)}
+                  type="button"
+                  aria-pressed={exigirAmbas === opt.valor}
+                  onClick={() => setExigirAmbas(opt.valor)}
+                  className={
+                    'rounded-md px-3 py-2 text-xs font-bold transition-colors cursor-pointer ' +
+                    (exigirAmbas === opt.valor
+                      ? 'bg-liberty text-white shadow-xs adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
+                      : 'text-neutral-600 hover:bg-white adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-2')
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="-mt-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+            Preencha uma ou as duas metas.
+          </p>
+        )}
         <div className="sm:w-1/2">
           <Input
             label="Bônus (R$)"
