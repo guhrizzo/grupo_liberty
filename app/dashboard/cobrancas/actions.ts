@@ -13,6 +13,7 @@ import {
   hojeSaoPaulo,
   type PagamentoEncargosInput,
   type ResultadoEncargos,
+  type PeriodoJuros,
 } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
 
@@ -44,6 +45,8 @@ export interface EncargosParcela {
   diasAtraso: number
   /** Dias de juros em aberto (do vencimento ou do último pagamento). */
   diasJuros: number
+  /** Juros trecho a trecho (13 dias sobre o valor cheio, 9 dias sobre o saldo…). */
+  periodosJuros: PeriodoJuros[]
   /** Ainda não pagos (entram em `valorRestante`). */
   pendentes: number
   /** Já quitados por pagamentos. */
@@ -266,6 +269,7 @@ function serializeParcela(
           juros: calculo.juros,
           diasAtraso: calculo.diasAtraso,
           diasJuros: calculo.diasJuros,
+          periodosJuros: calculo.periodosJuros,
           pendentes: calculo.encargosPendentes,
           pagos: calculo.encargosPagos,
         }

@@ -2045,11 +2045,27 @@ function ParcelaEncargosInfo({
       <IconPercentage size={10} className="shrink-0" />
       <span>
         <span className="text-neutral-500">Valor original {formatCurrency(p.valorParcela)}</span> + multa{' '}
-        {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
-        dia{e.diasAtraso === 1 ? '' : 's'} de atraso)
+        {formatCurrency(e.multa)}
+        {e.periodosJuros.length <= 1 && (
+          <>
+            {' '}+ juros {formatCurrency(e.juros)} ({e.periodosJuros[0]?.dias ?? e.diasAtraso}{' '}
+            dia{(e.periodosJuros[0]?.dias ?? e.diasAtraso) === 1 ? '' : 's'})
+          </>
+        )}
       </span>
       {e.pagos > 0.01 && (
         <span className="text-neutral-500">· {formatCurrency(e.pagos)} de encargos já pagos</span>
+      )}
+      {e.periodosJuros.length > 1 && (
+        <span className="basis-full">
+          {e.periodosJuros.map((pj) => (
+            <span key={pj.de} className="block">
+              Juros de {formatDate(pj.de)} a {formatDate(pj.ate)}: {formatCurrency(pj.valor)} ({pj.dias} dia
+              {pj.dias === 1 ? '' : 's'} sobre {formatCurrency(pj.base)})
+              {pj.fechado ? '' : ' · ainda correndo'}
+            </span>
+          ))}
+        </span>
       )}
       {canEdit && (
         <button

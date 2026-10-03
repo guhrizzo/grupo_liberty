@@ -69,6 +69,18 @@ export interface CalcularEncargosInput {
   referencia: string // YYYY-MM-DD
 }
 
+/** Um trecho de juros: de uma data a outra, sobre o saldo da parcela naquele trecho. */
+export interface PeriodoJuros {
+  de: string // YYYY-MM-DD
+  ate: string // YYYY-MM-DD
+  dias: number
+  /** Saldo da parcela sobre o qual os juros correram. */
+  base: number
+  valor: number
+  /** `true` = trecho fechado por um pagamento; `false` = ainda correndo. */
+  fechado: boolean
+}
+
 export interface DivisaoPagamento {
   pagamentoId: string
   paraEncargos: number
@@ -90,6 +102,8 @@ export interface ResultadoEncargos {
   diasAtraso: number
   /** Dias de juros em aberto: desde o vencimento ou o último pagamento. */
   diasJuros: number
+  /** Juros trecho a trecho (do vencimento até cada pagamento e até a referência). */
+  periodosJuros: PeriodoJuros[]
   divisao: DivisaoPagamento[]
   /** Valor pago além do devido (> 0 indica pagamento maior que a dívida). */
   excedente: number
@@ -118,6 +132,14 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
   // Juros já acumulados até cada pagamento e ainda não pagos (não crescem mais).
   let jurosFixos = 0
   const divisao: DivisaoPagamento[] = []
+  const periodosJuros: PeriodoJuros[] = []
+
+  /** Registra o trecho de juros que vai de `jurosDesde` até `ate`. */
+  function registrarPeriodo(ate: string, valor: number, fechado: boolean) {
+    const dias = Math.max(diasEntre(jurosDesde, ate), 0)
+    if (dias <= 0 || valor <= 0) return
+    periodosJuros.push({ de: jurosDesde, ate, dias, base: round2(principal), valor, fechado })
+  }
 
   function aplicarMulta(ate: string) {
     if (multaAplicada || diasEntre(dataVencimento, ate) <= 0) return
@@ -160,6 +182,7 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
     // O pagamento quita primeiro os encargos devidos até o dia — multa, juros
     // antigos ainda em aberto e juros do período — e o resto abate a parcela.
     const jurosDia = jurosAte(pg.data)
+    registrarPeriodo(pg.data, jurosDia, true)
     let sobra = valor
     const paraMulta = round2(Math.min(sobra, multaPendente))
     multaPendente = round2(multaPendente - paraMulta)
@@ -187,6 +210,7 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
 
   aplicarMulta(referencia)
   const jurosAbertos = jurosAte(referencia)
+  registrarPeriodo(referencia, jurosAbertos, false)
   const principalRestante = Math.max(round2(principal), 0)
   const encargosPendentes = round2(multaPendente + jurosFixos + jurosAbertos)
 
@@ -202,6 +226,7 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
     diasJuros: taxaDia > 0 && principalRestante > EPSILON && diasEntre(dataVencimento, referencia) > 0
       ? Math.max(diasEntre(jurosDesde, referencia), 0)
       : 0,
+    periodosJuros,
     divisao,
     excedente,
   }
