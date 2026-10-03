@@ -21,6 +21,10 @@ dentro do mês, o vendedor ganha o bônus, e o ADM supremo marca quando pagou.
 - **Bônus:** valor em R$ na meta; ao bater, o ADM supremo marca "Bônus pago".
   Não gera lançamento no Financeiro.
 - Só **ADM supremo** (`isAdmSupremo`) cria/edita/exclui metas e marca bônus.
+- **Quem é vendedor:** lista mantida pelo ADM supremo (botão "Vendedores" na aba
+  Metas), doc `metas_config/vendedores` `{ uids }`. Não usa cargo — os
+  vendedores (Álesis, Alex) têm cargo admin. Só eles recebem meta e aparecem em
+  "Quem fechou?" (validado no servidor também).
 
 ## Dados
 

@@ -6,8 +6,8 @@ import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { temAcessoPagina } from '@/constants/permissoes'
 import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
+import { ehVendedorDasMetas } from '@/app/dashboard/metas/vendedores'
 
 async function assertAuthorized() {
   const user = await getSessionUser()
@@ -485,38 +485,6 @@ export async function deletePropostaRegistrada(
   }
 }
 
-/** Usuário que pode ser apontado como quem fechou a proposta. */
-export interface VendedorOpcao {
-  uid: string
-  nome: string
-}
-
-/** Usuários ativos com acesso à aba Propostas — opções de "Quem fechou?". */
-export async function getVendedoresPropostas(): Promise<VendedorOpcao[]> {
-  try {
-    await assertAuthorized()
-    const [profilesSnap, authResult] = await Promise.all([
-      adminDb.collection('profiles').get(),
-      adminAuth.listUsers(),
-    ])
-    const comAcesso = new Set(
-      profilesSnap.docs
-        .filter((d) => {
-          const data = d.data()
-          return temAcessoPagina(data?.role, data?.permissions, 'propostas')
-        })
-        .map((d) => d.id),
-    )
-    return authResult.users
-      .filter((u) => comAcesso.has(u.uid) && !u.disabled)
-      .map((u) => ({ uid: u.uid, nome: u.displayName || u.email || 'Usuário' }))
-      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-  } catch (err) {
-    console.error('[getVendedoresPropostas]', err)
-    return []
-  }
-}
-
 /**
  * Marca a proposta como fechada (`vendedorUid` = quem fechou, conta para as
  * metas) ou reabre (`vendedorUid` = null, deixa de contar).
@@ -535,6 +503,9 @@ export async function definirPropostaFechada(
 
     const nowIso = new Date().toISOString()
     if (vendedorUid) {
+      if (!(await ehVendedorDasMetas(vendedorUid))) {
+        return { error: 'Escolha um vendedor da lista de vendedores das metas.' }
+      }
       let nome: string
       try {
         const u = await adminAuth.getUser(vendedorUid)

@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, hasPageAccess, isAdmSupremo, type SessionUser } from '@/utils/permissions'
 import { ehMesValido, mesAtual } from '@/app/dashboard/financeiro/periodo'
+import { temAcessoPagina } from '@/constants/permissoes'
+import { gravarUidsVendedores, lerUidsVendedores, opcoesDeUsuarios } from './vendedores'
 import {
   META_OBSERVACAO_MAX,
   META_QUANTIDADE_MAX,
@@ -12,6 +14,7 @@ import {
   type MetaProposta,
   type MetaResponse,
   type MetaSituacao,
+  type VendedorOpcao,
 } from './types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -149,7 +152,9 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
   if (observacao.length > META_OBSERVACAO_MAX) fieldErrors.observacao = `Máximo de ${META_OBSERVACAO_MAX} caracteres.`
 
   let vendedorNome = ''
-  if (!id && vendedorUid) {
+  if (!id && vendedorUid && !(await lerUidsVendedores()).includes(vendedorUid)) {
+    fieldErrors.vendedorUid = 'Esse usuário não está na lista de vendedores.'
+  } else if (!id && vendedorUid) {
     try {
       const u = await adminAuth.getUser(vendedorUid)
       vendedorNome = u.displayName || u.email || 'Usuário'
@@ -239,5 +244,51 @@ export async function definirBonusPago(id: string, pago: boolean): Promise<MetaR
   } catch (err) {
     console.error('[definirBonusPago]', err)
     return { error: 'Erro ao atualizar o bônus.' }
+  }
+}
+
+// ─── Vendedores das metas ────────────────────────────────────────────────────
+
+/** Vendedores da lista — opções de "Quem fechou?" e do seletor de meta. */
+export async function getVendedoresMetas(): Promise<VendedorOpcao[]> {
+  try {
+    const user = await getSessionUser()
+    if (!user || !podeVerMetas(user)) return []
+    return await opcoesDeUsuarios(await lerUidsVendedores())
+  } catch (err) {
+    console.error('[getVendedoresMetas]', err)
+    return []
+  }
+}
+
+/** Todos os usuários com acesso a Propostas — candidatos à lista. Só ADM supremo. */
+export async function getCandidatosVendedores(): Promise<VendedorOpcao[]> {
+  const check = await checarAdmSupremo()
+  if ('error' in check) return []
+  try {
+    const profilesSnap = await adminDb.collection('profiles').get()
+    const comAcesso = profilesSnap.docs
+      .filter((d) => temAcessoPagina(d.data()?.role, d.data()?.permissions, 'propostas'))
+      .map((d) => d.id)
+    return await opcoesDeUsuarios(comAcesso)
+  } catch (err) {
+    console.error('[getCandidatosVendedores]', err)
+    return []
+  }
+}
+
+export async function salvarVendedoresMetas(uids: string[]): Promise<MetaResponse> {
+  const check = await checarAdmSupremo()
+  if ('error' in check) return { error: check.error }
+  try {
+    const candidatos = new Set((await getCandidatosVendedores()).map((c) => c.uid))
+    const validos = [...new Set(uids)].filter((u) => candidatos.has(u))
+    await gravarUidsVendedores(validos, check.user.uid)
+    revalidar()
+    revalidatePath('/dashboard/propostas/registros')
+    return { success: 'Lista de vendedores atualizada.' }
+  } catch (err) {
+    console.error('[salvarVendedoresMetas]', err)
+    return { error: 'Erro ao salvar a lista de vendedores.' }
   }
 }

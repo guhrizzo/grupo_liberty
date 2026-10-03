@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getPropostasRegistradas, getVendedoresPropostas } from './actions'
+import { getPropostasRegistradas } from './actions'
+import { getVendedoresMetas } from '@/app/dashboard/metas/actions'
 import PropostasRegistradasClient from './PropostasRegistradasClient'
 
 export const metadata = {
@@ -18,7 +19,7 @@ export default async function PropostasRegistradasPage() {
 
   const [propostas, vendedores] = await Promise.all([
     getPropostasRegistradas(),
-    getVendedoresPropostas(),
+    getVendedoresMetas(),
   ])
 
   return <PropostasRegistradasClient propostas={propostas} vendedores={vendedores} />

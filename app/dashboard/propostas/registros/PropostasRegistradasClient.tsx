@@ -24,8 +24,8 @@ import {
   definirPropostaFechada,
   deletePropostaRegistrada,
   type PropostaRegistrada,
-  type VendedorOpcao,
 } from './actions'
+import type { VendedorOpcao } from '@/app/dashboard/metas/types'
 import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 
@@ -549,7 +549,11 @@ function FecharPropostaModal({
       <div className="mt-4 space-y-4">
         <Select
           label="Quem fechou?"
-          hint="A proposta conta para a meta deste vendedor no mês de hoje."
+          hint={
+            vendedores.length === 0
+              ? 'Nenhum vendedor cadastrado. Peça ao ADM supremo para definir os vendedores na aba Metas.'
+              : 'A proposta conta para a meta deste vendedor no mês de hoje.'
+          }
           value={vendedorUid}
           onChange={(e) => setVendedorUid(e.target.value)}
           options={opcoes}

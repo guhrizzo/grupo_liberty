@@ -1,6 +1,13 @@
 // Tipos serializáveis das metas. Ficam aqui (não em actions.ts) porque
 // arquivos 'use server' só podem exportar funções async.
 
+/** Vendedor que participa das metas (opção de "Quem fechou?"). */
+export interface VendedorOpcao {
+  uid: string
+  nome: string
+  email: string
+}
+
 /** `batida` = fechou a quantidade dentro do mês (bônus liberado). */
 export type MetaSituacao = 'andamento' | 'batida' | 'nao_batida'
 

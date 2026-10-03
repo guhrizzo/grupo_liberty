@@ -12,6 +12,7 @@ import {
   IconPlus,
   IconTrash,
   IconTrophy,
+  IconUsers,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -27,19 +28,22 @@ import {
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, moneyFromNumber, parseMoney } from '@/utils/masks'
 import { deslocarMes, rotuloMes } from '@/app/dashboard/financeiro/periodo'
-import type { VendedorOpcao } from '@/app/dashboard/propostas/registros/actions'
-import { definirBonusPago, excluirMeta, salvarMeta } from './actions'
+import { definirBonusPago, excluirMeta, salvarMeta, salvarVendedoresMetas } from './actions'
 import {
   META_OBSERVACAO_MAX,
   META_QUANTIDADE_MAX,
   type Meta,
   type MetaFieldErrors,
   type MetaSituacao,
+  type VendedorOpcao,
 } from './types'
 
 interface MetasClientProps {
   metas: Meta[]
+  /** Vendedores da lista das metas. */
   vendedores: VendedorOpcao[]
+  /** Usuários com acesso a Propostas que podem entrar na lista (só ADM supremo). */
+  candidatos: VendedorOpcao[]
   admSupremo: boolean
   /** Mês exibido (`YYYY-MM`). */
   mes: string
@@ -69,13 +73,21 @@ const SITUACAO: Record<MetaSituacao, { label: string; badge: string; barra: stri
   },
 }
 
-export default function MetasClient({ metas, vendedores, admSupremo, mes, mesAtual }: MetasClientProps) {
+export default function MetasClient({
+  metas,
+  vendedores,
+  candidatos,
+  admSupremo,
+  mes,
+  mesAtual,
+}: MetasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [, startTransition] = useTransition()
   const [editando, setEditando] = useState<Meta | 'nova' | null>(null)
   const [excluir, setExcluir] = useState<Meta | null>(null)
   const [ocupado, setOcupado] = useState(false)
+  const [editandoVendedores, setEditandoVendedores] = useState(false)
 
   const irParaMes = (destino: string) => {
     startTransition(() => router.push(`/dashboard/metas?mes=${destino}`))
@@ -129,12 +141,30 @@ export default function MetasClient({ metas, vendedores, admSupremo, mes, mesAtu
               : 'Cada proposta registrada marcada como fechada no mês conta para a sua meta.'}
           </p>
         </div>
-        {admSupremo && podeCriar && (
-          <Button variant="liberty" leftIcon={<IconPlus size={16} stroke={2.5} />} onClick={() => setEditando('nova')}>
-            Nova meta
-          </Button>
+        {admSupremo && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              leftIcon={<IconUsers size={16} stroke={2.2} />}
+              onClick={() => setEditandoVendedores(true)}
+            >
+              Vendedores ({vendedores.length})
+            </Button>
+            {podeCriar && (
+              <Button variant="liberty" leftIcon={<IconPlus size={16} stroke={2.5} />} onClick={() => setEditando('nova')}>
+                Nova meta
+              </Button>
+            )}
+          </div>
         )}
       </header>
+
+      {admSupremo && vendedores.length === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-800 adobe-dark:border-amber-400/30 adobe-dark:bg-amber-400/10 adobe-dark:text-amber-300">
+          Nenhum vendedor definido. Clique em &quot;Vendedores&quot; e marque quem participa das metas — só eles
+          aparecem em &quot;Quem fechou?&quot; nas propostas registradas.
+        </div>
+      )}
 
       {/* Navegação de mês */}
       <div className="flex items-center gap-2">
@@ -236,6 +266,18 @@ export default function MetasClient({ metas, vendedores, admSupremo, mes, mesAtu
           onClose={() => setEditando(null)}
           onSaved={() => {
             setEditando(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {admSupremo && editandoVendedores && (
+        <VendedoresModal
+          candidatos={candidatos}
+          selecionadosIniciais={vendedores.map((v) => v.uid)}
+          onClose={() => setEditandoVendedores(false)}
+          onSaved={() => {
+            setEditandoVendedores(false)
             router.refresh()
           }}
         />
@@ -550,6 +592,88 @@ function MetaModal({
           </Button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+// ─── Modal da lista de vendedores ────────────────────────────────────────────
+
+function VendedoresModal({
+  candidatos,
+  selecionadosIniciais,
+  onClose,
+  onSaved,
+}: {
+  candidatos: VendedorOpcao[]
+  selecionadosIniciais: string[]
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const toast = useToast()
+  const [selecionados, setSelecionados] = useState(() => new Set(selecionadosIniciais))
+  const [salvando, setSalvando] = useState(false)
+
+  function alternar(uid: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(uid)) novo.delete(uid)
+      else novo.add(uid)
+      return novo
+    })
+  }
+
+  async function salvar() {
+    setSalvando(true)
+    try {
+      const result = await salvarVendedoresMetas([...selecionados])
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(result.success || 'Lista salva.')
+      onSaved()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => !salvando && onClose()}
+      title="Vendedores das metas"
+      description='Só quem estiver marcado pode receber meta e aparece em "Quem fechou?" nas propostas registradas.'
+    >
+      <ul className="mt-4 max-h-80 space-y-1 overflow-y-auto">
+        {candidatos.map((c) => (
+          <li key={c.uid}>
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2 hover:bg-neutral-50 adobe-dark:hover:bg-adobe-bg-3">
+              <input
+                type="checkbox"
+                checked={selecionados.has(c.uid)}
+                onChange={() => alternar(c.uid)}
+                className="h-4 w-4 cursor-pointer accent-[var(--color-liberty,#0284c7)]"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-neutral-900 adobe-dark:text-adobe-text-hi">
+                  {c.nome}
+                </span>
+                {c.email && (
+                  <span className="block truncate text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">{c.email}</span>
+                )}
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
+          Cancelar
+        </Button>
+        <Button type="button" variant="liberty" loading={salvando} onClick={salvar}>
+          Salvar ({selecionados.size})
+        </Button>
+      </div>
     </Modal>
   )
 }
