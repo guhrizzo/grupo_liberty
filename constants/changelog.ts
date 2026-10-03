@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-propostas-card-recolhido',
+    date: '2026-10-03',
+    title: 'Propostas registradas mais compactas no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada proposta registrada aparece resumida (cliente, veículo e comissão). Toque na setinha para ver contato, valores e os botões de fechar, baixar, editar e excluir.',
+    ],
+  },
+  {
     id: '2026-10-03-cargo-financeiro',
     date: '2026-10-03',
     title: 'Novo cargo "Financeiro"',
