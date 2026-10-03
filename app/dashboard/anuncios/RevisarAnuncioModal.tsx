@@ -104,7 +104,7 @@ export default function RevisarAnuncioModal({
         return
       }
       toast.success(res.success ?? 'Anúncio aprovado.', 'Pronto')
-      if (res.emailSent) toast.success('E-mail enviado ao anunciante.', 'E-mail ✉️')
+      if (res.emailSent) toast.success('E-mail enviado ao anunciante.', 'E-mail enviado')
       onDone()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro inesperado.', 'Falha')

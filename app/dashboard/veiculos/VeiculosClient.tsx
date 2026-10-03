@@ -536,7 +536,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
         if (data.rouboFurto && data.rouboFurto !== 'NAO' && data.rouboFurto !== '') {
           toast.error(
             `Status retornado: ${data.rouboFurto}. Proceda com cautela antes de cadastrar.`,
-            '⚠️ Ocorrência de roubo/furto',
+            'Ocorrência de roubo/furto',
           )
         } else {
           toast.success(

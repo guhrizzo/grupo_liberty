@@ -113,7 +113,7 @@ export default function AnunciosClient({ anuncios }: { anuncios: Anuncio[] }) {
         toast.error(res.error, 'Não foi possível recusar')
       } else {
         toast.success(res.success ?? 'Anúncio recusado.', 'Pronto')
-        if (res.emailSent) toast.success('E-mail enviado ao anunciante.', 'E-mail ✉️')
+        if (res.emailSent) toast.success('E-mail enviado ao anunciante.', 'E-mail enviado')
         router.refresh()
       }
     } finally {

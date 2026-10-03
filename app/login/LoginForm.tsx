@@ -9,6 +9,7 @@ import {
   IconArrowRight,
   IconKey,
   IconX,
+  IconAlertTriangle,
 } from '@tabler/icons-react'
 import {
   GoogleAuthProvider,
@@ -491,7 +492,7 @@ export default function LoginForm({
             </p>
 
             <div className="mt-4 rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-300 flex items-start gap-2.5">
-              <span className="text-base leading-none">⚠️</span>
+              <IconAlertTriangle size={16} stroke={2} className="mt-0.5 shrink-0 text-amber-300" />
               <div>
                 <p className="font-semibold text-amber-200">Atenção para a caixa de Spam!</p>
                 <p className="text-[11px] text-amber-300/80 mt-0.5 leading-normal">
