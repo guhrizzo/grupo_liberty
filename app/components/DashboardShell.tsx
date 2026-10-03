@@ -20,6 +20,7 @@ import {
   IconChartBar,
   IconTargetArrow,
   IconChecklist,
+  IconTrophy,
   IconMenu2,
 
   IconLogout,
@@ -37,7 +38,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   permissionKey?: PermissionKey
@@ -66,6 +67,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/propostas',
     label: 'Propostas',
     icon: 'mail',
+    permissionKey: 'propostas',
+  },
+  {
+    href: '/dashboard/metas',
+    label: 'Metas',
+    icon: 'trophy',
     permissionKey: 'propostas',
   },
   {
@@ -177,6 +184,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconTargetArrow className={cls} stroke={2} />
     case 'checklist':
       return <IconChecklist className={cls} stroke={2} />
+    case 'trophy':
+      return <IconTrophy className={cls} stroke={2} />
   }
 }
 

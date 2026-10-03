@@ -1,11 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { adminDb } from '@/utils/firebase/admin'
+import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { temAcessoPagina } from '@/constants/permissoes'
 import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
 
 async function assertAuthorized() {
@@ -56,8 +57,14 @@ export interface PropostaRegistrada {
   vendedor_uid: string | null
   vendedor_email: string | null
 
+  /** `aceito` = proposta fechada (o carro foi comprado). */
   status: 'pendente' | 'aceito' | 'recusado'
   created_at: string
+
+  /** Quem fechou (conta para as metas) — gravado ao marcar como fechada. */
+  fechada_por_uid: string | null
+  fechada_por_nome: string | null
+  fechada_em: string | null
 }
 
 function sanitizeText(value: string | null | undefined): string {
@@ -261,6 +268,10 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
 
         status: (p.status as PropostaRegistrada['status']) ?? 'pendente',
         created_at: p.created_at as string,
+
+        fechada_por_uid: (p.fechada_por_uid as string) ?? null,
+        fechada_por_nome: (p.fechada_por_nome as string) ?? null,
+        fechada_em: (p.fechada_em as string) ?? null,
       })
     })
     return list
@@ -271,7 +282,11 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
 }
 
 /** Proposta registrada com CPF em dígitos puros — usada só para popular o formulário de edição. */
-export interface PropostaRegistradaEditavel extends Omit<PropostaRegistrada, 'cpf' | 'vendedor_uid' | 'vendedor_email' | 'created_at'> {
+export interface PropostaRegistradaEditavel
+  extends Omit<
+    PropostaRegistrada,
+    'cpf' | 'vendedor_uid' | 'vendedor_email' | 'created_at' | 'fechada_por_uid' | 'fechada_por_nome' | 'fechada_em'
+  > {
   cpfDigits: string
 }
 
@@ -411,7 +426,7 @@ export async function updatePropostaRegistrada(
       valor,
       proposta_previa: propostaPreviaNum,
       comissao_vendedor: comissaoVendedor,
-      status: input.status ?? 'pendente',
+      // `status` não é editável aqui: fechar/reabrir é feito por definirPropostaFechada.
       cliente_data: sanitizeText(input.cliente_data ?? '') || null,
       numero_contrato: sanitizeText(input.numero_contrato ?? '') || null,
 
@@ -466,6 +481,89 @@ export async function deletePropostaRegistrada(
     return { success: 'Proposta excluída com sucesso.' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao excluir proposta.'
+    return { error: message }
+  }
+}
+
+/** Usuário que pode ser apontado como quem fechou a proposta. */
+export interface VendedorOpcao {
+  uid: string
+  nome: string
+}
+
+/** Usuários ativos com acesso à aba Propostas — opções de "Quem fechou?". */
+export async function getVendedoresPropostas(): Promise<VendedorOpcao[]> {
+  try {
+    await assertAuthorized()
+    const [profilesSnap, authResult] = await Promise.all([
+      adminDb.collection('profiles').get(),
+      adminAuth.listUsers(),
+    ])
+    const comAcesso = new Set(
+      profilesSnap.docs
+        .filter((d) => {
+          const data = d.data()
+          return temAcessoPagina(data?.role, data?.permissions, 'propostas')
+        })
+        .map((d) => d.id),
+    )
+    return authResult.users
+      .filter((u) => comAcesso.has(u.uid) && !u.disabled)
+      .map((u) => ({ uid: u.uid, nome: u.displayName || u.email || 'Usuário' }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+  } catch (err) {
+    console.error('[getVendedoresPropostas]', err)
+    return []
+  }
+}
+
+/**
+ * Marca a proposta como fechada (`vendedorUid` = quem fechou, conta para as
+ * metas) ou reabre (`vendedorUid` = null, deixa de contar).
+ */
+export async function definirPropostaFechada(
+  id: string,
+  vendedorUid: string | null,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+    if (!id) return { error: 'ID da proposta inválido.' }
+
+    const ref = adminDb.collection('propostas_registradas').doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Proposta não encontrada.' }
+
+    const nowIso = new Date().toISOString()
+    if (vendedorUid) {
+      let nome: string
+      try {
+        const u = await adminAuth.getUser(vendedorUid)
+        nome = u.displayName || u.email || 'Usuário'
+      } catch {
+        return { error: 'Vendedor não encontrado.' }
+      }
+      await ref.update({
+        status: 'aceito',
+        fechada_por_uid: vendedorUid,
+        fechada_por_nome: nome,
+        fechada_em: nowIso,
+        updated_at: nowIso,
+      })
+    } else {
+      await ref.update({
+        status: 'pendente',
+        fechada_por_uid: null,
+        fechada_por_nome: null,
+        fechada_em: null,
+        updated_at: nowIso,
+      })
+    }
+
+    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/metas')
+    return { success: vendedorUid ? 'Proposta marcada como fechada.' : 'Proposta reaberta.' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro ao atualizar a proposta.'
     return { error: message }
   }
 }

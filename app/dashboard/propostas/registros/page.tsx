@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getPropostasRegistradas } from './actions'
+import { getPropostasRegistradas, getVendedoresPropostas } from './actions'
 import PropostasRegistradasClient from './PropostasRegistradasClient'
 
 export const metadata = {
@@ -16,7 +16,10 @@ export default async function PropostasRegistradasPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const propostas = await getPropostasRegistradas()
+  const [propostas, vendedores] = await Promise.all([
+    getPropostasRegistradas(),
+    getVendedoresPropostas(),
+  ])
 
-  return <PropostasRegistradasClient propostas={propostas} />
+  return <PropostasRegistradasClient propostas={propostas} vendedores={vendedores} />
 }
