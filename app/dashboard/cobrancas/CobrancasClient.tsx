@@ -1762,7 +1762,7 @@ function CobrancaCard({
                 }
                 title={
                   !temEmail
-                    ? 'Adicione o e-mail no ✏️ editar para poder enviar'
+                    ? 'Adicione o e-mail em Editar para poder enviar'
                     : motivoBloqueio
                     ? motivoBloqueio
                     : 'Enviar agora um e-mail de cobrança para este cliente'
@@ -1814,7 +1814,7 @@ function CobrancaCard({
                 }
                 title={
                   !temEmail
-                    ? 'Adicione o e-mail no ✏️ editar para ativar notificações'
+                    ? 'Adicione o e-mail em Editar para ativar notificações'
                     : sinoAtivo
                     ? 'Notificações ativas (3d antes, no dia, 1d após) — clique para desativar'
                     : 'Notificações desativadas — clique para ativar'
@@ -3834,7 +3834,7 @@ function EditarCobrancaModal({
               )}
               {!cobranca.clienteEmail && (
                 <p className="text-[11px] text-neutral-500">
-                  Adicione um e-mail para poder ativar o sino de notificações. 🔔
+                  Adicione um e-mail para poder ativar o sino de notificações.
                 </p>
               )}
             </div>

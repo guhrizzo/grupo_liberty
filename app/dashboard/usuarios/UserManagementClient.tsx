@@ -255,7 +255,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
   const getRoleDefaultLabel = (key: PermKey): string => {
     const tab = PERMISSION_TABS.find(t => t.key === key)
     if (!tab || !permModalUser?.role) return 'padrão'
-    return PAGE_DEFAULT_ROLES[tab.key].includes(permModalUser.role) ? 'padrão: ✓' : 'padrão: ✗'
+    return PAGE_DEFAULT_ROLES[tab.key].includes(permModalUser.role) ? 'padrão: liberado' : 'padrão: bloqueado'
   }
 
   return (

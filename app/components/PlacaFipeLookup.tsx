@@ -22,6 +22,7 @@ import {
   IconTrendingDown,
   IconClock,
   IconDatabase,
+  IconKey,
 } from '@tabler/icons-react'
 import { Button, Select, ZoomIn } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
@@ -388,7 +389,7 @@ export default function PlacaFipeLookup({
         {/* ─── Token não configurado ────────────────────────────────── */}
         {status === 'no_token' && (
           <div className="mt-5 rounded-xl bg-amber-50 border border-amber-200 p-4 flex items-center gap-3 text-amber-800 text-sm">
-            <span className="shrink-0 text-xl">🔑</span>
+            <IconKey size={22} stroke={2} className="shrink-0" />
             <div>
               <p className="font-bold">Token do Puxa Placa não configurado</p>
               <p className="text-xs mt-0.5 text-amber-700">
@@ -450,7 +451,7 @@ export default function PlacaFipeLookup({
                 <IconShieldX size={22} className="text-rose-600" />
               </div>
               <div>
-                <p className="text-sm font-extrabold text-rose-800">⚠️ Alerta: Veículo com ocorrência de roubo/furto</p>
+                <p className="text-sm font-extrabold text-rose-800">Alerta: Veículo com ocorrência de roubo/furto</p>
                 <p className="text-xs text-rose-700 mt-0.5">
                   Status retornado: <span className="font-mono font-bold">{result.rouboFurto}</span>. Proceda com cautela.
                 </p>

@@ -1,4 +1,4 @@
-import { IconCar, IconBrandWhatsapp } from '@tabler/icons-react'
+import { IconCar, IconBrandWhatsapp, IconArrowRight } from '@tabler/icons-react'
 import FooterLegalLinks from '@/app/components/FooterLegalLinks'
 
 export default function PublicFooter() {
@@ -22,9 +22,10 @@ export default function PublicFooter() {
             href="https://localiberty.com"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-3 inline-block text-xs font-semibold text-neutral-600 hover:text-liberty transition-colors"
+            className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-neutral-600 hover:text-liberty transition-colors"
           >
-            Também alugamos veículos — Liberty →
+            Também alugamos veículos — Liberty
+            <IconArrowRight size={13} stroke={2.2} />
           </a>
         </div>
 

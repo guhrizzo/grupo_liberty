@@ -23,6 +23,7 @@ import {
   IconCalendarMonth,
   IconPaperclip,
   IconCircleCheck,
+  IconX,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -724,10 +725,12 @@ export default function FinanceiroClient({
                 {editing ? 'Editar Lançamento' : 'Novo Lançamento Financeiro'}
               </h3>
               <button
+                type="button"
                 onClick={closeForm}
-                className="text-neutral-400 hover:text-neutral-600 text-xs font-bold cursor-pointer adobe-dark:text-adobe-text-lo adobe-dark:hover:text-adobe-text-hi"
+                aria-label="Fechar"
+                className="text-neutral-400 hover:text-neutral-600 cursor-pointer adobe-dark:text-adobe-text-lo adobe-dark:hover:text-adobe-text-hi"
               >
-                ✕
+                <IconX size={18} stroke={2.2} />
               </button>
             </div>
 

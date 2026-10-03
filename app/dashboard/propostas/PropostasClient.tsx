@@ -72,7 +72,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
       } else if (res.success) {
         toast.success(res.success, 'Status atualizado')
         if (res.emailSent) {
-          toast.success('E-mail de notificação enviado ao cliente.', 'E-mail enviado ✉️')
+          toast.success('E-mail de notificação enviado ao cliente.', 'E-mail enviado')
         }
         router.refresh()
       }
