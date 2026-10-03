@@ -7,7 +7,7 @@ export default async function UsuariosPage() {
   if (!user) redirect('/login')
 
   if (!hasPageAccess(user, 'usuarios')) {
-    redirect('/dashboard?error=acesso_negado')
+    redirect('/dashboard/demandas?error=acesso_negado')
   }
 
   return (

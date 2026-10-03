@@ -39,7 +39,6 @@ const PERMISSION_TABS = [
   { key: 'juridico',      label: 'Jurídico' },
   { key: 'leads',         label: 'Leads' },
   { key: 'manutencao',    label: 'Manutenção' },
-  { key: 'usuarios',      label: 'Usuários' },
   { key: 'analytics',     label: 'Visitantes' },
 ] as const
 

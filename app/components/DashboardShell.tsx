@@ -34,7 +34,7 @@ import {
   IconArrowDown,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
-import { temAcessoPagina, type PermissionKey } from '@/constants/permissoes'
+import { ehAdmSupremo, temAcessoAba, type PermissionKey } from '@/constants/permissoes'
 import { Button, ConfirmDialog, Modal, useToast } from './ui'
 import { salvarOrdemMenu } from '@/app/dashboard/menu-actions'
 import { useDashboardTheme } from './DashboardThemeProvider'
@@ -45,6 +45,8 @@ type NavItem = {
   icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
+  /** Só o ADM supremo vê (ignora cargo). */
+  somenteSupremo?: boolean
   permissionKey?: PermissionKey
 }
 
@@ -54,7 +56,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard',
     label: 'Visão Geral',
     icon: 'home',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    somenteSupremo: true,
   },
   {
     href: '/dashboard/demandas',
@@ -273,7 +275,8 @@ export default function DashboardShell({
 
   const allowedItems = ordenarItens(
     NAV_ITEMS.filter((item) => {
-      if (item.permissionKey) return temAcessoPagina(role, permissions, item.permissionKey)
+      if (item.somenteSupremo) return ehAdmSupremo(email)
+      if (item.permissionKey) return temAcessoAba(role, permissions, item.permissionKey, email)
       if (!role) return false
       if (role === 'admin') return true
       return item.roles?.includes(role) ?? false

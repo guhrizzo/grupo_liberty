@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import {
   IconUsers,
   IconCar,
@@ -16,7 +17,8 @@ import {
 } from '@tabler/icons-react'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import {
-  temAcessoPagina,
+  ehAdmSupremo,
+  temAcessoAba,
   type PermissionKey,
   type UserPermissions,
 } from '@/constants/permissoes'
@@ -128,8 +130,12 @@ export default async function DashboardPage() {
     return null
   }
 
+  // Visão Geral é exclusiva do ADM supremo; os demais caem em Demandas, que
+  // todos os cargos acessam (e é o item seguinte do menu padrão).
+  if (!ehAdmSupremo(user.email)) redirect('/dashboard/demandas')
+
   const visibleModules = MODULES.filter((m) =>
-    temAcessoPagina(role, permissions, m.permissionKey),
+    temAcessoAba(role, permissions, m.permissionKey, user.email),
   )
 
   return (

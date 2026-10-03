@@ -70,3 +70,21 @@ export function ehAdmSupremo(email: string | null | undefined): boolean {
   const e = email?.toLowerCase().trim()
   return !!e && ADM_SUPREMO_EMAILS.includes(e)
 }
+
+/**
+ * Abas exclusivas do ADM supremo: nem cargo admin nem flag de permissão
+ * liberam. (A Visão Geral, `/dashboard`, também é exclusiva — ver
+ * app/dashboard/page.tsx; não é uma `PermissionKey`.)
+ */
+export const ABAS_SOMENTE_ADM_SUPREMO: readonly PermissionKey[] = ['usuarios']
+
+/** `temAcessoPagina` + as abas exclusivas do ADM supremo (precisa do e-mail). */
+export function temAcessoAba(
+  role: string | null | undefined,
+  permissions: UserPermissions | null | undefined,
+  key: PermissionKey,
+  email: string | null | undefined,
+): boolean {
+  if (ABAS_SOMENTE_ADM_SUPREMO.includes(key)) return ehAdmSupremo(email)
+  return temAcessoPagina(role, permissions, key)
+}

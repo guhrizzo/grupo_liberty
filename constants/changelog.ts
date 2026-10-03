@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-02-acesso-adm-supremo',
+    date: '2026-10-02',
+    title: 'Visão Geral e Usuários só para a diretoria',
+    tag: 'melhoria',
+    items: [
+      'A Visão Geral e a aba Usuários agora são exclusivas da diretoria. Para os demais, o painel abre direto em Demandas.',
+    ],
+  },
+  {
     id: '2026-10-02-organizar-menu',
     date: '2026-10-02',
     title: 'Organize o seu menu',

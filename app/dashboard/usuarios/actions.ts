@@ -16,7 +16,7 @@ export type CreateUserResponse = {
 
 const ROLES_VALIDOS = ['vendedor', 'vendedor_externo', 'advogado', 'suporte', 'admin']
 
-/** Quem tem acesso à aba `usuarios` pode fazer o CRUD dela. */
+/** Aba `usuarios` é exclusiva do ADM supremo (ver `ABAS_SOMENTE_ADM_SUPREMO`). */
 async function assertAcesso(): Promise<SessionUser> {
   return assertPageAccess('usuarios')
 }

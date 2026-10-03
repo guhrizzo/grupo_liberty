@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { OWNER_EMAIL } from '@/constants/feedback'
 import {
   ehAdmSupremo,
+  temAcessoAba,
   temAcessoPagina,
   type PermissionKey,
   type UserPermissions,
@@ -138,5 +139,5 @@ export function hasPageAccess(
   user: SessionUser | null | undefined,
   permissionKey: PermissionKey,
 ): boolean {
-  return temAcessoPagina(user?.role, user?.permissions, permissionKey)
+  return temAcessoAba(user?.role, user?.permissions, permissionKey, user?.email)
 }
