@@ -53,7 +53,7 @@ function metaBatida(
   alvos: { quantidade: number | null; valorMeta: number | null; exigirAmbas: boolean },
   propostas: MetaProposta[],
 ) {
-  const valorFechado = propostas.reduce((acc, p) => acc + p.valor, 0)
+  const valorFechado = propostas.reduce((acc, p) => acc + p.valorFipe, 0)
   const resultados = [
     alvos.quantidade != null ? propostas.length >= alvos.quantidade : null,
     alvos.valorMeta != null ? valorFechado >= alvos.valorMeta : null,
@@ -86,7 +86,7 @@ async function fechadasPorVendedorMes(vendedorUid?: string): Promise<Map<string,
       id: doc.id,
       cliente: p.nome ?? '',
       veiculo: `${p.veiculo_marca ?? ''} ${p.veiculo_modelo ?? ''}`.trim(),
-      valor: Number(p.valor) || 0,
+      valorFipe: Number(p.veiculo_valor_fipe) || 0,
       fechadaEm: p.fechada_em,
     })
     mapa.set(chave, lista)
@@ -135,7 +135,7 @@ export async function getMetas(mes: string): Promise<Meta[]> {
           observacao: data.observacao ?? '',
           bonusPagoEm: data.bonusPagoEm ?? null,
           fechadas: propostas.length,
-          valorFechado: propostas.reduce((acc, p) => acc + p.valor, 0),
+          valorFechado: propostas.reduce((acc, p) => acc + p.valorFipe, 0),
           propostas,
           situacao: situacaoDa(data.mes, metaBatida(alvos, propostas)),
         } satisfies Meta

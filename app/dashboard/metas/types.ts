@@ -16,8 +16,8 @@ export interface MetaProposta {
   id: string
   cliente: string
   veiculo: string
-  /** Valor da proposta (soma na meta em dinheiro). */
-  valor: number
+  /** Valor FIPE do veículo (soma na meta em dinheiro). */
+  valorFipe: number
   fechadaEm: string
 }
 
@@ -28,7 +28,7 @@ export interface Meta {
   mes: string // YYYY-MM
   /** Meta em veículos fechados. Pelo menos uma das duas metas existe; basta bater uma. */
   quantidade: number | null
-  /** Meta em R$ (soma do valor da proposta das fechadas). */
+  /** Meta em R$ (soma do valor FIPE dos veículos das fechadas). */
   valorMeta: number | null
   /** Com as duas metas: `true` = precisa bater as duas; `false` = basta uma. */
   exigirAmbas: boolean
@@ -38,7 +38,7 @@ export interface Meta {
   bonusPagoEm: string | null
   /** Calculado na leitura a partir das propostas registradas fechadas. */
   fechadas: number
-  /** Soma do valor da proposta das fechadas no mês. */
+  /** Soma do valor FIPE das fechadas no mês. */
   valorFechado: number
   propostas: MetaProposta[]
   situacao: MetaSituacao

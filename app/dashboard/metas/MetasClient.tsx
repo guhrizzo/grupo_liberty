@@ -452,7 +452,9 @@ function MetaCard({
                     <span className="font-semibold">{p.cliente}</span>
                     {p.veiculo && <span className="text-neutral-500"> · {p.veiculo}</span>}
                   </span>
-                  <span className="shrink-0 tabular-nums text-neutral-500">{formatDate(p.fechadaEm)}</span>
+                  <span className="shrink-0 tabular-nums text-neutral-500">
+                    {p.valorFipe > 0 ? `FIPE ${formatCurrency(p.valorFipe)}` : 'Sem FIPE'} · {formatDate(p.fechadaEm)}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -602,6 +604,8 @@ function MetaModal({
               onChange={(e) => setMes(e.target.value)}
               error={errors.mes}
               required
+              // No iOS o input de mês tem largura mínima própria e vaza do modal.
+              className="min-w-0 appearance-none"
             />
           </div>
         )}
@@ -625,7 +629,7 @@ function MetaModal({
             value={valorMeta}
             onChange={(e) => setValorMeta(maskMoney(e.target.value))}
             placeholder="0,00"
-            hint="Soma do valor da proposta."
+            hint="Soma do valor FIPE dos veículos."
             error={errors.valorMeta}
           />
         </div>
