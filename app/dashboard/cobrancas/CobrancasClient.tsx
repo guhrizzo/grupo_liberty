@@ -2002,12 +2002,11 @@ function valorAtualizado(p: Parcela): number {
 
 /** Multa + juros por atraso da parcela (calculados até hoje no servidor). */
 /**
- * "R$ 528,65 (R$ 400,00 da parcela + R$ 128,65 de multa/juros)": o que falta
- * da parcela é o valor dela menos o que já foi pago; o resto do total devido
- * é multa e juros. (O cálculo é o mesmo — só a forma de mostrar.)
+ * "R$ 527,93 (R$ 512,51 da parcela + R$ 15,42 de multa/juros)": saldo da
+ * parcela (o pagamento quita primeiro multa e juros) + encargos ainda em aberto.
  */
 function FaltaTexto({ parcela: p }: { parcela: Parcela }) {
-  const restoParcela = Math.max(p.valorParcela - p.valorPago, 0)
+  const restoParcela = Math.max(p.principalRestante, 0)
   const multaJuros = Math.max(p.valorRestante - restoParcela, 0)
   if (multaJuros <= 0.01) return <>{formatCurrency(p.valorRestante)}</>
   return (

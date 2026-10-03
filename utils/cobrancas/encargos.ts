@@ -115,7 +115,9 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
   const semEncargos = input.isento || antesDoCorte
   const multaPct = semEncargos ? 0 : Math.max(input.multaPct || 0, 0)
   const jurosMensalPct = semEncargos ? 0 : Math.max(input.jurosMensalPct || 0, 0)
-  const taxaDia = jurosMensalPct / 100 / DIAS_MES_JUROS
+  // Taxa diária em % arredondada a 2 casas: 10% a.m. → 0,33% ao dia exatos
+  // (regra do Gustavo — não 0,3333…%).
+  const taxaDia = Math.round((jurosMensalPct / DIAS_MES_JUROS) * 100) / 100 / 100
 
   let principal = valorParcela
   let principalPago = 0
