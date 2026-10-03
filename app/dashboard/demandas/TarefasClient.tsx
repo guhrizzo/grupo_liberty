@@ -6,6 +6,7 @@ import {
   IconAlertTriangle,
   IconCalendarDue,
   IconCheck,
+  IconFlame,
   IconChecklist,
   IconLock,
   IconLockOpen,
@@ -32,10 +33,13 @@ import {
   AFAZERES_MAX,
   AFAZER_TEXTO_MAX,
   TAREFA_COMENTARIO_MAX,
+  TAREFA_PRIORIDADE,
+  TAREFA_PRIORIDADE_ORDEM,
   TAREFA_STATUS,
   TAREFA_STATUS_ORDEM,
   TAREFA_TITULO_MAX,
   tarefaAtrasada,
+  type TarefaPrioridade,
   type TarefaStatus,
 } from '@/constants/tarefas'
 import type { Afazer, Tarefa, TarefaFieldErrors, UsuarioOpcao } from './types'
@@ -99,6 +103,7 @@ export default function TarefasClient({
   const [verFechadas, setVerFechadas] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
   const [filtroResponsavel, setFiltroResponsavel] = useState('')
+  const [filtroPrioridade, setFiltroPrioridade] = useState<TarefaPrioridade | ''>('')
 
   const [editando, setEditando] = useState<Tarefa | 'nova' | null>(null)
   const [excluirId, setExcluirId] = useState<string | null>(null)
@@ -122,14 +127,15 @@ export default function TarefasClient({
     const base = filtroStatus === 'exclusao' ? tarefas : verFechadas ? fechadas : abertas
     return base.filter((t) => {
       if (filtroResponsavel && t.responsavelUid !== filtroResponsavel) return false
+      if (filtroPrioridade && t.prioridade !== filtroPrioridade) return false
       if (filtroStatus === 'atrasadas') return tarefaAtrasada(t, hoje)
       if (filtroStatus === 'exclusao') return !!t.exclusaoSolicitadaEm
       if (filtroStatus !== 'todos' && t.status !== filtroStatus) return false
       return true
     })
-  }, [tarefas, verFechadas, abertas, fechadas, filtroResponsavel, filtroStatus, hoje])
+  }, [tarefas, verFechadas, abertas, fechadas, filtroResponsavel, filtroPrioridade, filtroStatus, hoje])
 
-  const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel
+  const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel || !!filtroPrioridade
 
   // ADM supremo vê a lista separada por responsável (ordem alfabética);
   // o usuário comum vê só as dele, sem cabeçalho.
@@ -273,6 +279,18 @@ export default function TarefasClient({
               ))}
             </div>
 
+            <div className="w-full sm:w-56">
+              <Select
+                aria-label="Filtrar por prioridade"
+                value={filtroPrioridade}
+                onChange={(e) => setFiltroPrioridade(e.target.value as TarefaPrioridade | '')}
+                options={[
+                  { value: '', label: 'Todas as prioridades' },
+                  ...TAREFA_PRIORIDADE_ORDEM.map((p) => ({ value: p, label: TAREFA_PRIORIDADE[p].label })),
+                ]}
+              />
+            </div>
+
             {admSupremo && usuarios.length > 0 && (
               <div className="w-full sm:w-60">
                 <Select
@@ -293,6 +311,7 @@ export default function TarefasClient({
                 onClick={() => {
                   setFiltroStatus('todos')
                   setFiltroResponsavel('')
+                  setFiltroPrioridade('')
                 }}
                 className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
               >
@@ -451,6 +470,13 @@ function TarefaCard({
   return (
     <li className={CARD + ' p-4 space-y-3' + (atrasada ? ' border-rose-300 adobe-dark:border-rose-500/40' : '')}>
       <div className="flex flex-wrap items-center gap-2">
+        {/* "Normal" é o padrão: só ganha tag quando foi escolhido algo acima. */}
+        {t.prioridade !== 'normal' && (
+          <Badge className={TAREFA_PRIORIDADE[t.prioridade].classes}>
+            {t.prioridade === 'urgente' && <IconFlame size={11} stroke={2.5} />}
+            {TAREFA_PRIORIDADE[t.prioridade].label}
+          </Badge>
+        )}
         <Badge className={TAREFA_STATUS[t.status].classes}>{TAREFA_STATUS[t.status].label}</Badge>
         {atrasada && (
           <Badge className="border-rose-300 bg-rose-600 text-white adobe-dark:border-rose-500/40">
@@ -691,6 +717,7 @@ function TarefaModal({
   const [titulo, setTitulo] = useState(tarefa?.titulo ?? '')
   const [descricao, setDescricao] = useState(tarefa?.descricao ?? '')
   const [prazo, setPrazo] = useState(tarefa?.prazo ?? '')
+  const [prioridade, setPrioridade] = useState<TarefaPrioridade>(tarefa?.prioridade ?? 'normal')
   const [responsavelUid, setResponsavelUid] = useState(tarefa?.responsavelUid ?? '')
   const [errors, setErrors] = useState<TarefaFieldErrors>({})
   const [salvando, setSalvando] = useState(false)
@@ -713,6 +740,7 @@ function TarefaModal({
       fd.append('titulo', titulo)
       fd.append('descricao', descricao)
       fd.append('prazo', prazo)
+      fd.append('prioridade', prioridade)
       fd.append('responsavelUid', responsavelUid)
       const result = await salvarTarefa(fd)
       setErrors(result.fieldErrors ?? {})
@@ -763,16 +791,44 @@ function TarefaModal({
           options={opcoes}
           error={errors.responsavelUid}
         />
-        <div className="sm:w-1/2">
-          <Input
-            label="Prazo"
-            type="date"
-            value={prazo}
-            min={tarefa ? undefined : hoje}
-            onChange={(e) => setPrazo(e.target.value)}
-            error={errors.prazo}
-            required
-          />
+        <div className="space-y-4">
+          <div className="sm:w-1/2">
+            <Input
+              label="Prazo"
+              type="date"
+              value={prazo}
+              min={tarefa ? undefined : hoje}
+              onChange={(e) => setPrazo(e.target.value)}
+              error={errors.prazo}
+              required
+            />
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-neutral-700 adobe-dark:text-adobe-text-md">
+              Prioridade
+            </p>
+            <div className="grid grid-cols-3 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+              {TAREFA_PRIORIDADE_ORDEM.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={prioridade === p}
+                  onClick={() => setPrioridade(p)}
+                  className={
+                    'rounded-md border px-2 py-2 text-xs font-bold transition-colors cursor-pointer ' +
+                    (prioridade === p
+                      ? TAREFA_PRIORIDADE[p].classes + ' shadow-xs'
+                      : 'border-transparent text-neutral-500 hover:bg-white adobe-dark:text-adobe-text-lo adobe-dark:hover:bg-adobe-bg-2')
+                  }
+                >
+                  {TAREFA_PRIORIDADE[p].label}
+                </button>
+              ))}
+            </div>
+            {errors.prioridade && (
+              <p className="mt-1 text-[11px] font-semibold text-rose-600">{errors.prioridade}</p>
+            )}
+          </div>
         </div>
         {trocandoResponsavel && (
           <p className="text-[11px] font-semibold text-amber-700 adobe-dark:text-amber-300">

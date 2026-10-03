@@ -1,13 +1,15 @@
 // Tipos serializáveis das tarefas. Ficam aqui (não em actions.ts) porque
 // arquivos 'use server' só podem exportar funções async.
 
-import type { TarefaStatus } from '@/constants/tarefas'
+import type { TarefaPrioridade, TarefaStatus } from '@/constants/tarefas'
 
 export interface Tarefa {
   id: string
   titulo: string
   descricao: string
   prazo: string // YYYY-MM-DD
+  /** Tarefas antigas (sem o campo) contam como `normal`. */
+  prioridade: TarefaPrioridade
   responsavelUid: string
   responsavelNome: string
   responsavelEmail: string
@@ -43,6 +45,7 @@ export type TarefaFieldErrors = {
   titulo?: string
   descricao?: string
   prazo?: string
+  prioridade?: string
   responsavelUid?: string
   comentario?: string
 }

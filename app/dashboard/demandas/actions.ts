@@ -10,7 +10,9 @@ import {
   TAREFA_COMENTARIO_MAX,
   TAREFA_TITULO_MAX,
   ehDataValida,
+  ehTarefaPrioridade,
   ehTarefaStatus,
+  TAREFA_PRIORIDADE_ORDEM,
 } from '@/constants/tarefas'
 import type { Afazer, Tarefa, TarefaFieldErrors, TarefaResponse, UsuarioOpcao } from './types'
 
@@ -24,6 +26,7 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Tarefa {
     titulo: data.titulo ?? '',
     descricao: data.descricao ?? '',
     prazo: data.prazo ?? '',
+    prioridade: ehTarefaPrioridade(data.prioridade) ? data.prioridade : 'normal',
     responsavelUid: data.responsavelUid ?? '',
     responsavelNome: data.responsavelNome ?? 'Usuário',
     responsavelEmail: data.responsavelEmail ?? '',
@@ -67,7 +70,12 @@ export async function getTarefas(): Promise<Tarefa[]> {
 
     return snap.docs
       .map((doc) => serialize(doc.id, doc.data()))
-      .sort((a, b) => a.prazo.localeCompare(b.prazo) || b.criadoEm.localeCompare(a.criadoEm))
+      .sort(
+        (a, b) =>
+          TAREFA_PRIORIDADE_ORDEM.indexOf(a.prioridade) - TAREFA_PRIORIDADE_ORDEM.indexOf(b.prioridade) ||
+          a.prazo.localeCompare(b.prazo) ||
+          b.criadoEm.localeCompare(a.criadoEm),
+      )
   } catch (err) {
     console.error('[getTarefas]', err)
     return []
@@ -113,6 +121,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
   const titulo = ((formData.get('titulo') as string) || '').trim()
   const descricao = ((formData.get('descricao') as string) || '').trim()
   const prazo = ((formData.get('prazo') as string) || '').trim()
+  const prioridade = ((formData.get('prioridade') as string) || 'normal').trim()
   const responsavelUid = ((formData.get('responsavelUid') as string) || '').trim()
 
   const fieldErrors: TarefaFieldErrors = {}
@@ -120,6 +129,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
   else if (titulo.length > TAREFA_TITULO_MAX) fieldErrors.titulo = `Máximo de ${TAREFA_TITULO_MAX} caracteres.`
   if (descricao.length > TAREFA_DESCRICAO_MAX) fieldErrors.descricao = `Máximo de ${TAREFA_DESCRICAO_MAX} caracteres.`
   if (!ehDataValida(prazo)) fieldErrors.prazo = 'Informe o prazo.'
+  if (!ehTarefaPrioridade(prioridade)) fieldErrors.prioridade = 'Prioridade inválida.'
   if (!responsavelUid) fieldErrors.responsavelUid = 'Escolha o responsável.'
 
   let responsavelNome = ''
@@ -144,6 +154,7 @@ export async function salvarTarefa(formData: FormData): Promise<TarefaResponse> 
       titulo,
       descricao,
       prazo,
+      prioridade,
       responsavelUid,
       responsavelNome,
       responsavelEmail,

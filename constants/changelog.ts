@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-02-tarefas-prioridade',
+    date: '2026-10-02',
+    title: 'Prioridade nas tarefas',
+    tag: 'melhoria',
+    items: [
+      'Cada tarefa agora tem prioridade: Urgente, Importante ou Normal. A administração escolhe ao criar ou editar.',
+      'Tarefas urgentes e importantes ganham uma tag colorida e aparecem primeiro na lista.',
+      'Dá para filtrar a lista pela prioridade.',
+    ],
+  },
+  {
     id: '2026-10-02-leads-resultado-visita',
     date: '2026-10-02',
     title: 'Resultado da visita nos Leads',

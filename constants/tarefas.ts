@@ -25,6 +25,32 @@ export const TAREFA_STATUS: Record<TarefaStatus, { label: string; classes: strin
 
 export const TAREFA_STATUS_ORDEM: TarefaStatus[] = ['pendente', 'concluida', 'nao_concluida']
 
+export type TarefaPrioridade = 'urgente' | 'importante' | 'normal'
+
+/** Ordem de exibição: urgente primeiro. */
+export const TAREFA_PRIORIDADE_ORDEM: TarefaPrioridade[] = ['urgente', 'importante', 'normal']
+
+export const TAREFA_PRIORIDADE: Record<TarefaPrioridade, { label: string; classes: string }> = {
+  urgente: {
+    label: 'Urgente',
+    classes: 'border-rose-300 bg-rose-100 text-rose-700 adobe-dark:border-rose-500/40 adobe-dark:bg-rose-500/15 adobe-dark:text-rose-300',
+  },
+  importante: {
+    label: 'Importante',
+    classes:
+      'border-orange-200 bg-orange-50 text-orange-700 adobe-dark:border-orange-500/30 adobe-dark:bg-orange-500/10 adobe-dark:text-orange-300',
+  },
+  normal: {
+    label: 'Normal',
+    classes:
+      'border-neutral-200 bg-neutral-50 text-neutral-600 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md',
+  },
+}
+
+export function ehTarefaPrioridade(v: unknown): v is TarefaPrioridade {
+  return v === 'urgente' || v === 'importante' || v === 'normal'
+}
+
 export const TAREFA_TITULO_MAX = 140
 export const TAREFA_DESCRICAO_MAX = 4000
 export const TAREFA_COMENTARIO_MAX = 1000
