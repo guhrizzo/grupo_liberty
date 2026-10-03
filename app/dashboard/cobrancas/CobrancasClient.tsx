@@ -2001,6 +2001,26 @@ function valorAtualizado(p: Parcela): number {
 }
 
 /** Multa + juros por atraso da parcela (calculados até hoje no servidor). */
+/**
+ * "R$ 528,65 (R$ 400,00 da parcela + R$ 128,65 de multa/juros)": o que falta
+ * da parcela é o valor dela menos o que já foi pago; o resto do total devido
+ * é multa e juros. (O cálculo é o mesmo — só a forma de mostrar.)
+ */
+function FaltaTexto({ parcela: p }: { parcela: Parcela }) {
+  const restoParcela = Math.max(p.valorParcela - p.valorPago, 0)
+  const multaJuros = Math.max(p.valorRestante - restoParcela, 0)
+  if (multaJuros <= 0.01) return <>{formatCurrency(p.valorRestante)}</>
+  return (
+    <>
+      {formatCurrency(p.valorRestante)}{' '}
+      <span className="font-normal">
+        ({restoParcela > 0.01 ? `${formatCurrency(restoParcela)} da parcela + ` : ''}
+        {formatCurrency(multaJuros)} de multa/juros)
+      </span>
+    </>
+  )
+}
+
 function ParcelaEncargosInfo({
   parcela: p,
   canEdit,
@@ -2226,7 +2246,7 @@ function ParcelasList({
                   )}
                   {!p.pago && p.valorPago > 0 && (
                     <span className="ml-1 font-semibold text-sky-600">
-                      · falta {formatCurrency(p.valorRestante)}
+                      · falta <FaltaTexto parcela={p} />
                     </span>
                   )}
                 </p>
@@ -2312,7 +2332,7 @@ function ParcelasList({
                     </div>
                     {!p.pago && p.valorPago > 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
-                        pago {formatCurrency(p.valorPago)} · falta {formatCurrency(p.valorRestante)}
+                        pago {formatCurrency(p.valorPago)} · falta <FaltaTexto parcela={p} />
                       </p>
                     )}
                     <ParcelaEncargosInfo parcela={p} canEdit={canEdit} onIsentar={onIsentar} />
@@ -2438,7 +2458,7 @@ function ExtratoMesDetalhes({
                     {formatDate(p.dataVencimento)} · {formatCurrency(p.valorParcela)}
                     {!p.pago && p.valorPago > 0 && (
                       <span className="ml-1 font-semibold text-sky-600">
-                        · falta {formatCurrency(p.valorRestante)}
+                        · falta <FaltaTexto parcela={p} />
                       </span>
                     )}
                   </p>
