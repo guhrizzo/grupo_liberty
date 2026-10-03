@@ -92,10 +92,18 @@ export type AnotacaoResponse = {
   anotacao?: Anotacao
 }
 
+/** Última anotação de um processo — coluna "Última movimentação". */
+export interface UltimaAnotacao {
+  texto: string
+  autorNome: string
+  created_at: string
+}
+
 /** Contagem de anotações para exibir badges sem carregar as listas. */
 export interface AnotacoesContagem {
   geral: number
   porProcesso: Record<string, number>
+  ultimaPorProcesso: Record<string, UltimaAnotacao>
 }
 
 // ─── Prospecção de clientes ─────────────────────────────────────────────────

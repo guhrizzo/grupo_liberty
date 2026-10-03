@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-juridico-ultima-movimentacao',
+    date: '2026-10-03',
+    title: 'Última movimentação nos processos',
+    tag: 'melhoria',
+    items: [
+      'A lista de processos do Jurídico agora mostra a "Última movimentação": a anotação mais recente do processo, com quem escreveu e a data.',
+      'As colunas Tipo, Responsável e Prazo saíram da lista (continuam no cadastro do processo). Clique na movimentação para abrir as anotações.',
+    ],
+  },
+  {
     id: '2026-10-03-agenda',
     date: '2026-10-03',
     title: 'Agenda de compromissos com Google Agenda',

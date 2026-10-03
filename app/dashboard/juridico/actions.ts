@@ -467,7 +467,7 @@ export async function getAnotacoesProcesso(processoId: string): Promise<Anotacao
  * sem precisar carregar as listas completas.
  */
 export async function getAnotacoesContagem(): Promise<AnotacoesContagem> {
-  const vazio: AnotacoesContagem = { geral: 0, porProcesso: {} }
+  const vazio: AnotacoesContagem = { geral: 0, porProcesso: {}, ultimaPorProcesso: {} }
   try {
     await assertJuridicoAccess()
   } catch {
@@ -476,12 +476,20 @@ export async function getAnotacoesContagem(): Promise<AnotacoesContagem> {
 
   try {
     const snapshot = await adminDb.collection(ANOTACOES_COLLECTION).get()
-    const contagem: AnotacoesContagem = { geral: 0, porProcesso: {} }
+    const contagem: AnotacoesContagem = { geral: 0, porProcesso: {}, ultimaPorProcesso: {} }
     for (const doc of snapshot.docs) {
       const data = doc.data()
       if (data.escopo === 'processo' && data.processoId) {
         contagem.porProcesso[data.processoId] =
           (contagem.porProcesso[data.processoId] ?? 0) + 1
+        const atual = contagem.ultimaPorProcesso[data.processoId]
+        if (!atual || (data.created_at ?? '') > atual.created_at) {
+          contagem.ultimaPorProcesso[data.processoId] = {
+            texto: data.texto ?? '',
+            autorNome: data.autorNome || data.autorEmail || 'Usuário',
+            created_at: data.created_at ?? '',
+          }
+        }
       } else {
         contagem.geral += 1
       }

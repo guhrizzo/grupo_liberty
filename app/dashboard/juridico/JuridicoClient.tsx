@@ -185,10 +185,20 @@ export default function JuridicoClient({
     try {
       const lista = await getAnotacoesProcesso(processoId)
       setProcAnotacoes(lista)
-      setContagem((c) => ({
-        ...c,
-        porProcesso: { ...c.porProcesso, [processoId]: lista.length },
-      }))
+      setContagem((c) => {
+        // `lista` vem da mais recente para a mais antiga.
+        const ultimaPorProcesso = { ...c.ultimaPorProcesso }
+        if (lista[0]) {
+          ultimaPorProcesso[processoId] = {
+            texto: lista[0].texto,
+            autorNome: lista[0].autorNome,
+            created_at: lista[0].created_at,
+          }
+        } else {
+          delete ultimaPorProcesso[processoId]
+        }
+        return { ...c, porProcesso: { ...c.porProcesso, [processoId]: lista.length }, ultimaPorProcesso }
+      })
     } finally {
       setProcLoading(false)
     }
@@ -913,9 +923,7 @@ export default function JuridicoClient({
                 <THead>
                   <tr>
                     <TH>Título / Cliente</TH>
-                    <TH>Tipo</TH>
-                    <TH>Responsável</TH>
-                    <TH>Prazo</TH>
+                    <TH>Última movimentação</TH>
                     <TH>Status</TH>
                     <TH align="right">Ações</TH>
                   </tr>
@@ -935,9 +943,26 @@ export default function JuridicoClient({
                           </div>
                         )}
                       </TD>
-                      <TD>{p.tipo}</TD>
-                      <TD>{p.responsavel}</TD>
-                      <TD className="text-xs">{formatDate(p.prazo)}</TD>
+                      <TD className="min-w-[220px] max-w-sm">
+                        {contagem.ultimaPorProcesso[p.id] ? (
+                          <button
+                            type="button"
+                            onClick={() => abrirAnotProcesso(p)}
+                            title="Ver anotações do processo"
+                            className="block w-full text-left cursor-pointer"
+                          >
+                            <span className="line-clamp-2 whitespace-normal text-xs text-neutral-800">
+                              {contagem.ultimaPorProcesso[p.id].texto}
+                            </span>
+                            <span className="mt-0.5 block text-[11px] text-neutral-400">
+                              {contagem.ultimaPorProcesso[p.id].autorNome} ·{' '}
+                              {formatDate(contagem.ultimaPorProcesso[p.id].created_at)}
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs text-neutral-400">Sem movimentação</span>
+                        )}
+                      </TD>
                       <TD>
                         <StatusBadge tone={STATUS_TONE[p.status]} className="whitespace-nowrap">
                           {STATUS_LABELS[p.status]}
