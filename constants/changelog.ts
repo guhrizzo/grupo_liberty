@@ -26,10 +26,11 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: '2026-10-03-juros-ate-pagamento-parcial',
     date: '2026-10-03',
-    title: 'Juros até o pagamento parcial continuam devidos',
+    title: 'Pagamento atrasado quita primeiro a multa e os juros',
     tag: 'correcao',
     items: [
-      'Quando o cliente paga parte de uma parcela atrasada, os juros do período até esse pagamento (sobre o valor cheio) continuam sendo cobrados. Depois dele, os juros correm só sobre o valor que sobrou.',
+      'Quando o cliente paga uma parcela atrasada, o pagamento quita primeiro a multa e os juros acumulados até aquele dia, e o restante abate a parcela.',
+      'Depois disso, os juros correm só sobre o que sobrou da parcela.',
     ],
   },
   {

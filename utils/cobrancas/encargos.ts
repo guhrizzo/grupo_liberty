@@ -11,12 +11,10 @@
 // - Juros compostos ao dia (`jurosMensalPct`% / 30 por dia, capitalizados
 //   diariamente: saldo × ((1 + taxa)^dias − 1)), só sobre o
 //   saldo da parcela (nunca sobre a multa), contados do vencimento ou do
-//   último pagamento. No pagamento parcial, os juros acumulados até ele
-//   continuam devidos (sem novos juros sobre eles) e, dali em diante, correm
-//   só sobre o saldo restante.
-// - Cada pagamento abate primeiro a parcela; o que sobra paga a multa e depois
-//   os juros. A multa e os juros que um pagamento não cobrir ficam em aberto
-//   (regra do Gustavo, 2026-10-03).
+//   último pagamento.
+// - Cada pagamento quita primeiro os encargos devidos até a data dele (multa,
+//   depois juros) e o resto abate a parcela; os juros seguintes correm sobre o
+//   saldo que sobrou da parcela (regra do Gustavo, 2026-10-03).
 // - Sem carência: vencimento + 1 dia já cobra multa + 1 dia de juros.
 // - Com `encargosDesde`, parcelas vencidas antes dessa data não têm encargos.
 
@@ -159,29 +157,28 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
       continue
     }
 
-    // O pagamento abate primeiro a parcela; o que sobra paga a multa e depois
-    // os juros devidos naquele dia.
+    // O pagamento quita primeiro os encargos devidos até o dia — multa, juros
+    // antigos ainda em aberto e juros do período — e o resto abate a parcela.
     const jurosDia = jurosAte(pg.data)
-    const paraPrincipal = round2(Math.min(valor, principal))
-    let sobra = round2(valor - paraPrincipal)
+    let sobra = valor
     const paraMulta = round2(Math.min(sobra, multaPendente))
     multaPendente = round2(multaPendente - paraMulta)
     sobra = round2(sobra - paraMulta)
-    // Juros de antes (já acumulados em pagamentos anteriores), depois os do dia.
     const paraJurosAntigos = round2(Math.min(sobra, jurosFixos))
     jurosFixos = round2(jurosFixos - paraJurosAntigos)
     sobra = round2(sobra - paraJurosAntigos)
     const paraJuros = round2(Math.min(sobra, jurosDia))
     sobra = round2(sobra - paraJuros)
+    const paraPrincipal = round2(Math.min(sobra, principal))
+    sobra = round2(sobra - paraPrincipal)
     principal = round2(principal - paraPrincipal)
     const paraEncargos = round2(paraMulta + paraJurosAntigos + paraJuros)
     principalPago += paraPrincipal
     encargosPagos += paraEncargos
     excedente = round2(excedente + sobra)
 
-    // Os juros acumulados até o pagamento (sobre o saldo de antes dele) são
-    // devidos; o que este pagamento não cobriu fica em aberto, sem novos juros.
-    // Daqui em diante os juros correm só sobre o saldo que sobrou.
+    // Juros do período não cobertos ficam em aberto (sem novos juros sobre
+    // eles). Daqui em diante os juros correm só sobre o saldo da parcela.
     jurosGerados += jurosDia
     jurosFixos = round2(jurosFixos + jurosDia - paraJuros)
     if (diasEntre(jurosDesde, pg.data) > 0) jurosDesde = pg.data
