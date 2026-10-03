@@ -29,10 +29,14 @@ import {
   IconWorld,
   IconSun,
   IconMoon,
+  IconArrowsSort,
+  IconArrowUp,
+  IconArrowDown,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
 import { temAcessoPagina, type PermissionKey } from '@/constants/permissoes'
-import { ConfirmDialog, useToast } from './ui'
+import { Button, ConfirmDialog, Modal, useToast } from './ui'
+import { salvarOrdemMenu } from '@/app/dashboard/menu-actions'
 import { useDashboardTheme } from './DashboardThemeProvider'
 
 type NavItem = {
@@ -44,6 +48,7 @@ type NavItem = {
   permissionKey?: PermissionKey
 }
 
+/** Ordem padrão do menu. Cada usuário pode reordenar em "Organizar menu". */
 const NAV_ITEMS: NavItem[] = [
   {
     href: '/dashboard',
@@ -52,10 +57,10 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
-    href: '/dashboard/veiculos',
-    label: 'Veículos',
-    icon: 'car',
-    permissionKey: 'veiculos',
+    href: '/dashboard/demandas',
+    label: 'Demandas',
+    icon: 'checklist',
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
     href: '/dashboard/consulta-fipe',
@@ -70,22 +75,28 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'propostas',
   },
   {
-    href: '/dashboard/metas',
-    label: 'Metas',
-    icon: 'trophy',
-    permissionKey: 'propostas',
-  },
-  {
-    href: '/dashboard/anuncios',
-    label: 'Anúncios',
-    icon: 'megaphone',
-    permissionKey: 'anuncios',
+    href: '/dashboard/veiculos',
+    label: 'Veículos',
+    icon: 'car',
+    permissionKey: 'veiculos',
   },
   {
     href: '/dashboard/contratos',
     label: 'Contratos',
     icon: 'file-text',
     permissionKey: 'contratos',
+  },
+  {
+    href: '/dashboard/manutencao',
+    label: 'Manutenção',
+    icon: 'wrench',
+    permissionKey: 'manutencao',
+  },
+  {
+    href: '/dashboard/metas',
+    label: 'Metas',
+    icon: 'trophy',
+    permissionKey: 'propostas',
   },
   {
     href: '/dashboard/financeiro',
@@ -100,10 +111,10 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'cobrancas',
   },
   {
-    href: '/dashboard/juridico',
-    label: 'Jurídico',
-    icon: 'scales',
-    permissionKey: 'juridico',
+    href: '/dashboard/anuncios',
+    label: 'Anúncios',
+    icon: 'megaphone',
+    permissionKey: 'anuncios',
   },
   {
     href: '/dashboard/leads',
@@ -112,28 +123,16 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'leads',
   },
   {
-    href: '/dashboard/manutencao',
-    label: 'Manutenção',
-    icon: 'wrench',
-    permissionKey: 'manutencao',
+    href: '/dashboard/juridico',
+    label: 'Jurídico',
+    icon: 'scales',
+    permissionKey: 'juridico',
   },
   {
     href: '/dashboard/usuarios',
     label: 'Usuários',
     icon: 'users',
     permissionKey: 'usuarios',
-  },
-  {
-    href: '/dashboard/analytics',
-    label: 'Visitantes',
-    icon: 'chart',
-    permissionKey: 'analytics',
-  },
-  {
-    href: '/dashboard/demandas',
-    label: 'Demandas',
-    icon: 'checklist',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
     href: '/dashboard/novidades',
@@ -146,6 +145,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Bugs & Melhorias',
     icon: 'bug',
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+  },
+  {
+    href: '/dashboard/analytics',
+    label: 'Visitantes',
+    icon: 'chart',
+    permissionKey: 'analytics',
   },
 ]
 
@@ -214,6 +219,18 @@ interface DashboardShellProps {
   anunciosPendentesCount?: number
   tarefasPendentesCount?: number
   permissions?: Record<string, boolean>
+  /** Ordem do menu escolhida pelo usuário (hrefs); `null` = ordem padrão. */
+  ordemMenu?: string[] | null
+}
+
+/**
+ * Aplica a ordem do usuário: itens da lista dele primeiro, na ordem dele; o que
+ * não está na lista (ex.: aba nova) vai para o fim, na ordem padrão.
+ */
+function ordenarItens(itens: NavItem[], ordem: string[] | null): NavItem[] {
+  if (!ordem || ordem.length === 0) return itens
+  const pos = new Map(ordem.map((h, i) => [h, i]))
+  return [...itens].sort((a, b) => (pos.get(a.href) ?? Infinity) - (pos.get(b.href) ?? Infinity))
 }
 
 export default function DashboardShell({
@@ -225,11 +242,14 @@ export default function DashboardShell({
   anunciosPendentesCount = 0,
   tarefasPendentesCount = 0,
   permissions = {},
+  ordemMenu = null,
 }: DashboardShellProps) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [ordem, setOrdem] = useState<string[] | null>(ordemMenu)
+  const [organizando, setOrganizando] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
   const toast = useToast()
   const { theme, toggleTheme } = useDashboardTheme()
@@ -251,12 +271,15 @@ export default function DashboardShell({
     })
   }
 
-  const allowedItems = NAV_ITEMS.filter((item) => {
-    if (item.permissionKey) return temAcessoPagina(role, permissions, item.permissionKey)
-    if (!role) return false
-    if (role === 'admin') return true
-    return item.roles?.includes(role) ?? false
-  })
+  const allowedItems = ordenarItens(
+    NAV_ITEMS.filter((item) => {
+      if (item.permissionKey) return temAcessoPagina(role, permissions, item.permissionKey)
+      if (!role) return false
+      if (role === 'admin') return true
+      return item.roles?.includes(role) ?? false
+    }),
+    ordem,
+  )
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname?.startsWith(href)
@@ -390,7 +413,7 @@ export default function DashboardShell({
                 ? propostasPendentesCount
                 : item.href === '/dashboard/anuncios'
                   ? anunciosPendentesCount
-                  : item.href === '/dashboard/tarefas'
+                  : item.href === '/dashboard/demandas'
                     ? tarefasPendentesCount
                     : 0
 
@@ -463,6 +486,18 @@ export default function DashboardShell({
             </span>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setOrganizando(true)}
+          title="Organizar menu"
+          aria-label="Organizar menu"
+          className={`w-full mb-2 inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-200 ease-out cursor-pointer adobe-dark:border-[var(--color-adobe-line)] adobe-dark:hover:bg-[var(--color-adobe-bg-3)] adobe-dark:hover:border-[var(--color-adobe-bg-4)] ${
+            collapsed ? 'md:px-0 md:py-2.5' : 'px-3'
+          }`}
+        >
+          <IconArrowsSort size={16} stroke={2} />
+          <span className={collapsed ? 'md:hidden' : ''}>Organizar menu</span>
+        </button>
         <button
           type="button"
           onClick={toggleTheme}
@@ -547,7 +582,125 @@ export default function DashboardShell({
         loading={isLoggingOut}
       />
 
+      {organizando && (
+        <OrganizarMenuModal
+          itens={allowedItems}
+          onClose={() => setOrganizando(false)}
+          onSaved={(nova) => {
+            setOrdem(nova)
+            setOrganizando(false)
+          }}
+        />
+      )}
+
       {isLoggingOut && <LoadingBar className="h-0.5 fixed top-0 left-0 right-0 z-[100]" />}
     </>
+  )
+}
+
+// ─── Modal "Organizar menu" ──────────────────────────────────────────────────
+
+function OrganizarMenuModal({
+  itens,
+  onClose,
+  onSaved,
+}: {
+  /** Itens que o usuário vê, já na ordem atual dele. */
+  itens: NavItem[]
+  onClose: () => void
+  onSaved: (ordem: string[] | null) => void
+}) {
+  const toast = useToast()
+  const [lista, setLista] = useState(itens)
+  const [salvando, setSalvando] = useState(false)
+
+  function mover(i: number, delta: number) {
+    const j = i + delta
+    if (j < 0 || j >= lista.length) return
+    setLista((atual) => {
+      const nova = [...atual]
+      ;[nova[i], nova[j]] = [nova[j], nova[i]]
+      return nova
+    })
+  }
+
+  async function salvar(ordem: string[] | null) {
+    setSalvando(true)
+    try {
+      const res = await salvarOrdemMenu(ordem)
+      if (res.error) {
+        toast.error(res.error)
+        return
+      }
+      toast.success(res.success || 'Menu atualizado.')
+      onSaved(ordem)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const BTN =
+    'grid h-8 w-8 place-items-center rounded-lg border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed adobe-dark:border-[var(--color-adobe-line)] adobe-dark:bg-[var(--color-adobe-bg-2)] adobe-dark:text-[var(--color-adobe-text-md)]'
+
+  return (
+    <Modal
+      open
+      onClose={() => !salvando && onClose()}
+      title="Organizar menu"
+      description="Use as setas para escolher a ordem dos itens no seu menu. Só muda para você."
+    >
+      <ol className="mt-4 max-h-[55vh] space-y-1 overflow-y-auto pr-1">
+        {lista.map((item, i) => (
+          <li
+            key={item.href}
+            className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 adobe-dark:border-[var(--color-adobe-line-soft)] adobe-dark:bg-[var(--color-adobe-bg-3)]"
+          >
+            <span className="text-neutral-500 adobe-dark:text-[var(--color-adobe-text-lo)]">
+              <NavIcon name={item.icon} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-800 adobe-dark:text-[var(--color-adobe-text-hi)]">
+              {item.label}
+            </span>
+            <button
+              type="button"
+              onClick={() => mover(i, -1)}
+              disabled={i === 0}
+              aria-label={`Subir ${item.label}`}
+              className={BTN}
+            >
+              <IconArrowUp size={14} stroke={2.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => mover(i, 1)}
+              disabled={i === lista.length - 1}
+              aria-label={`Descer ${item.label}`}
+              className={BTN}
+            >
+              <IconArrowDown size={14} stroke={2.5} />
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
+        <Button type="button" variant="ghost" size="sm" onClick={() => salvar(null)} disabled={salvando}>
+          Restaurar padrão
+        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="liberty"
+            size="sm"
+            loading={salvando}
+            onClick={() => salvar(lista.map((it) => it.href))}
+          >
+            Salvar
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

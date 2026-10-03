@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-02-organizar-menu',
+    date: '2026-10-02',
+    title: 'Organize o seu menu',
+    tag: 'novo',
+    items: [
+      'Novo botão "Organizar menu", no rodapé do menu lateral: use as setas para colocar os itens na ordem que preferir. A ordem é só sua e vale em qualquer aparelho.',
+      '"Restaurar padrão" volta para a ordem original, que também foi reorganizada (Demandas logo abaixo da Visão Geral).',
+      'O menu agora mostra quantas tarefas você tem pendentes em Demandas.',
+    ],
+  },
+  {
     id: '2026-10-02-metas-valor-fipe',
     date: '2026-10-02',
     title: 'Meta em R$ pelo valor FIPE',

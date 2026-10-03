@@ -19,12 +19,15 @@ export default async function DashboardLayout({
   let role: string | null = null
   let displayName: string | null = null
   let permissions: Record<string, boolean> = {}
+  let ordemMenu: string[] | null = null
 
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
     role = profileDoc.data()?.role || null
     permissions = profileDoc.data()?.permissions || {}
+    const ordem = profileDoc.data()?.sidebarOrdem
+    ordemMenu = Array.isArray(ordem) ? ordem.filter((h: unknown): h is string => typeof h === 'string') : null
     displayName = ((decoded as unknown) as { name?: string; displayName?: string }).name
       || ((decoded as unknown) as { name?: string; displayName?: string }).displayName
       || null
@@ -87,6 +90,7 @@ export default async function DashboardLayout({
         anunciosPendentesCount={anunciosPendentesCount}
         tarefasPendentesCount={tarefasPendentesCount}
         permissions={permissions}
+        ordemMenu={ordemMenu}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
         <div className="mx-auto max-w-7xl">{children}</div>
