@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-rede-de-apoio',
+    date: '2026-10-03',
+    title: 'Nova aba "Rede de apoio"',
+    tag: 'novo',
+    items: [
+      'Cadastre amigos, parceiros, conhecidos e mentorados com a cidade e o estado onde moram, telefone e se podem receber ou ir ver um veículo.',
+      'A lista fica agrupada por estado, com busca por nome ou cidade e botão direto para o WhatsApp. Serve para achar alguém de confiança quando fechamos negócio longe da sede.',
+    ],
+  },
+  {
     id: '2026-10-03-cobrancas-dias-vencimento-desktop',
     date: '2026-10-03',
     title: 'Dias até o vencimento no computador',
