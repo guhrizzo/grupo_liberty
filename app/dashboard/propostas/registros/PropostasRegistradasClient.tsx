@@ -8,6 +8,8 @@ import {
   IconCalendar,
   IconCar,
   IconCash,
+  IconCircleCheck,
+  IconArrowBackUp,
   IconDownload,
   IconMail,
   IconPencil,
@@ -18,12 +20,18 @@ import {
   IconWallet,
   IconX,
 } from '@tabler/icons-react'
-import { deletePropostaRegistrada, type PropostaRegistrada } from './actions'
-import { Breadcrumb, EmptyState, ConfirmDialog, useToast } from '@/app/components/ui'
+import {
+  definirPropostaFechada,
+  deletePropostaRegistrada,
+  type PropostaRegistrada,
+} from './actions'
+import type { VendedorOpcao } from '@/app/dashboard/metas/types'
+import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 
 interface PropostasRegistradasClientProps {
   propostas: PropostaRegistrada[]
+  vendedores: VendedorOpcao[]
 }
 
 function formatDate(dateStr: string) {
@@ -48,7 +56,7 @@ function mesLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-export default function PropostasRegistradasClient({ propostas }: PropostasRegistradasClientProps) {
+export default function PropostasRegistradasClient({ propostas, vendedores }: PropostasRegistradasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [searchNome, setSearchNome] = useState('')
@@ -56,6 +64,9 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [fechando, setFechando] = useState<PropostaRegistrada | null>(null)
+  const [confirmReabrir, setConfirmReabrir] = useState<PropostaRegistrada | null>(null)
+  const [reabrindo, setReabrindo] = useState(false)
 
   const hasActiveFilters = Boolean(searchNome.trim() || selectedMonth)
 
@@ -107,6 +118,22 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
       toast.error(message, 'Erro inesperado')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleReabrir = async (p: PropostaRegistrada) => {
+    setReabrindo(true)
+    try {
+      const res = await definirPropostaFechada(p.id, null)
+      if (res.error) {
+        toast.error(res.error, 'Não foi possível reabrir')
+      } else {
+        toast.success(res.success || 'Proposta reaberta.')
+        router.refresh()
+      }
+    } finally {
+      setReabrindo(false)
+      setConfirmReabrir(null)
     }
   }
 
@@ -304,7 +331,16 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
                         Registrada em {formatDate(p.created_at)}
                         {p.vendedor_email ? ` · por ${p.vendedor_email}` : ''}
                       </span>
-                      <h3 className="mt-1 text-base font-bold text-neutral-900">{p.nome}</h3>
+                      <h3 className="mt-1 flex flex-wrap items-center gap-2 text-base font-bold text-neutral-900">
+                        {p.nome}
+                        {p.status === 'aceito' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">
+                            <IconCircleCheck size={12} stroke={2.5} />
+                            Fechada{p.fechada_por_nome ? ` por ${p.fechada_por_nome}` : ''}
+                            {p.fechada_em ? ` · ${new Date(p.fechada_em).toLocaleDateString('pt-BR')}` : ''}
+                          </span>
+                        )}
+                      </h3>
                       <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
                         {p.email && (
                           <span className="inline-flex items-center gap-1">
@@ -321,7 +357,26 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {p.status === 'aceito' ? (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReabrir(p)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                        >
+                          <IconArrowBackUp size={14} stroke={2.5} />
+                          Reabrir
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setFechando(p)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-ui cursor-pointer"
+                        >
+                          <IconCircleCheck size={14} stroke={2.5} />
+                          Marcar como fechada
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => handleDownloadPdf(p)}
@@ -403,6 +458,29 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
         </div>
       )}
 
+      {fechando && (
+        <FecharPropostaModal
+          key={fechando.id}
+          proposta={fechando}
+          vendedores={vendedores}
+          onClose={() => setFechando(null)}
+          onDone={() => {
+            setFechando(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmReabrir != null}
+        onClose={() => !reabrindo && setConfirmReabrir(null)}
+        onConfirm={() => confirmReabrir && handleReabrir(confirmReabrir)}
+        title="Reabrir proposta"
+        description="A proposta volta para pendente e deixa de contar na meta do vendedor."
+        confirmLabel="Reabrir"
+        loading={reabrindo}
+      />
+
       <ConfirmDialog
         open={confirmDeleteId != null}
         onClose={() => setConfirmDeleteId(null)}
@@ -414,5 +492,81 @@ export default function PropostasRegistradasClient({ propostas }: PropostasRegis
         loading={deletingId != null}
       />
     </div>
+  )
+}
+
+// ─── Modal "Quem fechou?" ────────────────────────────────────────────────────
+
+function FecharPropostaModal({
+  proposta,
+  vendedores,
+  onClose,
+  onDone,
+}: {
+  proposta: PropostaRegistrada
+  vendedores: VendedorOpcao[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const toast = useToast()
+  // Já vem preenchido com quem cadastrou, se ele ainda estiver na lista.
+  const [vendedorUid, setVendedorUid] = useState(
+    vendedores.some((v) => v.uid === proposta.vendedor_uid) ? (proposta.vendedor_uid ?? '') : '',
+  )
+  const [salvando, setSalvando] = useState(false)
+
+  const opcoes = [
+    { value: '', label: 'Selecione o vendedor' },
+    ...vendedores.map((v) => ({ value: v.uid, label: v.nome })),
+  ]
+
+  async function confirmar() {
+    if (!vendedorUid) {
+      toast.error('Escolha quem fechou a proposta.')
+      return
+    }
+    setSalvando(true)
+    try {
+      const res = await definirPropostaFechada(proposta.id, vendedorUid)
+      if (res.error) {
+        toast.error(res.error, 'Não foi possível fechar')
+        return
+      }
+      toast.success(res.success || 'Proposta fechada.')
+      onDone()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => !salvando && onClose()}
+      title="Marcar como fechada"
+      description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
+    >
+      <div className="mt-4 space-y-4">
+        <Select
+          label="Quem fechou?"
+          hint={
+            vendedores.length === 0
+              ? 'Nenhum vendedor cadastrado. Peça ao ADM supremo para definir os vendedores na aba Metas.'
+              : 'A proposta conta para a meta deste vendedor no mês de hoje.'
+          }
+          value={vendedorUid}
+          onChange={(e) => setVendedorUid(e.target.value)}
+          options={opcoes}
+        />
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="liberty" loading={salvando} onClick={confirmar}>
+            Fechar proposta
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
