@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-ler-placa-camera-ia',
+    date: '2026-10-03',
+    title: 'Leitura de placa pela câmera mais precisa',
+    tag: 'melhoria',
+    items: [
+      'O botão "Câmera" da Consulta FIPE agora lê a placa com inteligência artificial: acerta mesmo com a foto um pouco de longe, de lado ou com pouca luz.',
+    ],
+  },
+  {
     id: '2026-10-03-ler-placa-camera',
     date: '2026-10-03',
     title: 'Ler placa pela câmera',

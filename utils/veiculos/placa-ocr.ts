@@ -1,4 +1,5 @@
-// Acha uma placa brasileira no texto devolvido pelo OCR da câmera.
+// Acha uma placa brasileira num texto lido de foto (hoje, a resposta da IA em
+// utils/veiculos/ler-placa-ia.ts — que às vezes vem com traço ou texto a mais).
 //
 // Formatos: antiga ABC1234 e Mercosul ABC1D23 — 3 letras, 1 dígito, letra ou
 // dígito, 2 dígitos. O OCR confunde letra com número (O/0, I/1, S/5, B/8…),

@@ -2,14 +2,11 @@
 
 import { useRef, useState } from 'react'
 import { IconCamera, IconLoader2 } from '@tabler/icons-react'
-import { extrairPlaca } from '@/utils/veiculos/placa-ocr'
 
-/** Recorte da foto (frações da largura/altura) a ser lido. */
-type Recorte = { x: number; y: number; w: number; h: number }
-
-const FOTO_INTEIRA: Recorte = { x: 0, y: 0, w: 1, h: 1 }
-// A placa costuma ficar no meio quando a pessoa mira nela.
-const CENTRO: Recorte = { x: 0.15, y: 0.25, w: 0.7, h: 0.5 }
+// Foto do celular tem 12MP+; para ler a placa basta bem menos — e a foto
+// precisa caber no limite de corpo da Vercel (~4,5MB).
+const LADO_MAX = 1600
+const QUALIDADE_JPEG = 0.85
 
 function carregarImagem(arquivo: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -27,43 +24,23 @@ function carregarImagem(arquivo: File): Promise<HTMLImageElement> {
   })
 }
 
-/** Recorta, redimensiona e passa para tons de cinza com contraste esticado. */
-function prepararImagem(img: HTMLImageElement, r: Recorte): HTMLCanvasElement {
-  const sx = img.naturalWidth * r.x
-  const sy = img.naturalHeight * r.y
-  const sw = img.naturalWidth * r.w
-  const sh = img.naturalHeight * r.h
-  const escala = Math.min(1600 / sw, 2)
+/** Reduz a foto e devolve o JPEG em base64 (sem o prefixo `data:`). */
+async function fotoParaBase64(arquivo: File): Promise<string> {
+  const img = await carregarImagem(arquivo)
+  const escala = Math.min(1, LADO_MAX / Math.max(img.naturalWidth, img.naturalHeight))
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(sw * escala)
-  canvas.height = Math.round(sh * escala)
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) return canvas
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-
-  const dados = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const px = dados.data
-  let min = 255
-  let max = 0
-  for (let i = 0; i < px.length; i += 4) {
-    const cinza = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]
-    px[i] = cinza
-    if (cinza < min) min = cinza
-    if (cinza > max) max = cinza
-  }
-  const faixa = Math.max(max - min, 1)
-  for (let i = 0; i < px.length; i += 4) {
-    const v = ((px[i] - min) / faixa) * 255
-    px[i] = px[i + 1] = px[i + 2] = v
-  }
-  ctx.putImageData(dados, 0, 0)
-  return canvas
+  canvas.width = Math.round(img.naturalWidth * escala)
+  canvas.height = Math.round(img.naturalHeight * escala)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas indisponível.')
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+  return canvas.toDataURL('image/jpeg', QUALIDADE_JPEG).split(',')[1] ?? ''
 }
 
 /**
- * Botão que abre a câmera do celular (ou o seletor de foto no computador), lê
- * a placa com OCR no próprio navegador (Tesseract, sem custo) e devolve a
- * placa encontrada. Quem usa decide o que fazer — ex.: já buscar a FIPE.
+ * Botão que abre a câmera do celular (ou o seletor de foto no computador) e
+ * lê a placa com IA no servidor (/api/ler-placa). Devolve a placa encontrada;
+ * quem usa decide o que fazer — ex.: já buscar a FIPE.
  */
 export default function LerPlacaCamera({
   onPlaca,
@@ -80,29 +57,15 @@ export default function LerPlacaCamera({
   async function lerFoto(arquivo: File) {
     setLendo(true)
     try {
-      const img = await carregarImagem(arquivo)
-      // Import dinâmico: o Tesseract (e os dados de idioma, via CDN) só
-      // carregam quando alguém usa a câmera.
-      const { createWorker } = await import('tesseract.js')
-      const worker = await createWorker('eng')
-      try {
-        // Fica no modo de página padrão (bloco único): no tesseract.js 7 o
-        // modo "texto esparso" devolve vazio até para uma placa nítida.
-        await worker.setParameters({
-          tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-',
-        })
-        for (const recorte of [FOTO_INTEIRA, CENTRO]) {
-          const { data } = await worker.recognize(prepararImagem(img, recorte))
-          const placa = extrairPlaca(data.text)
-          if (placa) {
-            onPlaca(placa)
-            return
-          }
-        }
-        onErro('Não consegui ler a placa. Tire a foto mais de perto, com a placa reta e bem iluminada, ou digite.')
-      } finally {
-        await worker.terminate()
-      }
+      const imagem = await fotoParaBase64(arquivo)
+      const res = await fetch('/api/ler-placa', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ imagem, tipo: 'image/jpeg' }),
+      })
+      const data = (await res.json().catch(() => ({}))) as { placa?: string; error?: string }
+      if (res.ok && data.placa) onPlaca(data.placa)
+      else onErro(data.error || 'Não consegui ler a placa. Tente de novo ou digite.')
     } catch (err) {
       console.error('[LerPlacaCamera]', err)
       onErro('Erro ao ler a foto. Tente de novo ou digite a placa.')

@@ -27,7 +27,6 @@
     "server-only": "^0.0.1",
     "sharp": "^0.34.5",
     "tabler": "^1.0.0",
-    "tesseract.js": "^7.0.0",
     "three": "^0.185.1"
   },
   "devDependencies": {
