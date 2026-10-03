@@ -30,6 +30,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'melhoria',
     items: [
       'Em Cobranças, no computador, a coluna Vencimento das parcelas agora mostra quantos dias faltam ("em 4 dias") ou há quantos dias está atrasada, como já aparecia no celular.',
+    id: '2026-10-03-leads-card-recolhido',
+    date: '2026-10-03',
+    title: 'Leads mais compactos no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada lead aparece resumido (nome, CPF, cidade e veículo). Toque na setinha para ver os detalhes, registrar visita e as ações.',
     ],
   },
   {
