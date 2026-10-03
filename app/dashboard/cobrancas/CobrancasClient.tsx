@@ -2025,8 +2025,8 @@ function ParcelaEncargosInfo({
       <IconPercentage size={10} className="shrink-0" />
       <span>
         <span className="text-neutral-500">Valor original {formatCurrency(p.valorParcela)}</span> + multa{' '}
-        {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
-        dia{e.diasAtraso === 1 ? '' : 's'})
+        {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasJuros}{' '}
+        dia{e.diasJuros === 1 ? '' : 's'} de juros)
       </span>
       {e.pagos > 0.01 && (
         <span className="text-neutral-500">· {formatCurrency(e.pagos)} de encargos já pagos</span>
@@ -2980,7 +2980,7 @@ function PagamentoModal({
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="text-neutral-500">
-                    Juros ({calculo.diasAtraso} dia{calculo.diasAtraso === 1 ? '' : 's'} de atraso)
+                    Juros ({calculo.diasJuros} dia{calculo.diasJuros === 1 ? '' : 's'})
                   </span>
                   <span className="font-bold text-rose-600">{formatCurrency(calculo.juros)}</span>
                 </div>
@@ -3457,7 +3457,7 @@ function IsentarEncargosModal({
                   </div>
                   <div className="mt-1 flex items-center justify-between text-xs">
                     <span className="text-neutral-500">
-                      Juros ({e.diasAtraso} dia{e.diasAtraso === 1 ? '' : 's'})
+                      Juros ({e.diasJuros} dia{e.diasJuros === 1 ? '' : 's'})
                     </span>
                     <span className="font-bold text-rose-600">{formatCurrency(e.juros)}</span>
                   </div>

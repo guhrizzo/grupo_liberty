@@ -155,7 +155,7 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
           diasAtraso: 1,
           encargos:
             calculo.encargosPendentes > 0.01
-              ? { multa: calculo.multa, juros: calculo.juros, pendentes: calculo.encargosPendentes }
+              ? { multa: calculo.multa, juros: calculo.juros, pendentes: calculo.encargosPendentes, diasJuros: calculo.diasJuros }
               : undefined,
           totalDevido: calculo.totalDevido,
         })

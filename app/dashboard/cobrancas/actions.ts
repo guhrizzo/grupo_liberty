@@ -42,6 +42,8 @@ export interface EncargosParcela {
   multa: number
   juros: number
   diasAtraso: number
+  /** Dias de juros em aberto (do vencimento ou do último pagamento). */
+  diasJuros: number
   /** Ainda não pagos (entram em `valorRestante`). */
   pendentes: number
   /** Já quitados por pagamentos. */
@@ -263,6 +265,7 @@ function serializeParcela(
           multa: calculo.multa,
           juros: calculo.juros,
           diasAtraso: calculo.diasAtraso,
+          diasJuros: calculo.diasJuros,
           pendentes: calculo.encargosPendentes,
           pagos: calculo.encargosPagos,
         }
@@ -753,6 +756,7 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
                     multa: alvo.calculo.multa,
                     juros: alvo.calculo.juros,
                     pendentes: alvo.calculo.encargosPendentes,
+                    diasJuros: alvo.calculo.diasJuros,
                   }
                 : undefined,
             totalDevido: alvo.calculo.totalDevido,

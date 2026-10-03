@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-encargos-sobre-saldo',
+    date: '2026-10-03',
+    title: 'Multa e juros sobre o saldo em aberto',
+    tag: 'melhoria',
+    items: [
+      'Pagamento parcial agora abate primeiro a parcela. A multa (5%) e os juros (0,33% ao dia) passam a ser calculados só sobre o que ficou em aberto, contando a partir da data do pagamento.',
+      'Quem paga atrasado só o valor da parcela continua devendo a multa e os juros daquele dia.',
+    ],
+  },
+  {
     id: '2026-10-03-encargos-cobrancas-antigas',
     date: '2026-10-03',
     title: 'Multa e juros também nas cobranças antigas',
