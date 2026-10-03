@@ -52,7 +52,7 @@ export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
                         <td style="border-top:1px solid #fecdd3;padding-top:14px;margin-top:14px;">
                           <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                             ${linhaEncargo('Multa por atraso', formatCurrencyBR(encargos.multa))}
-                            ${linhaEncargo(`Juros (${encargos.diasJuros ?? diasAtraso} dia${(encargos.diasJuros ?? diasAtraso) === 1 ? '' : 's'})`, formatCurrencyBR(encargos.juros))}
+                            ${linhaEncargo(`Juros (${diasAtraso} dia${diasAtraso === 1 ? '' : 's'})`, formatCurrencyBR(encargos.juros))}
                             ${encargos.pendentes < encargos.multa + encargos.juros - 0.01 ? linhaEncargo('Encargos já pagos', '− ' + formatCurrencyBR(encargos.multa + encargos.juros - encargos.pendentes)) : ''}
                             ${linhaEncargo('Total atualizado hoje', formatCurrencyBR(totalDevido), true)}
                           </table>
