@@ -19,6 +19,7 @@ import {
   IconFilter,
   IconFilterOff,
   IconClipboardCheck,
+  IconChevronDown,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -284,6 +285,8 @@ function CartaoProspeccao({
       ? `${p.parcelasPagas ?? '?'} de ${p.parcelasContrato ?? '?'} pagas`
       : 'Não consta'
   const telefones = [p.telefone1, p.telefone2, p.telefone3].filter(Boolean)
+  // Recolhido por padrão: só o resumo; a setinha abre os detalhes.
+  const [aberto, setAberto] = useState(false)
   return (
     <article
       className={`rounded-xl border bg-white p-4 shadow-xs ${
@@ -304,12 +307,29 @@ function CartaoProspeccao({
             {p.cpfCnpj || 'CPF não consta'}
             {p.comarca ? ` · ${p.comarca}` : ''}
           </p>
-          {p.numeroProcesso && (
+          {aberto && p.numeroProcesso && (
             <p className="mt-0.5 break-all font-mono text-[11px] text-neutral-400">{p.numeroProcesso}</p>
           )}
+          {!aberto && (
+            <p className="mt-1 truncate text-xs font-semibold text-neutral-700">
+              {p.veiculo || 'Veículo não consta'}
+              {p.placa ? <span className="font-mono font-bold text-neutral-500"> · {p.placa}</span> : null}
+            </p>
+          )}
         </div>
+        <button
+          type="button"
+          onClick={() => setAberto((v) => !v)}
+          aria-expanded={aberto}
+          aria-label={aberto ? `Recolher ${p.nomeExecutado}` : `Ver detalhes de ${p.nomeExecutado}`}
+          className="-mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 cursor-pointer"
+        >
+          <IconChevronDown size={18} stroke={2.2} className={`transition-transform ${aberto ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
+      {aberto && (
+      <>
       <div className="mt-3 rounded-lg bg-neutral-50 px-3 py-2.5">
         <p className="break-words text-[13px] font-semibold text-neutral-900">
           {p.veiculo || 'Veículo não consta'}
@@ -380,6 +400,8 @@ function CartaoProspeccao({
       </dl>
 
       <div className="mt-4 flex items-stretch gap-2 border-t border-neutral-100 pt-3">{acoes}</div>
+      </>
+      )}
     </article>
   )
 }

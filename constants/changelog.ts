@@ -30,6 +30,12 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'melhoria',
     items: [
       'No celular, cada proposta registrada aparece resumida (cliente, veículo e comissão). Toque na setinha para ver contato, valores e os botões de fechar, baixar, editar e excluir.',
+    id: '2026-10-03-leads-card-recolhido',
+    date: '2026-10-03',
+    title: 'Leads mais compactos no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada lead aparece resumido (nome, CPF, cidade e veículo). Toque na setinha para ver os detalhes, registrar visita e as ações.',
     ],
   },
   {
