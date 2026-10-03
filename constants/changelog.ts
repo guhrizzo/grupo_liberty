@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-metricas-diarias',
+    date: '2026-10-03',
+    title: 'Nova aba "Métricas diárias"',
+    tag: 'novo',
+    items: [
+      'Vendedores preenchem os números do dia: leads, atendidos, retornaram, propostas, concluídos e follow up. Dá para corrigir um dia anterior escolhendo a data.',
+      'Cada vendedor vê o próprio histórico e a média por dia no mês; o admin vê o time inteiro, com a média de cada um e da equipe.',
+    ],
+  },
+  {
     id: '2026-10-03-rede-de-apoio',
     date: '2026-10-03',
     title: 'Nova aba "Rede de apoio"',

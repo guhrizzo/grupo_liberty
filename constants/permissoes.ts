@@ -25,6 +25,7 @@ export type PermissionKey =
   | 'usuarios'
   | 'analytics'
   | 'rede_apoio'
+  | 'metricas_diarias'
 
 export type UserPermissions = Partial<Record<PermissionKey, boolean>>
 
@@ -42,6 +43,7 @@ export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   usuarios: ['admin'],
   analytics: ['admin'],
   rede_apoio: ['admin'],
+  metricas_diarias: ['admin', 'vendedor', 'vendedor_externo'],
 }
 
 export function temAcessoPagina(

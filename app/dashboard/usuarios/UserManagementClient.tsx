@@ -41,6 +41,7 @@ const PERMISSION_TABS = [
   { key: 'manutencao',    label: 'Manutenção' },
   { key: 'analytics',     label: 'Visitantes' },
   { key: 'rede_apoio',    label: 'Rede de apoio' },
+  { key: 'metricas_diarias', label: 'Métricas diárias' },
 ] as const
 
 type PermKey = typeof PERMISSION_TABS[number]['key']
