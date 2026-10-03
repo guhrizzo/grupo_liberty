@@ -2795,7 +2795,7 @@ function NovaCobrancaModal({
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
                     <IconPercentage size={11} className="shrink-0" />
                     Em caso de atraso: multa de {ENCARGOS_PADRAO.multaPct}% + juros de{' '}
-                    {ENCARGOS_PADRAO.jurosMensalPct}% ao mês, cobrados por dia.
+                    {ENCARGOS_PADRAO.jurosMensalPct}% ao mês (0,33% ao dia, compostos).
                   </p>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-// Cálculo de encargos por atraso de uma parcela (multa + juros simples diários).
+// Cálculo de encargos por atraso de uma parcela (multa + juros compostos diários).
 //
 // Função pura — roda no servidor (actions, cron, e-mails) e no client (prévia
 // do modal de pagamento). Nada de encargo é gravado no Firestore: tudo é
@@ -8,7 +8,8 @@
 // Regra (ver docs/superpowers/specs/2026-09-24-encargos-atraso-design.md):
 // - Multa única de `multaPct`% no 1º dia de atraso, sobre o saldo da parcela
 //   naquele dia: pagamentos até o vencimento reduzem a base, os posteriores não.
-// - Juros simples de `jurosMensalPct`% a cada 30 dias, por dia, só sobre o
+// - Juros compostos ao dia (`jurosMensalPct`% / 30 por dia, capitalizados
+//   diariamente: saldo × ((1 + taxa)^dias − 1)), só sobre o
 //   saldo da parcela (nunca sobre a multa), contados do vencimento ou do
 //   último pagamento. Pagamento parcial "zera" os juros até ele: eles
 //   recomeçam sobre o saldo restante.
@@ -130,7 +131,9 @@ export function calcularEncargos(input: CalcularEncargosInput): ResultadoEncargo
 
   function jurosAte(ate: string) {
     if (principal <= EPSILON || diasEntre(dataVencimento, ate) <= 0) return 0
-    return round2(principal * taxaDia * Math.max(diasEntre(jurosDesde, ate), 0))
+    // Compostos ao dia (pedido do Gustavo, 2026-10-03) — nunca sobre a multa.
+    const dias = Math.max(diasEntre(jurosDesde, ate), 0)
+    return round2(principal * (Math.pow(1 + taxaDia, dias) - 1))
   }
 
   const ordenados = [...input.pagamentos].sort(

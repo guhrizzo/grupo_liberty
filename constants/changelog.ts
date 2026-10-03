@@ -30,7 +30,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     tag: 'melhoria',
     items: [
       'A multa de 5% é cobrada logo após o vencimento, sobre o que estava em aberto naquele dia: se o cliente pagou parte da parcela até o vencimento, a multa fica só sobre o restante.',
-      'Pagamento parcial agora abate primeiro a parcela. Os juros (0,33% ao dia, nunca sobre a multa) passam a correr só sobre o que ficou em aberto, a partir da data do pagamento.',
+      'Pagamento parcial agora abate primeiro a parcela. Os juros (0,33% ao dia, compostos, nunca sobre a multa) passam a correr só sobre o que ficou em aberto, a partir da data do pagamento.',
       'Quem paga atrasado só o valor da parcela continua devendo a multa e os juros daquele dia.',
     ],
   },

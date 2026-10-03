@@ -57,7 +57,7 @@ export function renderCobrancaAtrasoEmail(data: CobrancaAtrasoData): string {
                             ${linhaEncargo('Total atualizado hoje', formatCurrencyBR(totalDevido), true)}
                           </table>
                           <p style="margin:10px 0 0;font-size:11px;color:#71717a;line-height:1.5;">
-                            Multa de 5% e juros de 10% ao mês, cobrados por dia de atraso — o valor aumenta a cada dia.
+                            Multa de 5% e juros de 10% ao mês (0,33% ao dia, compostos) sobre o valor em aberto — o valor aumenta a cada dia.
                           </p>
                         </td>
                       </tr>`
