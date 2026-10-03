@@ -43,6 +43,8 @@ import { createTransacao, updateTransacao, deleteTransacao } from './actions'
 import ComprovanteTransacao from './ComprovanteTransacao'
 import ContasFixasClient from './contasFixas/ContasFixasClient'
 import ContasNaoPagas from './contasFixas/ContasNaoPagas'
+import MetricasSection from './MetricasSection'
+import type { MetricasFinanceiro } from './metricas-types'
 import type { ContaFixa, ContaFixaPendente, PagamentoContaFixa } from './contasFixas/types'
 import {
   deslocarMes,
@@ -63,7 +65,7 @@ import {
   type TransacaoTipo,
 } from './types'
 
-export type AbaFinanceiro = 'lancamentos' | 'contas-fixas'
+export type AbaFinanceiro = 'lancamentos' | 'contas-fixas' | 'metricas'
 
 export default function FinanceiroClient({
   initialTransacoes,
@@ -76,6 +78,7 @@ export default function FinanceiroClient({
   pagamentosContasFixas,
   pendenciasContasFixas,
   podeVerResumo,
+  metricas,
 }: {
   initialTransacoes: Transacao[]
   /** Mês exibido (`YYYY-MM`). */
@@ -92,6 +95,8 @@ export default function FinanceiroClient({
   pendenciasContasFixas: ContaFixaPendente[]
   /** Só o ADM supremo vê os cards de balanço/receitas/despesas do mês. */
   podeVerResumo: boolean
+  /** Só na aba Métricas (ADM supremo). */
+  metricas: MetricasFinanceiro | null
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -403,6 +408,8 @@ export default function FinanceiroClient({
           [
             ['lancamentos', 'Lançamentos'],
             ['contas-fixas', 'Contas fixas'],
+            // Métricas: só o ADM supremo (mesma regra dos cards de resumo).
+            ...(podeVerResumo ? ([['metricas', 'Métricas']] as const) : []),
           ] as const
         ).map(([valor, rotulo]) => (
           <button
@@ -423,7 +430,9 @@ export default function FinanceiroClient({
         ))}
       </div>
 
-      {/* Seletor de período — tudo abaixo daqui é escopado neste mês. */}
+      {/* Seletor de período — tudo abaixo daqui é escopado neste mês. A aba
+          Métricas tem o próprio seletor (3/6/12 meses). */}
+      {aba !== 'metricas' && (
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
         <div className="flex items-center gap-1">
           <button
@@ -495,8 +504,11 @@ export default function FinanceiroClient({
               : `Contas fixas de ${rotuloMesCurto(mes)}`}
         </span>
       </div>
+      )}
 
-      {aba === 'contas-fixas' ? (
+      {aba === 'metricas' && metricas ? (
+        <MetricasSection metricas={metricas} />
+      ) : aba === 'contas-fixas' ? (
         <ContasFixasClient
           contas={contasFixas}
           pagamentos={pagamentosContasFixas}
