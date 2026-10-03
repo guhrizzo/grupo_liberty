@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-ler-placa-camera',
+    date: '2026-10-03',
+    title: 'Ler placa pela câmera',
+    tag: 'novo',
+    items: [
+      'Na Consulta FIPE, o botão "Câmera" abre a câmera do celular: tire uma foto da placa e o sistema lê os caracteres e já busca a FIPE e os dados do veículo.',
+      'A leitura é feita no próprio aparelho. Para acertar, fotografe de perto, com a placa reta e bem iluminada. Se não conseguir ler, é só digitar.',
+    ],
+  },
+  {
     id: '2026-10-03-metricas-diarias',
     date: '2026-10-03',
     title: 'Nova aba "Métricas diárias"',
