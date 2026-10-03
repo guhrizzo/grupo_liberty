@@ -57,7 +57,7 @@ export interface PropostaRegistrada {
   vendedor_uid: string | null
   vendedor_email: string | null
 
-  /** `aceito` = proposta fechada (o carro foi comprado). */
+  /** `aceito` = proposta fechada (o veículo foi comprado). */
   status: 'pendente' | 'aceito' | 'recusado'
   created_at: string
 

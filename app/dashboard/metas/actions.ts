@@ -146,7 +146,7 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
     else if (mes < mesAtual()) fieldErrors.mes = 'Não dá para criar meta em mês que já passou.'
   }
   if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > META_QUANTIDADE_MAX) {
-    fieldErrors.quantidade = 'Informe um número inteiro de carros (mínimo 1).'
+    fieldErrors.quantidade = 'Informe um número inteiro de veículos (mínimo 1).'
   }
   if (bonus !== null && (!Number.isFinite(bonus) || bonus < 0)) fieldErrors.bonus = 'Valor do bônus inválido.'
   if (observacao.length > META_OBSERVACAO_MAX) fieldErrors.observacao = `Máximo de ${META_OBSERVACAO_MAX} caracteres.`

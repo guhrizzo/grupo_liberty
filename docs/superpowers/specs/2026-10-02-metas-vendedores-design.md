@@ -4,7 +4,7 @@ Data: 2026-10-02 · Branch: `feat/metas-vendedores`
 
 ## Objetivo
 
-O ADM supremo define, por vendedor e por mês, uma meta de carros fechados
+O ADM supremo define, por vendedor e por mês, uma meta de veículos fechados
 (ex.: 5) e um bônus. Cada proposta marcada como **Aceito** (= "fechada") conta
 para o vendedor que fechou; a barra da meta vai enchendo. Se a meta for batida
 dentro do mês, o vendedor ganha o bônus, e o ADM supremo marca quando pagou.

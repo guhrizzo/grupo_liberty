@@ -137,7 +137,7 @@ export default function MetasClient({
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm adobe-dark:text-adobe-text-lo">
             {admSupremo
-              ? 'Defina quantos carros cada vendedor precisa fechar no mês e o bônus ao bater a meta.'
+              ? 'Defina quantos veículos cada vendedor precisa fechar no mês e o bônus ao bater a meta.'
               : 'Cada proposta registrada marcada como fechada no mês conta para a sua meta.'}
           </p>
         </div>
@@ -203,7 +203,7 @@ export default function MetasClient({
           {[
             { label: 'Metas', value: String(metas.length) },
             { label: 'Batidas', value: `${resumo.batidas}/${metas.length}` },
-            { label: 'Carros fechados', value: `${resumo.fechadas}/${resumo.alvo}` },
+            { label: 'Veículos fechados', value: `${resumo.fechadas}/${resumo.alvo}` },
             { label: 'Bônus a pagar', value: formatCurrency(resumo.bonusAPagar) },
           ].map((k) => (
             <div key={k.label} className={CARD + ' p-4'}>
@@ -223,7 +223,7 @@ export default function MetasClient({
           description={
             admSupremo
               ? podeCriar
-                ? 'Crie uma meta escolhendo o vendedor, a quantidade de carros e o bônus.'
+                ? 'Crie uma meta escolhendo o vendedor, a quantidade de veículos e o bônus.'
                 : 'Não houve metas cadastradas neste mês.'
               : 'Quando a administração definir uma meta para você, ela aparece aqui.'
           }
@@ -361,7 +361,7 @@ function MetaCard({
         <div className="flex items-baseline justify-between gap-2">
           <p className="text-sm font-semibold text-neutral-700 adobe-dark:text-adobe-text-md">
             <span className="text-2xl font-black tabular-nums text-neutral-950 adobe-dark:text-adobe-text-hi">{m.fechadas}</span>
-            <span className="text-neutral-400"> / {m.quantidade}</span> carro{m.quantidade === 1 ? '' : 's'}
+            <span className="text-neutral-400"> / {m.quantidade}</span> veículo{m.quantidade === 1 ? '' : 's'}
           </p>
           <span className="text-xs font-bold tabular-nums text-neutral-500 adobe-dark:text-adobe-text-lo">{pct}%</span>
         </div>
@@ -371,7 +371,7 @@ function MetaCard({
           aria-valuemin={0}
           aria-valuemax={m.quantidade}
           aria-valuenow={m.fechadas}
-          aria-label={`${m.fechadas} de ${m.quantidade} carros`}
+          aria-label={`${m.fechadas} de ${m.quantidade} veículos`}
         >
           <div className={'h-full rounded-full transition-[width] duration-700 ' + s.barra} style={{ width: `${pct}%` }} />
         </div>
@@ -382,11 +382,11 @@ function MetaCard({
               : 'Meta concluída!'
             : m.situacao === 'nao_batida'
               ? faltam === 1
-                ? 'Faltou 1 carro.'
-                : `Faltaram ${faltam} carros.`
+                ? 'Faltou 1 veículo.'
+                : `Faltaram ${faltam} veículos.`
               : faltam === 1
-                ? 'Falta 1 carro até o fim do mês.'
-                : `Faltam ${faltam} carros até o fim do mês.`}
+                ? 'Falta 1 veículo até o fim do mês.'
+                : `Faltam ${faltam} veículos até o fim do mês.`}
         </p>
       </div>
 
@@ -551,7 +551,7 @@ function MetaModal({
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Meta (carros)"
+            label="Meta (veículos)"
             type="number"
             inputMode="numeric"
             min={1}
