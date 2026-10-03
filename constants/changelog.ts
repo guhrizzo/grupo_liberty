@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-juros-ate-pagamento-parcial',
+    date: '2026-10-03',
+    title: 'Juros até o pagamento parcial continuam devidos',
+    tag: 'correcao',
+    items: [
+      'Quando o cliente paga parte de uma parcela atrasada, os juros do período até esse pagamento (sobre o valor cheio) continuam sendo cobrados. Depois dele, os juros correm só sobre o valor que sobrou.',
+    ],
+  },
+  {
     id: '2026-10-03-encargos-sobre-saldo',
     date: '2026-10-03',
     title: 'Multa e juros sobre o saldo em aberto',
