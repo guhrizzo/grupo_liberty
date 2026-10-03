@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-modal-rolagem-mobile',
+    date: '2026-10-03',
+    title: 'Janelas longas rolam no celular',
+    tag: 'correcao',
+    items: [
+      'No celular, janelas com muitos campos (como "Novo compromisso" na Agenda) agora rolam por dentro, e o botão de salvar sempre fica acessível.',
+    ],
+  },
+  {
     id: '2026-10-03-juros-ate-pagamento-parcial',
     date: '2026-10-03',
     title: 'Pagamento atrasado quita primeiro a multa e os juros',
