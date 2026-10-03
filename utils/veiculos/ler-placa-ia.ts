@@ -4,12 +4,16 @@ import { extrairPlaca } from './placa-ocr'
 // Lê a placa de uma foto com o Claude (API da Anthropic). Chamado pela rota
 // /api/ler-placa, que faz a autenticação. A chave fica só no servidor.
 
-const MODELO = 'claude-haiku-4-5-20251001'
+// Sonnet: o Haiku se perdia na marca d'água holográfica da placa Mercosul
+// (leu JSW4129 numa LSN4I49); o Sonnet acertou em todos os testes.
+const MODELO = 'claude-sonnet-5-5'
 const API_URL = 'https://api.anthropic.com/v1/messages'
 
-const PROMPT = `Esta foto deve mostrar a placa de um veículo brasileiro (padrão antigo ABC1234 ou Mercosul ABC1D23).
-Leia os 7 caracteres da placa. Ignore "BRASIL", a bandeira, a cidade e qualquer outro texto do carro ou do fundo.
-Responda SOMENTE com os 7 caracteres, sem traço nem espaço (ex.: ABC1D23). Se não houver placa legível, responda NENHUMA.`
+const PROMPT = `Leia a placa de veículo brasileiro nesta foto.
+Formato: 3 LETRAS, 1 DÍGITO, 1 LETRA ou DÍGITO, 2 DÍGITOS (antiga ABC1234; Mercosul ABC1D23).
+Atenção: placas Mercosul têm uma marca d'água holográfica com as palavras "MERCOSUL" e "BRASIL" escritas por cima dos caracteres — ignore essa marca d'água e leia só os caracteres grandes pretos. Ignore também "BRASIL", "BR", a bandeira e o nome da cidade.
+Na 5ª posição, a letra I e o número 1 são diferentes: o I da placa é uma barra reta com serifas em cima e embaixo.
+Responda SOMENTE com os 7 caracteres, sem traço nem espaço. Se não houver placa legível, responda NENHUMA.`
 
 export type LerPlacaResultado =
   | { ok: true; placa: string }
@@ -30,7 +34,8 @@ export async function lerPlacaComIA(imagemBase64: string, mediaType: string): Pr
     },
     body: JSON.stringify({
       model: MODELO,
-      max_tokens: 20,
+      // Folga: com 20 o Sonnet às vezes voltava sem texto.
+      max_tokens: 300,
       messages: [
         {
           role: 'user',
@@ -51,7 +56,10 @@ export async function lerPlacaComIA(imagemBase64: string, mediaType: string): Pr
   }
 
   const data = (await res.json()) as { content?: { type: string; text?: string }[] }
-  const texto = (data.content ?? []).map((c) => c.text ?? '').join('\n')
+  const texto = (data.content ?? [])
+    .filter((c) => c.type === 'text')
+    .map((c) => c.text ?? '')
+    .join('\n')
   // A resposta passa pela mesma checagem do formato de placa.
   const placa = extrairPlaca(texto)
   if (!placa) {
