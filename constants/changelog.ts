@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-leads-card-recolhido',
+    date: '2026-10-03',
+    title: 'Leads mais compactos no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada lead aparece resumido (nome, CPF, cidade e veículo). Toque na setinha para ver os detalhes, registrar visita e as ações.',
+    ],
+  },
+  {
     id: '2026-10-03-cargo-financeiro',
     date: '2026-10-03',
     title: 'Novo cargo "Financeiro"',
