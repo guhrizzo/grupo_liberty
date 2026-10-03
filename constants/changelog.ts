@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-cobrancas-dias-vencimento-desktop',
+    date: '2026-10-03',
+    title: 'Dias até o vencimento no computador',
+    tag: 'melhoria',
+    items: [
+      'Em Cobranças, no computador, a coluna Vencimento das parcelas agora mostra quantos dias faltam ("em 4 dias") ou há quantos dias está atrasada, como já aparecia no celular.',
+    ],
+  },
+  {
     id: '2026-10-03-cargo-financeiro',
     date: '2026-10-03',
     title: 'Novo cargo "Financeiro"',

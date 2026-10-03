@@ -2307,7 +2307,11 @@ function ParcelasList({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {parcelas.map((p) => (
+              {parcelas.map((p) => {
+                const dias = Math.ceil(
+                  (new Date(p.dataVencimento + 'T00:00:00').getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+                )
+                return (
                 <tr
                   key={p.id}
                   className={`transition-colors ${
@@ -2325,6 +2329,16 @@ function ParcelasList({
                   </td>
                   <td className="px-5 py-3 text-neutral-600 align-top">
                     {formatDate(p.dataVencimento)}
+                    {!p.pago && p.status !== 'atrasado' && dias >= 0 && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-amber-600">
+                        em {dias} dia{dias === 1 ? '' : 's'}
+                      </p>
+                    )}
+                    {!p.pago && p.status === 'atrasado' && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-rose-600">
+                        {Math.abs(dias)} dia{Math.abs(dias) === 1 ? '' : 's'} atrasado
+                      </p>
+                    )}
                   </td>
                   <td className="px-5 py-3 align-top">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -2386,7 +2400,8 @@ function ParcelasList({
                     )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
