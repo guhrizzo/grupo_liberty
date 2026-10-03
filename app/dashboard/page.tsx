@@ -1,197 +1,41 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import {
-  IconUsers,
-  IconCar,
-  IconMail,
-  IconScale,
-  IconTool,
-  IconFileText,
-  IconCurrencyDollar,
-  IconChartBar,
-  IconTargetArrow,
-  IconArrowRight,
-  type Icon,
-} from '@tabler/icons-react'
-import { adminAuth, adminDb } from '@/utils/firebase/admin'
-import {
-  ehAdmSupremo,
-  temAcessoAba,
-  type PermissionKey,
-  type UserPermissions,
-} from '@/constants/permissoes'
+import { getSessionUser, isAdmSupremo } from '@/utils/permissions'
+import { Breadcrumb } from '@/app/components/ui'
+import { getMetricas } from './financeiro/metricas'
+import MetricasSection from './financeiro/MetricasSection'
 
 export const metadata: Metadata = {
-  title: 'Dashboard | Liberty Car',
+  title: 'Visão Geral | Liberty Car',
 }
 
-type ModuleCard = {
-  href: string
-  titulo: string
-  descricao: string
-  icon: Icon
-  badge: string
-  permissionKey: PermissionKey
-}
+// Visão Geral = métricas da empresa (faturamento, custos, lucro, veículos e
+// manutenções mês a mês). Exclusiva do ADM supremo; os demais caem em
+// Demandas, que todos os cargos acessam.
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ meses?: string | string[] }>
+}) {
+  const user = await getSessionUser()
+  if (!user) redirect('/login')
+  if (!isAdmSupremo(user)) redirect('/dashboard/demandas')
 
-const MODULES: ModuleCard[] = [
-  {
-    href: '/dashboard/usuarios',
-    titulo: 'Gerenciar Usuários',
-    descricao: 'Cadastre novas contas de administradores, vendedores, advogados ou equipe de suporte.',
-    icon: IconUsers,
-    badge: 'Admin',
-    permissionKey: 'usuarios',
-  },
-  {
-    href: '/dashboard/veiculos',
-    titulo: 'Gerenciar Veículos',
-    descricao: 'Cadastre veículos com fotos, gerencie o estoque e controle as informações da frota.',
-    icon: IconCar,
-    badge: 'Admin',
-    permissionKey: 'veiculos',
-  },
-  {
-    href: '/dashboard/propostas',
-    titulo: 'Gerenciar Propostas',
-    descricao: 'Visualize e responda as mensagens de interesse e propostas de compra enviadas por clientes.',
-    icon: IconMail,
-    badge: 'Vendas',
-    permissionKey: 'propostas',
-  },
-  {
-    href: '/dashboard/contratos',
-    titulo: 'Gerenciar Contratos',
-    descricao: 'Emissão e acompanhamento de contratos de compra e venda de veículos.',
-    icon: IconFileText,
-    badge: 'Vendas',
-    permissionKey: 'contratos',
-  },
-  {
-    href: '/dashboard/financeiro',
-    titulo: 'Gestão Financeira',
-    descricao: 'Acompanhe faturamento, comissões, recebíveis e balanço financeiro das negociações.',
-    icon: IconCurrencyDollar,
-    badge: 'Financeiro',
-    permissionKey: 'financeiro',
-  },
-  {
-    href: '/dashboard/juridico',
-    titulo: 'Módulo Jurídico',
-    descricao: 'Acompanhe processos, contratos e prazos do departamento jurídico da Liberty Car.',
-    icon: IconScale,
-    badge: 'Jurídico',
-    permissionKey: 'juridico',
-  },
-  {
-    href: '/dashboard/leads',
-    titulo: 'Leads',
-    descricao: 'Clientes com veículo financiado para contato por WhatsApp, e-mail e oferta.',
-    icon: IconTargetArrow,
-    badge: 'Comercial',
-    permissionKey: 'leads',
-  },
-  {
-    href: '/dashboard/manutencao',
-    titulo: 'Manutenção da Frota',
-    descricao: 'Ordens de serviço, agendamentos, oficinas e histórico de manutenções dos veículos.',
-    icon: IconTool,
-    badge: 'Operações',
-    permissionKey: 'manutencao',
-  },
-  {
-    href: '/dashboard/analytics',
-    titulo: 'Visitantes do Site',
-    descricao: 'Quantas pessoas acessam o site, quantas estão logadas e os veículos mais vistos.',
-    icon: IconChartBar,
-    badge: 'Admin',
-    permissionKey: 'analytics',
-  },
-]
-
-export default async function DashboardPage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  if (!session) return null
-
-  let user: { uid: string; email?: string | null } | null = null
-  let role: string | null = null
-  let permissions: UserPermissions = {}
-
-  try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
-    user = { uid: decoded.uid, email: decoded.email ?? null }
-    const profileDoc = await adminDb.collection('profiles').doc(user.uid).get()
-    role = profileDoc.data()?.role || null
-    permissions = profileDoc.data()?.permissions || {}
-  } catch {
-    return null
-  }
-
-  // Visão Geral é exclusiva do ADM supremo; os demais caem em Demandas, que
-  // todos os cargos acessam (e é o item seguinte do menu padrão).
-  if (!ehAdmSupremo(user.email)) redirect('/dashboard/demandas')
-
-  const visibleModules = MODULES.filter((m) =>
-    temAcessoAba(role, permissions, m.permissionKey, user.email),
-  )
+  const { meses } = await searchParams
+  const metricas = await getMetricas(Number(Array.isArray(meses) ? meses[0] : meses))
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-xl border border-neutral-200 bg-linear-to-br from-white to-liberty/5 p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:from-adobe-bg-2 adobe-dark:to-adobe-bg-2 adobe-dark:bg-adobe-bg-2">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty-deep adobe-dark:text-adobe-accent-soft">
-              Boas-vindas
-            </p>
-            <h2 className="mt-1 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">{user.email ?? ''}</h2>
-            <p className="mt-1 text-sm text-neutral-500 adobe-dark:text-adobe-text-lo">
-              Acesse as ferramentas e módulos do sistema autorizados para seu perfil.
-            </p>
-          </div>
-
-          <div className="self-start sm:self-center">
-            <span className="inline-flex items-center gap-2 rounded-full bg-liberty/10 text-liberty-deep border border-liberty/30 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft adobe-dark:border-adobe-accent/30">
-              <span className="h-1.5 w-1.5 rounded-full bg-liberty adobe-dark:bg-adobe-accent" />
-              Perfil: {role || 'Não definido'}
-            </span>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-4 adobe-dark:text-adobe-text-lo">
-          Módulos Disponíveis
-        </h3>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleModules.map((m) => (
-            <Link
-              key={m.href}
-              href={m.href}
-              className="group rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col justify-between hover:border-liberty/40 hover:shadow-lg hover:shadow-liberty/5 hover:-translate-y-1 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:hover:border-adobe-accent/40 adobe-dark:hover:shadow-adobe-accent-glow"
-            >
-              <div>
-                <div className="h-11 w-11 rounded-lg bg-liberty/10 text-liberty-deep flex items-center justify-center mb-4 group-hover:bg-liberty group-hover:text-white transition-[background-color,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft adobe-dark:group-hover:bg-adobe-accent adobe-dark:group-hover:text-[#0a1720]">
-                  <m.icon size={22} stroke={1.75} />
-                </div>
-                <h4 className="text-lg font-bold text-neutral-900 adobe-dark:text-adobe-text-hi">{m.titulo}</h4>
-                <p className="text-sm text-neutral-500 mt-1.5 leading-relaxed adobe-dark:text-adobe-text-lo">{m.descricao}</p>
-              </div>
-              <div className="mt-6 flex items-center justify-between">
-                <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600 adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md">
-                  {m.badge}
-                </span>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-liberty-deep group-hover:gap-2 transition-[gap,color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] adobe-dark:text-adobe-accent-soft">
-                  Acessar
-                  <IconArrowRight size={14} stroke={2.5} />
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Visão Geral' }]} />
+        <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 adobe-dark:text-adobe-text-hi">
+          Visão Geral
+        </h1>
+        <p className="mt-1 text-sm text-neutral-500 adobe-dark:text-adobe-text-lo">
+          Métricas da empresa mês a mês: faturamento, custos, lucro, veículos adquiridos e manutenções.
+        </p>
       </div>
+      {metricas && <MetricasSection metricas={metricas} />}
     </div>
   )
 }

@@ -8,7 +8,6 @@ import {
   getPagamentosContasFixas,
 } from './contasFixas/actions'
 import FinanceiroClient, { type AbaFinanceiro } from './FinanceiroClient'
-import { getMetricas } from './metricas'
 
 export const metadata = {
   title: 'Financeiro | Liberty Car',
@@ -18,7 +17,7 @@ export const metadata = {
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string | string[]; aba?: string | string[]; meses?: string | string[] }>
+  searchParams: Promise<{ mes?: string | string[]; aba?: string | string[] }>
 }) {
   const user = await getSessionUser()
   if (!user) redirect('/login')
@@ -27,17 +26,13 @@ export default async function FinanceiroPage({
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const { mes: mesParam, aba: abaParam, meses: mesesParam } = await searchParams
+  const { mes: mesParam, aba: abaParam } = await searchParams
   const mesBruto = Array.isArray(mesParam) ? mesParam[0] : mesParam
   const abaBruta = Array.isArray(abaParam) ? abaParam[0] : abaParam
+  // Métricas mudaram para a Visão Geral; link antigo ?aba=metricas vai pra lá.
+  if (abaBruta === 'metricas') redirect('/dashboard')
   const admSupremo = isAdmSupremo(user)
-  const aba: AbaFinanceiro =
-    abaBruta === 'contas-fixas'
-      ? 'contas-fixas'
-      : abaBruta === 'metricas' && admSupremo
-        ? 'metricas'
-        : 'lancamentos'
-  const periodoBruto = Number(Array.isArray(mesesParam) ? mesesParam[0] : mesesParam)
+  const aba: AbaFinanceiro = abaBruta === 'contas-fixas' ? 'contas-fixas' : 'lancamentos'
 
   // Sem `?mes=` na URL o painel segue o mês corrente — é isso que faz a virada
   // automática da meia-noite do dia 1 funcionar, já que `mesAtual()` é
@@ -53,7 +48,6 @@ export default async function FinanceiroPage({
     aba === 'contas-fixas' ? getContasFixas() : Promise.resolve([]),
     getContasFixasPendentes(),
   ])
-  const metricas = aba === 'metricas' ? await getMetricas(periodoBruto) : null
   const pagamentosContasFixas =
     aba === 'contas-fixas'
       ? await getPagamentosContasFixas(
@@ -74,7 +68,6 @@ export default async function FinanceiroPage({
       pagamentosContasFixas={pagamentosContasFixas}
       pendenciasContasFixas={pendenciasContasFixas}
       podeVerResumo={admSupremo}
-      metricas={metricas}
     />
   )
 }

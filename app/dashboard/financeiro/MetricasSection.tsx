@@ -38,7 +38,7 @@ export default function MetricasSection({ metricas }: { metricas: MetricasFinanc
 
   function irParaPeriodo(p: MetricasPeriodo) {
     if (p === periodo) return
-    router.push(`/dashboard/financeiro?aba=metricas&meses=${p}`)
+    router.push(`/dashboard?meses=${p}`)
   }
 
   return (

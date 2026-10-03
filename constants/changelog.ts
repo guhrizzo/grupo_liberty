@@ -24,12 +24,21 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-visao-geral-metricas',
+    date: '2026-10-03',
+    title: 'Métricas mudaram para a Visão Geral',
+    tag: 'melhoria',
+    items: [
+      'Os gráficos de faturamento, custos, lucro, veículos e manutenções saíram do Financeiro e agora são a própria Visão Geral (só para a diretoria).',
+    ],
+  },
+  {
     id: '2026-10-03-financeiro-metricas',
     date: '2026-10-03',
-    title: 'Métricas no Financeiro',
+    title: 'Métricas da empresa na Visão Geral',
     tag: 'novo',
     items: [
-      'Nova aba "Métricas" no Financeiro (só para a diretoria): gráficos de faturamento, custos e lucro mês a mês, para comparar com os meses anteriores.',
+      'A Visão Geral (só para a diretoria) agora mostra as métricas da empresa: gráficos de faturamento, custos e lucro mês a mês, para comparar com os meses anteriores.',
       'Também mostra quantos veículos foram adquiridos e quantas manutenções foram pagas em cada mês, com os valores.',
       'Escolha ver 3, 6 ou 12 meses; os cards comparam o mês atual com o anterior. Dá para ver tudo em tabela.',
       'Novo campo "Data de aquisição" no cadastro do veículo: é ela que define o mês da compra nas métricas (sem ela, vale a data de cadastro).',
