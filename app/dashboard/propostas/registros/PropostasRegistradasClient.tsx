@@ -8,6 +8,7 @@ import {
   IconCalendar,
   IconCar,
   IconCash,
+  IconChevronDown,
   IconCircleCheck,
   IconArrowBackUp,
   IconDownload,
@@ -57,6 +58,16 @@ function mesLabel(key: string) {
 }
 
 export default function PropostasRegistradasClient({ propostas, vendedores }: PropostasRegistradasClientProps) {
+  // No celular os cards começam recolhidos; a setinha abre os detalhes.
+  const [abertos, setAbertos] = useState<Set<string>>(() => new Set())
+  function alternarAberto(id: string) {
+    setAbertos((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
   const router = useRouter()
   const toast = useToast()
   const [searchNome, setSearchNome] = useState('')
@@ -320,13 +331,20 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                 </div>
               </div>
 
-              {grupo.items.map((p) => (
+              {grupo.items.map((p) => {
+                const aberto = abertos.has(p.id)
+                return (
                 <div
                   key={p.id}
-                  className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs transition-shadow hover:shadow-md"
+                  className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs transition-shadow hover:shadow-md md:p-6"
                 >
-                  <div className="flex flex-col gap-4 border-b border-neutral-100 pb-4 mb-4 md:flex-row md:items-center md:justify-between">
-                    <div>
+                  <div
+                    className={`flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:border-b md:border-neutral-100 md:pb-4 md:mb-4 ${
+                      aberto ? 'border-b border-neutral-100 pb-4 mb-4' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
                       <span className="block text-[10px] font-bold uppercase tracking-widest text-neutral-450">
                         Registrada em {formatDate(p.created_at)}
                         {p.vendedor_email ? ` · por ${p.vendedor_email}` : ''}
@@ -341,7 +359,23 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                           </span>
                         )}
                       </h3>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-4 text-xs text-neutral-600">
+                      {!aberto && (
+                        <p className="mt-1 truncate text-xs text-neutral-600 md:hidden">
+                          <span className="font-semibold text-neutral-800">
+                            {p.veiculo_marca} {p.veiculo_modelo}
+                          </span>
+                          {p.comissao_vendedor != null && (
+                            <span className="font-bold text-liberty-deep">
+                              {' '}· comissão {formatCurrency(p.comissao_vendedor)}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                      <div
+                        className={`mt-1.5 flex-wrap items-center gap-4 text-xs text-neutral-600 md:flex ${
+                          aberto ? 'flex' : 'hidden'
+                        }`}
+                      >
                         {p.email && (
                           <span className="inline-flex items-center gap-1">
                             <IconMail size={13} className="text-neutral-400" />
@@ -357,7 +391,18 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => alternarAberto(p.id)}
+                      aria-expanded={aberto}
+                      aria-label={aberto ? `Recolher proposta de ${p.nome}` : `Ver detalhes da proposta de ${p.nome}`}
+                      className="-mr-1 -mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-lg text-neutral-500 hover:bg-neutral-100 cursor-pointer md:hidden"
+                    >
+                      <IconChevronDown size={18} stroke={2.2} className={`transition-transform ${aberto ? 'rotate-180' : ''}`} />
+                    </button>
+                    </div>
+
+                    <div className={`flex-wrap items-center gap-2 md:flex ${aberto ? 'flex' : 'hidden'}`}>
                       {p.status === 'aceito' ? (
                         <button
                           type="button"
@@ -412,7 +457,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className={`gap-4 sm:grid-cols-2 md:grid lg:grid-cols-4 ${aberto ? 'grid' : 'hidden'}`}>
                     <div className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
                       <span className="block text-[9px] font-bold uppercase tracking-widest text-neutral-400">
                         Veículo
@@ -452,7 +497,8 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           ))}
         </div>
