@@ -115,7 +115,7 @@ export default function MetasClient({
     () => ({
       batidas: metas.filter((m) => m.situacao === 'batida').length,
       fechadas: metas.reduce((acc, m) => acc + m.fechadas, 0),
-      alvo: metas.reduce((acc, m) => acc + m.quantidade, 0),
+      valorFechado: metas.reduce((acc, m) => acc + m.valorFechado, 0),
       bonusAPagar: metas
         .filter((m) => m.situacao === 'batida' && !m.bonusPagoEm)
         .reduce((acc, m) => acc + (m.bonus ?? 0), 0),
@@ -137,7 +137,7 @@ export default function MetasClient({
           </h1>
           <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm adobe-dark:text-adobe-text-lo">
             {admSupremo
-              ? 'Defina quantos veículos cada vendedor precisa fechar no mês e o bônus ao bater a meta.'
+              ? 'Defina a meta do mês de cada vendedor (em veículos, em R$ ou as duas) e o bônus ao bater.'
               : 'Cada proposta registrada marcada como fechada no mês conta para a sua meta.'}
           </p>
         </div>
@@ -201,9 +201,9 @@ export default function MetasClient({
       {admSupremo && metas.length > 0 && (
         <section aria-label="Resumo" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
-            { label: 'Metas', value: String(metas.length) },
-            { label: 'Batidas', value: `${resumo.batidas}/${metas.length}` },
-            { label: 'Veículos fechados', value: `${resumo.fechadas}/${resumo.alvo}` },
+            { label: 'Metas batidas', value: `${resumo.batidas}/${metas.length}` },
+            { label: 'Veículos fechados', value: String(resumo.fechadas) },
+            { label: 'Valor fechado', value: formatCurrency(resumo.valorFechado) },
             { label: 'Bônus a pagar', value: formatCurrency(resumo.bonusAPagar) },
           ].map((k) => (
             <div key={k.label} className={CARD + ' p-4'}>
@@ -223,7 +223,7 @@ export default function MetasClient({
           description={
             admSupremo
               ? podeCriar
-                ? 'Crie uma meta escolhendo o vendedor, a quantidade de veículos e o bônus.'
+                ? 'Crie uma meta escolhendo o vendedor, a meta em veículos e/ou em R$ e o bônus.'
                 : 'Não houve metas cadastradas neste mês.'
               : 'Quando a administração definir uma meta para você, ela aparece aqui.'
           }
@@ -316,8 +316,6 @@ function MetaCard({
 }) {
   const [verPropostas, setVerPropostas] = useState(false)
   const s = SITUACAO[m.situacao]
-  const pct = Math.min(100, Math.round((m.fechadas / m.quantidade) * 100))
-  const faltam = Math.max(0, m.quantidade - m.fechadas)
 
   return (
     <article className={CARD + ' p-5'}>
@@ -356,38 +354,35 @@ function MetaCard({
         )}
       </div>
 
-      {/* Barra da meta */}
-      <div className="mt-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold text-neutral-700 adobe-dark:text-adobe-text-md">
-            <span className="text-2xl font-black tabular-nums text-neutral-950 adobe-dark:text-adobe-text-hi">{m.fechadas}</span>
-            <span className="text-neutral-400"> / {m.quantidade}</span> veículo{m.quantidade === 1 ? '' : 's'}
+      {/* Barras da meta — uma por alvo; basta bater uma */}
+      <div className="mt-4 space-y-4">
+        {m.quantidade != null && (
+          <BarraMeta
+            atual={m.fechadas}
+            alvo={m.quantidade}
+            barra={s.barra}
+            formatar={(n) => String(n)}
+            unidade={(n) => (n === 1 ? 'veículo' : 'veículos')}
+            situacao={m.situacao}
+          />
+        )}
+        {m.valorMeta != null && (
+          <BarraMeta
+            atual={m.valorFechado}
+            alvo={m.valorMeta}
+            barra={s.barra}
+            formatar={formatCurrency}
+            situacao={m.situacao}
+          />
+        )}
+        {m.quantidade != null && m.valorMeta != null && m.situacao !== 'batida' && (
+          <p className="text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
+            Basta bater uma das duas metas.
           </p>
-          <span className="text-xs font-bold tabular-nums text-neutral-500 adobe-dark:text-adobe-text-lo">{pct}%</span>
-        </div>
-        <div
-          className="mt-2 h-3 overflow-hidden rounded-full bg-neutral-100 adobe-dark:bg-adobe-bg-3"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={m.quantidade}
-          aria-valuenow={m.fechadas}
-          aria-label={`${m.fechadas} de ${m.quantidade} veículos`}
-        >
-          <div className={'h-full rounded-full transition-[width] duration-700 ' + s.barra} style={{ width: `${pct}%` }} />
-        </div>
-        <p className="mt-1.5 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
-          {m.situacao === 'batida'
-            ? m.fechadas > m.quantidade
-              ? `Meta superada em ${m.fechadas - m.quantidade}!`
-              : 'Meta concluída!'
-            : m.situacao === 'nao_batida'
-              ? faltam === 1
-                ? 'Faltou 1 veículo.'
-                : `Faltaram ${faltam} veículos.`
-              : faltam === 1
-                ? 'Falta 1 veículo até o fim do mês.'
-                : `Faltam ${faltam} veículos até o fim do mês.`}
-        </p>
+        )}
+        {m.situacao === 'batida' && (
+          <p className="text-[11px] font-bold text-emerald-700 adobe-dark:text-emerald-300">Meta concluída!</p>
+        )}
       </div>
 
       {/* Bônus */}
@@ -468,6 +463,62 @@ function MetaCard({
   )
 }
 
+// ─── Barra de progresso de um alvo ───────────────────────────────────────────
+
+function BarraMeta({
+  atual,
+  alvo,
+  barra,
+  formatar,
+  unidade,
+  situacao,
+}: {
+  atual: number
+  alvo: number
+  barra: string
+  formatar: (n: number) => string
+  /** Sufixo ("veículos"); sem ele, o valor já vem formatado (R$). */
+  unidade?: (n: number) => string
+  situacao: MetaSituacao
+}) {
+  const pct = Math.min(100, Math.round((atual / alvo) * 100))
+  const falta = Math.max(0, alvo - atual)
+  const comUnidade = (n: number) => (unidade ? `${formatar(n)} ${unidade(n)}` : formatar(n))
+  // "Faltam 3 veículos", mas "Falta R$ 500,00".
+  const plural = !!unidade && falta > 1
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-neutral-700 adobe-dark:text-adobe-text-md">
+          <span className="text-2xl font-black tabular-nums text-neutral-950 adobe-dark:text-adobe-text-hi">{formatar(atual)}</span>
+          <span className="text-neutral-400"> / {formatar(alvo)}</span>
+          {unidade && ` ${unidade(alvo)}`}
+        </p>
+        <span className="text-xs font-bold tabular-nums text-neutral-500 adobe-dark:text-adobe-text-lo">{pct}%</span>
+      </div>
+      <div
+        className="mt-2 h-3 overflow-hidden rounded-full bg-neutral-100 adobe-dark:bg-adobe-bg-3"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={alvo}
+        aria-valuenow={atual}
+        aria-label={`${comUnidade(atual)} de ${comUnidade(alvo)}`}
+      >
+        <div className={'h-full rounded-full transition-[width] duration-700 ' + barra} style={{ width: `${pct}%` }} />
+      </div>
+      {/* Com a meta batida pela outra barra, o que falta aqui já não importa. */}
+      {falta > 0 && situacao !== 'batida' && (
+        <p className="mt-1.5 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          {situacao === 'nao_batida'
+            ? `${plural ? 'Faltaram' : 'Faltou'} ${comUnidade(falta)}.`
+            : `${plural ? 'Faltam' : 'Falta'} ${comUnidade(falta)} até o fim do mês.`}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Modal criar/editar ──────────────────────────────────────────────────────
 
 function MetaModal({
@@ -488,7 +539,8 @@ function MetaModal({
   const toast = useToast()
   const [vendedorUid, setVendedorUid] = useState(meta?.vendedorUid ?? '')
   const [mes, setMes] = useState(meta?.mes ?? mesInicial)
-  const [quantidade, setQuantidade] = useState(meta ? String(meta.quantidade) : '')
+  const [quantidade, setQuantidade] = useState(meta?.quantidade != null ? String(meta.quantidade) : '')
+  const [valorMeta, setValorMeta] = useState(moneyFromNumber(meta?.valorMeta ?? null))
   const [bonus, setBonus] = useState(moneyFromNumber(meta?.bonus ?? null))
   const [observacao, setObservacao] = useState(meta?.observacao ?? '')
   const [errors, setErrors] = useState<MetaFieldErrors>({})
@@ -503,6 +555,7 @@ function MetaModal({
       fd.append('vendedorUid', vendedorUid)
       fd.append('mes', mes)
       fd.append('quantidade', quantidade)
+      fd.append('valorMeta', valorMeta ? String(parseMoney(valorMeta)) : '')
       fd.append('bonus', bonus ? String(parseMoney(bonus)) : '')
       fd.append('observacao', observacao)
       const result = await salvarMeta(fd)
@@ -523,7 +576,7 @@ function MetaModal({
       open
       onClose={() => !salvando && onClose()}
       title={meta ? `Editar meta — ${meta.vendedorNome}` : 'Nova meta'}
-      description={meta ? rotuloMes(meta.mes) : 'Conta cada proposta registrada marcada como fechada no mês.'}
+      description={meta ? rotuloMes(meta.mes) : 'Conta as propostas registradas marcadas como fechadas no mês.'}
     >
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
         {!meta && (
@@ -551,7 +604,7 @@ function MetaModal({
         )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Meta (veículos)"
+            label="Meta em veículos"
             type="number"
             inputMode="numeric"
             min={1}
@@ -561,9 +614,22 @@ function MetaModal({
             onChange={(e) => setQuantidade(e.target.value)}
             placeholder="Ex: 5"
             error={errors.quantidade}
-            required
             autoFocus
           />
+          <Input
+            label="Meta em R$"
+            inputMode="numeric"
+            value={valorMeta}
+            onChange={(e) => setValorMeta(maskMoney(e.target.value))}
+            placeholder="0,00"
+            hint="Soma do valor da proposta."
+            error={errors.valorMeta}
+          />
+        </div>
+        <p className="-mt-1 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          Preencha uma ou as duas. Com as duas, basta bater uma para ganhar o bônus.
+        </p>
+        <div className="sm:w-1/2">
           <Input
             label="Bônus (R$)"
             inputMode="numeric"

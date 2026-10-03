@@ -18,6 +18,9 @@ dentro do mês, o vendedor ganha o bônus, e o ADM supremo marca quando pagou.
   botão "Marcar como fechada" abre "Quem fechou?" já preenchido com ele (dá pra
   trocar). "Reabrir" desfaz e a proposta deixa de contar.
 - **Meta individual** por vendedor, **período mensal** (fuso de São Paulo).
+- **Alvo:** em veículos (`quantidade`), em R$ (`valorMeta`, soma do *valor da
+  proposta* das fechadas) ou os dois. Com os dois, **basta bater um**. Meta
+  antiga sem `valorMeta` continua só em veículos.
 - **Bônus:** valor em R$ na meta; ao bater, o ADM supremo marca "Bônus pago".
   Não gera lançamento no Financeiro.
 - Só **ADM supremo** (`isAdmSupremo`) cria/edita/exclui metas e marca bônus.

@@ -29,7 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title: 'Metas de vendas com bônus',
     tag: 'novo',
     items: [
-      'Nova aba "Metas": a administração define quantos veículos cada vendedor precisa fechar no mês e o bônus ao bater a meta.',
+      'Nova aba "Metas": a administração define a meta do mês de cada vendedor (em veículos fechados, em R$ pelo valor da proposta, ou as duas — basta bater uma) e o bônus ao bater a meta.',
       'Em Propostas registradas, use "Marcar como fechada" e escolha quem fechou; a barra da meta do vendedor vai enchendo a cada proposta fechada no mês.',
       'Ao bater a meta dentro do mês, o bônus fica liberado e aparece como pago quando a administração confirmar o pagamento.',
     ],

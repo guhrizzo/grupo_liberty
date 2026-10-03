@@ -38,8 +38,27 @@ async function checarAdmSupremo(): Promise<{ user: SessionUser } | { error: stri
   return { user }
 }
 
-function situacaoDa(mes: string, fechadas: number, quantidade: number): MetaSituacao {
-  if (fechadas >= quantidade) return 'batida'
+/** Meta antiga (só veículos) não tem `valorMeta`; meta sem nada vira 1 veículo. */
+function alvosDa(data: FirebaseFirestore.DocumentData) {
+  const quantidade = Number(data.quantidade) > 0 ? Number(data.quantidade) : null
+  const valorMeta = Number(data.valorMeta) > 0 ? Number(data.valorMeta) : null
+  return { quantidade: quantidade ?? (valorMeta ? null : 1), valorMeta }
+}
+
+/** Basta bater uma das metas (veículos ou valor). */
+function metaBatida(
+  alvos: { quantidade: number | null; valorMeta: number | null },
+  propostas: MetaProposta[],
+) {
+  const valorFechado = propostas.reduce((acc, p) => acc + p.valor, 0)
+  return (
+    (alvos.quantidade != null && propostas.length >= alvos.quantidade) ||
+    (alvos.valorMeta != null && valorFechado >= alvos.valorMeta)
+  )
+}
+
+function situacaoDa(mes: string, batida: boolean): MetaSituacao {
+  if (batida) return 'batida'
   return mes < mesAtual() ? 'nao_batida' : 'andamento'
 }
 
@@ -63,6 +82,7 @@ async function fechadasPorVendedorMes(vendedorUid?: string): Promise<Map<string,
       id: doc.id,
       cliente: p.nome ?? '',
       veiculo: `${p.veiculo_marca ?? ''} ${p.veiculo_modelo ?? ''}`.trim(),
+      valor: Number(p.valor) || 0,
       fechadaEm: p.fechada_em,
     })
     mapa.set(chave, lista)
@@ -95,7 +115,7 @@ export async function getMetas(mes: string): Promise<Meta[]> {
     return docs
       .map((doc) => {
         const data = doc.data()
-        const quantidade = Number(data.quantidade) || 1
+        const alvos = alvosDa(data)
         const propostas = (fechadas.get(idDaMeta(data.vendedorUid, data.mes)) ?? []).sort((a, b) =>
           a.fechadaEm.localeCompare(b.fechadaEm),
         )
@@ -104,13 +124,15 @@ export async function getMetas(mes: string): Promise<Meta[]> {
           vendedorUid: data.vendedorUid ?? '',
           vendedorNome: data.vendedorNome ?? 'Usuário',
           mes: data.mes,
-          quantidade,
+          quantidade: alvos.quantidade,
+          valorMeta: alvos.valorMeta,
           bonus: typeof data.bonus === 'number' ? data.bonus : null,
           observacao: data.observacao ?? '',
           bonusPagoEm: data.bonusPagoEm ?? null,
           fechadas: propostas.length,
+          valorFechado: propostas.reduce((acc, p) => acc + p.valor, 0),
           propostas,
-          situacao: situacaoDa(data.mes, propostas.length, quantidade),
+          situacao: situacaoDa(data.mes, metaBatida(alvos, propostas)),
         } satisfies Meta
       })
       .sort((a, b) => a.vendedorNome.localeCompare(b.vendedorNome, 'pt-BR'))
@@ -124,7 +146,7 @@ export async function getMetas(mes: string): Promise<Meta[]> {
 
 /**
  * Cria (sem `id`) ou edita (com `id`) uma meta. Na edição, vendedor e mês
- * ficam fixos (fazem parte do id); só quantidade, bônus e observação mudam.
+ * ficam fixos (fazem parte do id); só as metas, bônus e observação mudam.
  */
 export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
   const check = await checarAdmSupremo()
@@ -134,7 +156,10 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
   const id = ((formData.get('id') as string) || '').trim()
   const vendedorUid = ((formData.get('vendedorUid') as string) || '').trim()
   const mes = ((formData.get('mes') as string) || '').trim()
-  const quantidade = Number(formData.get('quantidade'))
+  const quantidadeBruta = ((formData.get('quantidade') as string) || '').trim()
+  const quantidade = quantidadeBruta === '' ? null : Number(quantidadeBruta)
+  const valorMetaBruto = ((formData.get('valorMeta') as string) || '').trim()
+  const valorMeta = valorMetaBruto === '' ? null : Number(valorMetaBruto)
   const bonusBruto = ((formData.get('bonus') as string) || '').trim()
   const bonus = bonusBruto === '' ? null : Number(bonusBruto)
   const observacao = ((formData.get('observacao') as string) || '').trim()
@@ -145,8 +170,15 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
     if (!ehMesValido(mes)) fieldErrors.mes = 'Informe o mês.'
     else if (mes < mesAtual()) fieldErrors.mes = 'Não dá para criar meta em mês que já passou.'
   }
-  if (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > META_QUANTIDADE_MAX) {
-    fieldErrors.quantidade = 'Informe um número inteiro de veículos (mínimo 1).'
+  if (quantidade === null && valorMeta === null) {
+    fieldErrors.quantidade = 'Informe a meta em veículos, em R$ ou as duas.'
+  } else {
+    if (quantidade !== null && (!Number.isInteger(quantidade) || quantidade < 1 || quantidade > META_QUANTIDADE_MAX)) {
+      fieldErrors.quantidade = 'Informe um número inteiro de veículos (mínimo 1).'
+    }
+    if (valorMeta !== null && (!Number.isFinite(valorMeta) || valorMeta <= 0)) {
+      fieldErrors.valorMeta = 'Informe um valor maior que zero.'
+    }
   }
   if (bonus !== null && (!Number.isFinite(bonus) || bonus < 0)) fieldErrors.bonus = 'Valor do bônus inválido.'
   if (observacao.length > META_OBSERVACAO_MAX) fieldErrors.observacao = `Máximo de ${META_OBSERVACAO_MAX} caracteres.`
@@ -172,7 +204,7 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
     if (id) {
       const ref = adminDb.collection(COLECAO).doc(id)
       if (!(await ref.get()).exists) return { error: 'Meta não encontrada.' }
-      await ref.update({ quantidade, bonus, observacao, atualizadoEm: now })
+      await ref.update({ quantidade, valorMeta, bonus, observacao, atualizadoEm: now })
       revalidar()
       return { success: 'Meta atualizada.' }
     }
@@ -184,6 +216,7 @@ export async function salvarMeta(formData: FormData): Promise<MetaResponse> {
       vendedorNome,
       mes,
       quantidade,
+      valorMeta,
       bonus,
       observacao,
       bonusPagoEm: null,
@@ -231,8 +264,8 @@ export async function definirBonusPago(id: string, pago: boolean): Promise<MetaR
 
     if (pago) {
       const fechadas = await fechadasPorVendedorMes(data.vendedorUid)
-      const total = fechadas.get(idDaMeta(data.vendedorUid, data.mes))?.length ?? 0
-      if (total < (Number(data.quantidade) || 1)) {
+      const propostas = fechadas.get(idDaMeta(data.vendedorUid, data.mes)) ?? []
+      if (!metaBatida(alvosDa(data), propostas)) {
         return { error: 'A meta ainda não foi batida.' }
       }
     }

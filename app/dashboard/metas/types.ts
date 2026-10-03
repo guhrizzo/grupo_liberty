@@ -16,6 +16,8 @@ export interface MetaProposta {
   id: string
   cliente: string
   veiculo: string
+  /** Valor da proposta (soma na meta em dinheiro). */
+  valor: number
   fechadaEm: string
 }
 
@@ -24,13 +26,18 @@ export interface Meta {
   vendedorUid: string
   vendedorNome: string
   mes: string // YYYY-MM
-  quantidade: number
+  /** Meta em veículos fechados. Pelo menos uma das duas metas existe; basta bater uma. */
+  quantidade: number | null
+  /** Meta em R$ (soma do valor da proposta das fechadas). */
+  valorMeta: number | null
   /** Bônus em R$ ao bater a meta. */
   bonus: number | null
   observacao: string
   bonusPagoEm: string | null
   /** Calculado na leitura a partir das propostas registradas fechadas. */
   fechadas: number
+  /** Soma do valor da proposta das fechadas no mês. */
+  valorFechado: number
   propostas: MetaProposta[]
   situacao: MetaSituacao
 }
@@ -39,6 +46,7 @@ export type MetaFieldErrors = {
   vendedorUid?: string
   mes?: string
   quantidade?: string
+  valorMeta?: string
   bonus?: string
   observacao?: string
 }
