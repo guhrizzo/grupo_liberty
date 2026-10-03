@@ -177,7 +177,8 @@ export default function TarefasClient({
 
   return (
     <div className="space-y-5 pb-28 md:space-y-6 md:pb-0">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* pt-6 no mobile: o título não pode ficar embaixo do botão fixo do menu (☰). */}
+      <header className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between md:pt-0">
         <div className="min-w-0 flex-1">
           <div className="hidden md:block">
             <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Tarefas' }]} />
@@ -801,6 +802,8 @@ function TarefaModal({
               onChange={(e) => setPrazo(e.target.value)}
               error={errors.prazo}
               required
+              // No iOS o input de data tem largura mínima própria e pode vazar do modal.
+              className="min-w-0 appearance-none"
             />
           </div>
           <div>

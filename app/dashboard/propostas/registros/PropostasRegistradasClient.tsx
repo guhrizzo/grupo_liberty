@@ -258,7 +258,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
 
       {/* Busca + filtro por mês */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-sm flex-1">
+        <div className="relative w-full sm:w-auto sm:max-w-sm sm:flex-1">
           <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
@@ -275,7 +275,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 focus:border-neutral-950 focus:outline-none transition-colors cursor-pointer"
+            className="min-w-0 appearance-none rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 focus:border-neutral-950 focus:outline-none transition-colors cursor-pointer"
             aria-label="Filtrar por mês"
           />
         </div>
@@ -362,7 +362,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                         <button
                           type="button"
                           onClick={() => setConfirmReabrir(p)}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg sm:w-auto border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
                         >
                           <IconArrowBackUp size={14} stroke={2.5} />
                           Reabrir
@@ -371,7 +371,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
                         <button
                           type="button"
                           onClick={() => setFechando(p)}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-ui cursor-pointer"
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg sm:w-auto bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-ui cursor-pointer"
                         >
                           <IconCircleCheck size={14} stroke={2.5} />
                           Marcar como fechada
