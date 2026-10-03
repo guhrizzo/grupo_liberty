@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-03-agenda',
+    date: '2026-10-03',
+    title: 'Agenda de compromissos com Google Agenda',
+    tag: 'novo',
+    items: [
+      'Nova aba "Agenda": a administração marca compromissos com data, horário, local e participantes.',
+      'Clique em "Conectar Google Agenda" uma vez e os compromissos em que você participa aparecem sozinhos na sua agenda do Google, no celular e no computador. Mudou ou cancelou no painel, muda lá também.',
+      'No app Liberty Car para computador, a conexão abre no navegador; depois é só voltar para o app.',
+    ],
+  },
+  {
     id: '2026-10-02-juridico-aba-contratos',
     date: '2026-10-02',
     title: 'Aba "Contratos recebidos" no Jurídico',

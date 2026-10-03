@@ -21,6 +21,7 @@ import {
   IconTargetArrow,
   IconChecklist,
   IconTrophy,
+  IconCalendarEvent,
   IconMenu2,
 
   IconLogout,
@@ -42,7 +43,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
@@ -62,6 +63,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/demandas',
     label: 'Demandas',
     icon: 'checklist',
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+  },
+  {
+    href: '/dashboard/agenda',
+    label: 'Agenda',
+    icon: 'calendar',
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
   },
   {
@@ -193,6 +200,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconChecklist className={cls} stroke={2} />
     case 'trophy':
       return <IconTrophy className={cls} stroke={2} />
+    case 'calendar':
+      return <IconCalendarEvent className={cls} stroke={2} />
   }
 }
 
