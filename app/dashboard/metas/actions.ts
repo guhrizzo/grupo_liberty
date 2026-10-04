@@ -326,7 +326,7 @@ export async function salvarVendedoresMetas(uids: string[]): Promise<MetaRespons
     const validos = [...new Set(uids)].filter((u) => candidatos.has(u))
     await gravarUidsVendedores(validos, check.user.uid)
     revalidar()
-    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/propostas', 'layout')
     return { success: 'Lista de vendedores atualizada.' }
   } catch (err) {
     console.error('[salvarVendedoresMetas]', err)

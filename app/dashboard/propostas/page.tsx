@@ -1,15 +1,18 @@
 import { redirect } from 'next/navigation'
+import { adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getPropostas } from './actions'
-import { getManutencoesPorVeiculos } from '../manutencao/actions'
-import PropostasClient from './PropostasClient'
+import { getPropostasRegistradas } from './registros/actions'
+import { getVendedoresMetas } from '@/app/dashboard/metas/actions'
+import PropostasRegistradasClient from './registros/PropostasRegistradasClient'
 
 export const metadata = {
-  title: 'Gerenciar Propostas | Liberty Car',
-  description: 'Controle e responda propostas recebidas de clientes logados.',
+  title: 'Propostas | Liberty Car',
+  description: 'Propostas registradas pela equipe, com a comissão do vendedor em destaque.',
 }
 
-export default async function PropostasDashboardPage() {
+// A aba Propostas abre nos registros e comissões; as propostas enviadas pelo
+// site público ficam em /dashboard/propostas/site ("Propostas de veículos").
+export default async function PropostasPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
 
@@ -17,15 +20,22 @@ export default async function PropostasDashboardPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const propostas = await getPropostas()
-  const veiculoIds = Array.from(
-    new Set(
-      propostas
-        .map((p) => p.veiculo_id)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0),
-    ),
-  )
-  const manutencoes = await getManutencoesPorVeiculos(veiculoIds)
+  const [propostas, vendedores, pendentesSite] = await Promise.all([
+    getPropostasRegistradas(),
+    getVendedoresMetas(),
+    adminDb
+      .collection('propostas')
+      .where('status', '==', 'pendente')
+      .get()
+      .then((s) => s.size)
+      .catch(() => 0),
+  ])
 
-  return <PropostasClient propostas={propostas} manutencoes={manutencoes} />
+  return (
+    <PropostasRegistradasClient
+      propostas={propostas}
+      vendedores={vendedores}
+      propostasSitePendentes={pendentesSite}
+    />
+  )
 }

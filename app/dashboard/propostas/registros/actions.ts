@@ -191,7 +191,7 @@ export async function createPropostaRegistrada(
       updated_at: nowIso,
     })
 
-    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/propostas', 'layout')
 
     return { success: 'Proposta cadastrada com sucesso!', id: docRef.id }
   } catch (err) {
@@ -452,7 +452,7 @@ export async function updatePropostaRegistrada(
       updated_at: new Date().toISOString(),
     })
 
-    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/propostas', 'layout')
     revalidatePath(`/dashboard/propostas/registros/${id}/editar`)
 
     return { success: 'Proposta atualizada com sucesso!' }
@@ -477,7 +477,7 @@ export async function deletePropostaRegistrada(
 
     await ref.delete()
 
-    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/propostas', 'layout')
     return { success: 'Proposta excluída com sucesso.' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao excluir proposta.'
@@ -530,7 +530,7 @@ export async function definirPropostaFechada(
       })
     }
 
-    revalidatePath('/dashboard/propostas/registros')
+    revalidatePath('/dashboard/propostas', 'layout')
     revalidatePath('/dashboard/metas')
     return { success: vendedorUid ? 'Proposta marcada como fechada.' : 'Proposta reaberta.' }
   } catch (err: unknown) {

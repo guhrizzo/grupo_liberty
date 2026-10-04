@@ -561,7 +561,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
 
       setConfirmOpen(false)
       setFileName('')
-      router.push('/dashboard/propostas/registros')
+      router.push('/dashboard/propostas')
       router.refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro inesperado.'

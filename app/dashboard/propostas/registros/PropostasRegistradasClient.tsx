@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  IconArrowLeft,
   IconCalendar,
   IconCar,
   IconCash,
@@ -19,6 +18,7 @@ import {
   IconTrash,
   IconSearch,
   IconWallet,
+  IconWorld,
   IconX,
 } from '@tabler/icons-react'
 import {
@@ -33,6 +33,8 @@ import { formatCurrency } from '@/utils/format'
 interface PropostasRegistradasClientProps {
   propostas: PropostaRegistrada[]
   vendedores: VendedorOpcao[]
+  /** Propostas do site aguardando resposta (contador no botão). */
+  propostasSitePendentes?: number
 }
 
 function formatDate(dateStr: string) {
@@ -57,7 +59,11 @@ function mesLabel(key: string) {
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
-export default function PropostasRegistradasClient({ propostas, vendedores }: PropostasRegistradasClientProps) {
+export default function PropostasRegistradasClient({
+  propostas,
+  vendedores,
+  propostasSitePendentes = 0,
+}: PropostasRegistradasClientProps) {
   // No celular os cards começam recolhidos; a setinha abre os detalhes.
   const [abertos, setAbertos] = useState<Set<string>>(() => new Set())
   function alternarAberto(id: string) {
@@ -211,8 +217,7 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
         <Breadcrumb
           items={[
             { label: 'Dashboard', href: '/dashboard' },
-            { label: 'Propostas', href: '/dashboard/propostas' },
-            { label: 'Registros' },
+            { label: 'Propostas' },
           ]}
         />
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
@@ -226,11 +231,16 @@ export default function PropostasRegistradasClient({ propostas, vendedores }: Pr
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/dashboard/propostas"
+              href="/dashboard/propostas/site"
               className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
             >
-              <IconArrowLeft size={14} stroke={2.5} />
-              Propostas de clientes
+              <IconWorld size={14} stroke={2.5} />
+              Propostas de veículos
+              {propostasSitePendentes > 0 && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {propostasSitePendentes}
+                </span>
+              )}
             </Link>
             <button
               type="button"

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-04-propostas-abre-registros',
+    date: '2026-10-04',
+    title: 'Propostas abre nos registros e comissões',
+    tag: 'melhoria',
+    items: [
+      'A aba Propostas agora abre direto nos registros e comissões.',
+      'As propostas enviadas pelo site para os veículos ficam no botão "Propostas de veículos", que mostra quantas estão aguardando resposta.',
+    ],
+  },
+  {
     id: '2026-10-04-veiculos-modo-lista',
     date: '2026-10-04',
     title: 'Veículos em lista ou em blocos',

@@ -1,26 +1,6 @@
 import { redirect } from 'next/navigation'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
-import { getPropostasRegistradas } from './actions'
-import { getVendedoresMetas } from '@/app/dashboard/metas/actions'
-import PropostasRegistradasClient from './PropostasRegistradasClient'
 
-export const metadata = {
-  title: 'Propostas Registradas | Liberty Car',
-  description: 'Propostas cadastradas manualmente pela equipe, com comissão do vendedor em destaque.',
-}
-
-export default async function PropostasRegistradasPage() {
-  const user = await getSessionUser()
-  if (!user) redirect('/login')
-
-  if (!hasPageAccess(user, 'propostas')) {
-    redirect('/dashboard?error=acesso_negado')
-  }
-
-  const [propostas, vendedores] = await Promise.all([
-    getPropostasRegistradas(),
-    getVendedoresMetas(),
-  ])
-
-  return <PropostasRegistradasClient propostas={propostas} vendedores={vendedores} />
+// Os registros e comissões viraram a página principal da aba Propostas.
+export default function PropostasRegistradasRedirect() {
+  redirect('/dashboard/propostas')
 }
