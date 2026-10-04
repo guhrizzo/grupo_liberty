@@ -532,7 +532,37 @@ export async function definirPropostaFechada(
 
     revalidatePath('/dashboard/propostas', 'layout')
     revalidatePath('/dashboard/metas')
-    return { success: vendedorUid ? 'Proposta marcada como fechada.' : 'Proposta reaberta.' }
+    return { success: vendedorUid ? 'Proposta marcada como aceita.' : 'Proposta voltou para em aberto.' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro ao atualizar a proposta.'
+    return { error: message }
+  }
+}
+
+/**
+ * Marca a proposta como recusada: sai da comissão e das metas (só as aceitas
+ * contam). Apaga quem fechou, se ela estava aceita.
+ */
+export async function definirPropostaRecusada(id: string): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+    if (!id) return { error: 'ID da proposta inválido.' }
+
+    const ref = adminDb.collection('propostas_registradas').doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Proposta não encontrada.' }
+
+    await ref.update({
+      status: 'recusado',
+      fechada_por_uid: null,
+      fechada_por_nome: null,
+      fechada_em: null,
+      updated_at: new Date().toISOString(),
+    })
+
+    revalidatePath('/dashboard/propostas', 'layout')
+    revalidatePath('/dashboard/metas')
+    return { success: 'Proposta marcada como recusada.' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao atualizar a proposta.'
     return { error: message }

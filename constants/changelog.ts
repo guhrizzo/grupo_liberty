@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-04-propostas-status-recusada',
+    date: '2026-10-04',
+    title: 'Propostas em aberto, recusadas e aceitas',
+    tag: 'melhoria',
+    items: [
+      'Cada proposta registrada tem um selo que pode ser trocado entre Em aberto, Recusada e Aceita. Ao marcar como Aceita, o sistema pergunta quem fechou.',
+      'Só as propostas aceitas entram na comissão e nas metas. Dá para filtrar a lista por status.',
+    ],
+  },
+  {
     id: '2026-10-04-propostas-abre-registros',
     date: '2026-10-04',
     title: 'Propostas abre nos registros e comissões',

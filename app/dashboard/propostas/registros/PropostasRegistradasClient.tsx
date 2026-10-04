@@ -9,7 +9,6 @@ import {
   IconCash,
   IconChevronDown,
   IconCircleCheck,
-  IconArrowBackUp,
   IconDownload,
   IconMail,
   IconPencil,
@@ -23,6 +22,7 @@ import {
 } from '@tabler/icons-react'
 import {
   definirPropostaFechada,
+  definirPropostaRecusada,
   deletePropostaRegistrada,
   type PropostaRegistrada,
 } from './actions'
@@ -35,6 +35,19 @@ interface PropostasRegistradasClientProps {
   vendedores: VendedorOpcao[]
   /** Propostas do site aguardando resposta (contador no botão). */
   propostasSitePendentes?: number
+}
+
+type StatusProposta = PropostaRegistrada['status']
+
+const STATUS_PROPOSTA: { valor: StatusProposta; label: string; ativo: string; selo: string }[] = [
+  { valor: 'pendente', label: 'Em aberto', ativo: 'bg-amber-500 text-white', selo: 'bg-amber-100 text-amber-800' },
+  { valor: 'recusado', label: 'Recusada', ativo: 'bg-rose-600 text-white', selo: 'bg-rose-100 text-rose-700' },
+  { valor: 'aceito', label: 'Aceita', ativo: 'bg-emerald-600 text-white', selo: 'bg-emerald-100 text-emerald-700' },
+]
+
+/** Só as aceitas entram na comissão (e nas metas). */
+function somaComissaoAceitas(lista: PropostaRegistrada[]) {
+  return lista.reduce((acc, p) => acc + (p.status === 'aceito' ? (p.comissao_vendedor ?? 0) : 0), 0)
 }
 
 function formatDate(dateStr: string) {
@@ -84,22 +97,24 @@ export default function PropostasRegistradasClient({
   const [fechando, setFechando] = useState<PropostaRegistrada | null>(null)
   const [confirmReabrir, setConfirmReabrir] = useState<PropostaRegistrada | null>(null)
   const [reabrindo, setReabrindo] = useState(false)
+  const [confirmRecusar, setConfirmRecusar] = useState<PropostaRegistrada | null>(null)
+  const [alterandoId, setAlterandoId] = useState<string | null>(null)
+  const [statusFiltro, setStatusFiltro] = useState<StatusProposta | ''>('')
 
-  const hasActiveFilters = Boolean(searchNome.trim() || selectedMonth)
+  const hasActiveFilters = Boolean(searchNome.trim() || selectedMonth || statusFiltro)
 
   const filtered = useMemo(() => {
     const q = searchNome.trim().toLowerCase()
     return propostas.filter((p) => {
       if (q && !p.nome.toLowerCase().includes(q)) return false
       if (selectedMonth && mesKey(p.created_at) !== selectedMonth) return false
+      if (statusFiltro && p.status !== statusFiltro) return false
       return true
     })
-  }, [propostas, searchNome, selectedMonth])
+  }, [propostas, searchNome, selectedMonth, statusFiltro])
 
-  const comissaoTotal = useMemo(
-    () => filtered.reduce((acc, p) => acc + (p.comissao_vendedor ?? 0), 0),
-    [filtered],
-  )
+  const comissaoTotal = useMemo(() => somaComissaoAceitas(filtered), [filtered])
+  const aceitasCount = filtered.filter((p) => p.status === 'aceito').length
 
   const grupos = useMemo(() => {
     const map = new Map<string, PropostaRegistrada[]>()
@@ -115,7 +130,7 @@ export default function PropostasRegistradasClient({
         key,
         label: mesLabel(key),
         items,
-        comissaoTotal: items.reduce((acc, p) => acc + (p.comissao_vendedor ?? 0), 0),
+        comissaoTotal: somaComissaoAceitas(items),
       }))
   }, [filtered])
 
@@ -136,6 +151,42 @@ export default function PropostasRegistradasClient({
     } finally {
       setDeletingId(null)
     }
+  }
+
+  const recusar = async (p: PropostaRegistrada) => {
+    setAlterandoId(p.id)
+    try {
+      const res = await definirPropostaRecusada(p.id)
+      if (res.error) toast.error(res.error, 'Não foi possível recusar')
+      else {
+        toast.success(res.success || 'Proposta recusada.')
+        router.refresh()
+      }
+    } finally {
+      setAlterandoId(null)
+      setConfirmRecusar(null)
+    }
+  }
+
+  const reabrirDireto = async (p: PropostaRegistrada) => {
+    setAlterandoId(p.id)
+    try {
+      const res = await definirPropostaFechada(p.id, null)
+      if (res.error) toast.error(res.error, 'Não foi possível alterar')
+      else {
+        toast.success(res.success || 'Proposta em aberto.')
+        router.refresh()
+      }
+    } finally {
+      setAlterandoId(null)
+    }
+  }
+
+  const trocarStatus = (p: PropostaRegistrada, novo: StatusProposta) => {
+    if (novo === p.status) return
+    if (novo === 'aceito') return setFechando(p)
+    if (novo === 'pendente') return p.status === 'aceito' ? setConfirmReabrir(p) : void reabrirDireto(p)
+    return p.status === 'aceito' ? setConfirmRecusar(p) : void recusar(p)
   }
 
   const handleReabrir = async (p: PropostaRegistrada) => {
@@ -263,7 +314,7 @@ export default function PropostasRegistradasClient({
             </span>
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty-deep/70">
-                Comissão total {hasActiveFilters ? '(filtrada)' : ''}
+                Comissão das aceitas {hasActiveFilters ? '(filtrada)' : ''}
               </p>
               <p className="text-2xl font-black leading-tight text-liberty-deep">
                 {formatCurrency(comissaoTotal)}
@@ -272,7 +323,7 @@ export default function PropostasRegistradasClient({
           </div>
           <p className="text-xs text-neutral-500">
             {filtered.length} proposta{filtered.length === 1 ? '' : 's'} registrada
-            {filtered.length === 1 ? '' : 's'}
+            {filtered.length === 1 ? '' : 's'} · {aceitasCount} aceita{aceitasCount === 1 ? '' : 's'}
           </p>
         </div>
       </div>
@@ -299,6 +350,22 @@ export default function PropostasRegistradasClient({
             className="min-w-0 appearance-none rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 focus:border-neutral-950 focus:outline-none transition-colors cursor-pointer"
             aria-label="Filtrar por mês"
           />
+        </div>
+
+        <div role="group" aria-label="Filtrar por status" className="inline-flex rounded-lg bg-neutral-100 p-1">
+          {[{ valor: '' as const, label: 'Todas' }, ...STATUS_PROPOSTA].map((o) => (
+            <button
+              key={o.valor || 'todas'}
+              type="button"
+              onClick={() => setStatusFiltro(o.valor)}
+              aria-pressed={statusFiltro === o.valor}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                statusFiltro === o.valor ? 'bg-white text-neutral-950 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
         </div>
 
         {selectedMonth && (
@@ -361,13 +428,21 @@ export default function PropostasRegistradasClient({
                       </span>
                       <h3 className="mt-1 flex flex-wrap items-center gap-2 text-base font-bold text-neutral-900">
                         {p.nome}
-                        {p.status === 'aceito' && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">
-                            <IconCircleCheck size={12} stroke={2.5} />
-                            Fechada{p.fechada_por_nome ? ` por ${p.fechada_por_nome}` : ''}
-                            {p.fechada_em ? ` · ${new Date(p.fechada_em).toLocaleDateString('pt-BR')}` : ''}
-                          </span>
-                        )}
+                        {(() => {
+                          const cfg = STATUS_PROPOSTA.find((o) => o.valor === p.status) ?? STATUS_PROPOSTA[0]
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${cfg.selo}`}
+                            >
+                              {p.status === 'aceito' && <IconCircleCheck size={12} stroke={2.5} />}
+                              {cfg.label}
+                              {p.status === 'aceito' && p.fechada_por_nome ? ` por ${p.fechada_por_nome}` : ''}
+                              {p.status === 'aceito' && p.fechada_em
+                                ? ` · ${new Date(p.fechada_em).toLocaleDateString('pt-BR')}`
+                                : ''}
+                            </span>
+                          )
+                        })()}
                       </h3>
                       {!aberto && (
                         <p className="mt-1 truncate text-xs text-neutral-600 md:hidden">
@@ -413,25 +488,26 @@ export default function PropostasRegistradasClient({
                     </div>
 
                     <div className={`flex-wrap items-center gap-2 md:flex ${aberto ? 'flex' : 'hidden'}`}>
-                      {p.status === 'aceito' ? (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmReabrir(p)}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg sm:w-auto border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
-                        >
-                          <IconArrowBackUp size={14} stroke={2.5} />
-                          Reabrir
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setFechando(p)}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg sm:w-auto bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 transition-ui cursor-pointer"
-                        >
-                          <IconCircleCheck size={14} stroke={2.5} />
-                          Marcar como fechada
-                        </button>
-                      )}
+                      <div
+                        role="group"
+                        aria-label={`Status da proposta de ${p.nome}`}
+                        className="grid w-full grid-cols-3 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:w-auto"
+                      >
+                        {STATUS_PROPOSTA.map((o) => (
+                          <button
+                            key={o.valor}
+                            type="button"
+                            disabled={alterandoId === p.id}
+                            onClick={() => trocarStatus(p, o.valor)}
+                            aria-pressed={p.status === o.valor}
+                            className={`rounded-md px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
+                              p.status === o.valor ? o.ativo : 'text-neutral-600 hover:bg-white'
+                            }`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleDownloadPdf(p)}
@@ -501,9 +577,16 @@ export default function PropostasRegistradasClient({
                       <span className="block text-[9px] font-bold uppercase tracking-widest text-liberty-deep/70">
                         Comissão do vendedor
                       </span>
-                      <p className="mt-1.5 text-lg font-black text-liberty-deep">
+                      <p
+                        className={`mt-1.5 text-lg font-black ${
+                          p.status === 'aceito' ? 'text-liberty-deep' : 'text-neutral-400 line-through decoration-1'
+                        }`}
+                      >
                         {p.comissao_vendedor != null ? formatCurrency(p.comissao_vendedor) : '—'}
                       </p>
+                      {p.status !== 'aceito' && (
+                        <p className="mt-0.5 text-[11px] text-neutral-500">Só conta quando a proposta for aceita.</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -531,10 +614,21 @@ export default function PropostasRegistradasClient({
         open={confirmReabrir != null}
         onClose={() => !reabrindo && setConfirmReabrir(null)}
         onConfirm={() => confirmReabrir && handleReabrir(confirmReabrir)}
-        title="Reabrir proposta"
-        description="A proposta volta para pendente e deixa de contar na meta do vendedor."
-        confirmLabel="Reabrir"
+        title="Voltar para em aberto"
+        description="A proposta deixa de estar aceita: sai da comissão e da meta do vendedor."
+        confirmLabel="Voltar para em aberto"
         loading={reabrindo}
+      />
+
+      <ConfirmDialog
+        open={confirmRecusar != null}
+        onClose={() => alterandoId == null && setConfirmRecusar(null)}
+        onConfirm={() => confirmRecusar && recusar(confirmRecusar)}
+        title="Marcar como recusada"
+        description="A proposta estava aceita: ao recusar, ela sai da comissão e da meta do vendedor."
+        confirmLabel="Recusar"
+        tone="danger"
+        loading={alterandoId != null}
       />
 
       <ConfirmDialog
@@ -585,10 +679,10 @@ function FecharPropostaModal({
     try {
       const res = await definirPropostaFechada(proposta.id, vendedorUid)
       if (res.error) {
-        toast.error(res.error, 'Não foi possível fechar')
+        toast.error(res.error, 'Não foi possível aceitar')
         return
       }
-      toast.success(res.success || 'Proposta fechada.')
+      toast.success(res.success || 'Proposta aceita.')
       onDone()
     } finally {
       setSalvando(false)
@@ -599,7 +693,7 @@ function FecharPropostaModal({
     <Modal
       open
       onClose={() => !salvando && onClose()}
-      title="Marcar como fechada"
+      title="Marcar como aceita"
       description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
     >
       <div className="mt-4 space-y-4">
