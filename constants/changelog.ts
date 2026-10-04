@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-04-veiculos-modo-lista',
+    date: '2026-10-04',
+    title: 'Veículos em lista ou em blocos',
+    tag: 'melhoria',
+    items: [
+      'Na aba Veículos, os botões "Blocos" e "Lista" ao lado dos filtros trocam o jeito de ver o estoque. A lista mostra um veículo por linha, com foto pequena, placa, situação, cidade e preço.',
+      'A escolha fica guardada no seu navegador.',
+    ],
+  },
+  {
     id: '2026-10-04-contratos-modelos',
     date: '2026-10-04',
     title: 'Modelos de contrato',

@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation'
 import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash, IconAlertTriangle } from '@tabler/icons-react'
 import LoadingBar from '../../components/LoadingBar'
 import PhotoLightbox from '../../components/PhotoLightbox'
+import SeletorVisualizacao from '../../components/SeletorVisualizacao'
+import { useModoVisualizacao } from '../../components/useModoVisualizacao'
 import {
   Breadcrumb,
   Button,
@@ -126,6 +128,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const fileInputRef = useRef<HTMLInputElement>(null)
   const currentRole = currentUser?.role
   const canEdit = temAcessoPagina(currentRole, currentUser?.permissions, 'veiculos')
+  const [modoVisualizacao, setModoVisualizacao] = useModoVisualizacao('dashboard_veiculos_modo')
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
@@ -2219,6 +2222,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   </option>
                 ))}
               </Select>
+              <SeletorVisualizacao modo={modoVisualizacao} onChange={setModoVisualizacao} />
             </div>
           </div>
 
@@ -2237,6 +2241,90 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                   ? 'Clique em "Novo Veículo" para começar ou ajuste a busca.'
                   : 'Aguarde um administrador cadastrar veículos.'}
               </p>
+            </div>
+          ) : modoVisualizacao === 'lista' ? (
+            <div className="divide-y divide-neutral-100 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-xs">
+              {veiculosFiltrados.map((v) => {
+                const estado = estoqueEstadoDe(v)
+                const estadoCfg = {
+                  disponivel: { label: 'Disponível', cls: 'bg-emerald-100 text-emerald-700' },
+                  vendido: { label: 'Vendido', cls: 'bg-amber-100 text-amber-800' },
+                  privado: { label: 'Privado', cls: 'bg-neutral-200 text-neutral-700' },
+                }[estado]
+                return (
+                  <div key={v.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={!(v.fotos?.length > 0)}
+                        onClick={() => setLightbox({ fotos: v.fotos, alt: `${v.marca} ${v.modelo}`, index: 0 })}
+                        aria-label={`Ampliar fotos de ${v.marca} ${v.modelo}`}
+                        className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100 cursor-zoom-in disabled:cursor-default"
+                      >
+                        {v.fotos?.length > 0 ? (
+                          <Image src={v.fotos[0]} alt={`${v.marca} ${v.modelo}`} fill className="object-cover" sizes="80px" />
+                        ) : (
+                          <IconCar size={22} stroke={1.5} className="absolute inset-0 m-auto text-neutral-300" />
+                        )}
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h4 className="truncate text-sm font-bold text-neutral-900">
+                            {v.marca} {v.modelo}
+                          </h4>
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${estadoCfg.cls}`}>
+                            {estadoCfg.label}
+                          </span>
+                          {v.terceiro && (
+                            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                              Terceiro
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-neutral-500">
+                          {[
+                            v.ano,
+                            v.cor,
+                            v.quilometragem != null ? formatKm(v.quilometragem) : null,
+                            v.placa ? maskPlate(v.placa) : null,
+                            v.localizacao || 'Jaú/SP',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <p className="text-base font-bold text-neutral-950 sm:w-32 sm:text-right">{formatCurrency(v.preco)}</p>
+                      <div className="flex gap-2">
+                        <Link
+                          href={`/veiculos/${v.id}`}
+                          target="_blank"
+                          className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-100"
+                        >
+                          Link
+                        </Link>
+                        {canEdit && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(v)}
+                              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 cursor-pointer"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => setDeleteId(v.id)}
+                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            >
+                              Remover
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
