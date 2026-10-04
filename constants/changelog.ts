@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-04-contratos-modelos',
+    date: '2026-10-04',
+    title: 'Modelos de contrato',
+    tag: 'novo',
+    items: [
+      'Na aba Contratos, o novo quadro "Modelos de contrato" guarda os contratos em branco: envie o arquivo (Word, .odt ou PDF) com o nome do contrato.',
+      'Qualquer pessoa com acesso a Contratos baixa o modelo para preencher. Dá para renomear e excluir.',
+    ],
+  },
+  {
     id: '2026-10-04-manutencao-baixa-financeiro',
     date: '2026-10-04',
     title: 'Baixa de manutenção vai para o Financeiro',
