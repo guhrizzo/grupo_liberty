@@ -22,6 +22,8 @@ import {
   IconChecklist,
   IconTrophy,
   IconCalendarEvent,
+  IconMapPins,
+  IconReportAnalytics,
   IconMenu2,
 
   IconLogout,
@@ -43,7 +45,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
@@ -63,13 +65,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/demandas',
     label: 'Demandas',
     icon: 'checklist',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/agenda',
     label: 'Agenda',
     icon: 'calendar',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/consulta-fipe',
@@ -108,6 +110,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'propostas',
   },
   {
+    href: '/dashboard/metricas-diarias',
+    label: 'Métricas diárias',
+    icon: 'report',
+    permissionKey: 'metricas_diarias',
+  },
+  {
     href: '/dashboard/financeiro',
     label: 'Financeiro',
     icon: 'finance',
@@ -132,6 +140,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'leads',
   },
   {
+    href: '/dashboard/rede-apoio',
+    label: 'Rede de apoio',
+    icon: 'map-pins',
+    permissionKey: 'rede_apoio',
+  },
+  {
     href: '/dashboard/juridico',
     label: 'Jurídico',
     icon: 'scales',
@@ -147,13 +161,13 @@ const NAV_ITEMS: NavItem[] = [
     href: '/dashboard/novidades',
     label: 'Novidades',
     icon: 'sparkles',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/feedback',
     label: 'Bugs & Melhorias',
     icon: 'bug',
-    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte'],
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
     href: '/dashboard/analytics',
@@ -202,6 +216,10 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconTrophy className={cls} stroke={2} />
     case 'calendar':
       return <IconCalendarEvent className={cls} stroke={2} />
+    case 'map-pins':
+      return <IconMapPins className={cls} stroke={2} />
+    case 'report':
+      return <IconReportAnalytics className={cls} stroke={2} />
   }
 }
 
@@ -217,6 +235,7 @@ const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrador',
   vendedor: 'Vendedor',
   vendedor_externo: 'Vendedor externo',
+  financeiro: 'Financeiro',
   advogado: 'Advogado',
   suporte: 'Suporte',
 }

@@ -25,11 +25,175 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     id: '2026-10-03-metricas-cores',
-    date: '2026-10-03',
+    date: '2026-10-04',
     title: 'Cores dos gráficos da Visão Geral',
     tag: 'melhoria',
     items: [
       'Botão "Cores" na Visão Geral: escolha a cor do faturamento, dos custos e do lucro negativo nos gráficos. A escolha é só sua e "Restaurar padrão" volta às cores originais.',
+    ],
+  },
+  {
+    id: '2026-10-04-propostas-status-recusada',
+    date: '2026-10-04',
+    title: 'Propostas em aberto, recusadas e aceitas',
+    tag: 'melhoria',
+    items: [
+      'Cada proposta registrada tem um selo que pode ser trocado entre Em aberto, Recusada e Aceita. Ao marcar como Aceita, o sistema pergunta quem fechou.',
+      'Só as propostas aceitas entram na comissão e nas metas. Dá para filtrar a lista por status.',
+    ],
+  },
+  {
+    id: '2026-10-04-propostas-abre-registros',
+    date: '2026-10-04',
+    title: 'Propostas abre nos registros e comissões',
+    tag: 'melhoria',
+    items: [
+      'A aba Propostas agora abre direto nos registros e comissões.',
+      'As propostas enviadas pelo site para os veículos ficam no botão "Propostas de veículos", que mostra quantas estão aguardando resposta.',
+    ],
+  },
+  {
+    id: '2026-10-04-veiculos-modo-lista',
+    date: '2026-10-04',
+    title: 'Veículos em lista ou em blocos',
+    tag: 'melhoria',
+    items: [
+      'Na aba Veículos, os botões "Blocos" e "Lista" ao lado dos filtros trocam o jeito de ver o estoque. A lista mostra um veículo por linha, com foto pequena, placa, situação, cidade e preço.',
+      'A escolha fica guardada no seu navegador.',
+    ],
+  },
+  {
+    id: '2026-10-04-contratos-modelos',
+    date: '2026-10-04',
+    title: 'Modelos de contrato',
+    tag: 'novo',
+    items: [
+      'Na aba Contratos, o novo quadro "Modelos de contrato" guarda os contratos em branco: envie o arquivo (Word, .odt ou PDF) com o nome do contrato.',
+      'Qualquer pessoa com acesso a Contratos baixa o modelo para preencher. Dá para renomear e excluir.',
+    ],
+  },
+  {
+    id: '2026-10-04-manutencao-baixa-financeiro',
+    date: '2026-10-04',
+    title: 'Baixa de manutenção vai para o Financeiro',
+    tag: 'correcao',
+    items: [
+      'Ao dar baixa numa manutenção, o valor pago entra automaticamente como despesa "Manutenção" no Financeiro, com a data do dia.',
+      'Estornar a baixa ou excluir a manutenção também tira a despesa do Financeiro.',
+    ],
+  },
+  {
+    id: '2026-10-03-ler-placa-camera-ia',
+    date: '2026-10-03',
+    title: 'Leitura de placa pela câmera mais precisa',
+    tag: 'melhoria',
+    items: [
+      'O botão "Câmera" da Consulta FIPE agora lê a placa com inteligência artificial: acerta mesmo com a foto um pouco de longe, de lado ou com pouca luz.',
+    ],
+  },
+  {
+    id: '2026-10-03-ler-placa-camera',
+    date: '2026-10-03',
+    title: 'Ler placa pela câmera',
+    tag: 'novo',
+    items: [
+      'Na Consulta FIPE, o botão "Câmera" abre a câmera do celular: tire uma foto da placa e o sistema lê os caracteres e já busca a FIPE e os dados do veículo.',
+      'A leitura é feita no próprio aparelho. Para acertar, fotografe de perto, com a placa reta e bem iluminada. Se não conseguir ler, é só digitar.',
+    ],
+  },
+  {
+    id: '2026-10-03-metricas-diarias',
+    date: '2026-10-03',
+    title: 'Nova aba "Métricas diárias"',
+    tag: 'novo',
+    items: [
+      'Vendedores preenchem os números do dia: leads, atendidos, retornaram, propostas, concluídos e follow up. Dá para corrigir um dia anterior escolhendo a data.',
+      'Cada vendedor vê o próprio histórico e a média por dia no mês; o admin vê o time inteiro, com a média de cada um e da equipe.',
+    ],
+  },
+  {
+    id: '2026-10-03-rede-de-apoio',
+    date: '2026-10-03',
+    title: 'Nova aba "Rede de apoio"',
+    tag: 'novo',
+    items: [
+      'Cadastre amigos, parceiros, conhecidos e mentorados com a cidade e o estado onde moram, telefone e se podem receber ou ir ver um veículo.',
+      'A lista fica agrupada por estado, com busca por nome ou cidade e botão direto para o WhatsApp. Serve para achar alguém de confiança quando fechamos negócio longe da sede.',
+    ],
+  },
+  {
+    id: '2026-10-03-cobrancas-dias-vencimento-desktop',
+    date: '2026-10-03',
+    title: 'Dias até o vencimento no computador',
+    tag: 'melhoria',
+    items: [
+      'Em Cobranças, no computador, a coluna Vencimento das parcelas agora mostra quantos dias faltam ("em 4 dias") ou há quantos dias está atrasada, como já aparecia no celular.',
+    ],
+  },
+  {
+    id: '2026-10-03-propostas-card-recolhido',
+    date: '2026-10-03',
+    title: 'Propostas registradas mais compactas no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada proposta registrada aparece resumida (cliente, veículo e comissão). Toque na setinha para ver contato, valores e os botões de fechar, baixar, editar e excluir.',
+    ],
+  },
+  {
+    id: '2026-10-03-leads-card-recolhido',
+    date: '2026-10-03',
+    title: 'Leads mais compactos no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, cada lead aparece resumido (nome, CPF, cidade e veículo). Toque na setinha para ver os detalhes, registrar visita e as ações.',
+    ],
+  },
+  {
+    id: '2026-10-03-cargo-financeiro',
+    date: '2026-10-03',
+    title: 'Novo cargo "Financeiro"',
+    tag: 'novo',
+    items: [
+      'Novo cargo "Financeiro" em Usuários: acessa Financeiro e Cobranças, além de Demandas, Agenda, Novidades e Bugs & Melhorias. Como nos outros cargos, dá para liberar ou bloquear abas nas permissões de cada pessoa.',
+    ],
+  },
+  {
+    id: '2026-10-03-modal-rolagem-mobile',
+    date: '2026-10-03',
+    title: 'Janelas longas rolam no celular',
+    tag: 'correcao',
+    items: [
+      'No celular, janelas com muitos campos (como "Novo compromisso" na Agenda) agora rolam por dentro, e o botão de salvar sempre fica acessível.',
+    ],
+  },
+  {
+    id: '2026-10-03-juros-ate-pagamento-parcial',
+    date: '2026-10-03',
+    title: 'Pagamento atrasado quita primeiro a multa e os juros',
+    tag: 'correcao',
+    items: [
+      'Quando o cliente paga uma parcela atrasada, o pagamento quita primeiro a multa e os juros acumulados até aquele dia, e o restante abate a parcela.',
+      'Depois disso, os juros correm só sobre o que sobrou da parcela.',
+    ],
+  },
+  {
+    id: '2026-10-03-encargos-sobre-saldo',
+    date: '2026-10-03',
+    title: 'Multa e juros sobre o saldo em aberto',
+    tag: 'melhoria',
+    items: [
+      'A multa de 5% é cobrada logo após o vencimento, sobre o que estava em aberto naquele dia: se o cliente pagou parte da parcela até o vencimento, a multa fica só sobre o restante.',
+      'Pagamento parcial agora abate primeiro a parcela. Os juros (0,33% ao dia, compostos, nunca sobre a multa) passam a correr só sobre o que ficou em aberto, a partir da data do pagamento.',
+      'Quem paga atrasado só o valor da parcela continua devendo a multa e os juros daquele dia.',
+    ],
+  },
+  {
+    id: '2026-10-03-encargos-cobrancas-antigas',
+    date: '2026-10-03',
+    title: 'Multa e juros também nas cobranças antigas',
+    tag: 'melhoria',
+    items: [
+      'As cobranças criadas antes da regra de multa e juros passam a cobrar encargos por atraso, mas só nas parcelas que vencem a partir de 03/10/2026. Parcelas que venceram antes continuam sem multa e juros.',
     ],
   },
   {

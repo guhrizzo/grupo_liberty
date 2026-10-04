@@ -1301,7 +1301,11 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
           cliente={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.clienteNome ?? null}
           taxas={(() => {
             const cob = cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)
-            return { multaPct: cob?.multaPct ?? 0, jurosMensalPct: cob?.jurosMensalPct ?? 0 }
+            return {
+              multaPct: cob?.multaPct ?? 0,
+              jurosMensalPct: cob?.jurosMensalPct ?? 0,
+              encargosDesde: cob?.encargosDesde ?? null,
+            }
           })()}
           loading={loadingPagamento}
           onClose={handleFecharPagamento}
@@ -1997,6 +2001,25 @@ function valorAtualizado(p: Parcela): number {
 }
 
 /** Multa + juros por atraso da parcela (calculados até hoje no servidor). */
+/**
+ * "R$ 527,93 (R$ 512,51 da parcela + R$ 15,42 de multa/juros)": saldo da
+ * parcela (o pagamento quita primeiro multa e juros) + encargos ainda em aberto.
+ */
+function FaltaTexto({ parcela: p }: { parcela: Parcela }) {
+  const restoParcela = Math.max(p.principalRestante, 0)
+  const multaJuros = Math.max(p.valorRestante - restoParcela, 0)
+  if (multaJuros <= 0.01) return <>{formatCurrency(p.valorRestante)}</>
+  return (
+    <>
+      {formatCurrency(p.valorRestante)}{' '}
+      <span className="font-normal">
+        ({restoParcela > 0.01 ? `${formatCurrency(restoParcela)} da parcela + ` : ''}
+        {formatCurrency(multaJuros)} de multa/juros)
+      </span>
+    </>
+  )
+}
+
 function ParcelaEncargosInfo({
   parcela: p,
   canEdit,
@@ -2021,11 +2044,27 @@ function ParcelaEncargosInfo({
       <IconPercentage size={10} className="shrink-0" />
       <span>
         <span className="text-neutral-500">Valor original {formatCurrency(p.valorParcela)}</span> + multa{' '}
-        {formatCurrency(e.multa)} + juros {formatCurrency(e.juros)} ({e.diasAtraso}{' '}
-        dia{e.diasAtraso === 1 ? '' : 's'})
+        {formatCurrency(e.multa)}
+        {e.periodosJuros.length <= 1 && (
+          <>
+            {' '}+ juros {formatCurrency(e.juros)} ({e.periodosJuros[0]?.dias ?? e.diasAtraso}{' '}
+            dia{(e.periodosJuros[0]?.dias ?? e.diasAtraso) === 1 ? '' : 's'})
+          </>
+        )}
       </span>
       {e.pagos > 0.01 && (
         <span className="text-neutral-500">· {formatCurrency(e.pagos)} de encargos já pagos</span>
+      )}
+      {e.periodosJuros.length > 1 && (
+        <span className="basis-full">
+          {e.periodosJuros.map((pj) => (
+            <span key={pj.de} className="block">
+              Juros de {formatDate(pj.de)} a {formatDate(pj.ate)}: {formatCurrency(pj.valor)} ({pj.dias} dia
+              {pj.dias === 1 ? '' : 's'} sobre {formatCurrency(pj.base)})
+              {pj.fechado ? '' : ' · ainda correndo'}
+            </span>
+          ))}
+        </span>
       )}
       {canEdit && (
         <button
@@ -2222,7 +2261,7 @@ function ParcelasList({
                   )}
                   {!p.pago && p.valorPago > 0 && (
                     <span className="ml-1 font-semibold text-sky-600">
-                      · falta {formatCurrency(p.valorRestante)}
+                      · falta <FaltaTexto parcela={p} />
                     </span>
                   )}
                 </p>
@@ -2268,7 +2307,11 @@ function ParcelasList({
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {parcelas.map((p) => (
+              {parcelas.map((p) => {
+                const dias = Math.ceil(
+                  (new Date(p.dataVencimento + 'T00:00:00').getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+                )
+                return (
                 <tr
                   key={p.id}
                   className={`transition-colors ${
@@ -2286,6 +2329,16 @@ function ParcelasList({
                   </td>
                   <td className="px-5 py-3 text-neutral-600 align-top">
                     {formatDate(p.dataVencimento)}
+                    {!p.pago && p.status !== 'atrasado' && dias >= 0 && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-amber-600">
+                        em {dias} dia{dias === 1 ? '' : 's'}
+                      </p>
+                    )}
+                    {!p.pago && p.status === 'atrasado' && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-rose-600">
+                        {Math.abs(dias)} dia{Math.abs(dias) === 1 ? '' : 's'} atrasado
+                      </p>
+                    )}
                   </td>
                   <td className="px-5 py-3 align-top">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -2308,7 +2361,7 @@ function ParcelasList({
                     </div>
                     {!p.pago && p.valorPago > 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
-                        pago {formatCurrency(p.valorPago)} · falta {formatCurrency(p.valorRestante)}
+                        pago {formatCurrency(p.valorPago)} · falta <FaltaTexto parcela={p} />
                       </p>
                     )}
                     <ParcelaEncargosInfo parcela={p} canEdit={canEdit} onIsentar={onIsentar} />
@@ -2347,7 +2400,8 @@ function ParcelasList({
                     )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -2434,7 +2488,7 @@ function ExtratoMesDetalhes({
                     {formatDate(p.dataVencimento)} · {formatCurrency(p.valorParcela)}
                     {!p.pago && p.valorPago > 0 && (
                       <span className="ml-1 font-semibold text-sky-600">
-                        · falta {formatCurrency(p.valorRestante)}
+                        · falta <FaltaTexto parcela={p} />
                       </span>
                     )}
                   </p>
@@ -2791,7 +2845,7 @@ function NovaCobrancaModal({
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-neutral-500">
                     <IconPercentage size={11} className="shrink-0" />
                     Em caso de atraso: multa de {ENCARGOS_PADRAO.multaPct}% + juros de{' '}
-                    {ENCARGOS_PADRAO.jurosMensalPct}% ao mês, cobrados por dia.
+                    {ENCARGOS_PADRAO.jurosMensalPct}% ao mês (0,33% ao dia, compostos).
                   </p>
                 </div>
               </div>
@@ -2853,7 +2907,7 @@ function PagamentoModal({
   parcela: Parcela
   cliente: string | null
   /** Taxas de encargos da cobrança (0 em cobranças anteriores à regra). */
-  taxas: { multaPct: number; jurosMensalPct: number }
+  taxas: { multaPct: number; jurosMensalPct: number; encargosDesde: string | null }
   loading: boolean
   onClose: () => void
   onSubmit: (valor: number, data: string) => void
@@ -2875,6 +2929,7 @@ function PagamentoModal({
       dataVencimento: parcela.dataVencimento,
       multaPct: taxas.multaPct,
       jurosMensalPct: taxas.jurosMensalPct,
+      encargosDesde: taxas.encargosDesde,
       isento: parcela.encargosIsentos,
       pagamentos: extra
         ? [...parcela.pagamentos, { id: '__novo__', valor: extra.valor, data: referencia, criadoEm: '~' }]

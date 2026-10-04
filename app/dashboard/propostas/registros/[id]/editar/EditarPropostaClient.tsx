@@ -254,7 +254,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
         return
       }
       toast.success(res.success, 'Proposta atualizada')
-      router.push('/dashboard/propostas/registros')
+      router.push('/dashboard/propostas')
       router.refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro inesperado.'
@@ -272,7 +272,6 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
             items={[
               { label: 'Dashboard', href: '/dashboard' },
               { label: 'Propostas', href: '/dashboard/propostas' },
-              { label: 'Registros', href: '/dashboard/propostas/registros' },
               { label: 'Editar' },
             ]}
           />
@@ -286,7 +285,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
             <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm">{proposta.nome}</p>
           </div>
           <Link
-            href="/dashboard/propostas/registros"
+            href="/dashboard/propostas"
             aria-label="Voltar para Registros"
             className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer md:px-4"
           >
@@ -661,7 +660,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
 
         <div className="flex flex-col-reverse items-center justify-end gap-3 sm:flex-row">
           <Link
-            href="/dashboard/propostas/registros"
+            href="/dashboard/propostas"
             className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer sm:w-auto"
           >
             Cancelar

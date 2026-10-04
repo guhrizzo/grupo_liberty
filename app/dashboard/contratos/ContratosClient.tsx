@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, type ReactNode } from 'react'
 import {
   IconPlus,
   IconFileDownload,
@@ -73,6 +73,8 @@ interface ContratosClientProps {
   userRole: string | null
   categorias: ContratoCategoria[]
   podeGerenciarCategorias: boolean
+  /** Quadro de modelos de contrato, mostrado logo abaixo do cabeçalho. */
+  secaoModelos?: ReactNode
 }
 
 const PAGE_SIZE = 20
@@ -93,6 +95,7 @@ export default function ContratosClient({
   veiculos,
   categorias: categoriasIniciais,
   podeGerenciarCategorias,
+  secaoModelos,
 }: ContratosClientProps) {
   const [contratos, setContratos] = useState<Contrato[]>(initialContratos)
   const [categorias, setCategorias] = useState<ContratoCategoria[]>(categoriasIniciais)
@@ -418,6 +421,8 @@ export default function ContratosClient({
           </Button>
         </div>
       </div>
+
+      {secaoModelos}
 
       {/* Formulário de geração de contrato DESATIVADO temporariamente */}
       {false && showForm && (

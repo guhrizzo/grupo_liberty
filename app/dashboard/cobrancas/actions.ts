@@ -13,6 +13,7 @@ import {
   hojeSaoPaulo,
   type PagamentoEncargosInput,
   type ResultadoEncargos,
+  type PeriodoJuros,
 } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
 
@@ -42,6 +43,10 @@ export interface EncargosParcela {
   multa: number
   juros: number
   diasAtraso: number
+  /** Dias de juros em aberto (do vencimento ou do último pagamento). */
+  diasJuros: number
+  /** Juros trecho a trecho (13 dias sobre o valor cheio, 9 dias sobre o saldo…). */
+  periodosJuros: PeriodoJuros[]
   /** Ainda não pagos (entram em `valorRestante`). */
   pendentes: number
   /** Já quitados por pagamentos. */
@@ -98,6 +103,8 @@ export interface Cobranca {
   // Encargos por atraso contratados (0 em cobranças anteriores à regra)
   multaPct: number
   jurosMensalPct: number
+  /** Só parcelas que vencem a partir desta data têm encargos (cobranças antigas). */
+  encargosDesde: string | null
   criadoEm: string
   criadoPorUid: string | null
   parcelas: Parcela[]
@@ -147,6 +154,7 @@ function toDateString(date: Date): string {
 interface TaxasEncargos {
   multaPct: number
   jurosMensalPct: number
+  encargosDesde: string | null
 }
 
 /** Taxas gravadas na cobrança — cobranças anteriores à regra não têm (= 0). */
@@ -154,6 +162,7 @@ function taxasDaCobranca(data: FirebaseFirestore.DocumentData | undefined): Taxa
   return {
     multaPct: typeof data?.multaPct === 'number' ? data.multaPct : 0,
     jurosMensalPct: typeof data?.jurosMensalPct === 'number' ? data.jurosMensalPct : 0,
+    encargosDesde: typeof data?.encargosDesde === 'string' ? data.encargosDesde : null,
   }
 }
 
@@ -169,6 +178,7 @@ function calcularParcela(
     dataVencimento: parcela.dataVencimento,
     multaPct: taxas.multaPct,
     jurosMensalPct: taxas.jurosMensalPct,
+    encargosDesde: taxas.encargosDesde,
     isento: Boolean(parcela.encargosIsentos),
     pagamentos,
     referencia,
@@ -258,6 +268,8 @@ function serializeParcela(
           multa: calculo.multa,
           juros: calculo.juros,
           diasAtraso: calculo.diasAtraso,
+          diasJuros: calculo.diasJuros,
+          periodosJuros: calculo.periodosJuros,
           pendentes: calculo.encargosPendentes,
           pagos: calculo.encargosPagos,
         }
@@ -748,6 +760,7 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
                     multa: alvo.calculo.multa,
                     juros: alvo.calculo.juros,
                     pendentes: alvo.calculo.encargosPendentes,
+                    diasJuros: alvo.calculo.diasJuros,
                   }
                 : undefined,
             totalDevido: alvo.calculo.totalDevido,

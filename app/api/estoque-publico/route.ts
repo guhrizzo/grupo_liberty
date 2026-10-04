@@ -34,7 +34,10 @@ export async function GET(request: Request) {
     precoComDesconto: v.precoComDesconto,
     quilometragem: v.quilometragem,
     cambio: v.cambio,
+    // `foto` (a de capa) fica por compatibilidade; `fotos` traz todas, na
+    // ordem — já são públicas na página do veículo. A placa NÃO vai aqui.
     foto: v.fotos?.[0] ?? null,
+    fotos: v.fotos ?? [],
     url: `https://www.grupolibertycar.com.br/veiculos/${v.id}`,
     // Veículo anunciado por terceiro (dono do carro), não é do estoque
     // próprio da Liberty — já exibido publicamente no site (badge "Anúncio

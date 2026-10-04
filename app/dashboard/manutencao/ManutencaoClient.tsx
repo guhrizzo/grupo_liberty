@@ -679,8 +679,9 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         description={
           confirmDelete ? (
             <>
-              Esta ação é local. Tem certeza que deseja remover a manutenção do veículo{' '}
-              <strong>{confirmDelete.veiculoLabel}</strong>?
+              Tem certeza que deseja remover a manutenção do veículo{' '}
+              <strong>{confirmDelete.veiculoLabel}</strong>? Se ela teve baixa, a despesa também
+              sai do Financeiro.
             </>
           ) : null
         }
@@ -699,7 +700,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
               O valor de <strong>{formatCurrency(valorManutencao(confirmEstorno))}</strong> e o
               comprovante (se houver) da manutenção de{' '}
               <strong>{confirmEstorno.veiculoLabel}</strong> serão removidos. A manutenção sai do
-              custo efetivo total do veículo.
+              custo efetivo total do veículo e a despesa dela é apagada do Financeiro.
             </>
           ) : null
         }

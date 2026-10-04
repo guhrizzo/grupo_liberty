@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { adminDb, adminStorage } from '@/utils/firebase/admin'
 import { assertPageAccess } from '@/utils/permissions'
 import { recalcularCustoEfetivoTotal } from '@/app/dashboard/veiculos/actions'
+import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
 import {
   MANUTENCAO_STATUS,
   isManutencaoBaixada,
@@ -18,6 +19,22 @@ import {
 } from './types'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Despesa no Financeiro gerada pela baixa da manutenção. ID determinístico:
+ * estorno e exclusão acham o lançamento sem consulta, e não há como duplicar.
+ * O comprovante NÃO é copiado: apagar o lançamento no Financeiro apaga o
+ * arquivo do comprovante dele, o que levaria junto o da manutenção.
+ */
+function lancamentoDaManutencao(manutencaoId: string) {
+  return adminDb.collection('transacoes').doc(`manutencao_${manutencaoId}`)
+}
+
+function descricaoLancamento(dados: FirebaseFirestore.DocumentData): string {
+  const partes = [dados.tipo, dados.veiculoLabel].filter((p) => typeof p === 'string' && p.trim())
+  const base = partes.length ? `Manutenção: ${partes.join(' · ')}` : 'Manutenção'
+  return dados.oficina ? `${base} (${dados.oficina})` : base
+}
 
 /** Quem tem acesso à aba `manutencao` pode fazer o CRUD dela. */
 async function assertAcesso() {
@@ -302,12 +319,16 @@ export async function deleteManutencao(
       }
     }
 
-    await docRef.delete()
+    const batch = adminDb.batch()
+    batch.delete(docRef)
+    batch.delete(lancamentoDaManutencao(id))
+    await batch.commit()
 
     if (veiculoIdDaManutencao) await recalcularCustoEfetivoTotal(veiculoIdDaManutencao)
 
     revalidatePath('/dashboard/manutencao')
     revalidatePath('/dashboard/veiculos')
+    revalidatePath('/dashboard/financeiro')
     return { success: 'Manutenção removida com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao remover manutenção: ${error.message}` }
@@ -540,15 +561,30 @@ export async function darBaixaManutencao(
       updated_at: now,
     }
 
-    await docRef.update(atualizacao)
+    const batch = adminDb.batch()
+    batch.update(docRef, atualizacao)
+    batch.set(lancamentoDaManutencao(manutencaoId), {
+      descricao: descricaoLancamento(dados),
+      categoria: 'Manutenção',
+      tipo: 'despesa',
+      valor,
+      data: hojeSaoPaulo(),
+      status: 'concluido',
+      origemManutencaoId: manutencaoId,
+      created_by: user.uid,
+      created_at: now,
+      updated_at: now,
+    })
+    await batch.commit()
 
     const veiculoId = (dados.veiculoId as string) || ''
     if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
 
     revalidatePath('/dashboard/manutencao')
     revalidatePath('/dashboard/veiculos')
+    revalidatePath('/dashboard/financeiro')
     return {
-      success: 'Baixa registrada com sucesso!',
+      success: 'Baixa registrada e lançada no Financeiro!',
       manutencao: { id: manutencaoId, ...dados, ...atualizacao } as Manutencao,
     }
   } catch (error) {
@@ -591,18 +627,23 @@ export async function estornarBaixaManutencao(
       }
     }
 
-    await docRef.update({
+    const batch = adminDb.batch()
+    batch.update(docRef, {
       baixa: null,
       custo: 0,
       updated_at: new Date().toISOString(),
     })
+    // Delete de doc inexistente não falha (baixas antigas, sem lançamento).
+    batch.delete(lancamentoDaManutencao(id))
+    await batch.commit()
 
     const veiculoId = (dados.veiculoId as string) || ''
     if (veiculoId) await recalcularCustoEfetivoTotal(veiculoId)
 
     revalidatePath('/dashboard/manutencao')
     revalidatePath('/dashboard/veiculos')
-    return { success: 'Baixa estornada com sucesso!' }
+    revalidatePath('/dashboard/financeiro')
+    return { success: 'Baixa estornada e removida do Financeiro.' }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'erro inesperado'
     return { error: `Erro ao estornar baixa: ${msg}` }

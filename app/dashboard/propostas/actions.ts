@@ -197,7 +197,7 @@ export async function updatePropostaStatus(id: string, newStatus: 'pendente' | '
       updated_at: new Date().toISOString(),
     })
 
-    revalidatePath('/dashboard/propostas')
+    revalidatePath('/dashboard/propostas', 'layout')
 
     let emailSent = false
     if (newStatus === 'aceito' || newStatus === 'recusado') {
@@ -273,7 +273,7 @@ export async function deleteProposta(id: string): Promise<{ success?: string; er
 
     await propostaRef.delete()
 
-    revalidatePath('/dashboard/propostas')
+    revalidatePath('/dashboard/propostas', 'layout')
     return { success: 'Proposta excluída com sucesso.' }
   } catch (err: any) {
     return { error: err.message || 'Erro ao excluir proposta.' }
@@ -311,7 +311,7 @@ export async function updatePropostaComercial(
     }
 
     await propostaRef.update(update)
-    revalidatePath('/dashboard/propostas')
+    revalidatePath('/dashboard/propostas', 'layout')
 
     return { success: 'Proposta atualizada com sucesso.' }
   } catch (err: any) {
@@ -528,7 +528,7 @@ export async function createProposta(
       origem: 'manual',
     })
 
-    revalidatePath('/dashboard/propostas')
+    revalidatePath('/dashboard/propostas', 'layout')
 
     return { success: 'Proposta cadastrada com sucesso!', id: docRef.id }
   } catch (err) {

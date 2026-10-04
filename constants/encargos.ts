@@ -8,7 +8,7 @@
 export const ENCARGOS_PADRAO = {
   /** Multa única, em % do valor em aberto, aplicada no 1º dia de atraso. */
   multaPct: 5,
-  /** Juros simples, em % a cada `DIAS_MES_JUROS` dias, cobrados por dia. */
+  /** Juros em % a cada `DIAS_MES_JUROS` dias; taxa diária = % / 30 arredondada a 2 casas (10 → 0,33%), capitalizada ao dia (compostos). */
   jurosMensalPct: 10,
 } as const
 

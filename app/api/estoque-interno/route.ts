@@ -28,9 +28,12 @@ export async function GET(request: Request) {
   // Só exclui vendidos — um veículo já vendido não é mais da Liberty, não
   // faz sentido importar pra frota de locação. Ao contrário de
   // /api/estoque-publico, `publico` NÃO filtra aqui.
-  const disponiveis = todosVeiculos.filter((v) => !v.vendidoEm).map(toPublicVeiculo)
+  const disponiveis = todosVeiculos.filter((v) => !v.vendidoEm)
 
-  const resumo = disponiveis.map((v) => ({
+  // A placa não está em toPublicVeiculo (não é exibida no site); aqui pode ir
+  // porque o endpoint é autenticado — o sistema de locação precisa dela para
+  // cadastrar o veículo na frota.
+  const resumo = disponiveis.map((original) => ({ ...toPublicVeiculo(original), placa: original.placa })).map((v) => ({
     id: v.id,
     marca: v.marca,
     modelo: v.modelo,
@@ -39,7 +42,12 @@ export async function GET(request: Request) {
     precoComDesconto: v.precoComDesconto,
     quilometragem: v.quilometragem,
     cambio: v.cambio,
+    cor: v.cor,
+    combustivel: v.combustivel,
+    placa: v.placa ?? null,
+    // `foto` (a de capa) fica por compatibilidade; `fotos` traz todas, na ordem.
     foto: v.fotos?.[0] ?? null,
+    fotos: v.fotos ?? [],
     url: `https://www.grupolibertycar.com.br/veiculos/${v.id}`,
     terceiro: v.terceiro,
   }))

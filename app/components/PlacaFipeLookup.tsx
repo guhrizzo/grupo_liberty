@@ -27,6 +27,7 @@ import {
 import { Button, Select, ZoomIn } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { maskPlate } from '@/utils/masks'
+import LerPlacaCamera from '@/app/components/LerPlacaCamera'
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -207,17 +208,14 @@ export default function PlacaFipeLookup({
     setPlaca(val)
   }, [])
 
-  const handleSearchPlaca = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault()
-      if (!isValidPlaca || status === 'loading') return
-
+  const buscarPlaca = useCallback(
+    async (placaLimpa: string) => {
       setStatus('loading')
       setErrorMessage('')
       setResult(null)
 
       try {
-        const res = await fetch(`${apiEndpoint}?placa=${rawPlacaClean}`)
+        const res = await fetch(`${apiEndpoint}?placa=${placaLimpa}`)
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}))
@@ -236,8 +234,32 @@ export default function PlacaFipeLookup({
         setStatus('error')
       }
     },
-    [apiEndpoint, isValidPlaca, rawPlacaClean, status],
+    [apiEndpoint],
   )
+
+  const handleSearchPlaca = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault()
+      if (!isValidPlaca || status === 'loading') return
+      void buscarPlaca(rawPlacaClean)
+    },
+    [buscarPlaca, isValidPlaca, rawPlacaClean, status],
+  )
+
+  // Placa lida pela câmera: preenche o campo e já busca a FIPE.
+  const handlePlacaCamera = useCallback(
+    (placaLida: string) => {
+      setPlaca(placaLida)
+      void buscarPlaca(placaLida)
+    },
+    [buscarPlaca],
+  )
+
+  const handleErroCamera = useCallback((mensagem: string) => {
+    setErrorMessage(mensagem)
+    setResult(null)
+    setStatus('error')
+  }, [])
 
   // ─── Reset ─────────────────────────────────────────────────────────────
 
@@ -312,6 +334,11 @@ export default function PlacaFipeLookup({
                     className="w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-11 pr-4 py-2.5 text-base font-extrabold uppercase tracking-widest text-neutral-900 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
+                <LerPlacaCamera
+                  onPlaca={handlePlacaCamera}
+                  onErro={handleErroCamera}
+                  disabled={status === 'loading'}
+                />
                 <Button
                   type="submit"
                   variant="liberty"
@@ -323,7 +350,7 @@ export default function PlacaFipeLookup({
                 </Button>
               </div>
               <p className="mt-2 text-[11px] text-neutral-400">
-                Digite os 7 caracteres da placa sem traço (ex: ABC1D23 ou ABC1234). Via <span className="font-semibold">Sistema Puxa Placa</span>.
+                Digite os 7 caracteres da placa sem traço (ex: ABC1D23 ou ABC1234) ou use a câmera para ler a placa. Via <span className="font-semibold">Sistema Puxa Placa</span>.
               </p>
             </div>
           </form>

@@ -143,8 +143,11 @@ export function Modal({
             aria-labelledby={title ? titleId : undefined}
             aria-describedby={description ? descId : undefined}
             tabIndex={-1}
+            // Nunca maior que a tela (dvh acompanha a barra do navegador no
+            // celular): formulários longos rolam dentro do modal.
+            style={{ maxHeight: 'calc(100dvh - 2rem)' }}
             className={cn(
-              'w-full rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)] adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2',
+              'w-full overflow-y-auto overscroll-contain rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl neon-theme:border-[var(--color-line)] neon-theme:bg-[var(--color-bg-1)] adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2',
               sizeMap[size],
               className,
             )}

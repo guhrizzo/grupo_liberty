@@ -15,7 +15,7 @@ export interface CobrancaAtrasoEmailPayload {
   dataVencimento: string
   diasAtraso: number
   /** Multa/juros pendentes até hoje — ausente em cobranças sem encargos. */
-  encargos?: { multa: number; juros: number; pendentes: number }
+  encargos?: { multa: number; juros: number; pendentes: number; diasJuros?: number }
   /** Principal + encargos pendentes. */
   totalDevido?: number
 }
