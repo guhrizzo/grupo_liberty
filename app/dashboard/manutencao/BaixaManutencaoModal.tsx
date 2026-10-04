@@ -110,7 +110,7 @@ export default function BaixaManutencaoModal({ manutencao, onClose, onDone }: Pr
           onChange={(e) => setValor(maskMoney(e.target.value))}
           placeholder="0,00"
           leftIcon={<IconCash size={14} />}
-          hint="Marca a manutenção como Concluída e entra no custo efetivo total do veículo."
+          hint="Marca a manutenção como Concluída, entra no custo efetivo total do veículo e é lançada como despesa no Financeiro (data de hoje)."
         />
 
         <div className="space-y-1.5">

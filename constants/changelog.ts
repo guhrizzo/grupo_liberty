@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-04-manutencao-baixa-financeiro',
+    date: '2026-10-04',
+    title: 'Baixa de manutenção vai para o Financeiro',
+    tag: 'correcao',
+    items: [
+      'Ao dar baixa numa manutenção, o valor pago entra automaticamente como despesa "Manutenção" no Financeiro, com a data do dia.',
+      'Estornar a baixa ou excluir a manutenção também tira a despesa do Financeiro.',
+    ],
+  },
+  {
     id: '2026-10-03-ler-placa-camera-ia',
     date: '2026-10-03',
     title: 'Leitura de placa pela câmera mais precisa',

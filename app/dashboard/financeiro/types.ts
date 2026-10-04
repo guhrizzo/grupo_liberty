@@ -61,6 +61,9 @@ export interface Transacao {
   // (`YYYY-MM`), que pode diferir do mês de `data` (conta paga em atraso).
   origemContaFixaId?: string | null
   competencia?: string | null
+  // Vínculo com a baixa de uma manutenção (lançamento `manutencao_<id>`,
+  // criado/removido por darBaixaManutencao/estornarBaixaManutencao).
+  origemManutencaoId?: string | null
   // Comprovante (nota fiscal/recibo) anexado — null/undefined = nenhum ainda.
   comprovante?: TransacaoComprovante | null
 }
