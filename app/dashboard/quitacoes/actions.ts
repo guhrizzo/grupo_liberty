@@ -8,6 +8,7 @@ import {
   QUITACAO_OBS_MAX,
   type Quitacao,
   type QuitacaoInput,
+  type QuitacaoLoteInput,
   type UltimaQuitacao,
   type VeiculoQuitacaoOpcao,
 } from './types'
@@ -102,6 +103,54 @@ export async function criarQuitacao(input: QuitacaoInput): Promise<Resultado> {
   revalidatePath('/dashboard/quitacoes')
   revalidatePath('/dashboard/veiculos')
   return { success: 'Quitação registrada.' }
+}
+
+/** Registra de uma vez o valor da semana de vários veículos (um novo registro por veículo). */
+export async function criarQuitacoesLote(input: QuitacaoLoteInput): Promise<Resultado> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return { error: acesso.error }
+
+  const data = String(input.data ?? '')
+  if (!DATA_RE.test(data) || Number.isNaN(new Date(`${data}T00:00:00`).getTime())) {
+    return { error: 'Informe a data da negociação.' }
+  }
+  const itens = Array.isArray(input.itens) ? input.itens : []
+  if (itens.length === 0) return { error: 'Informe o valor de pelo menos um veículo.' }
+  if (itens.length > 500) return { error: 'Muitos veículos de uma vez.' }
+
+  const vistos = new Set<string>()
+  const validos: { veiculoId: string; valor: number }[] = []
+  for (const item of itens) {
+    const veiculoId = String(item.veiculoId ?? '')
+    const valor = Number(item.valor)
+    if (!veiculoId || vistos.has(veiculoId)) return { error: 'Lista de veículos inválida.' }
+    if (!Number.isFinite(valor) || valor <= 0) return { error: 'Há um valor inválido na lista.' }
+    vistos.add(veiculoId)
+    validos.push({ veiculoId, valor: Math.round(valor * 100) / 100 })
+  }
+
+  const refs = validos.map((i) => adminDb.collection('veiculos').doc(i.veiculoId))
+  const docs = await adminDb.getAll(...refs)
+  if (docs.some((d) => !d.exists)) return { error: 'Algum veículo não foi encontrado.' }
+
+  const criadoEm = new Date().toISOString()
+  const criadoPorNome = acesso.user.name || acesso.user.email || 'Usuário'
+  const batch = adminDb.batch()
+  for (const { veiculoId, valor } of validos) {
+    batch.set(adminDb.collection(COLECAO).doc(), {
+      veiculoId,
+      valor,
+      data,
+      observacao: '',
+      criadoPorUid: acesso.user.uid,
+      criadoPorNome,
+      criadoEm,
+    })
+  }
+  await batch.commit()
+  revalidatePath('/dashboard/quitacoes')
+  revalidatePath('/dashboard/veiculos')
+  return { success: `${validos.length} ${validos.length === 1 ? 'valor registrado' : 'valores registrados'}.` }
 }
 
 export async function atualizarQuitacao(id: string, input: QuitacaoInput): Promise<Resultado> {

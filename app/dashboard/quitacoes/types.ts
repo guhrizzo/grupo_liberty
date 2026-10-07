@@ -29,6 +29,13 @@ export interface QuitacaoInput {
   observacao?: string
 }
 
+/** Atualização semanal: um novo valor por veículo, todos com a mesma data. */
+export interface QuitacaoLoteInput {
+  /** YYYY-MM-DD */
+  data: string
+  itens: { veiculoId: string; valor: number }[]
+}
+
 export interface UltimaQuitacao {
   valor: number
   data: string

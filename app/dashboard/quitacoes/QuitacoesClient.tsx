@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconCash, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconCash, IconListDetails, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Button, ConfirmDialog, EmptyState, Input, Modal, Select, Textarea, useToast } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, moneyFromNumber, parseMoney } from '@/utils/masks'
-import { atualizarQuitacao, criarQuitacao, excluirQuitacao } from './actions'
+import { atualizarQuitacao, criarQuitacao, criarQuitacoesLote, excluirQuitacao } from './actions'
 import { QUITACAO_OBS_MAX, type Quitacao, type VeiculoQuitacaoOpcao } from './types'
 
 interface Props {
@@ -32,6 +32,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
   const [editando, setEditando] = useState<Quitacao | 'novo' | null>(null)
   const [excluindo, setExcluindo] = useState<Quitacao | null>(null)
   const [apagando, setApagando] = useState(false)
+  const [lote, setLote] = useState(false)
 
   const porId = useMemo(() => new Map(veiculos.map((v) => [v.id, v])), [veiculos])
 
@@ -39,6 +40,12 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
   const ultimaPorVeiculo = useMemo(() => {
     const m = new Map<string, string>()
     for (const q of quitacoes) if (!m.has(q.veiculoId)) m.set(q.veiculoId, q.id)
+    return m
+  }, [quitacoes])
+
+  const ultimaValorPorVeiculo = useMemo(() => {
+    const m = new Map<string, Quitacao>()
+    for (const q of quitacoes) if (!m.has(q.veiculoId)) m.set(q.veiculoId, q)
     return m
   }, [quitacoes])
 
@@ -81,10 +88,16 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
             ...veiculosComQuitacao.map((v) => ({ value: v.id, label: nomeVeiculo(v) })),
           ]}
         />
-        <Button type="button" variant="liberty" onClick={() => setEditando('novo')}>
-          <IconPlus size={16} stroke={2.5} />
-          Registrar quitação
-        </Button>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="secondary" onClick={() => setLote(true)} disabled={veiculos.length === 0}>
+            <IconListDetails size={16} stroke={2.5} />
+            Atualizar valores da semana
+          </Button>
+          <Button type="button" variant="liberty" onClick={() => setEditando('novo')}>
+            <IconPlus size={16} stroke={2.5} />
+            Registrar quitação
+          </Button>
+        </div>
       </div>
 
       {lista.length === 0 ? (
@@ -145,6 +158,18 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
           onClose={() => setEditando(null)}
           onDone={() => {
             setEditando(null)
+            router.refresh()
+          }}
+        />
+      )}
+
+      {lote && (
+        <LoteModal
+          veiculos={veiculos}
+          ultimaPorVeiculo={ultimaValorPorVeiculo}
+          onClose={() => setLote(false)}
+          onDone={() => {
+            setLote(false)
             router.refresh()
           }}
         />
@@ -238,6 +263,90 @@ function QuitacaoModal({
           <Button type="button" variant="liberty" loading={salvando} onClick={salvar}>
             Salvar
           </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+/** Atualização semanal: uma linha por veículo, só entram no histórico os que tiverem valor novo. */
+function LoteModal({
+  veiculos,
+  ultimaPorVeiculo,
+  onClose,
+  onDone,
+}: {
+  veiculos: VeiculoQuitacaoOpcao[]
+  ultimaPorVeiculo: Map<string, Quitacao>
+  onClose: () => void
+  onDone: () => void
+}) {
+  const toast = useToast()
+  const [data, setData] = useState(hojeIso())
+  const [valores, setValores] = useState<Record<string, string>>({})
+  const [salvando, setSalvando] = useState(false)
+
+  const preenchidos = veiculos.filter((v) => parseMoney(valores[v.id] ?? '') > 0).length
+
+  async function salvar() {
+    if (!data) return void toast.error('Informe a data da negociação.')
+    const itens = veiculos
+      .map((v) => ({ veiculoId: v.id, valor: parseMoney(valores[v.id] ?? '') }))
+      .filter((i) => i.valor > 0)
+    if (itens.length === 0) return void toast.error('Informe o valor de pelo menos um veículo.')
+    setSalvando(true)
+    try {
+      const res = await criarQuitacoesLote({ data, itens })
+      if (res.error) return void toast.error(res.error, 'Não foi possível salvar')
+      toast.success(res.success || 'Valores registrados.')
+      onDone()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal open onClose={() => !salvando && onClose()} title="Atualizar valores da semana">
+      <div className="mt-4 space-y-4">
+        <p className="text-sm text-neutral-500">
+          Preencha o novo valor de quitação de cada veículo. Os que ficarem em branco não mudam.
+        </p>
+        <Input label="Data da negociação" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+        <ul className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+          {veiculos.map((v) => {
+            const ultima = ultimaPorVeiculo.get(v.id)
+            return (
+              <li key={v.id} className="grid items-center gap-2 rounded-lg border border-neutral-200 p-3 sm:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-neutral-900">{nomeVeiculo(v)}</p>
+                  <p className="text-xs text-neutral-500">
+                    {ultima ? `Último: ${formatCurrency(ultima.valor)} em ${formatDate(ultima.data)}` : 'Sem quitação ainda'}
+                  </p>
+                </div>
+                <Input
+                  aria-label={`Novo valor de ${nomeVeiculo(v)}`}
+                  type="text"
+                  inputMode="decimal"
+                  value={valores[v.id] ?? ''}
+                  onChange={(e) => setValores((prev) => ({ ...prev, [v.id]: maskMoney(e.target.value) }))}
+                  placeholder="Novo valor (R$ 0,00)"
+                />
+              </li>
+            )
+          })}
+        </ul>
+        <div className="flex items-center justify-between gap-3 pt-2">
+          <span className="text-xs text-neutral-500">
+            {preenchidos} {preenchidos === 1 ? 'veículo preenchido' : 'veículos preenchidos'}
+          </span>
+          <div className="flex gap-3">
+            <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="liberty" loading={salvando} onClick={salvar}>
+              Salvar valores
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
