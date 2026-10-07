@@ -25,14 +25,13 @@ import type { UltimaQuitacao } from '../quitacoes/types'
 import type { InteressadoResumo } from '../interesses/types'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
 import { CANAIS_AQUISICAO, CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
-import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
 import {
   DEBITOS,
   getDebitoDefinicao,
   type DebitoItemDefinicao,
 } from '@/constants/debitos'
-import ProjecaoQuitacao from '../../components/ProjecaoQuitacao'
+import { quitacaoEstimada } from '@/utils/financing'
 import {
   createVehicle,
   updateVehicle,
@@ -73,6 +72,29 @@ function UltimaQuitacaoLinha({ veiculoId, quitacao }: { veiculoId: string; quita
       <Link href={`/dashboard/quitacoes?veiculo=${veiculoId}`} className="font-semibold underline hover:text-neutral-900">
         Histórico
       </Link>
+    </p>
+  )
+}
+
+/** Quitação estimada: dívida restante (parcela × restantes) menos o desconto do banco. */
+function QuitacaoEstimadaLinha({
+  valorParcela,
+  parcelasRestantes,
+  descontoPercent,
+}: {
+  valorParcela: number | null | undefined
+  parcelasRestantes: number | null | undefined
+  descontoPercent: number | null | undefined
+}) {
+  const valor = quitacaoEstimada({ valorParcela, parcelasRestantes, descontoPercent })
+  return (
+    <p className="text-xs text-neutral-500">
+      Quitação estimada:{' '}
+      {valor != null ? (
+        <span className="font-bold text-liberty-deep">{formatCurrency(valor)}</span>
+      ) : (
+        <span>informe banco (% desconto), valor da parcela e parcelas restantes</span>
+      )}
     </p>
   )
 }
@@ -219,8 +241,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [quitacaoPercent, setQuitacaoPercent] = useState('')
   const [descontoPercent, setDescontoPercent] = useState('')
   const [bancoCnpjs, setBancoCnpjs] = useState('')
-  const [taxaJuros, setTaxaJuros] = useState('')
-  const [taxaPeriodicidade, setTaxaPeriodicidade] = useState<'mensal' | 'anual'>('mensal')
   const [valorEntrada, setValorEntrada] = useState('')
   const [parcelasRestantes, setParcelasRestantes] = useState('')
   const [valorParcela, setValorParcela] = useState('')
@@ -529,8 +549,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setEstoqueEstado('disponivel')
     setBanco('')
     setBancoCodigo('')
-    setTaxaJuros('')
-    setTaxaPeriodicidade('mensal')
     setValorEntrada('')
     setParcelasRestantes('')
     setValorParcela('')
@@ -674,12 +692,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       veiculo.descontoPercent != null ? String(veiculo.descontoPercent) : '',
     )
     setBancoCnpjs(Array.isArray(veiculo.bancoCnpjs) ? veiculo.bancoCnpjs.join('\n') : '')
-    setTaxaJuros(
-      veiculo.taxaJuros !== null && veiculo.taxaJuros !== undefined
-        ? String(veiculo.taxaJuros)
-        : '',
-    )
-    setTaxaPeriodicidade(veiculo.taxaPeriodicidade === 'anual' ? 'anual' : 'mensal')
     setValorEntrada(
       veiculo.valorEntrada !== null && veiculo.valorEntrada !== undefined
         ? String(veiculo.valorEntrada)
@@ -822,8 +834,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('quitacaoPercent', quitacaoPercent)
       formData.append('descontoPercent', descontoPercent)
       formData.append('bancoCnpjs', bancoCnpjs)
-      formData.append('taxaJuros', taxaJuros)
-      formData.append('taxaPeriodicidade', taxaPeriodicidade)
       formData.append('valorEntrada', valorEntrada ? String(parseMoney(valorEntrada) || 0) : '')
       formData.append('parcelasRestantes', parcelasRestantes)
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
@@ -1464,11 +1474,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     onChange={(e) => {
                       const v = e.target.value
                       setBancoCodigo(v)
-                      // Pré-preenche taxa sugerida se houver e o usuário ainda não mexeu
-                      const taxa = TAXAS_SUGERIDAS[v as keyof typeof TAXAS_SUGERIDAS]
-                      if (taxa && !taxaJuros) {
-                        setTaxaJuros(String(taxa).replace('.', ','))
-                      }
                       // Auto-preenche dados da tabela de bancos.
                       const info = getBancoByCodigo(v)
                       if (info) {
@@ -1559,62 +1564,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   )}
 
                   <div className="grid gap-4 sm:grid-cols-2 sm:col-span-2 lg:grid-cols-3">
-                    {/* Taxa + toggle mensal/anual */}
-                    <div>
-                      <label
-                        htmlFor="taxaJuros"
-                        className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 mb-1.5"
-                      >
-                        Taxa de juros
-                      </label>
-                      <Input
-                        id="taxaJuros"
-                        type="text"
-                        inputMode="decimal"
-                        value={taxaJuros}
-                        onChange={(e) => setTaxaJuros(e.target.value)}
-                        placeholder={taxaPeriodicidade === 'anual' ? 'Ex: 24' : 'Ex: 1,99'}
-                        leftIcon={<span className="text-[10px] font-bold text-neutral-500">%</span>}
-                        error={fieldErrors.taxaJuros}
-                      />
-                      <div className="mt-2 flex items-center gap-2 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (taxaPeriodicidade === 'anual' && taxaJuros) {
-                              const m = taxaAnualParaMensal(parseFloat(taxaJuros.replace(',', '.'))) * 100
-                              setTaxaJuros(m ? m.toFixed(2).replace('.', ',') : '')
-                            }
-                            setTaxaPeriodicidade('mensal')
-                          }}
-                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                            taxaPeriodicidade === 'mensal'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'text-neutral-500 hover:bg-neutral-100'
-                          }`}
-                        >
-                          a.m.
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (taxaPeriodicidade === 'mensal' && taxaJuros) {
-                              const a = taxaMensalParaAnual(parseFloat(taxaJuros.replace(',', '.')))
-                              setTaxaJuros(a ? a.toFixed(2).replace('.', ',') : '')
-                            }
-                            setTaxaPeriodicidade('anual')
-                          }}
-                          className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                            taxaPeriodicidade === 'anual'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'text-neutral-500 hover:bg-neutral-100'
-                          }`}
-                        >
-                          a.a.
-                        </button>
-                      </div>
-                    </div>
-
                     <Input
                       id="valorEntrada"
                       label="Entrada (R$)"
@@ -1753,14 +1702,12 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   </button>
                 </div>
 
-                {/* Quitação atual do veículo (projeção ao vivo) */}
-                <div className="mt-4">
-                  <ProjecaoQuitacao
-                    valorVeiculo={parseMoney(preco)}
-                    entrada={parseMoney(valorEntrada)}
-                    taxaPercent={parseFloat((taxaJuros || '0').replace(',', '.')) || 0}
-                    taxaPeriodicidade={taxaPeriodicidade}
-                    prazoMeses={parseInt(parcelasRestantes || '0', 10)}
+                {/* Quitação estimada (parcela × restantes × (1 − % desconto)) */}
+                <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                  <QuitacaoEstimadaLinha
+                    valorParcela={parseMoney(valorParcela)}
+                    parcelasRestantes={parseInt(parcelasRestantes || '0', 10)}
+                    descontoPercent={parseFloat(descontoPercent.replace(',', '.'))}
                   />
                 </div>
 
@@ -2474,6 +2421,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                             .join(' · ')}
                         </p>
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
+                        <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
@@ -2610,6 +2558,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
 
                     <div className="mt-2">
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
+                      <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>
 
                     {v.terceiro && (

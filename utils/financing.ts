@@ -171,3 +171,18 @@ export function projetarQuitacao(args: {
     custoEfetivoTotal: r.totalPago + Math.max(0, entrada),
   }
 }
+
+/**
+ * Quitação estimada do veículo: dívida restante (parcela × parcelas restantes)
+ * menos o desconto do banco — mesma regra da Proposta. `null` se faltar dado.
+ */
+export function quitacaoEstimada(args: {
+  valorParcela: number | null | undefined
+  parcelasRestantes: number | null | undefined
+  descontoPercent: number | null | undefined
+}): number | null {
+  const { valorParcela, parcelasRestantes, descontoPercent } = args
+  if (!valorParcela || !parcelasRestantes || descontoPercent == null || Number.isNaN(descontoPercent)) return null
+  if (valorParcela <= 0 || parcelasRestantes <= 0) return null
+  return valorParcela * parcelasRestantes * (1 - descontoPercent / 100)
+}
