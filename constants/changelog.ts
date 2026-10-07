@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-06-veiculos-telefones-canal',
+    date: '2026-10-06',
+    title: 'Veículos: mais telefones da assessoria e canal de aquisição',
+    tag: 'melhoria',
+    items: [
+      'Na assessoria de cobrança do veículo dá para adicionar mais de um telefone, com o botão "Adicionar telefone". A quitação atual do veículo fica logo abaixo.',
+      'Novo campo "Canal de aquisição" no veículo: Meta Ads, Google Ads, Indicação, Terceiros ou Outro.',
+    ],
+  },
+  {
     id: '2026-10-03-metricas-cores',
     date: '2026-10-04',
     title: 'Cores dos gráficos da Visão Geral',
