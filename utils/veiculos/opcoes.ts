@@ -34,3 +34,12 @@ export function isCambioValido(value: string): boolean {
 export function isCombustivelValido(value: string): boolean {
   return COMBUSTIVEL_VALUES.includes(value)
 }
+
+/** Por onde o veículo veio — campo interno da aba Veículos. */
+export const CANAIS_AQUISICAO = [
+  { value: 'meta_ads', label: 'Meta Ads' },
+  { value: 'google_ads', label: 'Google Ads' },
+  { value: 'indicacao', label: 'Indicação' },
+  { value: 'terceiros', label: 'Terceiros' },
+  { value: 'outro', label: 'Outro' },
+] as const

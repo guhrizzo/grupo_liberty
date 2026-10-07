@@ -22,7 +22,7 @@ import {
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDateTime } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
-import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
+import { CANAIS_AQUISICAO, CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
 import { BANCOS, getBancoByCodigo, bancoOptionLabel } from '@/constants/bancos'
 import {
@@ -185,6 +185,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   // débitos, propostas, PDF nem no site.
   const [precoAquisicao, setPrecoAquisicao] = useState('')
   const [dataAquisicao, setDataAquisicao] = useState('')
+  const [canalAquisicao, setCanalAquisicao] = useState('')
 
   // Acessória
   const [telefoneAcessoria, setTelefoneAcessoria] = useState('')
@@ -489,6 +490,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setCustoAcumulado('')
     setPrecoAquisicao('')
     setDataAquisicao('')
+    setCanalAquisicao('')
     setManutencoesVeiculo([])
     setTelefoneAcessoria('')
     setDebitos('')
@@ -640,6 +642,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       veiculo.precoAquisicao ? formatCurrency(veiculo.precoAquisicao).replace('R$', '').trim() : '',
     )
     setDataAquisicao(veiculo.dataAquisicao ?? '')
+    setCanalAquisicao(veiculo.canalAquisicao ?? '')
     setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
     setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
     if (Array.isArray(veiculo.debitosItens) && veiculo.debitosItens.length > 0) {
@@ -771,6 +774,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
       formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
       formData.append('dataAquisicao', dataAquisicao)
+      formData.append('canalAquisicao', canalAquisicao)
       // Acessória
       formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
       // Débitos
@@ -1740,6 +1744,19 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     // No iOS o input de data tem largura mínima própria e pode vazar.
                     className="min-w-0 appearance-none"
                   />
+                </div>
+                <div className="mt-3 sm:w-1/2">
+                  <Select
+                    id="canalAquisicao"
+                    label="Canal de aquisição"
+                    value={canalAquisicao}
+                    onChange={(e) => setCanalAquisicao(e.target.value)}
+                  >
+                    <option value="">Não informado</option>
+                    {CANAIS_AQUISICAO.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </Select>
                 </div>
                 <p className="mt-2 text-[10px] text-neutral-500">
                   Valor pago e data da compra do veículo. Uso interno — não entra no total de

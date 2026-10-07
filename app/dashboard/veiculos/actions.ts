@@ -1,6 +1,7 @@
 'use server'
 
 import { ehDataValida } from '@/constants/tarefas'
+import { CANAIS_AQUISICAO } from '@/utils/veiculos/opcoes'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
@@ -160,6 +161,8 @@ export interface Veiculo {
   precoAquisicao: number | null
   /** Data da compra (YYYY-MM-DD). Métricas usam esta data; sem ela, a de cadastro. */
   dataAquisicao: string | null
+  /** Por onde o veículo veio (CANAIS_AQUISICAO). Uso interno. */
+  canalAquisicao: string | null
   /** Soma interna: total de débitos + preço de aquisição. Derivado — não editável. */
   custoEfetivoTotal: number | null
   debitos: number | null
@@ -287,6 +290,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
         dataAquisicao: data.dataAquisicao ?? null,
+        canalAquisicao: data.canalAquisicao ?? null,
         custoEfetivoTotal: data.custoEfetivoTotal ?? null,
         debitos: data.debitos ?? null,
         debitosItens: Array.isArray(data.debitosItens)
@@ -444,6 +448,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
   const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
+  const canalRaw = ((formData.get('canalAquisicao') as string) || '').trim()
+  const canalAquisicao = CANAIS_AQUISICAO.some((c) => c.value === canalRaw) ? canalRaw : null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -610,6 +616,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       custoAcumulado,
       precoAquisicao,
       dataAquisicao,
+      canalAquisicao,
       custoEfetivoTotal,
       debitos,
       debitosItens,
@@ -716,6 +723,8 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
   const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
+  const canalRaw = ((formData.get('canalAquisicao') as string) || '').trim()
+  const canalAquisicao = CANAIS_AQUISICAO.some((c) => c.value === canalRaw) ? canalRaw : null
   const debitosItens = parseDebitosItens(formData.get('debitosItens'))
   const debitosCalculado = debitosItens.reduce((acc, i) => acc + i.valor, 0)
   const debitosRaw = (formData.get('debitos') as string) || ''
@@ -902,6 +911,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       custoAcumulado,
       precoAquisicao,
       dataAquisicao,
+      canalAquisicao,
       custoEfetivoTotal,
       debitos,
       debitosItens,
