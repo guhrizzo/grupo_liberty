@@ -8,6 +8,7 @@ import { validarCPF } from '@/utils/validadorCpf'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
 import { ehVendedorDasMetas } from '@/app/dashboard/metas/vendedores'
+import { MOTIVOS_RECUSA, MOTIVO_DETALHE_MAX } from './motivos'
 
 async function assertAuthorized() {
   const user = await getSessionUser()
@@ -65,6 +66,10 @@ export interface PropostaRegistrada {
   fechada_por_uid: string | null
   fechada_por_nome: string | null
   fechada_em: string | null
+
+  /** Só quando `status` = recusado; null nas recusadas antes do campo existir. */
+  motivo_recusa: string | null
+  motivo_recusa_detalhe: string | null
 }
 
 function sanitizeText(value: string | null | undefined): string {
@@ -272,6 +277,9 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
         fechada_por_uid: (p.fechada_por_uid as string) ?? null,
         fechada_por_nome: (p.fechada_por_nome as string) ?? null,
         fechada_em: (p.fechada_em as string) ?? null,
+
+        motivo_recusa: (p.motivo_recusa as string) ?? null,
+        motivo_recusa_detalhe: (p.motivo_recusa_detalhe as string) ?? null,
       })
     })
     return list
@@ -285,7 +293,7 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
 export interface PropostaRegistradaEditavel
   extends Omit<
     PropostaRegistrada,
-    'cpf' | 'vendedor_uid' | 'vendedor_email' | 'created_at' | 'fechada_por_uid' | 'fechada_por_nome' | 'fechada_em'
+    'cpf' | 'vendedor_uid' | 'vendedor_email' | 'created_at' | 'fechada_por_uid' | 'fechada_por_nome' | 'fechada_em' | 'motivo_recusa' | 'motivo_recusa_detalhe'
   > {
   cpfDigits: string
 }
@@ -518,6 +526,8 @@ export async function definirPropostaFechada(
         fechada_por_uid: vendedorUid,
         fechada_por_nome: nome,
         fechada_em: nowIso,
+        motivo_recusa: null,
+        motivo_recusa_detalhe: null,
         updated_at: nowIso,
       })
     } else {
@@ -526,6 +536,8 @@ export async function definirPropostaFechada(
         fechada_por_uid: null,
         fechada_por_nome: null,
         fechada_em: null,
+        motivo_recusa: null,
+        motivo_recusa_detalhe: null,
         updated_at: nowIso,
       })
     }
@@ -543,10 +555,18 @@ export async function definirPropostaFechada(
  * Marca a proposta como recusada: sai da comissão e das metas (só as aceitas
  * contam). Apaga quem fechou, se ela estava aceita.
  */
-export async function definirPropostaRecusada(id: string): Promise<{ success?: string; error?: string }> {
+export async function definirPropostaRecusada(
+  id: string,
+  motivo: string,
+  detalhe?: string,
+): Promise<{ success?: string; error?: string }> {
   try {
     await assertAuthorized()
     if (!id) return { error: 'ID da proposta inválido.' }
+
+    if (!MOTIVOS_RECUSA.some((m) => m.valor === motivo)) return { error: 'Escolha o motivo da recusa.' }
+    const detalheLimpo = motivo === 'outro' ? sanitizeText(detalhe).slice(0, MOTIVO_DETALHE_MAX) : ''
+    if (motivo === 'outro' && !detalheLimpo) return { error: 'Descreva o motivo da recusa.' }
 
     const ref = adminDb.collection('propostas_registradas').doc(id)
     const doc = await ref.get()
@@ -557,6 +577,8 @@ export async function definirPropostaRecusada(id: string): Promise<{ success?: s
       fechada_por_uid: null,
       fechada_por_nome: null,
       fechada_em: null,
+      motivo_recusa: motivo,
+      motivo_recusa_detalhe: detalheLimpo || null,
       updated_at: new Date().toISOString(),
     })
 
