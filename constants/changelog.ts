@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-06-veiculos-subpastas-mobile',
+    date: '2026-10-06',
+    title: 'Veículos: formulário em sub-pastas no celular',
+    tag: 'melhoria',
+    items: [
+      'No celular, o formulário de veículo agora tem abas: Proprietário, Veículo, Financeiro e Venda e contratos. No computador continua tudo numa página só.',
+      'Se faltar um campo obrigatório em outra aba, o sistema abre a aba certa e mostra o aviso.',
+    ],
+  },
+  {
     id: '2026-10-06-proposta-motivo-recusa',
     date: '2026-10-06',
     title: 'Motivo da recusa nas propostas',

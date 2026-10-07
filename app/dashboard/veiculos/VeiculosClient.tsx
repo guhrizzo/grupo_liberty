@@ -122,6 +122,15 @@ function ClearMoneyButton({
   )
 }
 
+type AbaForm = 'proprietario' | 'veiculo' | 'financeiro' | 'venda'
+
+const ABAS_FORM: { valor: AbaForm; label: string }[] = [
+  { valor: 'proprietario', label: 'Proprietário' },
+  { valor: 'veiculo', label: 'Veículo' },
+  { valor: 'financeiro', label: 'Financeiro' },
+  { valor: 'venda', label: 'Venda e contratos' },
+]
+
 export default function VeiculosClient({ currentUser, veiculos }: VeiculosClientProps) {
   const router = useRouter()
   const toast = useToast()
@@ -132,6 +141,18 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
+  // Sub-pasta ativa do formulário no celular (no desktop todas aparecem).
+  const [abaForm, setAbaForm] = useState<AbaForm>('proprietario')
+  const abaCls = (aba: AbaForm) => (abaForm === aba ? '' : 'hidden md:block')
+  // Campo obrigatório vazio numa sub-pasta escondida: abre a pasta e mostra o aviso.
+  const irParaCampoInvalido = (e: React.FormEvent<HTMLFormElement>) => {
+    const campo = e.target as HTMLElement
+    const aba = campo.closest<HTMLElement>('[data-aba]')?.dataset.aba as AbaForm | undefined
+    if (aba && aba !== abaForm) {
+      setAbaForm(aba)
+      setTimeout(() => (campo as HTMLInputElement).reportValidity?.(), 50)
+    }
+  }
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -1006,7 +1027,34 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               {editingId ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}
             </h2>
 
-            <form onSubmit={handleSubmit} autoComplete="off" className="space-y-10">
+            <form
+              onSubmit={handleSubmit}
+              onInvalidCapture={irParaCampoInvalido}
+              autoComplete="off"
+              className="space-y-10"
+            >
+
+              {/* Sub-pastas do formulário (só no celular; no desktop tudo fica visível) */}
+              <div
+                role="tablist"
+                aria-label="Seções do veículo"
+                className="sticky top-0 z-10 -mx-6 -mt-2 flex gap-1 overflow-x-auto border-b border-neutral-200 bg-white px-6 py-2 md:hidden"
+              >
+                {ABAS_FORM.filter((a) => a.valor !== 'venda' || canManageContratos).map((a) => (
+                  <button
+                    key={a.valor}
+                    type="button"
+                    role="tab"
+                    aria-selected={abaForm === a.valor}
+                    onClick={() => setAbaForm(a.valor)}
+                    className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                      abaForm === a.valor ? 'bg-neutral-950 text-white' : 'bg-neutral-100 text-neutral-600'
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
 
               {/* ─── Cliente ────────────────────────────────────────── */}
               {/* 
@@ -1065,7 +1113,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
 
               {/* ─── Veículo ────────────────────────────────────────── */}
-              <div>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Veículo
                 </h3>
@@ -1349,7 +1397,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Financiamento ──────────────────────────────────── */}
-              <div>
+              <div data-aba="financeiro" className={abaCls('financeiro')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Financiamento
                 </h3>
@@ -1595,7 +1643,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Acessória ──────────────────────────────────────── */}
-              <div>
+              <div data-aba="financeiro" className={abaCls('financeiro')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                 Assessoria de Cobrança
                 </h3>
@@ -1665,7 +1713,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Débitos do Veículo ─────────────────────────────── */}
-              <div>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">
                     Débitos do Veículo
@@ -1755,7 +1803,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Preço de Aquisição ────────────────────────────── */}
-              <div>
+              <div data-aba="financeiro" className={abaCls('financeiro')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Preço de Aquisição
                 </h3>
@@ -1812,7 +1860,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Custo efetivo total ───────────────────────────── */}
-              <div>
+              <div data-aba="financeiro" className={abaCls('financeiro')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Custo efetivo total
                 </h3>
@@ -1857,7 +1905,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
               </div>
 
               {/* ─── Dados do Vendedor ──────────────────────────────────────────── */}
-              <div>
+              <div data-aba="proprietario" className={abaCls('proprietario')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Dados do Vendedor
                 </h3>
@@ -1943,7 +1991,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 </div>
 
               {/* ─── Upload de Fotos ────────────────────────────────── */}
-              <div>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2">
                   Fotos ({photos.length}/{MAX_PHOTOS})
                 </label>
@@ -2041,7 +2089,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
 
               {/* ─── Contratos do Veículo (PDFs) ────────────────────── */}
               {canManageContratos && (
-                <div>
+                <div data-aba="venda" className={abaCls('venda')}>
                   <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2">
                     Contratos do Veículo
                   </label>
