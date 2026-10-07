@@ -139,13 +139,12 @@ function ClearMoneyButton({
   )
 }
 
-type AbaForm = 'proprietario' | 'veiculo' | 'financeiro' | 'venda'
+type AbaForm = 'proprietario' | 'comprador' | 'veiculo'
 
 const ABAS_FORM: { valor: AbaForm; label: string }[] = [
   { valor: 'proprietario', label: 'Proprietário' },
+  { valor: 'comprador', label: 'Comprador' },
   { valor: 'veiculo', label: 'Veículo' },
-  { valor: 'financeiro', label: 'Financeiro' },
-  { valor: 'venda', label: 'Venda e contratos' },
 ]
 
 export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {} }: VeiculosClientProps) {
@@ -158,9 +157,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
 
   // Estado do formulário
   const [showForm, setShowForm] = useState(false)
-  // Sub-pasta ativa do formulário no celular (no desktop todas aparecem).
+  // Sub-pasta ativa do formulário (Proprietário / Comprador / Veículo).
   const [abaForm, setAbaForm] = useState<AbaForm>('proprietario')
-  const abaCls = (aba: AbaForm) => (abaForm === aba ? '' : 'hidden md:block')
+  const abaCls = (aba: AbaForm) => (abaForm === aba ? '' : 'hidden')
   // Campo obrigatório vazio numa sub-pasta escondida: abre a pasta e mostra o aviso.
   const irParaCampoInvalido = (e: React.FormEvent<HTMLFormElement>) => {
     const campo = e.target as HTMLElement
@@ -179,6 +178,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [nomeCliente, setNomeCliente] = useState('')
   const [cpfCliente, setCpfCliente] = useState('')
   const [enderecoCliente, setEnderecoCliente] = useState('')
+  const [cidadeCliente, setCidadeCliente] = useState('')
   const [telefoneCliente, setTelefoneCliente] = useState('')
 
   // Campos do veículo
@@ -276,6 +276,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [sellerCpf, setSellerCpf] = useState('')
   const [sellerBirthDate, setSellerBirthDate] = useState('')
   const [sellerCity, setSellerCity] = useState('')
+  const [sellerPhone, setSellerPhone] = useState('')
   const [isVehicleInSellersName, setIsVehicleInSellersName] = useState<'yes' | 'no' | ''>('')
   const [registeredOwnerName, setRegisteredOwnerName] = useState('')
 
@@ -502,6 +503,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setNomeCliente('')
     setCpfCliente('')
     setEnderecoCliente('')
+    setCidadeCliente('')
+    setSellerPhone('')
     setTelefoneCliente('')
     setMarca('')
     setModelo('')
@@ -629,7 +632,10 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setMessage(null)
     setFieldErrors({})
 
+    setNomeCliente(veiculo.nomeCliente || '')
     setCpfCliente(veiculo.cpfCliente || '')
+    setEnderecoCliente(veiculo.enderecoCliente || '')
+    setCidadeCliente(veiculo.cidadeCliente || '')
     setTelefoneCliente(veiculo.telefoneCliente || '')
     setMarca(veiculo.marca)
     setModelo(veiculo.modelo)
@@ -705,6 +711,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setSellerCpf(veiculo.sellerCpf || '')
     setSellerBirthDate(veiculo.sellerBirthDate || '')
     setSellerCity(veiculo.sellerCity || '')
+    setSellerPhone(veiculo.sellerPhone ? maskPhone(veiculo.sellerPhone) : '')
     setIsVehicleInSellersName(veiculo.isVehicleInSellersName !== undefined && veiculo.isVehicleInSellersName !== null ? (veiculo.isVehicleInSellersName ? 'yes' : 'no') : '')
     setRegisteredOwnerName(veiculo.registeredOwnerName || '')
 
@@ -774,6 +781,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('nomeCliente', nomeCliente)
       formData.append('cpfCliente', onlyDigits(cpfCliente))
       formData.append('enderecoCliente', enderecoCliente)
+      formData.append('cidadeCliente', cidadeCliente)
       formData.append('telefoneCliente', onlyDigits(telefoneCliente))
       // Veículo
       formData.append('marca', marca)
@@ -843,6 +851,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('sellerCpf', sellerCpf)
       formData.append('sellerBirthDate', sellerBirthDate)
       formData.append('sellerCity', sellerCity)
+      formData.append('sellerPhone', onlyDigits(sellerPhone))
       if (isVehicleInSellersName) {
         formData.append('isVehicleInSellersName', isVehicleInSellersName === 'yes' ? 'true' : 'false')
       }
@@ -1051,13 +1060,13 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               className="space-y-10"
             >
 
-              {/* Sub-pastas do formulário (só no celular; no desktop tudo fica visível) */}
+              {/* Sub-pastas do formulário */}
               <div
                 role="tablist"
                 aria-label="Seções do veículo"
-                className="sticky top-0 z-10 -mx-6 -mt-2 flex gap-1 overflow-x-auto border-b border-neutral-200 bg-white px-6 py-2 md:hidden"
+                className="sticky top-0 z-10 -mx-6 -mt-2 flex gap-1 overflow-x-auto border-b border-neutral-200 bg-white px-6 py-2"
               >
-                {ABAS_FORM.filter((a) => a.valor !== 'venda' || canManageContratos).map((a) => (
+                {ABAS_FORM.map((a) => (
                   <button
                     key={a.valor}
                     type="button"
@@ -1073,11 +1082,10 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 ))}
               </div>
 
-              {/* ─── Cliente ────────────────────────────────────────── */}
-              {/* 
-              <div>
+              {/* ─── Comprador ──────────────────────────────────────── */}
+              <div data-aba="comprador" className={abaCls('comprador')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
-                  Cliente
+                  Dados do Comprador
                 </h3>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Input
@@ -1085,10 +1093,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     label="Nome"
                     value={nomeCliente}
                     onChange={(e) => setNomeCliente(e.target.value)}
-                    placeholder="Nome do cliente"
+                    placeholder="Nome do comprador"
                     autoComplete="off"
                   />
-
                   <Input
                     id="cpfCliente"
                     label="CPF"
@@ -1100,17 +1107,22 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     mask="cpfCnpj"
                     error={fieldErrors.cpfCliente}
                   />
-
                   <Input
                     id="enderecoCliente"
                     label="Endereço"
                     value={enderecoCliente}
                     onChange={(e) => setEnderecoCliente(e.target.value)}
-                    placeholder="Endereço do cliente"
+                    placeholder="Rua, número, bairro"
                     autoComplete="off"
-                    containerClassName="sm:col-span-2"
                   />
-
+                  <Input
+                    id="cidadeCliente"
+                    label="Cidade"
+                    value={cidadeCliente}
+                    onChange={(e) => setCidadeCliente(e.target.value)}
+                    placeholder="Ex: Jaú/SP"
+                    autoComplete="off"
+                  />
                   <Input
                     id="telefoneCliente"
                     label="Telefone"
@@ -1121,13 +1133,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     inputMode="tel"
                     mask="phone"
                     error={fieldErrors.telefoneCliente}
-                    containerClassName="sm:col-span-2"
                   />
                 </div>
               </div>
-              */}
-
-
 
               {/* ─── Veículo ────────────────────────────────────────── */}
               <div data-aba="veiculo" className={abaCls('veiculo')}>
@@ -1414,7 +1422,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               </div>
 
               {/* ─── Financiamento ──────────────────────────────────── */}
-              <div data-aba="financeiro" className={abaCls('financeiro')}>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Financiamento
                 </h3>
@@ -1660,7 +1668,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               </div>
 
               {/* ─── Acessória ──────────────────────────────────────── */}
-              <div data-aba="financeiro" className={abaCls('financeiro')}>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                 Assessoria de Cobrança
                 </h3>
@@ -1826,7 +1834,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               </div>
 
               {/* ─── Preço de Aquisição ────────────────────────────── */}
-              <div data-aba="financeiro" className={abaCls('financeiro')}>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Preço de Aquisição
                 </h3>
@@ -1883,7 +1891,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               </div>
 
               {/* ─── Custo efetivo total ───────────────────────────── */}
-              <div data-aba="financeiro" className={abaCls('financeiro')}>
+              <div data-aba="veiculo" className={abaCls('veiculo')}>
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Custo efetivo total
                 </h3>
@@ -1965,6 +1973,17 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       onChange={(e) => setSellerCity(e.target.value)}
                       placeholder="Ex: Jaú/SP"
                       autoComplete="off"
+                    />
+                    <Input
+                      id="sellerPhone"
+                      label="Telefone"
+                      value={sellerPhone}
+                      onChange={(e) => setSellerPhone(maskPhone(e.target.value))}
+                      placeholder="(00) 00000-0000"
+                      autoComplete="off"
+                      inputMode="tel"
+                      mask="phone"
+                      error={fieldErrors.sellerPhone}
                     />
                   </div>
 
@@ -2112,7 +2131,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
 
               {/* ─── Contratos do Veículo (PDFs) ────────────────────── */}
               {canManageContratos && (
-                <div data-aba="venda" className={abaCls('venda')}>
+                <div data-aba="veiculo" className={abaCls('veiculo')}>
                   <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2">
                     Contratos do Veículo
                   </label>

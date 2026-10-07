@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-07-veiculos-comprador-abas',
+    date: '2026-10-07',
+    title: 'Veículos: abas Proprietário, Comprador e Veículo',
+    tag: 'melhoria',
+    items: [
+      'O cadastro do veículo agora tem 3 abas (no celular e no computador): Proprietário, Comprador e Veículo. Financeiro e contratos ficam dentro de Veículo.',
+      'Nova aba Comprador com nome, CPF, endereço, cidade e telefone.',
+      'O Proprietário agora também tem telefone.',
+    ],
+  },
+  {
     id: '2026-10-06-quitacoes',
     date: '2026-10-06',
     title: 'Nova aba Quitações',
