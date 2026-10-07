@@ -207,6 +207,7 @@ export async function aprovarAnuncio(
       cpfCliente: null,
       telefoneCliente: null,
       telefoneAcessoria: null,
+      telefonesAcessoria: [],
       valorParcela: null,
       custoAcumulado: null,
       precoAquisicao: null,

@@ -187,7 +187,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
   const [dataAquisicao, setDataAquisicao] = useState('')
 
   // Acessória
-  const [telefoneAcessoria, setTelefoneAcessoria] = useState('')
+  const [telefonesAcessoria, setTelefonesAcessoria] = useState<string[]>([''])
 
   // Débitos do veículo
   const [debitos, setDebitos] = useState('')
@@ -490,7 +490,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
     setPrecoAquisicao('')
     setDataAquisicao('')
     setManutencoesVeiculo([])
-    setTelefoneAcessoria('')
+    setTelefonesAcessoria([''])
     setDebitos('')
     setDebitosItensSelecionados([])
     setDebitosValores({})
@@ -640,7 +640,11 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       veiculo.precoAquisicao ? formatCurrency(veiculo.precoAquisicao).replace('R$', '').trim() : '',
     )
     setDataAquisicao(veiculo.dataAquisicao ?? '')
-    setTelefoneAcessoria(veiculo.telefoneAcessoria || '')
+    setTelefonesAcessoria(
+      veiculo.telefonesAcessoria?.length
+        ? veiculo.telefonesAcessoria.map(maskPhone)
+        : [veiculo.telefoneAcessoria ? maskPhone(veiculo.telefoneAcessoria) : ''],
+    )
     setDebitos(veiculo.debitos ? formatCurrency(veiculo.debitos).replace('R$', '').trim() : '')
     if (Array.isArray(veiculo.debitosItens) && veiculo.debitosItens.length > 0) {
       setDebitosItensSelecionados(veiculo.debitosItens.map((i) => i.chave))
@@ -772,7 +776,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
       formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
       formData.append('dataAquisicao', dataAquisicao)
       // Acessória
-      formData.append('telefoneAcessoria', onlyDigits(telefoneAcessoria))
+      telefonesAcessoria
+        .map(onlyDigits)
+        .filter(Boolean)
+        .forEach((t) => formData.append('telefonesAcessoria', t))
       // Débitos
       formData.append('debitos', debitos ? String(parseMoney(debitos) || 0) : '')
       if (debitosItensSelecionados.length > 0) {
@@ -1581,17 +1588,6 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     }
                   />
                 </div>
-
-                {/* Projeção de quitação ao vivo */}
-                <div className="mt-4">
-                  <ProjecaoQuitacao
-                    valorVeiculo={parseMoney(preco)}
-                    entrada={parseMoney(valorEntrada)}
-                    taxaPercent={parseFloat((taxaJuros || '0').replace(',', '.')) || 0}
-                    taxaPeriodicidade={taxaPeriodicidade}
-                    prazoMeses={parseInt(parcelasRestantes || '0', 10)}
-                  />
-                </div>
               </div>
 
               {/* ─── Acessória ──────────────────────────────────────── */}
@@ -1600,16 +1596,66 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                 Assessoria de Cobrança
                 </h3>
                 <div className="grid gap-4">
-                  <Input
-                    id="telefoneAcessoria"
-                    label="Telefone da acessória"
-                    value={telefoneAcessoria}
-                    onChange={(e) => setTelefoneAcessoria(maskPhone(e.target.value))}
-                    placeholder="(00) 00000-0000"
-                    autoComplete="off"
-                    inputMode="tel"
-                    mask="phone"
-                    error={fieldErrors.telefoneAcessoria}
+                  {telefonesAcessoria.map((tel, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <Input
+                          id={`telefoneAcessoria-${i}`}
+                          label={
+                            telefonesAcessoria.length > 1
+                              ? `Telefone da acessória ${i + 1}`
+                              : 'Telefone da acessória'
+                          }
+                          value={tel}
+                          onChange={(e) =>
+                            setTelefonesAcessoria((prev) =>
+                              prev.map((t, j) => (j === i ? maskPhone(e.target.value) : t)),
+                            )
+                          }
+                          placeholder="(00) 00000-0000"
+                          autoComplete="off"
+                          inputMode="tel"
+                          mask="phone"
+                          error={
+                            onlyDigits(tel) && onlyDigits(tel).length < 10
+                              ? fieldErrors.telefoneAcessoria
+                              : undefined
+                          }
+                        />
+                      </div>
+                      {telefonesAcessoria.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTelefonesAcessoria((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          title="Remover telefone"
+                          aria-label="Remover telefone"
+                          className="mt-[26px] flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer"
+                        >
+                          <IconX size={16} stroke={2.2} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setTelefonesAcessoria((prev) => [...prev, ''])}
+                    className="inline-flex w-fit items-center gap-1.5 text-xs font-bold text-liberty-deep hover:text-liberty transition-colors cursor-pointer"
+                  >
+                    <IconPlus size={14} stroke={2.5} />
+                    Adicionar telefone
+                  </button>
+                </div>
+
+                {/* Quitação atual do veículo (projeção ao vivo) */}
+                <div className="mt-4">
+                  <ProjecaoQuitacao
+                    valorVeiculo={parseMoney(preco)}
+                    entrada={parseMoney(valorEntrada)}
+                    taxaPercent={parseFloat((taxaJuros || '0').replace(',', '.')) || 0}
+                    taxaPeriodicidade={taxaPeriodicidade}
+                    prazoMeses={parseInt(parcelasRestantes || '0', 10)}
                   />
                 </div>
               </div>

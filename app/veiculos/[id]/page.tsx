@@ -256,9 +256,11 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                         icon={<IconCash size={16} />}
                         label="Assessoria de Cobrança"
                         value={
-                          veiculo.telefoneAcessoria
-                            ? veiculo.telefoneAcessoria
-                            : 'Não informada'
+                          veiculo.telefonesAcessoria?.length
+                            ? veiculo.telefonesAcessoria.join(' · ')
+                            : veiculo.telefoneAcessoria
+                              ? veiculo.telefoneAcessoria
+                              : 'Não informada'
                         }
                       />
                       <Spec
