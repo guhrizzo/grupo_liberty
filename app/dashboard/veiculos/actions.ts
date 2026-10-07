@@ -7,7 +7,9 @@ import { cookies } from 'next/headers'
 import { adminAuth, adminDb, adminStorage } from '@/utils/firebase/admin'
 import { converterFotoParaWebp, FOTO_CACHE_CONTROL } from '@/utils/veiculos/foto-webp'
 import { encrypt, decrypt } from '@/utils/crypto'
-import { assertPodeGerenciarVeiculos } from '@/utils/permissions'
+import { assertPodeGerenciarVeiculos, hasPageAccess } from '@/utils/permissions'
+import { buscarInteressadosDoVeiculo } from '@/utils/interesses/casar'
+import type { InteressadoResumo } from '../interesses/types'
 import { apagarVeiculoCompleto, extractFirebaseStoragePath } from '@/utils/veiculos/apagar'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -235,6 +237,8 @@ export type VeiculoResponse = {
   error?: string
   fieldErrors?: VeiculoFieldErrors
   veiculo?: Veiculo
+  /** Clientes com interesse ativo que casam com o veículo recém-cadastrado (só para quem acessa Interesses). */
+  interessados?: InteressadoResumo[]
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -680,9 +684,29 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     await docRef.set(novoVeiculo)
 
     revalidatePath('/dashboard/veiculos')
+
+    // Avisa quem tem interesse ativo nesse carro; falha aqui nunca derruba o cadastro.
+    let interessados: InteressadoResumo[] = []
+    if (hasPageAccess(user, 'interesses')) {
+      try {
+        interessados = await buscarInteressadosDoVeiculo({
+          marca,
+          modelo,
+          ano,
+          preco: novoVeiculo.precoComDesconto ?? novoVeiculo.preco ?? null,
+          cambio: novoVeiculo.cambio,
+          combustivel: novoVeiculo.combustivel,
+          cor,
+        })
+      } catch (err) {
+        console.error('Erro ao cruzar veículo com interesses:', err)
+      }
+    }
+
     return {
       success: 'Veículo cadastrado com sucesso!',
-      veiculo: { id: docRef.id, ...novoVeiculo }
+      veiculo: { id: docRef.id, ...novoVeiculo },
+      interessados,
     }
   } catch (error: any) {
     return { error: `Erro ao cadastrar veículo: ${error.message}` }

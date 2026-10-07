@@ -22,6 +22,7 @@ import {
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
 import type { UltimaQuitacao } from '../quitacoes/types'
+import type { InteressadoResumo } from '../interesses/types'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
 import { CANAIS_AQUISICAO, CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
@@ -171,7 +172,12 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   }
   const [editingId, setEditingId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [message, setMessage] = useState<{
+    type: 'success' | 'error'
+    text: string
+    /** Clientes com interesse ativo que casam com o veículo recém-cadastrado. */
+    interessados?: InteressadoResumo[]
+  } | null>(null)
   const [fieldErrors, setFieldErrors] = useState<VeiculoFieldErrors>({})
 
   // Cliente
@@ -893,7 +899,11 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
           }
         }
 
-        setMessage({ type: 'success', text: result.success || (editingId ? 'Veículo atualizado!' : 'Veículo cadastrado!') })
+        setMessage({
+          type: 'success',
+          text: result.success || (editingId ? 'Veículo atualizado!' : 'Veículo cadastrado!'),
+          interessados: result.interessados,
+        })
         resetForm()
         setShowForm(false)
         router.refresh()
@@ -1043,6 +1053,24 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
             }`}
           >
             {message.text}
+            {message.interessados && message.interessados.length > 0 && (
+              <div className="mt-3 border-t border-emerald-200 pt-3">
+                <p className="font-bold">
+                  {message.interessados.length} cliente{message.interessados.length === 1 ? '' : 's'} com interesse
+                  nesse carro — ofereça:
+                </p>
+                <ul className="mt-1 space-y-0.5 font-normal">
+                  {message.interessados.map((i) => (
+                    <li key={i.id}>
+                      {i.clienteNome} · {i.clienteTelefone}
+                    </li>
+                  ))}
+                </ul>
+                <Link href="/dashboard/interesses" className="mt-2 inline-block font-bold underline">
+                  Ver interesses
+                </Link>
+              </div>
+            )}
           </div>
         )}
 
