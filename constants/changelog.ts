@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-07-custo-efetivo-completo',
+    date: '2026-10-07',
+    title: 'Custo efetivo total completo e banco nos cards',
+    tag: 'correcao',
+    items: [
+      'O custo efetivo total agora soma também cartório, documentação, seguro e outros custos, além de aquisição, débitos e manutenções. O transporte entra como "Translado" nos débitos.',
+      'Os cards de veículos mostram o banco e o telefone da acessória, junto com a quitação estimada e a última quitação negociada (com a data).',
+    ],
+  },
+  {
     id: '2026-10-07-quitacao-estimada',
     date: '2026-10-07',
     title: 'Veículos: quitação estimada em cada veículo',
