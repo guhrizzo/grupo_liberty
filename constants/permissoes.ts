@@ -77,6 +77,13 @@ export function ehAdmSupremo(email: string | null | undefined): boolean {
   return !!e && ADM_SUPREMO_EMAILS.includes(e)
 }
 
+/** CEO — único que lê os "Lembretes ao CEO" (aba de Demandas). */
+export const CEO_EMAIL = 'otaviomoretto01@gmail.com'
+
+export function ehCeo(email: string | null | undefined): boolean {
+  return email?.toLowerCase().trim() === CEO_EMAIL
+}
+
 /**
  * Abas exclusivas do ADM supremo: nem cargo admin nem flag de permissão
  * liberam. (A Visão Geral, `/dashboard`, também é exclusiva — ver
