@@ -32,6 +32,7 @@ import {
   type DebitoItemDefinicao,
 } from '@/constants/debitos'
 import { quitacaoEstimada } from '@/utils/financing'
+import { CUSTOS_EXTRAS } from '@/constants/custos'
 import {
   createVehicle,
   updateVehicle,
@@ -72,6 +73,27 @@ function UltimaQuitacaoLinha({ veiculoId, quitacao }: { veiculoId: string; quita
       <Link href={`/dashboard/quitacoes?veiculo=${veiculoId}`} className="font-semibold underline hover:text-neutral-900">
         Histórico
       </Link>
+    </p>
+  )
+}
+
+/** Banco do financiamento e telefone(s) da acessória, nos cards. */
+function BancoAcessoriaLinha({ banco, telefones }: { banco: string | null | undefined; telefones: string[] | undefined }) {
+  const tels = (telefones ?? []).filter(Boolean).map(maskPhone)
+  if (!banco && tels.length === 0) return null
+  return (
+    <p className="text-xs text-neutral-500">
+      {banco && (
+        <>
+          Banco: <span className="font-semibold text-neutral-700">{banco}</span>
+        </>
+      )}
+      {banco && tels.length > 0 && ' · '}
+      {tels.length > 0 && (
+        <>
+          Acessória: <span className="font-semibold text-neutral-700">{tels.join(', ')}</span>
+        </>
+      )}
     </p>
   )
 }
@@ -248,6 +270,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   // Preço pago para adquirir o veículo. Valor interno de custo — não entra em
   // débitos, propostas, PDF nem no site.
   const [precoAquisicao, setPrecoAquisicao] = useState('')
+  const [custosExtras, setCustosExtras] = useState<Record<string, string>>({})
   const [dataAquisicao, setDataAquisicao] = useState('')
   const [canalAquisicao, setCanalAquisicao] = useState('')
 
@@ -296,7 +319,12 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     (acc, m) => acc + (m.custo > 0 ? m.custo : 0),
     0,
   )
-  const custoEfetivoTotal = debitosParaCusto + precoAquisicaoNum + manutencoesTotalCusto
+  const custosExtrasTotal = CUSTOS_EXTRAS.reduce(
+    (acc, { chave }) => acc + (parseMoney(custosExtras[chave] || '') || 0),
+    0,
+  )
+  const custoEfetivoTotal =
+    debitosParaCusto + precoAquisicaoNum + custosExtrasTotal + manutencoesTotalCusto
 
   const [sellerName, setSellerName] = useState('')
   const [sellerCpf, setSellerCpf] = useState('')
@@ -554,6 +582,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setValorParcela('')
     setCustoAcumulado('')
     setPrecoAquisicao('')
+    setCustosExtras({})
     setDataAquisicao('')
     setCanalAquisicao('')
     setManutencoesVeiculo([])
@@ -703,6 +732,14 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setPrecoAquisicao(
       veiculo.precoAquisicao ? formatCurrency(veiculo.precoAquisicao).replace('R$', '').trim() : '',
     )
+    setCustosExtras(
+      Object.fromEntries(
+        CUSTOS_EXTRAS.map(({ chave }) => {
+          const v = veiculo[chave]
+          return [chave, v ? formatCurrency(v).replace('R$', '').trim() : '']
+        }),
+      ),
+    )
     setDataAquisicao(veiculo.dataAquisicao ?? '')
     setCanalAquisicao(veiculo.canalAquisicao ?? '')
     setTelefonesAcessoria(
@@ -839,6 +876,10 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
       formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
+      for (const { chave } of CUSTOS_EXTRAS) {
+        const n = parseMoney(custosExtras[chave] || '') || 0
+        formData.append(chave, n > 0 ? String(n) : '')
+      }
       formData.append('dataAquisicao', dataAquisicao)
       formData.append('canalAquisicao', canalAquisicao)
       // Acessória
@@ -1870,6 +1911,23 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-3">
                   Custo efetivo total
                 </h3>
+                <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                  {CUSTOS_EXTRAS.map(({ chave, label }) => (
+                    <Input
+                      key={chave}
+                      id={chave}
+                      label={`${label} (R$)`}
+                      type="text"
+                      inputMode="decimal"
+                      value={custosExtras[chave] || ''}
+                      onChange={(e) =>
+                        setCustosExtras((prev) => ({ ...prev, [chave]: maskMoney(e.target.value) }))
+                      }
+                      placeholder="R$ 0,00"
+                      leftIcon={<IconCash size={14} />}
+                    />
+                  ))}
+                </div>
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-4">
                   <dl className="space-y-1.5 text-xs">
                     <div className="flex items-center justify-between">
@@ -1884,6 +1942,17 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                         {formatCurrency(precoAquisicaoNum)}
                       </dd>
                     </div>
+                    {CUSTOS_EXTRAS.map(({ chave, label }) => {
+                      const valor = parseMoney(custosExtras[chave] || '') || 0
+                      return valor > 0 ? (
+                        <div key={chave} className="flex items-center justify-between">
+                          <dt className="text-neutral-500">{label}</dt>
+                          <dd className="font-semibold text-neutral-800 tabular-nums">
+                            {formatCurrency(valor)}
+                          </dd>
+                        </div>
+                      ) : null
+                    })}
                     {manutencoesVeiculo.map((m) => (
                       <div key={m.id} className="flex items-center justify-between gap-3">
                         <dt className="min-w-0 truncate text-neutral-500">
@@ -1905,8 +1974,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   </div>
                 </div>
                 <p className="mt-2 text-[10px] text-neutral-500">
-                  Soma automática de débitos do veículo + preço de aquisição + manutenções
-                  com baixa. Uso interno — não aparece em propostas, PDF ou no site.
+                  Soma automática de débitos do veículo + preço de aquisição + cartório,
+                  documentação, seguro e outros custos + manutenções com baixa. O transporte entra
+                  como "Translado" nos débitos. Uso interno — não aparece em propostas, PDF ou no site.
                 </p>
               </div>
 
@@ -2420,6 +2490,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
+                        <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
                         <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
@@ -2557,6 +2628,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     </div>
 
                     <div className="mt-2">
+                      <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
                       <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>

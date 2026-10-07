@@ -1,5 +1,6 @@
 'use server'
 
+import { CUSTOS_EXTRAS, type CustoExtraChave } from '@/constants/custos'
 import { ehDataValida } from '@/constants/tarefas'
 import { CANAIS_AQUISICAO } from '@/utils/veiculos/opcoes'
 import { revalidatePath } from 'next/cache'
@@ -56,9 +57,28 @@ function parseDebitosItens(value: unknown): DebitoItemPersistido[] {
 
 export type DebitoItem = DebitoItemPersistido
 
+/** Lê os "outros custos" (cartório, documentação...) do formulário; inválido/negativo vira null. */
+function lerCustosExtras(formData: FormData) {
+  const custos = {} as Record<CustoExtraChave, number | null>
+  let total = 0
+  for (const { chave } of CUSTOS_EXTRAS) {
+    const raw = ((formData.get(chave) as string) || '').trim()
+    const n = raw ? parseFloat(raw) : NaN
+    const valor = Number.isFinite(n) && n > 0 ? n : null
+    custos[chave] = valor
+    total += valor ?? 0
+  }
+  return { custos, total }
+}
+
+/** Soma dos "outros custos" gravados no veículo. */
+function somarCustosExtras(data: Record<string, unknown>): number {
+  return CUSTOS_EXTRAS.reduce((acc, { chave }) => acc + (Number(data[chave]) || 0), 0)
+}
+
 /**
  * Recalcula e persiste `custoEfetivoTotal` de um veículo:
- * `debitos + precoAquisicao + soma das manutenções baixadas do veículo`.
+ * `debitos + precoAquisicao + outros custos + soma das manutenções baixadas do veículo`.
  * É chamado ao salvar o veículo e sempre que uma manutenção dele é criada,
  * editada, baixada, estornada ou removida, para o valor gravado não ficar
  * defasado. Falha em silêncio (loga) — nunca deve quebrar o fluxo que a chamou.
@@ -73,7 +93,7 @@ export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<vo
     const snap = await ref.get()
     if (!snap.exists) return
     const data = snap.data() || {}
-    const base = (data.debitos ?? 0) + (data.precoAquisicao ?? 0)
+    const base = (data.debitos ?? 0) + (data.precoAquisicao ?? 0) + somarCustosExtras(data)
 
     const manutSnap = await adminDb
       .collection('manutencoes')
@@ -165,6 +185,10 @@ export interface Veiculo {
   custoAcumulado: number | null
   /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
   precoAquisicao: number | null
+  custoCartorio: number | null
+  custoDocumentacao: number | null
+  custoSeguro: number | null
+  custoOutros: number | null
   /** Data da compra (YYYY-MM-DD). Métricas usam esta data; sem ela, a de cadastro. */
   dataAquisicao: string | null
   /** Por onde o veículo veio (CANAIS_AQUISICAO). Uso interno. */
@@ -225,6 +249,10 @@ export type VeiculoFieldErrors = {
   valorParcela?: string
   custoAcumulado?: string
   precoAquisicao?: string
+  custoCartorio?: string
+  custoDocumentacao?: string
+  custoSeguro?: string
+  custoOutros?: string
   dataAquisicao?: string
   debitos?: string
   parcelasRestantes?: string
@@ -310,6 +338,10 @@ export async function getVehicles(): Promise<Veiculo[]> {
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
+        custoCartorio: data.custoCartorio ?? null,
+        custoDocumentacao: data.custoDocumentacao ?? null,
+        custoSeguro: data.custoSeguro ?? null,
+        custoOutros: data.custoOutros ?? null,
         dataAquisicao: data.dataAquisicao ?? null,
         canalAquisicao: data.canalAquisicao ?? null,
         custoEfetivoTotal: data.custoEfetivoTotal ?? null,
@@ -479,6 +511,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
+  const { custos: custosExtras, total: custosExtrasTotal } = lerCustosExtras(formData)
   const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
   const canalRaw = ((formData.get('canalAquisicao') as string) || '').trim()
   const canalAquisicao = CANAIS_AQUISICAO.some((c) => c.value === canalRaw) ? canalRaw : null
@@ -494,7 +527,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
         : null
   // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
   // derivado — o cliente só exibe, o servidor é a fonte da verdade.
-  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) + custosExtrasTotal || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -655,6 +688,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      ...custosExtras,
       dataAquisicao,
       canalAquisicao,
       custoEfetivoTotal,
@@ -793,6 +827,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const custoAcumulado = custoAcumuladoRaw ? parseFloat(custoAcumuladoRaw) : null
   const precoAquisicaoRaw = (formData.get('precoAquisicao') as string) || ''
   const precoAquisicao = precoAquisicaoRaw ? parseFloat(precoAquisicaoRaw) : null
+  const { custos: custosExtras, total: custosExtrasTotal } = lerCustosExtras(formData)
   const dataAquisicao = ((formData.get('dataAquisicao') as string) || '').trim() || null
   const canalRaw = ((formData.get('canalAquisicao') as string) || '').trim()
   const canalAquisicao = CANAIS_AQUISICAO.some((c) => c.value === canalRaw) ? canalRaw : null
@@ -808,7 +843,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
         : null
   // Custo efetivo total: soma interna de débitos + preço de aquisição. Sempre
   // derivado — o cliente só exibe, o servidor é a fonte da verdade.
-  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) || null
+  const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) + custosExtrasTotal || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
   // Financiamento — projeção de quitação
@@ -989,6 +1024,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       valorParcela,
       custoAcumulado,
       precoAquisicao,
+      ...custosExtras,
       dataAquisicao,
       canalAquisicao,
       custoEfetivoTotal,
