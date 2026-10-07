@@ -20,7 +20,8 @@ import {
   Textarea,
   useToast,
 } from '../../components/ui'
-import { formatCurrency, formatKm, formatDateTime } from '@/utils/format'
+import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
+import type { UltimaQuitacao } from '../quitacoes/types'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
 import { CANAIS_AQUISICAO, CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { TAXAS_SUGERIDAS, taxaAnualParaMensal, taxaMensalParaAnual } from '@/utils/financing'
@@ -57,6 +58,22 @@ import type { ContratoCategoria } from '@/app/dashboard/contratos/types'
 interface VeiculosClientProps {
   currentUser: any
   veiculos: Veiculo[]
+  /** Última quitação negociada de cada veículo (histórico completo em /dashboard/quitacoes). */
+  ultimasQuitacoes?: Record<string, UltimaQuitacao>
+}
+
+/** Última quitação negociada, com atalho para o histórico do veículo. */
+function UltimaQuitacaoLinha({ veiculoId, quitacao }: { veiculoId: string; quitacao: UltimaQuitacao | undefined }) {
+  if (!quitacao) return null
+  return (
+    <p className="text-xs text-neutral-500">
+      Quitação: <span className="font-bold text-liberty-deep">{formatCurrency(quitacao.valor)}</span> em{' '}
+      {formatDate(quitacao.data)} ·{' '}
+      <Link href={`/dashboard/quitacoes?veiculo=${veiculoId}`} className="font-semibold underline hover:text-neutral-900">
+        Histórico
+      </Link>
+    </p>
+  )
 }
 
 interface PhotoPreview {
@@ -131,7 +148,7 @@ const ABAS_FORM: { valor: AbaForm; label: string }[] = [
   { valor: 'venda', label: 'Venda e contratos' },
 ]
 
-export default function VeiculosClient({ currentUser, veiculos }: VeiculosClientProps) {
+export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {} }: VeiculosClientProps) {
   const router = useRouter()
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -1710,6 +1727,12 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                     prazoMeses={parseInt(parcelasRestantes || '0', 10)}
                   />
                 </div>
+
+                {editingId && ultimasQuitacoes[editingId] && (
+                  <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50/60 p-3">
+                    <UltimaQuitacaoLinha veiculoId={editingId} quitacao={ultimasQuitacoes[editingId]} />
+                  </div>
+                )}
               </div>
 
               {/* ─── Débitos do Veículo ─────────────────────────────── */}
@@ -2403,6 +2426,7 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                             .filter(Boolean)
                             .join(' · ')}
                         </p>
+                        <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
@@ -2535,6 +2559,10 @@ export default function VeiculosClient({ currentUser, veiculos }: VeiculosClient
                           Terceiro
                         </span>
                       )}
+                    </div>
+
+                    <div className="mt-2">
+                      <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
                     </div>
 
                     {v.terceiro && (

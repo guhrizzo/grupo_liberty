@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-06-quitacoes',
+    date: '2026-10-06',
+    title: 'Nova aba Quitações',
+    tag: 'novo',
+    items: [
+      'Aba Quitações: registre o valor de quitação negociado com o banco e a data, por veículo. Todo o histórico fica lá e dá para editar ou excluir.',
+      'Na aba Veículos, cada veículo mostra só a última quitação (valor e data), com atalho para o histórico dele.',
+    ],
+  },
+  {
     id: '2026-10-06-veiculos-subpastas-mobile',
     date: '2026-10-06',
     title: 'Veículos: formulário em sub-pastas no celular',
