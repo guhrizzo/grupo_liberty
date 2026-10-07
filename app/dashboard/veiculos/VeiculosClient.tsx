@@ -16,6 +16,7 @@ import {
   ConfirmDialog,
   EmptyState,
   Input,
+  Modal,
   Select,
   Textarea,
   useToast,
@@ -39,6 +40,7 @@ import {
   deleteVehicle,
   uploadVehiclePhotos,
   setVeiculoEstoqueEstado,
+  registrarVendaVeiculo,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
@@ -371,6 +373,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   // Salva o seletor Disponível/Vendido/Privado isoladamente (ver
   // setVeiculoEstoqueEstado em actions.ts) quando editando um veículo existente.
   const [estadoSaving, setEstadoSaving] = useState(false)
+  const [vendaModalOpen, setVendaModalOpen] = useState(false)
+  const [precoVendaInput, setPrecoVendaInput] = useState('')
+  const [vendaSaving, setVendaSaving] = useState(false)
 
   // ─── Photo handling ──────────────────────────────────────────────────────
 
@@ -980,6 +985,14 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       return
     }
 
+    // Veículo já cadastrado → "Vendido" pede o preço de venda num modal; o
+    // estado só muda quando a venda é confirmada (confirmarVenda).
+    if (novo === 'vendido') {
+      setPrecoVendaInput(maskMoney(preco))
+      setVendaModalOpen(true)
+      return
+    }
+
     setEstoqueEstado(novo)
     setEstadoSaving(true)
     setMessage(null)
@@ -997,6 +1010,35 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       setMessage({ type: 'error', text: err.message || 'Erro ao atualizar o estado do veículo.' })
     } finally {
       setEstadoSaving(false)
+    }
+  }
+
+  // Venda: preço informado no modal → lucro = venda − custo efetivo total.
+  const precoVendaNum = parseMoney(precoVendaInput) || 0
+  const lucroVenda = precoVendaNum - custoEfetivoTotal
+  const lucroVendaPercent = custoEfetivoTotal > 0 ? (lucroVenda / custoEfetivoTotal) * 100 : null
+
+  const confirmarVenda = async () => {
+    if (!editingId) return
+    if (!(precoVendaNum > 0)) {
+      toast.error('Informe o preço de venda.')
+      return
+    }
+    setVendaSaving(true)
+    try {
+      const result = await registrarVendaVeiculo(editingId, precoVendaNum)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        setEstoqueEstado('vendido')
+        setVendaModalOpen(false)
+        setMessage({ type: 'success', text: result.success || 'Veículo vendido!' })
+        router.refresh()
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao registrar a venda.')
+    } finally {
+      setVendaSaving(false)
     }
   }
 
@@ -2693,6 +2735,97 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
             </div>
           )}
         </div>
+
+      {/* Venda: preço + lucro (venda − custo efetivo total) */}
+      <Modal
+        open={vendaModalOpen}
+        onClose={() => {
+          if (!vendaSaving) setVendaModalOpen(false)
+        }}
+        title="Marcar como vendido"
+        description="Informe por quanto o veículo foi vendido."
+      >
+        <div className="mt-4 space-y-4">
+          <Input
+            id="precoVendaFinal"
+            label="Preço de venda (R$)"
+            type="text"
+            inputMode="decimal"
+            value={precoVendaInput}
+            onChange={(e) => setPrecoVendaInput(maskMoney(e.target.value))}
+            placeholder="R$ 0,00"
+            leftIcon={<IconCash size={14} />}
+            autoFocus
+          />
+
+          <dl className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm space-y-1.5">
+            <div className="flex justify-between gap-4">
+              <dt className="text-neutral-600">Custo efetivo total</dt>
+              <dd className="font-medium text-neutral-900">{formatCurrency(custoEfetivoTotal)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-neutral-600">Lucro</dt>
+              <dd
+                className={
+                  precoVendaNum > 0 && lucroVenda < 0
+                    ? 'font-semibold text-rose-600'
+                    : 'font-semibold text-emerald-700'
+                }
+              >
+                {precoVendaNum > 0 ? formatCurrency(lucroVenda) : '—'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-neutral-600">Lucro (%)</dt>
+              <dd
+                className={
+                  precoVendaNum > 0 && lucroVenda < 0
+                    ? 'font-bold text-rose-600'
+                    : 'font-bold text-emerald-700'
+                }
+              >
+                {precoVendaNum > 0 && lucroVendaPercent !== null
+                  ? `${lucroVendaPercent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+                  : '—'}
+              </dd>
+            </div>
+          </dl>
+          {custoEfetivoTotal <= 0 && (
+            <p className="text-xs text-amber-700">
+              Este veículo não tem custo cadastrado, então o percentual de lucro não pode ser calculado.
+            </p>
+          )}
+
+          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+            <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <p>
+              Ao confirmar, o preço de venda será lançado automaticamente como{' '}
+              <strong>receita (“Venda de Veículo”) no Financeiro</strong>. Se voltar o veículo para
+              Disponível ou Privado, esse lançamento é removido.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setVendaModalOpen(false)}
+              disabled={vendaSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="liberty"
+              onClick={confirmarVenda}
+              loading={vendaSaving}
+              disabled={!(precoVendaNum > 0)}
+            >
+              Confirmar venda
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Confirmação de remoção de foto (mobile: X sempre visível) */}
       <ConfirmDialog

@@ -12,6 +12,7 @@ import { assertPodeGerenciarVeiculos, hasPageAccess } from '@/utils/permissions'
 import { buscarInteressadosDoVeiculo } from '@/utils/interesses/casar'
 import type { InteressadoResumo } from '../interesses/types'
 import { apagarVeiculoCompleto, extractFirebaseStoragePath } from '@/utils/veiculos/apagar'
+import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,10 @@ export interface Veiculo {
    * apaga o registro. Vence o `publico` na hora de decidir o que o site mostra.
    */
   vendidoEm: string | null
+  /** Preço pelo qual foi vendido (R$). Gravado ao marcar como vendido; lançado como receita no Financeiro. */
+  precoVendaFinal?: number | null
+  /** Lucro da venda em % sobre o custo efetivo total (`(venda − custo) / custo`). Interno. */
+  lucroVendaPercent?: number | null
   /**
    * Veículo não é da Liberty — entrou pelo fluxo de anúncios de terceiros.
    * Selo exibido só internamente; nunca serializado no payload público.
@@ -322,6 +327,8 @@ export async function getVehicles(): Promise<Veiculo[]> {
         publico:
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
         vendidoEm: data.vendidoEm ?? null,
+        precoVendaFinal: data.precoVendaFinal ?? null,
+        lucroVendaPercent: data.lucroVendaPercent ?? null,
         terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
         terceiroInfo: data.terceiroInfo ?? null,
         nomeCliente: data.nomeCliente || null,
@@ -1066,6 +1073,79 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
 }
 
 /**
+ * Receita no Financeiro gerada pela venda do veículo. ID determinístico:
+ * registrar de novo sobrescreve (sem duplicar) e desfazer a venda a remove.
+ */
+function lancamentoDaVenda(veiculoId: string) {
+  return adminDb.collection('transacoes').doc(`venda_${veiculoId}`)
+}
+
+/**
+ * Marca o veículo como vendido pelo `precoVenda` informado: grava preço e lucro
+ * (venda − custo efetivo total, em % do custo) e lança o preço de venda como
+ * receita "Venda de Veículo" no Financeiro.
+ */
+export async function registrarVendaVeiculo(
+  id: string,
+  precoVenda: number,
+): Promise<VeiculoResponse> {
+  let user: { uid: string }
+  try {
+    user = (await assertPodeGerenciarVeiculos()) as { uid: string }
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  if (!Number.isFinite(precoVenda) || precoVenda <= 0) {
+    return { error: 'Informe o preço de venda.' }
+  }
+
+  try {
+    // Garante que o custo usado no lucro está atualizado (manutenções etc.).
+    await recalcularCustoEfetivoTotal(id)
+
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Veículo não encontrado.' }
+    const dados = doc.data() || {}
+
+    const custo = Number(dados.custoEfetivoTotal) || 0
+    const lucroVendaPercent =
+      custo > 0 ? Math.round(((precoVenda - custo) / custo) * 10000) / 100 : null
+
+    const now = new Date().toISOString()
+    const nomeVeiculo = [dados.marca, dados.modelo, dados.ano].filter(Boolean).join(' ')
+    const batch = adminDb.batch()
+    batch.update(docRef, {
+      vendidoEm: now,
+      precoVendaFinal: precoVenda,
+      lucroVendaPercent,
+      updated_at: now,
+    })
+    batch.set(lancamentoDaVenda(id), {
+      descricao: `Venda: ${nomeVeiculo || 'Veículo'}${dados.placa ? ` (${dados.placa})` : ''}`,
+      categoria: 'Venda de Veículo',
+      tipo: 'receita',
+      valor: precoVenda,
+      data: hojeSaoPaulo(),
+      status: 'concluido',
+      origemVeiculoId: id,
+      created_by: user?.uid ?? null,
+      created_at: now,
+      updated_at: now,
+    })
+    await batch.commit()
+
+    revalidatePath('/dashboard/veiculos')
+    revalidatePath('/dashboard/financeiro')
+    revalidatePath('/')
+    return { success: 'Veículo vendido e lançado no Financeiro!' }
+  } catch (error: any) {
+    return { error: `Erro ao registrar a venda: ${error.message}` }
+  }
+}
+
+/**
  * Define o estado do veículo no estoque (Disponível / Vendido / Privado)
  * isoladamente, sem passar pelas validações dos demais campos do cadastro
  * (placa, renavam, CPF, telefones, preços etc.). Existe porque o seletor, ao
@@ -1112,7 +1192,19 @@ export async function setVeiculoEstoqueEstado(
       success = 'Veículo de volta ao estoque.'
     }
 
-    await docRef.update(patch)
+    if (estado === 'vendido') {
+      await docRef.update(patch)
+    } else {
+      // Saiu de "vendido": desfaz a venda — zera preço/lucro e remove a receita
+      // que havia sido lançada no Financeiro.
+      patch.precoVendaFinal = null
+      patch.lucroVendaPercent = null
+      const batch = adminDb.batch()
+      batch.update(docRef, patch)
+      batch.delete(lancamentoDaVenda(id))
+      await batch.commit()
+      revalidatePath('/dashboard/financeiro')
+    }
 
     revalidatePath('/dashboard/veiculos')
     revalidatePath('/')

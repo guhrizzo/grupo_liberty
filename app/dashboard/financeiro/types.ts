@@ -64,6 +64,9 @@ export interface Transacao {
   // Vínculo com a baixa de uma manutenção (lançamento `manutencao_<id>`,
   // criado/removido por darBaixaManutencao/estornarBaixaManutencao).
   origemManutencaoId?: string | null
+  // Vínculo com a venda de um veículo (lançamento `venda_<id>`, criado ao marcar
+  // o veículo como vendido e removido ao desfazer a venda).
+  origemVeiculoId?: string | null
   // Comprovante (nota fiscal/recibo) anexado — null/undefined = nenhum ainda.
   comprovante?: TransacaoComprovante | null
 }
