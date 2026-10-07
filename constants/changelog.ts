@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-07-interesses',
+    date: '2026-10-07',
+    title: 'Nova aba Interesses',
+    tag: 'novo',
+    items: [
+      'Aba Interesses: registre o carro que o cliente quer, como uma encomenda (marca, modelo, ano, preço máximo, câmbio, combustível, cor). Cada pedido tem status Ativo, Atendido ou Cancelado.',
+      'Cada interesse ativo mostra os veículos do estoque que combinam com o pedido.',
+      'Ao cadastrar um veículo novo, o painel avisa quais clientes têm interesse nele, com nome e telefone.',
+    ],
+  },
+  {
     id: '2026-10-06-quitacoes',
     date: '2026-10-06',
     title: 'Nova aba Quitações',

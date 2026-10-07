@@ -24,6 +24,7 @@ import {
   IconCalendarEvent,
   IconMapPins,
   IconCashBanknote,
+  IconHeartHandshake,
   IconReportAnalytics,
   IconMenu2,
 
@@ -46,7 +47,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
@@ -97,6 +98,12 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Quitações',
     icon: 'cash',
     permissionKey: 'veiculos',
+  },
+  {
+    href: '/dashboard/interesses',
+    label: 'Interesses',
+    icon: 'interest',
+    permissionKey: 'interesses',
   },
   {
     href: '/dashboard/contratos',
@@ -225,6 +232,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconCalendarEvent className={cls} stroke={2} />
     case 'map-pins':
       return <IconMapPins className={cls} stroke={2} />
+    case 'interest':
+      return <IconHeartHandshake className={cls} stroke={2} />
     case 'cash':
       return <IconCashBanknote className={cls} stroke={2} />
     case 'report':
