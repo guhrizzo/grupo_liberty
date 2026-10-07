@@ -154,7 +154,10 @@ export interface Veiculo {
     cidade: string
     estado: string
   } | null
+  nomeCliente: string | null
   cpfCliente: string | null
+  enderecoCliente: string | null
+  cidadeCliente: string | null
   telefoneCliente: string | null
   telefoneAcessoria: string | null
   telefonesAcessoria: string[]
@@ -194,6 +197,7 @@ export interface Veiculo {
   sellerCpf: string | null
   sellerBirthDate: string | null
   sellerCity: string | null
+  sellerPhone: string | null
   isVehicleInSellersName: boolean | null
   registeredOwnerName: string | null
   created_at: string
@@ -211,8 +215,12 @@ export type VeiculoFieldErrors = {
   placa?: string
   renavam?: string
   quilometragem?: string
+  nomeCliente?: string
   cpfCliente?: string
+  enderecoCliente?: string
+  cidadeCliente?: string
   telefoneCliente?: string
+  sellerPhone?: string
   telefoneAcessoria?: string
   valorParcela?: string
   custoAcumulado?: string
@@ -288,7 +296,10 @@ export async function getVehicles(): Promise<Veiculo[]> {
         vendidoEm: data.vendidoEm ?? null,
         terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
         terceiroInfo: data.terceiroInfo ?? null,
+        nomeCliente: data.nomeCliente || null,
         cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
+        enderecoCliente: data.enderecoCliente || null,
+        cidadeCliente: data.cidadeCliente || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
         telefonesAcessoria: Array.isArray(data.telefonesAcessoria)
@@ -328,6 +339,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         sellerCpf: decryptCpfOrRaw(data.sellerCpf) || null,
         sellerBirthDate: data.sellerBirthDate || null,
         sellerCity: data.sellerCity || null,
+        sellerPhone: data.sellerPhone || null,
         isVehicleInSellersName: data.isVehicleInSellersName ?? null,
         registeredOwnerName: data.registeredOwnerName || null,
         created_at: data.created_at,
@@ -448,7 +460,10 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   }
 
   // Campos opcionais de cliente / financiamento
+  const nomeCliente = ((formData.get('nomeCliente') as string) || '').trim()
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
+  const enderecoCliente = ((formData.get('enderecoCliente') as string) || '').trim()
+  const cidadeCliente = ((formData.get('cidadeCliente') as string) || '').trim()
   const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
   const telefonesAcessoria = formData
     .getAll('telefonesAcessoria')
@@ -514,6 +529,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
   const sellerBirthDate = ((formData.get('sellerBirthDate') as string) || '').trim() || null
   const sellerCity = ((formData.get('sellerCity') as string) || '').trim() || null
+  const sellerPhone = ((formData.get('sellerPhone') as string) || '').trim() || null
   const isVehicleInSellersNameRaw = formData.get('isVehicleInSellersName') as string | null
   const isVehicleInSellersName = isVehicleInSellersNameRaw === 'true' ? true : isVehicleInSellersNameRaw === 'false' ? false : null
   const registeredOwnerName = ((formData.get('registeredOwnerName') as string) || '').trim() || null
@@ -559,6 +575,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     fieldErrors.cpfCliente = 'CPF incompleto.'
   }
 
+  if (sellerPhone && sellerPhone.replace(/\D/g, '').length < 10) {
+    fieldErrors.sellerPhone = 'Telefone incompleto.'
+  }
   if (telefoneCliente && telefoneCliente.replace(/\D/g, '').length < 10) {
     fieldErrors.telefoneCliente = 'Telefone incompleto.'
   }
@@ -626,7 +645,10 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       // anúncios de terceiros grava `terceiro: true` por outra via.
       terceiro: false,
       terceiroInfo: null as Veiculo['terceiroInfo'],
+      nomeCliente: nomeCliente || null,
       cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
+      enderecoCliente: enderecoCliente || null,
+      cidadeCliente: cidadeCliente || null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
       telefonesAcessoria,
@@ -651,6 +673,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       sellerCpf: sellerCpf ? encrypt(sellerCpf) : null,
       sellerBirthDate,
       sellerCity,
+      sellerPhone,
       isVehicleInSellersName,
       registeredOwnerName,
       created_by: user.uid,
@@ -751,7 +774,10 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const publico = publicoRaw !== 'false'
 
   // Campos opcionais de cliente / financiamento
+  const nomeCliente = ((formData.get('nomeCliente') as string) || '').trim()
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
+  const enderecoCliente = ((formData.get('enderecoCliente') as string) || '').trim()
+  const cidadeCliente = ((formData.get('cidadeCliente') as string) || '').trim()
   const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
   const telefonesAcessoria = formData
     .getAll('telefonesAcessoria')
@@ -817,6 +843,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const sellerCpf = ((formData.get('sellerCpf') as string) || '').trim() || null
   const sellerBirthDate = ((formData.get('sellerBirthDate') as string) || '').trim() || null
   const sellerCity = ((formData.get('sellerCity') as string) || '').trim() || null
+  const sellerPhone = ((formData.get('sellerPhone') as string) || '').trim() || null
   const isVehicleInSellersNameRaw = formData.get('isVehicleInSellersName') as string | null
   const isVehicleInSellersName = isVehicleInSellersNameRaw === 'true' ? true : isVehicleInSellersNameRaw === 'false' ? false : null
   const registeredOwnerName = ((formData.get('registeredOwnerName') as string) || '').trim() || null
@@ -862,6 +889,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     fieldErrors.cpfCliente = 'CPF incompleto.'
   }
 
+  if (sellerPhone && sellerPhone.replace(/\D/g, '').length < 10) {
+    fieldErrors.sellerPhone = 'Telefone incompleto.'
+  }
   if (telefoneCliente && telefoneCliente.replace(/\D/g, '').length < 10) {
     fieldErrors.telefoneCliente = 'Telefone incompleto.'
   }
@@ -949,7 +979,10 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       fotos: fotosFinal,
       localizacao,
       publico,
+      nomeCliente: nomeCliente || null,
       cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
+      enderecoCliente: enderecoCliente || null,
+      cidadeCliente: cidadeCliente || null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
       telefonesAcessoria,
@@ -974,6 +1007,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       sellerCpf: sellerCpf ? encrypt(sellerCpf) : null,
       sellerBirthDate,
       sellerCity,
+      sellerPhone,
       isVehicleInSellersName,
       registeredOwnerName,
       updated_at: now,
