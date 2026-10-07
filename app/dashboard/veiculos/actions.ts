@@ -155,6 +155,7 @@ export interface Veiculo {
   cpfCliente: string | null
   telefoneCliente: string | null
   telefoneAcessoria: string | null
+  telefonesAcessoria: string[]
   valorParcela: number | null
   custoAcumulado: number | null
   /** Valor pago para adquirir o veículo. Interno — não usado em cálculos, PDF nem no site. */
@@ -286,6 +287,11 @@ export async function getVehicles(): Promise<Veiculo[]> {
         cpfCliente: decryptCpfOrRaw(data.cpfCliente) || null,
         telefoneCliente: data.telefoneCliente || null,
         telefoneAcessoria: data.telefoneAcessoria || null,
+        telefonesAcessoria: Array.isArray(data.telefonesAcessoria)
+          ? data.telefonesAcessoria
+          : data.telefoneAcessoria
+            ? [data.telefoneAcessoria]
+            : [],
         valorParcela: data.valorParcela ?? null,
         custoAcumulado: data.custoAcumulado ?? null,
         precoAquisicao: data.precoAquisicao ?? null,
@@ -440,7 +446,14 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
   const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
-  const telefoneAcessoria = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  const telefonesAcessoria = formData
+    .getAll('telefonesAcessoria')
+    .map((t) => String(t).trim())
+    .filter(Boolean)
+  const telefoneLegado = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  if (telefonesAcessoria.length === 0 && telefoneLegado) telefonesAcessoria.push(telefoneLegado)
+  // Primeiro telefone continua em telefoneAcessoria (compatibilidade com leitores antigos).
+  const telefoneAcessoria = telefonesAcessoria[0] ?? ''
   const valorParcelaRaw = (formData.get('valorParcela') as string) || ''
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
@@ -546,7 +559,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
     fieldErrors.telefoneCliente = 'Telefone incompleto.'
   }
 
-  if (telefoneAcessoria && telefoneAcessoria.replace(/\D/g, '').length < 10) {
+  if (telefonesAcessoria.some((t) => t.replace(/\D/g, '').length < 10)) {
     fieldErrors.telefoneAcessoria = 'Telefone da acessória incompleto.'
   }
 
@@ -612,6 +625,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
+      telefonesAcessoria,
       valorParcela,
       custoAcumulado,
       precoAquisicao,
@@ -715,7 +729,14 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   // Campos opcionais de cliente / financiamento
   const cpfCliente = ((formData.get('cpfCliente') as string) || '').trim()
   const telefoneCliente = ((formData.get('telefoneCliente') as string) || '').trim()
-  const telefoneAcessoria = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  const telefonesAcessoria = formData
+    .getAll('telefonesAcessoria')
+    .map((t) => String(t).trim())
+    .filter(Boolean)
+  const telefoneLegado = ((formData.get('telefoneAcessoria') as string) || '').trim()
+  if (telefonesAcessoria.length === 0 && telefoneLegado) telefonesAcessoria.push(telefoneLegado)
+  // Primeiro telefone continua em telefoneAcessoria (compatibilidade com leitores antigos).
+  const telefoneAcessoria = telefonesAcessoria[0] ?? ''
   const valorParcelaRaw = (formData.get('valorParcela') as string) || ''
   const valorParcela = valorParcelaRaw ? parseFloat(valorParcelaRaw) : null
   const custoAcumuladoRaw = (formData.get('custoAcumulado') as string) || ''
@@ -821,7 +842,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
     fieldErrors.telefoneCliente = 'Telefone incompleto.'
   }
 
-  if (telefoneAcessoria && telefoneAcessoria.replace(/\D/g, '').length < 10) {
+  if (telefonesAcessoria.some((t) => t.replace(/\D/g, '').length < 10)) {
     fieldErrors.telefoneAcessoria = 'Telefone da acessória incompleto.'
   }
 
@@ -907,6 +928,7 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       cpfCliente: cpfCliente ? encrypt(cpfCliente) : null,
       telefoneCliente: telefoneCliente || null,
       telefoneAcessoria: telefoneAcessoria || null,
+      telefonesAcessoria,
       valorParcela,
       custoAcumulado,
       precoAquisicao,
