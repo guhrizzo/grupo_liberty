@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-07-quitacao-estimada',
+    date: '2026-10-07',
+    title: 'Veículos: quitação estimada em cada veículo',
+    tag: 'melhoria',
+    items: [
+      'Cada veículo mostra a quitação estimada: parcela × parcelas restantes, menos o % de desconto do banco (mesma regra da Proposta).',
+      'Saiu o campo de taxa de juros e a projeção com juros, que não entravam nessa conta.',
+    ],
+  },
+  {
     id: '2026-10-07-veiculos-comprador-abas',
     date: '2026-10-07',
     title: 'Veículos: abas Proprietário, Comprador e Veículo',
