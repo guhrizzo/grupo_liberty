@@ -27,8 +27,9 @@ import {
   type PropostaRegistrada,
 } from './actions'
 import type { VendedorOpcao } from '@/app/dashboard/metas/types'
-import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, useToast } from '@/app/components/ui'
+import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, Textarea, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
+import { MOTIVOS_RECUSA, MOTIVO_DETALHE_MAX, textoMotivoRecusa } from './motivos'
 
 interface PropostasRegistradasClientProps {
   propostas: PropostaRegistrada[]
@@ -97,11 +98,12 @@ export default function PropostasRegistradasClient({
   const [fechando, setFechando] = useState<PropostaRegistrada | null>(null)
   const [confirmReabrir, setConfirmReabrir] = useState<PropostaRegistrada | null>(null)
   const [reabrindo, setReabrindo] = useState(false)
-  const [confirmRecusar, setConfirmRecusar] = useState<PropostaRegistrada | null>(null)
+  const [recusando, setRecusando] = useState<PropostaRegistrada | null>(null)
+  const [motivoFiltro, setMotivoFiltro] = useState('')
   const [alterandoId, setAlterandoId] = useState<string | null>(null)
   const [statusFiltro, setStatusFiltro] = useState<StatusProposta | ''>('')
 
-  const hasActiveFilters = Boolean(searchNome.trim() || selectedMonth || statusFiltro)
+  const hasActiveFilters = Boolean(searchNome.trim() || selectedMonth || statusFiltro || motivoFiltro)
 
   const filtered = useMemo(() => {
     const q = searchNome.trim().toLowerCase()
@@ -109,9 +111,13 @@ export default function PropostasRegistradasClient({
       if (q && !p.nome.toLowerCase().includes(q)) return false
       if (selectedMonth && mesKey(p.created_at) !== selectedMonth) return false
       if (statusFiltro && p.status !== statusFiltro) return false
+      if (motivoFiltro) {
+        if (p.status !== 'recusado') return false
+        if (motivoFiltro === 'nao_informado' ? p.motivo_recusa : p.motivo_recusa !== motivoFiltro) return false
+      }
       return true
     })
-  }, [propostas, searchNome, selectedMonth, statusFiltro])
+  }, [propostas, searchNome, selectedMonth, statusFiltro, motivoFiltro])
 
   const comissaoTotal = useMemo(() => somaComissaoAceitas(filtered), [filtered])
   const aceitasCount = filtered.filter((p) => p.status === 'aceito').length
@@ -153,21 +159,6 @@ export default function PropostasRegistradasClient({
     }
   }
 
-  const recusar = async (p: PropostaRegistrada) => {
-    setAlterandoId(p.id)
-    try {
-      const res = await definirPropostaRecusada(p.id)
-      if (res.error) toast.error(res.error, 'Não foi possível recusar')
-      else {
-        toast.success(res.success || 'Proposta recusada.')
-        router.refresh()
-      }
-    } finally {
-      setAlterandoId(null)
-      setConfirmRecusar(null)
-    }
-  }
-
   const reabrirDireto = async (p: PropostaRegistrada) => {
     setAlterandoId(p.id)
     try {
@@ -186,7 +177,7 @@ export default function PropostasRegistradasClient({
     if (novo === p.status) return
     if (novo === 'aceito') return setFechando(p)
     if (novo === 'pendente') return p.status === 'aceito' ? setConfirmReabrir(p) : void reabrirDireto(p)
-    return p.status === 'aceito' ? setConfirmRecusar(p) : void recusar(p)
+    return setRecusando(p)
   }
 
   const handleReabrir = async (p: PropostaRegistrada) => {
@@ -357,7 +348,10 @@ export default function PropostasRegistradasClient({
             <button
               key={o.valor || 'todas'}
               type="button"
-              onClick={() => setStatusFiltro(o.valor)}
+              onClick={() => {
+                setStatusFiltro(o.valor)
+                setMotivoFiltro('')
+              }}
               aria-pressed={statusFiltro === o.valor}
               className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
                 statusFiltro === o.valor ? 'bg-white text-neutral-950 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
@@ -367,6 +361,21 @@ export default function PropostasRegistradasClient({
             </button>
           ))}
         </div>
+
+        {statusFiltro === 'recusado' && (
+          <select
+            value={motivoFiltro}
+            onChange={(e) => setMotivoFiltro(e.target.value)}
+            aria-label="Filtrar por motivo da recusa"
+            className="min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-950 focus:outline-none cursor-pointer"
+          >
+            <option value="">Todos os motivos</option>
+            {MOTIVOS_RECUSA.map((m) => (
+              <option key={m.valor} value={m.valor}>{m.label}</option>
+            ))}
+            <option value="nao_informado">Não informado</option>
+          </select>
+        )}
 
         {selectedMonth && (
           <button
@@ -444,6 +453,12 @@ export default function PropostasRegistradasClient({
                           )
                         })()}
                       </h3>
+                      {p.status === 'recusado' && (
+                        <p className="mt-1 text-xs text-rose-700">
+                          <span className="font-bold">Motivo:</span>{' '}
+                          {textoMotivoRecusa(p.motivo_recusa, p.motivo_recusa_detalhe)}
+                        </p>
+                      )}
                       {!aberto && (
                         <p className="mt-1 truncate text-xs text-neutral-600 md:hidden">
                           <span className="font-semibold text-neutral-800">
@@ -620,16 +635,17 @@ export default function PropostasRegistradasClient({
         loading={reabrindo}
       />
 
-      <ConfirmDialog
-        open={confirmRecusar != null}
-        onClose={() => alterandoId == null && setConfirmRecusar(null)}
-        onConfirm={() => confirmRecusar && recusar(confirmRecusar)}
-        title="Marcar como recusada"
-        description="A proposta estava aceita: ao recusar, ela sai da comissão e da meta do vendedor."
-        confirmLabel="Recusar"
-        tone="danger"
-        loading={alterandoId != null}
-      />
+      {recusando && (
+        <RecusarPropostaModal
+          key={recusando.id}
+          proposta={recusando}
+          onClose={() => setRecusando(null)}
+          onDone={() => {
+            setRecusando(null)
+            router.refresh()
+          }}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmDeleteId != null}
@@ -714,6 +730,85 @@ function FecharPropostaModal({
           </Button>
           <Button type="button" variant="liberty" loading={salvando} onClick={confirmar}>
             Fechar proposta
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── Modal "Motivo da recusa" ────────────────────────────────────────────────
+
+function RecusarPropostaModal({
+  proposta,
+  onClose,
+  onDone,
+}: {
+  proposta: PropostaRegistrada
+  onClose: () => void
+  onDone: () => void
+}) {
+  const toast = useToast()
+  const [motivo, setMotivo] = useState('')
+  const [detalhe, setDetalhe] = useState('')
+  const [salvando, setSalvando] = useState(false)
+
+  const opcoes = [
+    { value: '', label: 'Selecione o motivo' },
+    ...MOTIVOS_RECUSA.map((m) => ({ value: m.valor, label: m.label })),
+  ]
+
+  async function confirmar() {
+    if (!motivo) {
+      toast.error('Escolha o motivo da recusa.')
+      return
+    }
+    if (motivo === 'outro' && !detalhe.trim()) {
+      toast.error('Descreva o motivo da recusa.')
+      return
+    }
+    setSalvando(true)
+    try {
+      const res = await definirPropostaRecusada(proposta.id, motivo, detalhe)
+      if (res.error) {
+        toast.error(res.error, 'Não foi possível recusar')
+        return
+      }
+      toast.success(res.success || 'Proposta recusada.')
+      onDone()
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => !salvando && onClose()}
+      title="Marcar como recusada"
+      description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
+    >
+      <div className="mt-4 space-y-4">
+        {proposta.status === 'aceito' && (
+          <p className="text-sm text-neutral-600">
+            A proposta estava aceita: ao recusar, ela sai da comissão e da meta do vendedor.
+          </p>
+        )}
+        <Select label="Motivo da recusa" value={motivo} onChange={(e) => setMotivo(e.target.value)} options={opcoes} />
+        {motivo === 'outro' && (
+          <Textarea
+            label="Qual o motivo?"
+            value={detalhe}
+            maxLength={MOTIVO_DETALHE_MAX}
+            onChange={(e) => setDetalhe(e.target.value)}
+          />
+        )}
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button type="button" variant="danger" loading={salvando} onClick={confirmar}>
+            Recusar
           </Button>
         </div>
       </div>
