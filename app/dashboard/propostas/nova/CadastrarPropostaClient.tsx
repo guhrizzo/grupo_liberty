@@ -705,7 +705,10 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
 
   const propostaPreviaValorBruto =
     propostaPreviaQuitacaoEstimada != null
-      ? propostaPreviaValorFipe / 2 - propostaPreviaQuitacaoEstimada - propostaPreviaDebitosVeiculo
+      ? propostaPreviaValorFipe / 2 -
+        propostaPreviaQuitacaoEstimada -
+        propostaPreviaDebitosVeiculo -
+        totalPecas
       : null
   const propostaPreviaValorFinal =
     propostaPreviaValorBruto != null ? Math.max(0, propostaPreviaValorBruto) : null
@@ -722,6 +725,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
     valorLicenciamento: propostaPreviaValorLicenciamento,
     valorMultas: propostaPreviaValorMultas,
     debitosVeiculo: propostaPreviaDebitosVeiculo,
+    pecas: totalPecas,
     valorBruto: propostaPreviaValorBruto,
     valor: propostaPreviaValorFinal,
   }
@@ -1403,6 +1407,14 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                       </div>
                     </>
                   )}
+                  {propostaPreviaCalc.pecas > 0 && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span>− Peças que exigem reparo</span>
+                      <span className="font-semibold">
+                        {formatCurrency(propostaPreviaCalc.pecas)}
+                      </span>
+                    </div>
+                  )}
                   {!propostaPreviaCalc.bancoInfo && (
                     <p className="flex items-start gap-1.5 pt-1 text-amber-700">
                       <IconAlertTriangle size={12} className="mt-0.5 shrink-0" stroke={2.2} />
@@ -1429,7 +1441,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                     Fórmula: metade do valor FIPE do veículo, menos a quitação estimada —
                     dívida em aberto (parcelas restantes × valor da parcela) × (1 − % de
                     quitação do banco) — e menos os débitos do veículo (IPVA +
-                    licenciamento + multas), quando informados.
+                    licenciamento + multas) e das peças que exigem reparo, quando informados.
                   </p>
                 </div>
               </div>
