@@ -5,7 +5,7 @@ import { adminAuth, adminDb } from '@/utils/firebase/admin'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
 import { ehVendedorDasMetas } from '@/app/dashboard/metas/vendedores'
 import { MOTIVOS_RECUSA, MOTIVO_DETALHE_MAX } from './motivos'
@@ -209,7 +209,8 @@ export async function createPropostaRegistrada(
 /** Lista as propostas registradas manualmente pela equipe, mais recentes primeiro. */
 export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
   try {
-    await assertAuthorized()
+    const user = await assertAuthorized()
+    const veTodas = isAdmSupremo(user)
 
     const snapshot = await adminDb
       .collection('propostas_registradas')
@@ -219,6 +220,10 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
     const list: PropostaRegistrada[] = []
     snapshot.forEach((doc) => {
       const p = doc.data() as Record<string, unknown>
+
+      // Proposta fechada por outro vendedor: só os ADM supremos enxergam.
+      const fechadaPor = typeof p.fechada_por_uid === 'string' ? p.fechada_por_uid : null
+      if (!veTodas && fechadaPor && fechadaPor !== user.uid) return
 
       let decryptedCpf = ''
       if (typeof p.cpf === 'string' && p.cpf) {
@@ -303,13 +308,16 @@ export async function getPropostaRegistradaById(
   id: string,
 ): Promise<PropostaRegistradaEditavel | null> {
   try {
-    await assertAuthorized()
+    const user = await assertAuthorized()
     if (!id) return null
 
     const doc = await adminDb.collection('propostas_registradas').doc(id).get()
     if (!doc.exists) return null
 
     const p = doc.data() as Record<string, unknown>
+
+    const fechadaPor = typeof p.fechada_por_uid === 'string' ? p.fechada_por_uid : null
+    if (!isAdmSupremo(user) && fechadaPor && fechadaPor !== user.uid) return null
 
     let cpfDigits = ''
     if (typeof p.cpf === 'string' && p.cpf) {
