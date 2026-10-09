@@ -221,9 +221,8 @@ export async function getPropostasRegistradas(): Promise<PropostaRegistrada[]> {
     snapshot.forEach((doc) => {
       const p = doc.data() as Record<string, unknown>
 
-      // Proposta fechada por outro vendedor: só os ADM supremos enxergam.
-      const fechadaPor = typeof p.fechada_por_uid === 'string' ? p.fechada_por_uid : null
-      if (!veTodas && fechadaPor && fechadaPor !== user.uid) return
+      // Só os ADM supremos veem propostas de outros vendedores.
+      if (!veTodas && p.vendedor_uid !== user.uid && p.fechada_por_uid !== user.uid) return
 
       let decryptedCpf = ''
       if (typeof p.cpf === 'string' && p.cpf) {
@@ -316,8 +315,7 @@ export async function getPropostaRegistradaById(
 
     const p = doc.data() as Record<string, unknown>
 
-    const fechadaPor = typeof p.fechada_por_uid === 'string' ? p.fechada_por_uid : null
-    if (!isAdmSupremo(user) && fechadaPor && fechadaPor !== user.uid) return null
+    if (!isAdmSupremo(user) && p.vendedor_uid !== user.uid && p.fechada_por_uid !== user.uid) return null
 
     let cpfDigits = ''
     if (typeof p.cpf === 'string' && p.cpf) {
