@@ -8,6 +8,7 @@ import { validarCPF } from '@/utils/validadorCpf'
 import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import type { CreatePropostaInput, PropostaPecaConserto } from '../actions'
 import { ehVendedorDasMetas } from '@/app/dashboard/metas/vendedores'
+import { calcularComissaoVendedor } from '@/utils/propostas/comissao'
 import { MOTIVOS_RECUSA, MOTIVO_DETALHE_MAX } from './motivos'
 
 async function assertAuthorized() {
@@ -52,7 +53,7 @@ export interface PropostaRegistrada {
   valor: number | null
   /** Proposta prévia calculada no cadastro. */
   proposta_previa: number | null
-  /** R$ 300 fixos + 6% sobre (proposta prévia − proposta). */
+  /** R$ 300 fixos + 6% sobre (proposta prévia − proposta), máximo R$ 1.200. */
   comissao_vendedor: number | null
 
   vendedor_uid: string | null
@@ -138,7 +139,7 @@ export async function createPropostaRegistrada(
     // consistente mesmo se a fórmula mudar no futuro.
     const comissaoVendedor =
       valor != null && propostaPreviaNum != null
-        ? 300 + (propostaPreviaNum - valor) * 0.06
+        ? calcularComissaoVendedor(propostaPreviaNum, valor)
         : null
 
     const cpfCriptografado = encrypt(cpfDigits)
@@ -422,7 +423,7 @@ export async function updatePropostaRegistrada(
 
     const comissaoVendedor =
       valor != null && propostaPreviaNum != null
-        ? 300 + (propostaPreviaNum - valor) * 0.06
+        ? calcularComissaoVendedor(propostaPreviaNum, valor)
         : null
 
     const pecasLimpa: PropostaPecaConserto[] = (input.pecasConserto ?? [])
