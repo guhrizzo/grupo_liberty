@@ -149,7 +149,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
     (formData.valor_ipva.trim() ? parseMoney(formData.valor_ipva) : 0) +
     (formData.valor_licenciamento.trim() ? parseMoney(formData.valor_licenciamento) : 0) +
     (formData.valor_multas.trim() ? parseMoney(formData.valor_multas) : 0)
-  const valorBruto = quitacaoEstimada != null ? valorFipe / 2 - quitacaoEstimada - debitosVeiculo : null
+  const valorBruto = quitacaoEstimada != null ? valorFipe / 2 - quitacaoEstimada - debitosVeiculo - totalPecas : null
   const propostaPreviaValor = valorBruto != null ? Math.max(0, valorBruto) : null
 
   const dividaEstimadaCalculada =
@@ -623,6 +623,18 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
                 </span>
                 <span className="font-semibold">{quitacaoPercent != null ? `${quitacaoPercent}%` : '—'}</span>
               </div>
+              {debitosVeiculo > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span>− Débitos do veículo (IPVA + licenciamento + multas)</span>
+                  <span className="font-semibold">{formatCurrency(debitosVeiculo)}</span>
+                </div>
+              )}
+              {totalPecas > 0 && (
+                <div className="flex items-center justify-between gap-2">
+                  <span>− Peças que exigem reparo</span>
+                  <span className="font-semibold">{formatCurrency(totalPecas)}</span>
+                </div>
+              )}
               {!bancoInfo && (
                 <p className="flex items-start gap-1.5 pt-1 text-amber-700">
                   <IconAlertTriangle size={12} className="mt-0.5 shrink-0" stroke={2.2} />
