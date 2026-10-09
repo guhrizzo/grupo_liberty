@@ -23,6 +23,7 @@ import {
 import { Breadcrumb, useToast, Input, BancoAutocomplete } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { parseMoney, onlyDigits, maskPlate, maskPhone, maskCPFCNPJ, maskMoney, moneyFromNumber } from '@/utils/masks'
+import { calcularComissaoVendedor } from '@/utils/propostas/comissao'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getBancoByNome } from '@/constants/bancos'
 import type { CreatePropostaInput } from '../../../actions'
@@ -144,7 +145,11 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
   const quitacaoPercent = bancoInfo?.descontoPercent ?? null
   const quitacaoEstimada = quitacaoPercent != null ? dividaTotal * (1 - quitacaoPercent / 100) : null
   const valorFipe = formData.veiculo_valor_fipe.trim() ? parseMoney(formData.veiculo_valor_fipe) : 0
-  const valorBruto = quitacaoEstimada != null ? valorFipe / 2 - quitacaoEstimada : null
+  const debitosVeiculo =
+    (formData.valor_ipva.trim() ? parseMoney(formData.valor_ipva) : 0) +
+    (formData.valor_licenciamento.trim() ? parseMoney(formData.valor_licenciamento) : 0) +
+    (formData.valor_multas.trim() ? parseMoney(formData.valor_multas) : 0)
+  const valorBruto = quitacaoEstimada != null ? valorFipe / 2 - quitacaoEstimada - debitosVeiculo : null
   const propostaPreviaValor = valorBruto != null ? Math.max(0, valorBruto) : null
 
   const dividaEstimadaCalculada =
@@ -156,7 +161,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
 
   const comissaoVendedor = useMemo(() => {
     if (valorPropostaNum == null || propostaPreviaValor == null) return null
-    return 300 + (propostaPreviaValor - valorPropostaNum) * 0.06
+    return calcularComissaoVendedor(propostaPreviaValor, valorPropostaNum)
   }, [valorPropostaNum, propostaPreviaValor])
 
   const validateForm = (): boolean => {
@@ -179,10 +184,6 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
 
     if (!formData.veiculo_marca.trim()) errors.veiculo_marca = 'Informe a marca.'
     if (!formData.veiculo_modelo.trim()) errors.veiculo_modelo = 'Informe o modelo.'
-
-    if (valorPropostaNum != null && propostaPreviaValor != null && valorPropostaNum > propostaPreviaValor) {
-      errors.valor_proposta = 'O valor da proposta não pode ser maior que a proposta prévia.'
-    }
 
     const pecasInvalidas = formData.pecas.filter((p) => !p.nome.trim() && p.valor.trim())
     if (pecasInvalidas.length > 0) {
@@ -310,7 +311,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
           </div>
         </div>
         <p className="hidden max-w-[240px] shrink-0 text-right text-[11px] text-neutral-500 sm:block">
-          R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e o valor da proposta.
+          R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e o valor da proposta (máximo R$ 1.200).
         </p>
       </div>
 

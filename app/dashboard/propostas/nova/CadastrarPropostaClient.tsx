@@ -1,5 +1,6 @@
 'use client'
 
+import { calcularComissaoVendedor } from '@/utils/propostas/comissao'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -617,14 +618,6 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
     if (!formData.veiculo_marca.trim()) errors.veiculo_marca = 'Informe a marca.'
     if (!formData.veiculo_modelo.trim()) errors.veiculo_modelo = 'Informe o modelo.'
 
-    if (
-      valorPropostaNum != null &&
-      propostaPreviaCalc.valor != null &&
-      valorPropostaNum > propostaPreviaCalc.valor
-    ) {
-      errors.valor_proposta = 'O valor da proposta não pode ser maior que a proposta prévia.'
-    }
-
     const pecasInvalidas = formData.pecas.filter((p) => !p.nome.trim() && p.valor.trim())
     if (pecasInvalidas.length > 0) {
       errors.pecas = 'Preencha o nome de todas as peças com valor.'
@@ -737,8 +730,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
   // proposta prévia (calculada) e a proposta real (valor comercial digitado).
   const comissaoVendedor = useMemo(() => {
     if (valorPropostaNum == null || propostaPreviaCalc.valor == null) return null
-    const diferenca = propostaPreviaCalc.valor - valorPropostaNum
-    return 300 + diferenca * 0.06
+    return calcularComissaoVendedor(propostaPreviaCalc.valor, valorPropostaNum)
   }, [valorPropostaNum, propostaPreviaCalc.valor])
 
   // Sugestão automática: IPVA + licenciamento + multas + saldo das parcelas
@@ -1471,21 +1463,6 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                     value={formData.valor_proposta}
                     inputMode="numeric"
                     onChange={(e) => setField('valor_proposta', maskMoney(e.target.value))}
-                    onBlur={() => {
-                      const valor = formData.valor_proposta.trim()
-                        ? parseMoney(formData.valor_proposta)
-                        : null
-                      if (
-                        valor != null &&
-                        propostaPreviaCalc.valor != null &&
-                        valor > propostaPreviaCalc.valor
-                      ) {
-                        setFormErrors((prev) => ({
-                          ...prev,
-                          valor_proposta: 'O valor da proposta não pode ser maior que a proposta prévia.',
-                        }))
-                      }
-                    }}
                     error={formErrors.valor_proposta}
                     leftIcon={<IconCoin size={14} />}
                     required
@@ -1499,7 +1476,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                   </p>
                   <p className="mt-2">
                     Fórmula: R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e
-                    o valor da proposta.
+                    o valor da proposta (máximo R$ 1.200).
                   </p>
                 </div>
               </div>
