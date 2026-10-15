@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-14-cobrancas-avalista',
+    date: '2026-10-14',
+    title: 'Avalista nas cobranças parceladas',
+    tag: 'novo',
+    items: [
+      'Cobranças parceladas podem ter um avalista (nome, CPF, telefone, endereço, estado civil e cônjuge se casado).',
+      'Dá para adicionar, alterar ou remover o avalista depois, em "Editar". Ele aparece na aba Clientes.',
+    ],
+  },
+  {
     id: '2026-10-14-cobrancas-clientes',
     date: '2026-10-14',
     title: 'Cadastro de clientes nas cobranças',

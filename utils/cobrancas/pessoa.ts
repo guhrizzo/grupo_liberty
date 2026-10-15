@@ -106,6 +106,24 @@ export function validarCliente(c: ClienteCobranca): string | null {
   return null
 }
 
+/** Avalista: mesmos dados do cliente + nome (e cônjuge, se casado). */
+export interface AvalistaCobranca extends ClienteCobranca {
+  nome: string
+}
+
+export function normalizarAvalista(raw: unknown): AvalistaCobranca {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return { nome: texto(r.nome, 120), ...normalizarCliente(raw) }
+}
+
+export function validarAvalista(a: AvalistaCobranca): string | null {
+  if (!a.nome) return 'Informe o nome do avalista.'
+  const { nome, ...resto } = a
+  void nome
+  const erro = validarCliente(resto)
+  return erro ? erro.replace('do cliente', 'do avalista').replace('cliente', 'avalista') : null
+}
+
 /** Chave de agrupamento de clientes: CPF quando existe, senão o nome. */
 export function chaveCliente(nome: string, cpf: string | null | undefined): string {
   const d = onlyDigits(cpf ?? '')

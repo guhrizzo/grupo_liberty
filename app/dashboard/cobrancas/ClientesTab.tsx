@@ -182,8 +182,14 @@ export function ClientesTab({ cobrancas }: { cobrancas: Cobranca[] }) {
                     const quite = cob.parcelas.length > 0 && cob.parcelas.every((p) => p.pago)
                     return (
                       <li key={cob.id} className="flex items-center gap-2 py-2">
-                        <span className="min-w-0 flex-1 truncate text-xs text-neutral-700">
-                          {cob.veiculoResumo}
+                        <span className="min-w-0 flex-1 text-xs text-neutral-700">
+                          <span className="block truncate">{cob.veiculoResumo}</span>
+                          {cob.avalista && (
+                            <span className="block truncate text-[11px] text-neutral-500">
+                              Avalista: {cob.avalista.nome} · {maskCPFCNPJ(cob.avalista.cpf)} ·{' '}
+                              {maskPhone(cob.avalista.telefone)}
+                            </span>
+                          )}
                         </span>
                         <span className="shrink-0 text-[11px] text-neutral-500">
                           {cob.numeroParcelas}× · {formatCurrency(cob.valorTotal)}
