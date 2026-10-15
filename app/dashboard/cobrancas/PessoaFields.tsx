@@ -29,6 +29,13 @@ export interface ClienteForm extends Omit<PessoaForm, 'nome'> {
   conjuge: PessoaForm
 }
 
+/** Avalista no formulário: nome + os mesmos campos do cliente (e cônjuge se casado). */
+export interface AvalistaForm extends ClienteForm {
+  nome: string
+}
+
+export const avalistaFormVazio = (): AvalistaForm => ({ nome: '', ...clienteFormVazio() })
+
 export const clienteFormVazio = (): ClienteForm => ({
   cpf: '',
   telefone: '',
@@ -159,14 +166,16 @@ export function PessoaFields({
 export function ClienteFields({
   value,
   onChange,
+  idPrefix = 'cliente',
 }: {
   value: ClienteForm
   onChange: (next: ClienteForm) => void
+  idPrefix?: string
 }) {
   return (
     <div className="space-y-4">
       <PessoaFields
-        idPrefix="cliente"
+        idPrefix={idPrefix}
         value={{ nome: '', ...value }}
         comNome={false}
         comEstadoCivil
@@ -182,7 +191,7 @@ export function ClienteFields({
             Dados do cônjuge
           </p>
           <PessoaFields
-            idPrefix="conjuge"
+            idPrefix={`${idPrefix}-conjuge`}
             value={value.conjuge}
             enderecoObrigatorio={false}
             onChange={(patch) => onChange({ ...value, conjuge: { ...value.conjuge, ...patch } })}
@@ -190,5 +199,52 @@ export function ClienteFields({
         </div>
       )}
     </div>
+  )
+}
+
+/** Seção opcional "Adicionar avalista" (checkbox que revela os campos). */
+export function AvalistaSection({
+  value,
+  onChange,
+}: {
+  value: AvalistaForm | null
+  onChange: (next: AvalistaForm | null) => void
+}) {
+  return (
+    <section className="space-y-3">
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+        <input
+          type="checkbox"
+          checked={value !== null}
+          onChange={(e) => onChange(e.target.checked ? (value ?? avalistaFormVazio()) : null)}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-neutral-300 text-liberty focus:ring-liberty"
+        />
+        <span className="min-w-0">
+          <span className="block text-xs font-bold text-neutral-900">Adicionar avalista</span>
+          <span className="mt-0.5 block text-[11px] text-neutral-500">
+            Disponível em cobranças parceladas. Se marcar, preencha os dados do avalista.
+          </span>
+        </span>
+      </label>
+      {value && (
+        <div className="space-y-3 rounded-xl border border-neutral-200 p-3.5">
+          <Input
+            id="avalista-nome"
+            label="Nome do avalista"
+            value={value.nome}
+            onChange={(e) => onChange({ ...value, nome: e.target.value })}
+            placeholder="Nome completo"
+            autoComplete="off"
+            leftIcon={<IconUser size={14} />}
+            required
+          />
+          <ClienteFields
+            idPrefix="avalista"
+            value={value}
+            onChange={(next) => onChange({ ...next, nome: value.nome })}
+          />
+        </div>
+      )}
+    </section>
   )
 }

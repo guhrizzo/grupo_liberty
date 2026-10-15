@@ -17,8 +17,11 @@ import {
 } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
 import {
+  normalizarAvalista,
   normalizarCliente,
+  validarAvalista,
   validarCliente,
+  type AvalistaCobranca,
   type ClienteCobranca,
 } from '@/utils/cobrancas/pessoa'
 
@@ -96,6 +99,8 @@ export interface Cobranca {
   clienteEmail: string | null
   /** Dados pessoais do cliente (null em cobranças antigas, anteriores ao cadastro). */
   cliente: ClienteCobranca | null
+  /** Avalista (só em cobranças parceladas; opcional). */
+  avalista: AvalistaCobranca | null
   veiculoId: string
   veiculoResumo: string
   valorTotal: number
@@ -399,6 +404,7 @@ export async function getCobrancas(): Promise<Cobranca[]> {
       clienteNome: data.clienteNome,
       clienteEmail: data.clienteEmail ?? null,
       cliente: data.cliente ? normalizarCliente(data.cliente) : null,
+      avalista: data.avalista ? normalizarAvalista(data.avalista) : null,
       veiculoId: data.veiculoId,
       veiculoResumo: data.veiculoResumo,
       valorTotal: data.valorTotal,
@@ -455,10 +461,23 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       return { error: 'Dados do cliente inválidos.' }
     }
     const cliente = normalizarCliente(clienteRaw)
+    let avalistaRaw: unknown = null
+    try {
+      avalistaRaw = JSON.parse((formData.get('avalista') as string) || 'null')
+    } catch {
+      return { error: 'Dados do avalista inválidos.' }
+    }
+    // Avalista só existe em cobrança parcelada (mais de 1 parcela) e é opcional.
+    const avalista =
+      avalistaRaw && numeroParcelas > 1 ? normalizarAvalista(avalistaRaw) : null
 
     if (!clienteNome) return { error: 'Informe o nome do cliente.' }
     const erroCliente = validarCliente(cliente)
     if (erroCliente) return { error: erroCliente }
+    if (avalista) {
+      const erroAvalista = validarAvalista(avalista)
+      if (erroAvalista) return { error: erroAvalista }
+    }
     if (!veiculoId) return { error: 'Selecione um veículo.' }
     if (isNaN(valorTotal) || valorTotal <= 0) return { error: 'Valor total inválido.' }
     if (valorEntrada >= valorTotal)
@@ -480,6 +499,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       clienteNome,
       clienteEmail: clienteEmailRaw || null,
       cliente,
+      avalista,
       veiculoId,
       veiculoResumo,
       valorTotal,
@@ -597,6 +617,8 @@ export async function editarCobranca(
     veiculoResumo: string
     /** Dados pessoais — opcional na edição para não travar cobranças antigas. */
     cliente?: unknown
+    /** Avalista: objeto para definir/atualizar, `null` para remover, omitido para manter. */
+    avalista?: unknown
   },
 ): Promise<CobrancaResponse> {
   try {
@@ -632,6 +654,21 @@ export async function editarCobranca(
       const erroCliente = validarCliente(cliente)
       if (erroCliente) return { error: erroCliente }
       updateData.cliente = cliente
+    }
+
+    if (dados.avalista !== undefined) {
+      if (dados.avalista === null) {
+        updateData.avalista = null
+      } else {
+        const cobrancaAtual = await adminDb.collection('cobrancas').doc(cobrancaId).get()
+        if ((cobrancaAtual.data()?.numeroParcelas ?? 1) <= 1) {
+          return { error: 'Avalista só pode ser cadastrado em cobranças parceladas.' }
+        }
+        const avalista = normalizarAvalista(dados.avalista)
+        const erroAvalista = validarAvalista(avalista)
+        if (erroAvalista) return { error: erroAvalista }
+        updateData.avalista = avalista
+      }
     }
 
     // Se o e-mail foi removido, desativa automaticamente as notificações

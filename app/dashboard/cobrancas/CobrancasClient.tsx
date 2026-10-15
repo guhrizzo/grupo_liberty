@@ -68,9 +68,21 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { VeiculoPicker } from './VeiculoPicker'
-import { ClienteFields, clienteFormDe, clienteFormVazio, type ClienteForm } from './PessoaFields'
+import {
+  AvalistaSection,
+  ClienteFields,
+  clienteFormDe,
+  clienteFormVazio,
+  type AvalistaForm,
+  type ClienteForm,
+} from './PessoaFields'
 import { ClientesTab } from './ClientesTab'
-import { normalizarCliente, validarCliente } from '@/utils/cobrancas/pessoa'
+import {
+  normalizarAvalista,
+  normalizarCliente,
+  validarAvalista,
+  validarCliente,
+} from '@/utils/cobrancas/pessoa'
 
 interface CobrancasClientProps {
   cobrancas: Cobranca[]
@@ -278,6 +290,7 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
   const [clienteNome, setClienteNome] = useState('')
   const [clienteEmail, setClienteEmail] = useState('')
   const [cliente, setCliente] = useState<ClienteForm>(clienteFormVazio)
+  const [avalista, setAvalista] = useState<AvalistaForm | null>(null)
   const [veiculoId, setVeiculoId] = useState('')
   const [valorTotal, setValorTotal] = useState('')
   const [valorEntrada, setValorEntrada] = useState('')
@@ -413,6 +426,7 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
     setClienteNome('')
     setClienteEmail('')
     setCliente(clienteFormVazio())
+    setAvalista(null)
     setVeiculoId('')
     setValorTotal('')
     setValorEntrada('')
@@ -444,6 +458,14 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
       toast.error(erroCliente, 'Dados do cliente')
       return
     }
+    const parcelado = (Number(numeroParcelas) || 1) > 1
+    if (avalista && parcelado) {
+      const erroAvalista = validarAvalista(normalizarAvalista(avalista))
+      if (erroAvalista) {
+        toast.error(erroAvalista, 'Avalista')
+        return
+      }
+    }
     if (!veiculoId) {
       toast.error('Selecione um veículo.', 'Campo obrigatório')
       return
@@ -468,6 +490,7 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
       fd.append('clienteNome', nome)
       fd.append('clienteEmail', clienteEmail.trim())
       fd.append('cliente', JSON.stringify(cliente))
+      if (avalista && parcelado) fd.append('avalista', JSON.stringify(avalista))
       fd.append('veiculoId', veiculoId)
       fd.append('veiculoResumo', veiculoResumo)
       fd.append('valorTotal', String(parseMoney(valorTotal) || 0))
@@ -808,7 +831,7 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
   }, [loadingEditar])
 
   const handleSalvarEditar = useCallback(
-    async (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm }) => {
+    async (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm; avalista?: AvalistaForm | null }) => {
       if (!editarCobrancaData) return
       setLoadingEditar(true)
       try {
@@ -1307,6 +1330,8 @@ export default function CobrancasClient({ cobrancas, aba, veiculos, currentRole,
           setClienteEmail={setClienteEmail}
           cliente={cliente}
           setCliente={setCliente}
+          avalista={avalista}
+          setAvalista={setAvalista}
           veiculoId={veiculoId}
           setVeiculoId={setVeiculoId}
           veiculoSelecionado={veiculoSelecionado}
@@ -2577,6 +2602,8 @@ interface NovaCobrancaModalProps {
   setClienteEmail: (s: string) => void
   cliente: ClienteForm
   setCliente: (c: ClienteForm) => void
+  avalista: AvalistaForm | null
+  setAvalista: (a: AvalistaForm | null) => void
   veiculoId: string
   setVeiculoId: (s: string) => void
   veiculoSelecionado: Veiculo | undefined
@@ -2609,6 +2636,8 @@ function NovaCobrancaModal({
   setClienteEmail,
   cliente,
   setCliente,
+  avalista,
+  setAvalista,
   veiculoId,
   veiculoSelecionado,
   abrirVeiculoPicker,
@@ -2858,6 +2887,11 @@ function NovaCobrancaModal({
               />
             </div>
           </section>
+
+          {/* ── Avalista (cobranças parceladas) ── */}
+          {(Number(numeroParcelas) || 1) > 1 && (
+            <AvalistaSection value={avalista} onChange={setAvalista} />
+          )}
 
           {/* ── Preview ── */}
           {preview.total > 0 && preview.n > 0 && (
@@ -3812,8 +3846,11 @@ function EditarCobrancaModal({
   veiculos: Veiculo[]
   loading: boolean
   onClose: () => void
-  onSubmit: (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm }) => void
+  onSubmit: (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm; avalista?: AvalistaForm | null }) => void
 }) {
+  const [avalistaForm, setAvalistaForm] = useState<AvalistaForm | null>(() =>
+    cobranca.avalista ? { nome: cobranca.avalista.nome, ...clienteFormDe(cobranca.avalista) } : null,
+  )
   const [nome, setNome] = useState(cobranca.clienteNome)
   const [clienteForm, setClienteForm] = useState<ClienteForm>(() => clienteFormDe(cobranca.cliente))
   const [email, setEmail] = useState(cobranca.clienteEmail ?? '')
@@ -3863,12 +3900,23 @@ function EditarCobrancaModal({
       }
     }
 
+    const parcelada = cobranca.numeroParcelas > 1
+    if (parcelada && avalistaForm) {
+      const erroAvalista = validarAvalista(normalizarAvalista(avalistaForm))
+      if (erroAvalista) {
+        setErrorMsg(erroAvalista)
+        return
+      }
+    }
+
     onSubmit({
       clienteNome: nomeLimpo,
       clienteEmail: emailLimpo,
       veiculoId,
       veiculoResumo: veiculoResumoAtual,
       ...(preencheu ? { cliente: clienteForm } : {}),
+      // Só mexe no avalista se a cobrança é parcelada e algo mudou (adicionou/editou/removeu).
+      ...(parcelada && (avalistaForm || cobranca.avalista) ? { avalista: avalistaForm } : {}),
     })
   }
 
@@ -3976,6 +4024,10 @@ function EditarCobrancaModal({
               )}
               <ClienteFields value={clienteForm} onChange={setClienteForm} />
             </div>
+
+            {cobranca.numeroParcelas > 1 && (
+              <AvalistaSection value={avalistaForm} onChange={setAvalistaForm} />
+            )}
 
             {/* Veículo */}
             <div className="space-y-1">
