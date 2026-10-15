@@ -362,12 +362,17 @@ function normalizarAfazeres(raw: unknown): Afazer[] | null {
   const itens: Afazer[] = []
   for (const it of raw) {
     if (!it || typeof it !== 'object') return null
-    const { id, texto, feito } = it as Record<string, unknown>
+    const { id, texto, feito, prioridade } = it as Record<string, unknown>
     if (typeof id !== 'string' || !id || id.length > 64) return null
     if (typeof texto !== 'string') return null
     const t = texto.trim()
     if (!t || t.length > AFAZER_TEXTO_MAX) return null
-    itens.push({ id, texto: t, feito: feito === true })
+    itens.push({
+      id,
+      texto: t,
+      feito: feito === true,
+      prioridade: ehTarefaPrioridade(prioridade) ? prioridade : 'normal',
+    })
   }
   return itens
 }
