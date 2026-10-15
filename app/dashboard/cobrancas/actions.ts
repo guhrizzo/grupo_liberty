@@ -16,6 +16,11 @@ import {
   type PeriodoJuros,
 } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
+import {
+  normalizarCliente,
+  validarCliente,
+  type ClienteCobranca,
+} from '@/utils/cobrancas/pessoa'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +94,8 @@ export interface Cobranca {
   id: string
   clienteNome: string
   clienteEmail: string | null
+  /** Dados pessoais do cliente (null em cobranças antigas, anteriores ao cadastro). */
+  cliente: ClienteCobranca | null
   veiculoId: string
   veiculoResumo: string
   valorTotal: number
@@ -391,6 +398,7 @@ export async function getCobrancas(): Promise<Cobranca[]> {
       id: doc.id,
       clienteNome: data.clienteNome,
       clienteEmail: data.clienteEmail ?? null,
+      cliente: data.cliente ? normalizarCliente(data.cliente) : null,
       veiculoId: data.veiculoId,
       veiculoResumo: data.veiculoResumo,
       valorTotal: data.valorTotal,
@@ -440,8 +448,17 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     const diasAvisoAntecedencia =
       !isNaN(diasAvisoRaw) && diasAvisoRaw > 0 ? Math.min(diasAvisoRaw, 60) : null
     const avisarAtraso = (formData.get('avisarAtraso') as string) === 'true'
+    let clienteRaw: unknown = null
+    try {
+      clienteRaw = JSON.parse((formData.get('cliente') as string) || 'null')
+    } catch {
+      return { error: 'Dados do cliente inválidos.' }
+    }
+    const cliente = normalizarCliente(clienteRaw)
 
     if (!clienteNome) return { error: 'Informe o nome do cliente.' }
+    const erroCliente = validarCliente(cliente)
+    if (erroCliente) return { error: erroCliente }
     if (!veiculoId) return { error: 'Selecione um veículo.' }
     if (isNaN(valorTotal) || valorTotal <= 0) return { error: 'Valor total inválido.' }
     if (valorEntrada >= valorTotal)
@@ -462,6 +479,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
     const cobrancaRef = await adminDb.collection('cobrancas').add({
       clienteNome,
       clienteEmail: clienteEmailRaw || null,
+      cliente,
       veiculoId,
       veiculoResumo,
       valorTotal,
@@ -577,6 +595,8 @@ export async function editarCobranca(
     clienteEmail: string
     veiculoId: string
     veiculoResumo: string
+    /** Dados pessoais — opcional na edição para não travar cobranças antigas. */
+    cliente?: unknown
   },
 ): Promise<CobrancaResponse> {
   try {
@@ -604,6 +624,14 @@ export async function editarCobranca(
       clienteEmail: email || null,
       veiculoId,
       veiculoResumo,
+    }
+
+    if (dados.cliente) {
+      const cliente = normalizarCliente(dados.cliente)
+      // Cobrança antiga sem dados: só grava se estiver completo (evita meio cadastro).
+      const erroCliente = validarCliente(cliente)
+      if (erroCliente) return { error: erroCliente }
+      updateData.cliente = cliente
     }
 
     // Se o e-mail foi removido, desativa automaticamente as notificações

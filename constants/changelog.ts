@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-14-cobrancas-clientes',
+    date: '2026-10-14',
+    title: 'Cadastro de clientes nas cobranças',
+    tag: 'novo',
+    items: [
+      'Toda nova cobrança exige CPF, telefone, endereço e estado civil do cliente (local de trabalho é opcional).',
+      'Se o cliente for casado, os dados do cônjuge também são obrigatórios.',
+      'Nova aba "Clientes" em Cobranças, com os dados de cada cliente e as cobranças dele.',
+      'Cobranças antigas podem ser completadas em "Editar".',
+    ],
+  },
+  {
     id: '2026-10-07-custo-efetivo-completo',
     date: '2026-10-07',
     title: 'Custo efetivo total completo e banco nos cards',
