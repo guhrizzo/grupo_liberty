@@ -1,4 +1,4 @@
-import { getCobrancas } from './actions'
+import { getCobrancas, getCobrancasExcluidas } from './actions'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import CobrancasClient from './CobrancasClient'
 import { redirect } from 'next/navigation'
@@ -14,8 +14,9 @@ export default async function CobrancasPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const [cobrancas, veiculos] = await Promise.all([
+  const [cobrancas, excluidas, veiculos] = await Promise.all([
     getCobrancas(),
+    getCobrancasExcluidas(),
     getVehicles(),
   ])
 
@@ -24,6 +25,7 @@ export default async function CobrancasPage() {
   return (
     <CobrancasClient
       cobrancas={cobrancas}
+      excluidas={excluidas}
       veiculos={veiculos}
       currentRole={user.role}
       canEdit={hasPageAccess(user, 'cobrancas')}
