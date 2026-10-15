@@ -46,6 +46,26 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    id: '2026-10-14-afazeres-urgencia-ordem',
+    date: '2026-10-14',
+    title: 'Urgência e ordem nos meus afazeres',
+    tag: 'melhoria',
+    items: [
+      'Cada afazer pessoal agora tem nível de urgência (urgente, importante ou normal); clique na etiqueta para mudar.',
+      'Use as setas para subir ou descer um item na lista, ou "Ordenar por urgência" para trazer os urgentes para cima.',
+    ],
+  },
+  {
+    id: '2026-10-14-cobrancas-lixeira',
+    date: '2026-10-14',
+    title: 'Lixeira nas cobranças',
+    tag: 'novo',
+    items: [
+      'Excluir uma cobrança agora a move para a lixeira (botão "Lixeira" no topo da página).',
+      'Dá para restaurar em até 60 dias, com as receitas do financeiro de volta; depois disso ela é apagada de vez.',
+    ],
+  },
+  {
     id: '2026-10-07-custo-efetivo-completo',
     date: '2026-10-07',
     title: 'Custo efetivo total completo e banco nos cards',

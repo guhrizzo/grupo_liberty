@@ -1,4 +1,4 @@
-import { getCobrancas } from './actions'
+import { getCobrancas, getCobrancasExcluidas } from './actions'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import CobrancasClient from './CobrancasClient'
 import { redirect } from 'next/navigation'
@@ -22,8 +22,9 @@ export default async function CobrancasPage({
   const abaBruta = Array.isArray(abaParam) ? abaParam[0] : abaParam
   const aba = abaBruta === 'clientes' ? 'clientes' : 'cobrancas'
 
-  const [cobrancas, veiculos] = await Promise.all([
+  const [cobrancas, excluidas, veiculos] = await Promise.all([
     getCobrancas(),
+    getCobrancasExcluidas(),
     getVehicles(),
   ])
 
@@ -33,6 +34,7 @@ export default async function CobrancasPage({
     <CobrancasClient
       cobrancas={cobrancas}
       aba={aba}
+      excluidas={excluidas}
       veiculos={veiculos}
       currentRole={user.role}
       canEdit={hasPageAccess(user, 'cobrancas')}
