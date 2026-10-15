@@ -5,8 +5,11 @@ import { useRouter } from 'next/navigation'
 import {
   IconAlertTriangle,
   IconCalendarDue,
+  IconArrowDown,
+  IconArrowUp,
   IconCheck,
   IconFlame,
+  IconSortDescending,
   IconChecklist,
   IconLock,
   IconLockOpen,
@@ -857,6 +860,7 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
   const toast = useToast()
   const [itens, setItens] = useState(inicial)
   const [novo, setNovo] = useState('')
+  const [novaPrioridade, setNovaPrioridade] = useState<TarefaPrioridade>('normal')
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editTexto, setEditTexto] = useState('')
   const [salvando, setSalvando] = useState(0)
@@ -886,8 +890,9 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
       toast.error(`Limite de ${AFAZERES_MAX} itens. Limpe os concluídos.`)
       return
     }
-    persistir([...itens, { id: crypto.randomUUID(), texto, feito: false }])
+    persistir([...itens, { id: crypto.randomUUID(), texto, feito: false, prioridade: novaPrioridade }])
     setNovo('')
+    setNovaPrioridade('normal')
   }
 
   function concluirEdicao() {
@@ -901,6 +906,36 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
 
   const pendentes = itens.filter((i) => !i.feito)
   const feitos = itens.filter((i) => i.feito)
+
+  /** Sobe/desce um item pendente na ordem manual da lista. */
+  function mover(id: string, direcao: -1 | 1) {
+    const idx = pendentes.findIndex((i) => i.id === id)
+    const alvo = idx + direcao
+    if (idx < 0 || alvo < 0 || alvo >= pendentes.length) return
+    const novos = [...pendentes]
+    ;[novos[idx], novos[alvo]] = [novos[alvo], novos[idx]]
+    persistir([...novos, ...feitos])
+  }
+
+  /** Cicla a urgência do item: normal → importante → urgente → normal. */
+  function ciclarPrioridade(id: string) {
+    persistir(
+      itens.map((i) => {
+        if (i.id !== id) return i
+        const prox = TAREFA_PRIORIDADE_ORDEM[(TAREFA_PRIORIDADE_ORDEM.indexOf(i.prioridade) + 2) % 3]
+        return { ...i, prioridade: prox }
+      }),
+    )
+  }
+
+  /** Urgentes primeiro, depois importantes e normais; mantém a ordem manual dentro de cada nível. */
+  function ordenarPorUrgencia() {
+    const ordem = [...pendentes].sort(
+      (a, b) =>
+        TAREFA_PRIORIDADE_ORDEM.indexOf(a.prioridade) - TAREFA_PRIORIDADE_ORDEM.indexOf(b.prioridade),
+    )
+    persistir([...ordem, ...feitos])
+  }
 
   return (
     <section aria-label="Meus afazeres" className={CARD + ' p-4 space-y-3 xl:flex-1'}>
@@ -933,6 +968,28 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
           <IconPlus size={16} stroke={2.5} />
         </Button>
       </form>
+
+      <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Urgência do novo item">
+        <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">
+          Urgência
+        </span>
+        {TAREFA_PRIORIDADE_ORDEM.slice().reverse().map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="radio"
+            aria-checked={novaPrioridade === p}
+            onClick={() => setNovaPrioridade(p)}
+            className={
+              'rounded-full border px-2 py-0.5 text-[10px] font-bold transition-opacity cursor-pointer ' +
+              TAREFA_PRIORIDADE[p].classes +
+              (novaPrioridade === p ? ' ring-2 ring-liberty/40' : ' opacity-60 hover:opacity-100')
+            }
+          >
+            {TAREFA_PRIORIDADE[p].label}
+          </button>
+        ))}
+      </div>
 
       {itens.length === 0 ? (
         <p className="py-4 text-center text-[12px] text-neutral-500 adobe-dark:text-adobe-text-lo">
@@ -998,6 +1055,43 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
 
               <button
                 type="button"
+                title="Clique para mudar a urgência"
+                aria-label={`Urgência: ${TAREFA_PRIORIDADE[item.prioridade].label}. Clique para mudar`}
+                onClick={() => ciclarPrioridade(item.id)}
+                className={
+                  'shrink-0 rounded-full border px-1.5 py-px text-[9px] font-bold uppercase tracking-wide cursor-pointer ' +
+                  TAREFA_PRIORIDADE[item.prioridade].classes +
+                  (item.prioridade === 'normal' ? ' md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100' : '')
+                }
+              >
+                {TAREFA_PRIORIDADE[item.prioridade].label}
+              </button>
+
+              {!item.feito && pendentes.length > 1 && (
+                <span className="flex shrink-0 flex-col md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                  <button
+                    type="button"
+                    aria-label={`Subir "${item.texto}"`}
+                    onClick={() => mover(item.id, -1)}
+                    disabled={pendentes[0]?.id === item.id}
+                    className="rounded p-px text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 cursor-pointer disabled:cursor-default adobe-dark:hover:bg-adobe-bg-3"
+                  >
+                    <IconArrowUp size={12} stroke={2.5} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Descer "${item.texto}"`}
+                    onClick={() => mover(item.id, 1)}
+                    disabled={pendentes[pendentes.length - 1]?.id === item.id}
+                    className="rounded p-px text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 cursor-pointer disabled:cursor-default adobe-dark:hover:bg-adobe-bg-3"
+                  >
+                    <IconArrowDown size={12} stroke={2.5} />
+                  </button>
+                </span>
+              )}
+
+              <button
+                type="button"
                 aria-label={`Remover "${item.texto}"`}
                 onClick={() => persistir(itens.filter((i) => i.id !== item.id))}
                 className="shrink-0 rounded p-0.5 text-neutral-400 transition-opacity hover:bg-rose-50 hover:text-rose-600 cursor-pointer md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100 adobe-dark:hover:bg-rose-500/10"
@@ -1007,6 +1101,14 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {pendentes.length > 1 && (
+        <div className="[&>button]:-ml-2">
+          <AcaoAdm onClick={ordenarPorUrgencia} disabled={false} icon={<IconSortDescending size={13} stroke={2} />}>
+            Ordenar por urgência
+          </AcaoAdm>
+        </div>
       )}
 
       {feitos.length > 0 && (
