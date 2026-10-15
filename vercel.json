@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/limpar-vendidos",
       "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/limpar-cobrancas",
+      "schedule": "0 13 * * *"
     }
   ]
 }
