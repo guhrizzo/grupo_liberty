@@ -72,6 +72,7 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
 
   for (const cobrancaDoc of cobrancasSnap.docs) {
     const cobranca = cobrancaDoc.data()
+    if (cobranca.excluidaEm) continue // na lixeira
     const clienteEmail = (cobranca.clienteEmail as string | null) || null
     if (!clienteEmail) continue
 

@@ -53,6 +53,7 @@ import {
   removerPagamento,
   resetParcela,
   deletarCobranca,
+  restaurarCobranca,
   atualizarLembrete,
   editarCobranca,
   testarLembretes,
@@ -63,6 +64,7 @@ import {
 } from './actions'
 import { calcularEncargos } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
+import { COBRANCA_LIXEIRA_TTL_DIAS } from '@/constants/cobrancas'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
@@ -70,6 +72,8 @@ import { VeiculoPicker } from './VeiculoPicker'
 
 interface CobrancasClientProps {
   cobrancas: Cobranca[]
+  /** Cobranças na lixeira (excluídas há menos de 60 dias). */
+  excluidas: Cobranca[]
   veiculos: Veiculo[]
   currentRole: string | null
   /** Acesso à aba de cobranças = pode fazer o CRUD. */
@@ -230,7 +234,7 @@ function MoneyHint({ value }: { value: string }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function CobrancasClient({ cobrancas, veiculos, currentRole, canEdit, currentUserName }: CobrancasClientProps) {
+export default function CobrancasClient({ cobrancas, excluidas, veiculos, currentRole, canEdit, currentUserName }: CobrancasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -243,6 +247,8 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showVeiculoPicker, setShowVeiculoPicker] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [showLixeira, setShowLixeira] = useState(false)
+  const [restaurandoId, setRestaurandoId] = useState<string | null>(null)
   const [expandedMes, setExpandedMes] = useState<string | null>(null)
   const [pagamentoParcela, setPagamentoParcela] = useState<Parcela | null>(null)
   const [loadingPagamento, setLoadingPagamento] = useState(false)
@@ -822,7 +828,7 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
       if (result.error) {
         toast.error(result.error)
       } else {
-        toast.success(`Cobrança de ${cob?.clienteNome ?? 'cliente'} removida.`)
+        toast.success(`Cobrança de ${cob?.clienteNome ?? 'cliente'} movida para a lixeira.`)
         router.refresh()
       }
       setDeleteId(null)
@@ -830,6 +836,24 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
   }, [deleteId, cobrancas, router, toast])
 
   const cobrancaParaExcluir = deleteId ? cobrancas.find((c) => c.id === deleteId) : null
+
+  const handleRestaurar = useCallback(
+    async (id: string) => {
+      setRestaurandoId(id)
+      try {
+        const result = await restaurarCobranca(id)
+        if (result.error) {
+          toast.error(result.error)
+        } else {
+          toast.success(result.success || 'Cobrança restaurada.')
+          router.refresh()
+        }
+      } finally {
+        setRestaurandoId(null)
+      }
+    },
+    [router, toast],
+  )
 
   // Preview de cálculo no form
   const previewParcela = useMemo(() => {
@@ -880,6 +904,15 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
               Testar lembretes
             </Button>
           )}
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<IconTrash size={14} stroke={2} />}
+            onClick={() => setShowLixeira(true)}
+            title={`Cobranças excluídas nos últimos ${COBRANCA_LIXEIRA_TTL_DIAS} dias`}
+          >
+            Lixeira{excluidas.length > 0 ? ` (${excluidas.length})` : ''}
+          </Button>
           {canEdit && (
             <Button
               variant="liberty"
@@ -1338,6 +1371,19 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
         />
       )}
 
+      {/* Lixeira: cobranças excluídas, restauráveis por 60 dias */}
+      {showLixeira && typeof document !== 'undefined' &&
+        createPortal(
+          <LixeiraModal
+            excluidas={excluidas}
+            canEdit={canEdit}
+            restaurandoId={restaurandoId}
+            onRestaurar={handleRestaurar}
+            onClose={() => setShowLixeira(false)}
+          />,
+          document.body,
+        )}
+
       {/* Modal de isenção de multa/juros de uma parcela */}
       {isentarParcelaData && (
         <IsentarEncargosModal
@@ -1473,9 +1519,9 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
                   <IconAlertTriangle size={20} stroke={2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-bold text-neutral-950">Remover Cobrança</h3>
+                  <h3 className="text-base font-bold text-neutral-950">Mover para a lixeira</h3>
                   <p className="mt-0.5 text-xs text-neutral-500">
-                    Esta ação não pode ser desfeita.
+                    Você pode restaurar em até {COBRANCA_LIXEIRA_TTL_DIAS} dias.
                   </p>
                 </div>
               </div>
@@ -1501,8 +1547,10 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
                   </div>
                 </div>
                 <p className="text-xs text-neutral-700">
-                  Todas as <strong>{cobrancaParaExcluir.parcelas.length}</strong> parcelas
-                  vinculadas serão excluídas permanentemente.
+                  A cobrança e suas <strong>{cobrancaParaExcluir.parcelas.length}</strong>{' '}
+                  parcelas ficam na lixeira por {COBRANCA_LIXEIRA_TTL_DIAS} dias e depois são
+                  apagadas de vez. As receitas lançadas no financeiro saem de lá e voltam se
+                  você restaurar.
                 </p>
               </div>
               <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/40 px-5 py-3 sm:flex-row">
@@ -1525,12 +1573,12 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                       </svg>
-                      Removendo...
+                      Movendo...
                     </>
                   ) : (
                     <>
                       <IconTrash size={14} stroke={2.5} />
-                      Remover
+                      Mover para a lixeira
                     </>
                   )}
                 </button>
@@ -1544,6 +1592,113 @@ export default function CobrancasClient({ cobrancas, veiculos, currentRole, canE
 }
 
 // ─── KPI Card ──────────────────────────────────────────────────────────────
+
+function diasRestantesNaLixeira(excluidaEm: string | null): number {
+  if (!excluidaEm) return COBRANCA_LIXEIRA_TTL_DIAS
+  const passados = Math.floor((Date.now() - new Date(excluidaEm).getTime()) / 86_400_000)
+  return Math.max(COBRANCA_LIXEIRA_TTL_DIAS - passados, 0)
+}
+
+function LixeiraModal({
+  excluidas,
+  canEdit,
+  restaurandoId,
+  onRestaurar,
+  onClose,
+}: {
+  excluidas: Cobranca[]
+  canEdit: boolean
+  restaurandoId: string | null
+  onRestaurar: (id: string) => void
+  onClose: () => void
+}) {
+  const ordenadas = [...excluidas].sort((a, b) =>
+    (b.excluidaEm ?? '').localeCompare(a.excluidaEm ?? ''),
+  )
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl">
+        <div className="flex items-start gap-3 border-b border-neutral-100 px-5 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
+            <IconTrash size={20} stroke={2} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-bold text-neutral-950">Lixeira</h3>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              Cobranças excluídas ficam aqui por {COBRANCA_LIXEIRA_TTL_DIAS} dias e depois são
+              apagadas de vez.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 cursor-pointer"
+          >
+            <IconX size={16} stroke={2} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {ordenadas.length === 0 ? (
+            <p className="py-8 text-center text-sm text-neutral-500">A lixeira está vazia.</p>
+          ) : (
+            <ul className="space-y-2.5">
+              {ordenadas.map((c) => {
+                const dias = diasRestantesNaLixeira(c.excluidaEm)
+                return (
+                  <li
+                    key={c.id}
+                    className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-neutral-900">{c.clienteNome}</p>
+                      <p className="truncate text-[11px] text-neutral-500">{c.veiculoResumo}</p>
+                      <p className="mt-1 text-[11px] text-neutral-500">
+                        {c.numeroParcelas}× · {formatCurrency(c.valorTotal)} · excluída{' '}
+                        {c.excluidaEm ? formatDate(c.excluidaEm.slice(0, 10)) : ''}
+                        {c.excluidaPor ? ` por ${c.excluidaPor}` : ''}
+                      </p>
+                      <p
+                        className={
+                          'mt-0.5 text-[11px] font-semibold ' +
+                          (dias <= 7 ? 'text-rose-600' : 'text-neutral-600')
+                        }
+                      >
+                        {dias === 0
+                          ? 'Será apagada hoje'
+                          : `Apagada de vez em ${dias} dia${dias === 1 ? '' : 's'}`}
+                      </p>
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => onRestaurar(c.id)}
+                        disabled={restaurandoId !== null}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                      >
+                        {restaurandoId === c.id ? (
+                          <IconLoader2 size={14} className="animate-spin" />
+                        ) : (
+                          <IconHistory size={14} stroke={2.5} />
+                        )}
+                        Restaurar
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function KpiCard({
   label,

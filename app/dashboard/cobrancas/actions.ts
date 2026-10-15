@@ -107,6 +107,9 @@ export interface Cobranca {
   encargosDesde: string | null
   criadoEm: string
   criadoPorUid: string | null
+  /** Preenchido quando a cobrança está na lixeira (ISO 8601). */
+  excluidaEm: string | null
+  excluidaPor: string | null
   parcelas: Parcela[]
 }
 
@@ -347,17 +350,30 @@ async function registrarReceitaCobranca(params: {
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export async function getCobrancas(): Promise<Cobranca[]> {
+  return carregarCobrancas(false)
+}
+
+/** Cobranças na lixeira (excluídas há menos de COBRANCA_LIXEIRA_TTL_DIAS dias). */
+export async function getCobrancasExcluidas(): Promise<Cobranca[]> {
+  return carregarCobrancas(true)
+}
+
+async function carregarCobrancas(excluidas: boolean): Promise<Cobranca[]> {
   try {
     await assertAuthorized()
   } catch {
     return []
   }
 
-  const [cobrancasSnap, parcelasSnap, pagamentosSnap] = await Promise.all([
+  const [cobrancasSnapTodas, parcelasSnap, pagamentosSnap] = await Promise.all([
     adminDb.collection('cobrancas').orderBy('criadoEm', 'desc').get(),
     adminDb.collection('cobranca_parcelas').orderBy('numeroParcela', 'asc').get(),
     adminDb.collection('cobranca_pagamentos').get(),
   ])
+  // Cobranças na lixeira têm `excluidaEm`; a lista normal as esconde.
+  const cobrancasDocs = cobrancasSnapTodas.docs.filter(
+    (doc) => Boolean(doc.data().excluidaEm) === excluidas,
+  )
 
   const pagamentosPorParcela = new Map<string, Pagamento[]>()
   for (const doc of pagamentosSnap.docs) {
@@ -368,12 +384,13 @@ export async function getCobrancas(): Promise<Cobranca[]> {
   }
 
   const taxasPorCobranca = new Map<string, TaxasEncargos>(
-    cobrancasSnap.docs.map((doc) => [doc.id, taxasDaCobranca(doc.data())]),
+    cobrancasDocs.map((doc) => [doc.id, taxasDaCobranca(doc.data())]),
   )
 
   const parcelasPorCobranca = new Map<string, Parcela[]>()
   for (const doc of parcelasSnap.docs) {
     const data = doc.data()
+    if (!taxasPorCobranca.has(data.cobrancaId)) continue
     const p = serializeParcela(
       doc.id,
       data,
@@ -385,7 +402,7 @@ export async function getCobrancas(): Promise<Cobranca[]> {
     parcelasPorCobranca.set(p.cobrancaId, list)
   }
 
-  return cobrancasSnap.docs.map((doc) => {
+  return cobrancasDocs.map((doc) => {
     const data = doc.data()
     return {
       id: doc.id,
@@ -409,6 +426,8 @@ export async function getCobrancas(): Promise<Cobranca[]> {
       ...(taxasPorCobranca.get(doc.id) ?? taxasDaCobranca(data)),
       criadoEm: data.criadoEm,
       criadoPorUid: data.criadoPorUid ?? null,
+      excluidaEm: data.excluidaEm ?? null,
+      excluidaPor: data.excluidaPor ?? null,
       parcelas: parcelasPorCobranca.get(doc.id) ?? [],
     }
   })
@@ -1265,7 +1284,72 @@ export async function resetParcela(
   }
 }
 
+/**
+ * Move a cobrança para a lixeira (não apaga). Fica COBRANCA_LIXEIRA_TTL_DIAS
+ * dias e depois é apagada de vez por `/api/cron/limpar-cobrancas`.
+ *
+ * As receitas lançadas no financeiro pelos pagamentos saem do financeiro
+ * enquanto a cobrança está na lixeira (como já acontecia ao excluir), mas uma
+ * cópia fica no próprio pagamento (`transacaoLixeira`) para a restauração
+ * recriá-las.
+ */
 export async function deletarCobranca(cobrancaId: string): Promise<CobrancaResponse> {
+  let nome = ''
+  try {
+    const user = await assertAuthorized()
+    nome = user.name || user.email || 'Usuário'
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+    const cobrancaRef = adminDb.collection('cobrancas').doc(cobrancaId)
+    const cobrancaDoc = await cobrancaRef.get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    if (cobrancaDoc.data()?.excluidaEm) return { error: 'Esta cobrança já está na lixeira.' }
+
+    const pagamentosSnap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('cobrancaId', '==', cobrancaId)
+      .get()
+
+    // Lê as receitas antes de gravar (a cópia vai para o pagamento).
+    const transacaoIds = pagamentosSnap.docs
+      .map((d) => d.data().transacaoId as string | null | undefined)
+      .filter((id): id is string => Boolean(id))
+    const transacaoDocs = await Promise.all(
+      transacaoIds.map((id) => adminDb.collection('transacoes').doc(id).get()),
+    )
+    const transacaoPorId = new Map(
+      transacaoDocs.filter((d) => d.exists).map((d) => [d.id, d.data()!]),
+    )
+
+    const batch = adminDb.batch()
+    for (const doc of pagamentosSnap.docs) {
+      const transacaoId = doc.data().transacaoId as string | null | undefined
+      if (!transacaoId) continue
+      const dados = transacaoPorId.get(transacaoId)
+      batch.update(doc.ref, {
+        transacaoId: null,
+        transacaoLixeira: dados ? { id: transacaoId, dados } : null,
+      })
+      batch.delete(adminDb.collection('transacoes').doc(transacaoId))
+    }
+    batch.update(cobrancaRef, { excluidaEm: new Date().toISOString(), excluidaPor: nome })
+    await batch.commit()
+
+    revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/financeiro')
+    return { success: 'Cobrança movida para a lixeira.' }
+  } catch (err: any) {
+    console.error('[deletarCobranca]', err)
+    return { error: 'Erro ao remover cobrança.' }
+  }
+}
+
+/** Tira a cobrança da lixeira e recria as receitas que ela tinha no financeiro. */
+export async function restaurarCobranca(cobrancaId: string): Promise<CobrancaResponse> {
   try {
     await assertAuthorized()
   } catch (err: unknown) {
@@ -1273,30 +1357,35 @@ export async function deletarCobranca(cobrancaId: string): Promise<CobrancaRespo
   }
 
   try {
-    // Excluir todas as parcelas e os pagamentos vinculados
-    const [parcelasSnap, pagamentosSnap] = await Promise.all([
-      adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
-      adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
-    ])
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+    const cobrancaRef = adminDb.collection('cobrancas').doc(cobrancaId)
+    const cobrancaDoc = await cobrancaRef.get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    if (!cobrancaDoc.data()?.excluidaEm) return { error: 'Esta cobrança não está na lixeira.' }
+
+    const pagamentosSnap = await adminDb
+      .collection('cobranca_pagamentos')
+      .where('cobrancaId', '==', cobrancaId)
+      .get()
 
     const batch = adminDb.batch()
     for (const doc of pagamentosSnap.docs) {
-      batch.delete(doc.ref)
-      // Estorna as receitas lançadas automaticamente no financeiro.
-      const transacaoId = doc.data()?.transacaoId as string | null | undefined
-      if (transacaoId) batch.delete(adminDb.collection('transacoes').doc(transacaoId))
+      const lixeira = doc.data().transacaoLixeira as
+        | { id: string; dados: FirebaseFirestore.DocumentData }
+        | null
+        | undefined
+      if (!lixeira) continue
+      batch.set(adminDb.collection('transacoes').doc(lixeira.id), lixeira.dados)
+      batch.update(doc.ref, { transacaoId: lixeira.id, transacaoLixeira: null })
     }
-    for (const doc of parcelasSnap.docs) {
-      batch.delete(doc.ref)
-    }
-    batch.delete(adminDb.collection('cobrancas').doc(cobrancaId))
+    batch.update(cobrancaRef, { excluidaEm: null, excluidaPor: null })
     await batch.commit()
 
     revalidatePath('/dashboard/cobrancas')
     revalidatePath('/dashboard/financeiro')
-    return { success: 'Cobrança removida.' }
+    return { success: 'Cobrança restaurada.' }
   } catch (err: any) {
-    console.error('[deletarCobranca]', err)
-    return { error: 'Erro ao remover cobrança.' }
+    console.error('[restaurarCobranca]', err)
+    return { error: 'Erro ao restaurar cobrança.' }
   }
 }
