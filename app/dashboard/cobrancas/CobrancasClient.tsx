@@ -67,11 +67,16 @@ import { ENCARGOS_PADRAO } from '@/constants/encargos'
 import { COBRANCA_LIXEIRA_TTL_DIAS } from '@/constants/cobrancas'
 import type { Veiculo } from '@/app/dashboard/veiculos/actions'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import { VeiculoPicker } from './VeiculoPicker'
+import { ClienteFields, clienteFormDe, clienteFormVazio, type ClienteForm } from './PessoaFields'
+import { ClientesTab } from './ClientesTab'
+import { normalizarCliente, validarCliente } from '@/utils/cobrancas/pessoa'
 
 interface CobrancasClientProps {
   cobrancas: Cobranca[]
+  aba: 'cobrancas' | 'clientes'
   /** Cobranças na lixeira (excluídas há menos de 60 dias). */
   excluidas: Cobranca[]
   veiculos: Veiculo[]
@@ -234,7 +239,7 @@ function MoneyHint({ value }: { value: string }) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export default function CobrancasClient({ cobrancas, excluidas, veiculos, currentRole, canEdit, currentUserName }: CobrancasClientProps) {
+export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, currentRole, canEdit, currentUserName }: CobrancasClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
@@ -278,6 +283,7 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
   // Form
   const [clienteNome, setClienteNome] = useState('')
   const [clienteEmail, setClienteEmail] = useState('')
+  const [cliente, setCliente] = useState<ClienteForm>(clienteFormVazio)
   const [veiculoId, setVeiculoId] = useState('')
   const [valorTotal, setValorTotal] = useState('')
   const [valorEntrada, setValorEntrada] = useState('')
@@ -412,6 +418,7 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
   const resetForm = useCallback(() => {
     setClienteNome('')
     setClienteEmail('')
+    setCliente(clienteFormVazio())
     setVeiculoId('')
     setValorTotal('')
     setValorEntrada('')
@@ -438,6 +445,11 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
       toast.error('Informe o nome do cliente.', 'Campo obrigatório')
       return
     }
+    const erroCliente = validarCliente(normalizarCliente(cliente))
+    if (erroCliente) {
+      toast.error(erroCliente, 'Dados do cliente')
+      return
+    }
     if (!veiculoId) {
       toast.error('Selecione um veículo.', 'Campo obrigatório')
       return
@@ -461,6 +473,7 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
       const fd = new FormData()
       fd.append('clienteNome', nome)
       fd.append('clienteEmail', clienteEmail.trim())
+      fd.append('cliente', JSON.stringify(cliente))
       fd.append('veiculoId', veiculoId)
       fd.append('veiculoResumo', veiculoResumo)
       fd.append('valorTotal', String(parseMoney(valorTotal) || 0))
@@ -801,7 +814,7 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
   }, [loadingEditar])
 
   const handleSalvarEditar = useCallback(
-    async (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string }) => {
+    async (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm }) => {
       if (!editarCobrancaData) return
       setLoadingEditar(true)
       try {
@@ -925,6 +938,38 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
         </div>
       </header>
 
+      {/* ─── Abas ─── */}
+      <div
+        role="tablist"
+        aria-label="Seções de Cobranças"
+        className="inline-flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-xs"
+      >
+        {(
+          [
+            ['cobrancas', 'Cobranças', '/dashboard/cobrancas'],
+            ['clientes', 'Clientes', '/dashboard/cobrancas?aba=clientes'],
+          ] as const
+        ).map(([valor, rotulo, href]) => (
+          <Link
+            key={valor}
+            href={href}
+            role="tab"
+            aria-selected={aba === valor}
+            className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
+              aba === valor
+                ? 'bg-neutral-950 text-white'
+                : 'text-neutral-600 hover:bg-neutral-100'
+            }`}
+          >
+            {rotulo}
+          </Link>
+        ))}
+      </div>
+
+      {aba === 'clientes' && <ClientesTab cobrancas={cobrancas} />}
+
+      {aba === 'cobrancas' && (
+      <>
       {/* ─── KPIs principais ─── */}
       <section
         aria-label="Resumo financeiro"
@@ -1277,6 +1322,8 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
           </div>
         </section>
       )}
+      </>
+      )}
 
       {/* ─── Modal Nova Cobrança ─── */}
       {showModal && (
@@ -1291,6 +1338,8 @@ export default function CobrancasClient({ cobrancas, excluidas, veiculos, curren
           setClienteNome={setClienteNome}
           clienteEmail={clienteEmail}
           setClienteEmail={setClienteEmail}
+          cliente={cliente}
+          setCliente={setCliente}
           veiculoId={veiculoId}
           setVeiculoId={setVeiculoId}
           veiculoSelecionado={veiculoSelecionado}
@@ -2681,6 +2730,8 @@ interface NovaCobrancaModalProps {
   setClienteNome: (s: string) => void
   clienteEmail: string
   setClienteEmail: (s: string) => void
+  cliente: ClienteForm
+  setCliente: (c: ClienteForm) => void
   veiculoId: string
   setVeiculoId: (s: string) => void
   veiculoSelecionado: Veiculo | undefined
@@ -2711,6 +2762,8 @@ function NovaCobrancaModal({
   setClienteNome,
   clienteEmail,
   setClienteEmail,
+  cliente,
+  setCliente,
   veiculoId,
   veiculoSelecionado,
   abrirVeiculoPicker,
@@ -2807,6 +2860,8 @@ function NovaCobrancaModal({
               leftIcon={<IconMail size={14} />}
               hint="Necessário para enviar o lembrete de vencimento por e-mail."
             />
+
+            <ClienteFields value={cliente} onChange={setCliente} />
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
@@ -3912,9 +3967,10 @@ function EditarCobrancaModal({
   veiculos: Veiculo[]
   loading: boolean
   onClose: () => void
-  onSubmit: (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string }) => void
+  onSubmit: (dados: { clienteNome: string; clienteEmail: string; veiculoId: string; veiculoResumo: string; cliente?: ClienteForm }) => void
 }) {
   const [nome, setNome] = useState(cobranca.clienteNome)
+  const [clienteForm, setClienteForm] = useState<ClienteForm>(() => clienteFormDe(cobranca.cliente))
   const [email, setEmail] = useState(cobranca.clienteEmail ?? '')
   const [veiculoId, setVeiculoId] = useState(cobranca.veiculoId)
   const [showPicker, setShowPicker] = useState(false)
@@ -3949,11 +4005,25 @@ function EditarCobrancaModal({
       return
     }
 
+    // Cobranças antigas sem dados pessoais podem ser salvas sem preencher; se
+    // algum campo foi preenchido (ou já havia cadastro), exige o cadastro completo.
+    const preencheu =
+      Boolean(cobranca.cliente) ||
+      Boolean(clienteForm.cpf || clienteForm.telefone || clienteForm.endereco || clienteForm.estadoCivil)
+    if (preencheu) {
+      const erroCliente = validarCliente(normalizarCliente(clienteForm))
+      if (erroCliente) {
+        setErrorMsg(erroCliente)
+        return
+      }
+    }
+
     onSubmit({
       clienteNome: nomeLimpo,
       clienteEmail: emailLimpo,
       veiculoId,
       veiculoResumo: veiculoResumoAtual,
+      ...(preencheu ? { cliente: clienteForm } : {}),
     })
   }
 
@@ -3967,7 +4037,7 @@ function EditarCobrancaModal({
       >
         <form
           onSubmit={handleSubmit}
-          className="w-full max-w-md rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
+          className="flex max-h-[92vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-neutral-200 bg-white shadow-2xl sm:rounded-2xl"
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 border-b border-neutral-100 bg-gradient-to-br from-neutral-50 via-white to-white px-5 pt-5 pb-4">
@@ -3994,7 +4064,7 @@ function EditarCobrancaModal({
           </div>
 
           {/* Campos editáveis */}
-          <div className="space-y-4 px-5 py-5">
+          <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
             {/* Nome */}
             <div className="space-y-1">
               <label htmlFor="editNome" className="block text-xs font-bold text-neutral-700">
@@ -4047,6 +4117,19 @@ function EditarCobrancaModal({
                   Adicione um e-mail para poder ativar o sino de notificações.
                 </p>
               )}
+            </div>
+
+            {/* Dados pessoais */}
+            <div className="space-y-2">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+                Dados do cliente
+              </p>
+              {!cobranca.cliente && (
+                <p className="text-[11px] text-amber-600">
+                  Cobrança anterior ao cadastro de clientes — preencha para completar o cadastro.
+                </p>
+              )}
+              <ClienteFields value={clienteForm} onChange={setClienteForm} />
             </div>
 
             {/* Veículo */}
