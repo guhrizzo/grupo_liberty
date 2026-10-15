@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-14-afazeres-urgencia-ordem',
+    date: '2026-10-14',
+    title: 'Urgência e ordem nos meus afazeres',
+    tag: 'melhoria',
+    items: [
+      'Cada afazer pessoal agora tem nível de urgência (urgente, importante ou normal); clique na etiqueta para mudar.',
+      'Use as setas para subir ou descer um item na lista, ou "Ordenar por urgência" para trazer os urgentes para cima.',
+    ],
+  },
+  {
     id: '2026-10-14-cobrancas-lixeira',
     date: '2026-10-14',
     title: 'Lixeira nas cobranças',

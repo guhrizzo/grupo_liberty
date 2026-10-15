@@ -32,6 +32,8 @@ export interface Afazer {
   id: string
   texto: string
   feito: boolean
+  /** Itens antigos (sem o campo) contam como `normal`. */
+  prioridade: TarefaPrioridade
 }
 
 /** Usuário que pode receber tarefas (seletor do ADM supremo). */
