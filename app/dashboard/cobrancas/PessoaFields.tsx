@@ -146,7 +146,8 @@ export function PessoaFields({
           value={value.estadoCivil}
           onChange={(e) => onChange({ estadoCivil: e.target.value })}
           placeholder="Selecione..."
-          options={ESTADOS_CIVIS.map((e) => ({ value: e.value, label: e.label }))}
+          // O Select mostra a 1ª opção quando o valor é vazio — por isso o "Selecione" é uma opção real.
+          options={[{ value: '', label: 'Selecione...' }, ...ESTADOS_CIVIS.map((e) => ({ value: e.value, label: e.label }))]}
           required
         />
       )}
