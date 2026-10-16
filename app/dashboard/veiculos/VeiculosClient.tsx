@@ -23,6 +23,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
+import VeiculoDetalhesModal from './VeiculoDetalhesModal'
 import { casaBusca } from '@/utils/busca'
 import { SEGURO_STATUS, type ResumoSeguro } from '../seguro/types'
 import type { ResumoVeiculo } from './resumo-types'
@@ -312,6 +313,10 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [estoqueEstado, setEstoqueEstado] = useState<EstoqueEstado>('disponivel')
   const [filtroCidade, setFiltroCidade] = useState<string>('')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
+  // Detalhes (somente leitura) e posição da lista, para voltar ao mesmo ponto depois de editar.
+  const [detalhesId, setDetalhesId] = useState<string | null>(null)
+  const scrollAntesDeEditarRef = useRef<number | null>(null)
+  const idEditadoRef = useRef<string | null>(null)
 
   // Zoom nas fotos do estoque (lightbox em tela cheia ao clicar na miniatura do card).
   const [lightbox, setLightbox] = useState<{ fotos: string[]; alt: string; index: number } | null>(null)
@@ -742,6 +747,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   }, [placa, editingId, buscarDadosPlaca])
 
   const handleEdit = useCallback((veiculo: Veiculo) => {
+    if (scrollAntesDeEditarRef.current == null) scrollAntesDeEditarRef.current = window.scrollY
+    idEditadoRef.current = veiculo.id
+    setDetalhesId(null)
     setEditingId(veiculo.id)
     setShowForm(true)
     setMessage(null)
@@ -1017,9 +1025,11 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
           text: result.success || (editingId ? 'Veículo atualizado!' : 'Veículo cadastrado!'),
           interessados: result.interessados,
         })
+        toast.success(result.success || (editingId ? 'Veículo atualizado.' : 'Veículo cadastrado.'))
         resetForm()
         setShowForm(false)
         router.refresh()
+        voltarParaALista(editingId ?? result.veiculo?.id ?? null)
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Erro inesperado.' })
@@ -1099,6 +1109,20 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }
   }
 
+  // Depois de salvar ou cancelar a edição, volta ao ponto da lista onde o usuário estava.
+  const voltarParaALista = (id: string | null) => {
+    const y = scrollAntesDeEditarRef.current
+    scrollAntesDeEditarRef.current = null
+    idEditadoRef.current = null
+    if (y == null) return
+    setTimeout(() => {
+      window.scrollTo({ top: y })
+      if (!id) return
+      const el = document.querySelector<HTMLElement>(`[data-veiculo-id="${id}"]`)
+      el?.animate([{ backgroundColor: 'rgba(16,185,129,0.18)' }, { backgroundColor: 'transparent' }], { duration: 1800 })
+    }, 120)
+  }
+
   // ─── Delete ──────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -1160,6 +1184,26 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     })
   }, [veiculos, filtroCidade, filtroBusca])
 
+  // Filtros da lista sobrevivem a sair e voltar (ex.: ir às Quitações e usar o Voltar do navegador).
+  useEffect(() => {
+    try {
+      const salvo = JSON.parse(sessionStorage.getItem('veiculos:filtros') ?? 'null')
+      if (salvo && typeof salvo === 'object') {
+        if (typeof salvo.busca === 'string') setFiltroBusca(salvo.busca)
+        if (typeof salvo.cidade === 'string') setFiltroCidade(salvo.cidade)
+      }
+    } catch {
+      // sessionStorage indisponível: a lista simplesmente começa sem filtros.
+    }
+  }, [])
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('veiculos:filtros', JSON.stringify({ busca: filtroBusca, cidade: filtroCidade }))
+    } catch {
+      // ignora
+    }
+  }, [filtroBusca, filtroCidade])
+
   // ─── Render ──────────────────────────────────────────────────────────────
 
   return (
@@ -1185,6 +1229,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 if (showForm) {
                   resetForm()
                   setShowForm(false)
+                  voltarParaALista(idEditadoRef.current)
                 } else {
                   setShowForm(true)
                   setMessage(null)
@@ -2462,7 +2507,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); resetForm() }}
+                  onClick={() => { setShowForm(false); resetForm(); voltarParaALista(idEditadoRef.current) }}
                   className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-5 py-2.5 text-sm font-medium transition-ui cursor-pointer"
                 >
                   Cancelar
@@ -2566,14 +2611,13 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   privado: { label: 'Privado', cls: 'bg-neutral-200 text-neutral-700' },
                 }[estado]
                 return (
-                  <div key={v.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                  <div key={v.id} data-veiculo-id={v.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <button
                         type="button"
-                        disabled={!(v.fotos?.length > 0)}
-                        onClick={() => setLightbox({ fotos: v.fotos, alt: `${v.marca} ${v.modelo}`, index: 0 })}
-                        aria-label={`Ampliar fotos de ${v.marca} ${v.modelo}`}
-                        className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100 cursor-zoom-in disabled:cursor-default"
+                        onClick={() => setDetalhesId(v.id)}
+                        aria-label={`Ver detalhes de ${v.marca} ${v.modelo}`}
+                        className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-neutral-100 cursor-pointer"
                       >
                         {v.fotos?.length > 0 ? (
                           <Image src={v.fotos[0]} alt={`${v.marca} ${v.modelo}`} fill className="object-cover" sizes="80px" />
@@ -2584,7 +2628,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <h4 className="truncate text-sm font-bold text-neutral-900">
-                            {v.marca} {v.modelo}
+                            <button type="button" onClick={() => setDetalhesId(v.id)} className="cursor-pointer hover:underline">
+                              {v.marca} {v.modelo}
+                            </button>
                           </h4>
                           <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${estadoCfg.cls}`}>
                             {estadoCfg.label}
@@ -2649,6 +2695,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               {veiculosFiltrados.map((v) => (
                 <div
                   key={v.id}
+                  data-veiculo-id={v.id}
                   className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-lg hover:shadow-neutral-900/5 hover:-translate-y-1 hover:border-neutral-300 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
                 >
                   {/* Thumbnail */}
@@ -2707,7 +2754,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h4 className="text-base font-bold text-neutral-900 truncate">
-                          {v.marca} {v.modelo}
+                          <button type="button" onClick={() => setDetalhesId(v.id)} className="cursor-pointer hover:underline">
+                            {v.marca} {v.modelo}
+                          </button>
                         </h4>
                         <div className="flex items-center gap-2 mt-0.5 text-xs text-neutral-500">
                           <span>{v.ano}</span>
@@ -2915,37 +2964,58 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
         tone="danger"
       />
 
-      {/* Modal de Confirmação de Exclusão */}
-      {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg">
-            <h3 className="text-lg font-bold text-neutral-900">Confirmar Exclusão</h3>
-            <p className="mt-2 text-sm text-neutral-600">
-              Tem certeza que deseja remover este veículo? Esta ação não pode ser desfeita. As fotos também serão removidas.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteId(null)}
-                disabled={deleteLoading}
-                className="rounded-lg border border-neutral-200 hover:bg-neutral-100 px-4 py-2 text-sm font-medium transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-          <button
-            onClick={() => {
-              startDeleteTransition(async () => {
-                await handleDelete()
-              })
+      {/* Detalhes do veículo */}
+      {(() => {
+        const v = veiculos.find((x) => x.id === detalhesId)
+        if (!v) return null
+        return (
+          <VeiculoDetalhesModal
+            veiculo={v}
+            resumo={resumos[v.id]}
+            seguro={seguros[v.id]}
+            quitacao={ultimasQuitacoes[v.id]}
+            canEdit={canEdit}
+            onEditar={() => handleEdit(v)}
+            onVerFotos={() => {
+              setDetalhesId(null)
+              setLightbox({ fotos: v.fotos, alt: `${v.marca} ${v.modelo}`, index: 0 })
             }}
-            disabled={deleteLoading || deletePending}
-            className="rounded-lg bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 text-sm font-semibold transition-[background-color,color,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-xs disabled:opacity-50 cursor-pointer"
-          >
-            {deleteLoading || deletePending ? 'Removendo...' : 'Sim, Remover'}
-          </button>
-            </div>
-          </div>
-        </div>
-      )}
+            onClose={() => setDetalhesId(null)}
+          />
+        )
+      })()}
+
+      {/* Confirmação de exclusão, com o impacto explicado */}
+      {(() => {
+        const v = veiculos.find((x) => x.id === deleteId)
+        return (
+          <ConfirmDialog
+            open={deleteId != null}
+            onClose={() => !(deleteLoading || deletePending) && setDeleteId(null)}
+            onConfirm={() => startDeleteTransition(async () => { await handleDelete() })}
+            title={v ? `Remover ${v.marca} ${v.modelo}?` : 'Remover veículo?'}
+            description={
+              <div className="space-y-2">
+                <p>Esta ação não pode ser desfeita.</p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    As fotos{v?.fotos?.length ? ` (${v.fotos.length})` : ''} e os contratos anexados são apagados.
+                  </li>
+                  <li>O veículo some do site e do estoque.</li>
+                  <li>
+                    O histórico de quitações, manutenções, propostas e cobranças continua, mas sem o vínculo com este
+                    veículo.
+                  </li>
+                </ul>
+                <p className="text-xs text-neutral-500">Para só tirar do site, use o estado Privado no cadastro.</p>
+              </div>
+            }
+            confirmLabel="Sim, remover"
+            tone="danger"
+            loading={deleteLoading || deletePending}
+          />
+        )
+      })()}
 
       {/* Zoom nas fotos do estoque */}
       {lightbox && (

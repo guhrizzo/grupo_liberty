@@ -703,7 +703,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
             </div>
             <h2 className="text-base font-bold text-neutral-900 text-center">Excluir proposta?</h2>
             <p className="text-sm text-neutral-500 text-center mt-2 leading-relaxed">
-              Esta ação é <span className="font-semibold text-neutral-700">permanente</span> e não poderá ser desfeita. A proposta será removida do sistema.
+              Esta ação é <span className="font-semibold text-neutral-700">permanente</span> e não poderá ser desfeita. A proposta some da lista e deixa de contar na negociação mostrada na aba Veículos. O PDF já baixado não é afetado.
             </p>
             <div className="flex gap-3 mt-6">
               <button

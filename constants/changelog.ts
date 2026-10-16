@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-16-padrao-edicao',
+    date: '2026-10-16',
+    title: 'Novo padrão de edição em Veículos',
+    tag: 'melhoria',
+    items: [
+      'Clicar no nome ou na miniatura do veículo abre os detalhes, com o mais importante no topo (foto, preço) e as outras abas abaixo. O botão Editar abre o formulário.',
+      'Ao salvar ou cancelar a edição, a tela volta ao ponto da lista onde você estava e destaca o veículo; a confirmação aparece como aviso.',
+      'Os filtros da lista de veículos são lembrados ao sair e voltar.',
+      'Remover um veículo agora explica o que será apagado (fotos e contratos) e o que continua (histórico das outras abas).',
+    ],
+  },
+  {
     id: '2026-10-16-busca-filtros',
     date: '2026-10-16',
     title: 'Busca e filtros padronizados',
