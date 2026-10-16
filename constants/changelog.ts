@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-16-seguro',
+    date: '2026-10-16',
+    title: 'Nova aba Seguro',
+    tag: 'novo',
+    items: [
+      'Aba Seguro: acompanhe o cancelamento do seguro de cada veículo com situação (Pendente, Cancelado ou Não existe), valor previsto de reembolso e valor realmente cancelado.',
+      'Na aba Veículos, cada card mostra a situação do seguro, a última negociação e o total de manutenção.',
+      'Na aba Quitações, cada registro mostra a foto de capa do veículo.',
+    ],
+  },
+  {
     id: '2026-10-14-cobrancas-avalista',
     date: '2026-10-14',
     title: 'Avalista nas cobranças parceladas',

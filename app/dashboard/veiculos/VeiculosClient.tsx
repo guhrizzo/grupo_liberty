@@ -22,6 +22,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
+import { SEGURO_STATUS, type ResumoSeguro } from '../seguro/types'
 import type { ResumoVeiculo } from './resumo-types'
 import type { UltimaQuitacao } from '../quitacoes/types'
 import type { InteressadoResumo } from '../interesses/types'
@@ -66,6 +67,8 @@ interface VeiculosClientProps {
   ultimasQuitacoes?: Record<string, UltimaQuitacao>
   /** Resumo de propostas e manutenções de cada veículo. */
   resumos?: Record<string, ResumoVeiculo>
+  /** Situação do seguro (cancelamento/reembolso) de cada veículo. */
+  seguros?: Record<string, ResumoSeguro>
 }
 
 /** Última quitação negociada, com atalho para o histórico do veículo. */
@@ -85,9 +88,10 @@ function UltimaQuitacaoLinha({ veiculoId, quitacao }: { veiculoId: string; quita
 const STATUS_PROPOSTA = { pendente: 'Pendente', aceito: 'Aceita', recusado: 'Recusada' } as const
 
 /** Última proposta (negociação) e total de manutenção, com atalho para cada aba. */
-function ResumoAbasLinha({ resumo }: { resumo: ResumoVeiculo | undefined }) {
-  if (!resumo?.proposta && !resumo?.manutencao) return null
-  const { proposta, manutencao } = resumo
+function ResumoAbasLinha({ resumo, seguro }: { resumo: ResumoVeiculo | undefined; seguro: ResumoSeguro | undefined }) {
+  if (!resumo?.proposta && !resumo?.manutencao && !seguro) return null
+  const proposta = resumo?.proposta
+  const manutencao = resumo?.manutencao
   return (
     <p className="text-xs text-neutral-500">
       {proposta && (
@@ -109,6 +113,20 @@ function ResumoAbasLinha({ resumo }: { resumo: ResumoVeiculo | undefined }) {
           </span>{' '}
           <Link href="/dashboard/manutencao" className="font-semibold underline hover:text-neutral-900">
             Detalhes
+          </Link>
+        </>
+      )}
+      {seguro && (
+        <>
+          {(proposta || manutencao) && ' · '}
+          Seguro: <span className="font-semibold text-neutral-700">{SEGURO_STATUS.find((o) => o.value === seguro.status)?.label}</span>
+          {seguro.status === 'cancelado'
+            ? ` (${formatCurrency(seguro.valorCancelado)})`
+            : seguro.status === 'pendente' && seguro.valorPrevisto > 0
+              ? ` (previsto ${formatCurrency(seguro.valorPrevisto)})`
+              : ''}{' '}
+          <Link href="/dashboard/seguro" className="font-semibold underline hover:text-neutral-900">
+            Seguro
           </Link>
         </>
       )}
@@ -231,7 +249,7 @@ const ABAS_FORM: { valor: AbaForm; label: string }[] = [
   { valor: 'veiculo', label: 'Veículo' },
 ]
 
-export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {}, resumos = {} }: VeiculosClientProps) {
+export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {}, resumos = {}, seguros = {} }: VeiculosClientProps) {
   const router = useRouter()
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -2571,7 +2589,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                         </p>
                         <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
-<ResumoAbasLinha resumo={resumos[v.id]} />
+<ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
                         <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
                     </div>
@@ -2710,7 +2728,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     <div className="mt-2">
                       <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
-<ResumoAbasLinha resumo={resumos[v.id]} />
+<ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
                       <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>
 

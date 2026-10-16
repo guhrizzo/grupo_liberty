@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { getVehicles } from './actions'
 import { getUltimasQuitacoes } from '../quitacoes/actions'
+import { getResumosSeguro } from '../seguro/actions'
 import { getResumoVeiculos } from './resumo'
 import VeiculosClient from './VeiculosClient'
 
@@ -18,10 +19,11 @@ export default async function VeiculosPage() {
     redirect('/dashboard?error=acesso_negado')
   }
 
-  const [veiculos, ultimasQuitacoes, resumos] = await Promise.all([
+  const [veiculos, ultimasQuitacoes, resumos, seguros] = await Promise.all([
     getVehicles(),
     getUltimasQuitacoes(),
     getResumoVeiculos(),
+    getResumosSeguro(),
   ])
 
   const clientUser = {
@@ -31,5 +33,5 @@ export default async function VeiculosPage() {
     permissions: user.permissions,
   }
 
-  return <VeiculosClient currentUser={clientUser} veiculos={veiculos} ultimasQuitacoes={ultimasQuitacoes} resumos={resumos} />
+  return <VeiculosClient currentUser={clientUser} veiculos={veiculos} ultimasQuitacoes={ultimasQuitacoes} resumos={resumos} seguros={seguros} />
 }
