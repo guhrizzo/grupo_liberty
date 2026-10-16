@@ -66,7 +66,7 @@ export async function listarVeiculosParaQuitacao(): Promise<VeiculoQuitacaoOpcao
   const acesso = await checarAcesso()
   if ('error' in acesso) return []
   const veiculos = await getVehicles()
-  return veiculos.map((v) => ({ id: v.id, marca: v.marca, modelo: v.modelo, ano: v.ano, placa: v.placa }))
+  return veiculos.map((v) => ({ id: v.id, marca: v.marca, modelo: v.modelo, ano: v.ano, placa: v.placa, foto: v.fotos?.[0] ?? null }))
 }
 
 /** Última quitação (a mais recente) de cada veículo — usada na aba Veículos. */

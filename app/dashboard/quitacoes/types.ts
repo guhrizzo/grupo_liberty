@@ -18,6 +18,8 @@ export interface VeiculoQuitacaoOpcao {
   modelo: string
   ano: number
   placa: string | null
+  /** Foto de capa (primeira foto), se houver. */
+  foto: string | null
 }
 
 export interface QuitacaoInput {

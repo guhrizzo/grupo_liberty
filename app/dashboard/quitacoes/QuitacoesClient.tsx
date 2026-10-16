@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { IconCash, IconListDetails, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconCar, IconCash, IconListDetails, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Button, ConfirmDialog, EmptyState, Input, Modal, Select, Textarea, useToast } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, moneyFromNumber, parseMoney } from '@/utils/masks'
@@ -18,6 +19,18 @@ interface Props {
 function nomeVeiculo(v: VeiculoQuitacaoOpcao | undefined) {
   if (!v) return 'Veículo removido'
   return `${v.marca} ${v.modelo} ${v.ano}${v.placa ? ` · ${v.placa}` : ''}`
+}
+
+function FotoVeiculo({ v }: { v: VeiculoQuitacaoOpcao | undefined }) {
+  return (
+    <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
+      {v?.foto ? (
+        <Image src={v.foto} alt={nomeVeiculo(v)} fill className="object-cover" sizes="64px" />
+      ) : (
+        <IconCar size={20} stroke={1.5} className="absolute inset-0 m-auto text-neutral-300" />
+      )}
+    </div>
+  )
 }
 
 function hojeIso() {
@@ -111,7 +124,9 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
           {lista.map((q) => (
             <li key={q.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FotoVeiculo v={porId.get(q.veiculoId)} />
+                  <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-neutral-900">{nomeVeiculo(porId.get(q.veiculoId))}</p>
                   <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                     <span>Negociada em {formatDate(q.data)}</span>
@@ -122,6 +137,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
                       </span>
                     )}
                   </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-lg font-black text-liberty-deep">{formatCurrency(q.valor)}</span>
@@ -317,11 +333,14 @@ function LoteModal({
             const ultima = ultimaPorVeiculo.get(v.id)
             return (
               <li key={v.id} className="grid items-center gap-2 rounded-lg border border-neutral-200 p-3 sm:grid-cols-2">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  <FotoVeiculo v={v} />
+                  <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-neutral-900">{nomeVeiculo(v)}</p>
                   <p className="text-xs text-neutral-500">
                     {ultima ? `Último: ${formatCurrency(ultima.valor)} em ${formatDate(ultima.data)}` : 'Sem quitação ainda'}
                   </p>
+                  </div>
                 </div>
                 <Input
                   aria-label={`Novo valor de ${nomeVeiculo(v)}`}
