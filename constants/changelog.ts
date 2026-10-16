@@ -24,6 +24,13 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-16-afazeres-novo-no-topo',
+    date: '2026-10-16',
+    title: 'Afazer novo fica no topo',
+    tag: 'melhoria',
+    items: ['Em Demandas, ao adicionar um afazer em "Meus afazeres", ele entra no topo da lista em vez de ir para o fim.'],
+  },
+  {
     id: '2026-10-16-padrao-edicao',
     date: '2026-10-16',
     title: 'Novo padrão de edição em Veículos',

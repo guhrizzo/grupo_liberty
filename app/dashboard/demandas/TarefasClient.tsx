@@ -890,7 +890,8 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
       toast.error(`Limite de ${AFAZERES_MAX} itens. Limpe os concluídos.`)
       return
     }
-    persistir([...itens, { id: crypto.randomUUID(), texto, feito: false, prioridade: novaPrioridade }])
+    // Afazer novo entra no topo da lista (não no fim).
+    persistir([{ id: crypto.randomUUID(), texto, feito: false, prioridade: novaPrioridade }, ...itens])
     setNovo('')
     setNovaPrioridade('normal')
   }
