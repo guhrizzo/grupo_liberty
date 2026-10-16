@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-16-quitacoes-por-veiculo',
+    date: '2026-10-16',
+    title: 'Quitações reorganizada por veículo',
+    tag: 'melhoria',
+    items: [
+      'A aba Quitações agora tem uma linha por veículo, com situação (Não quitado ou Quitado), último valor negociado e data. Os não quitados aparecem primeiro, e há filtro para separar quitados de não quitados.',
+      'Atualizar o valor da quitação agora é feito dentro de cada veículo ("Atualizar valor"). O histórico fica na linha expandida. O ícone de visto marca o veículo como quitado.',
+      'Cada veículo tem uma ficha com os dados para ligar ao banco: nome do cliente, CPF, idade (calculada da data de nascimento), nome do pai e da mãe, endereço, banco, número do contrato, vencimento e valor da parcela.',
+      'Novo botão "Veículo de terceiro", para cadastrar carros de clientes que contrataram o serviço e negociar a quitação deles aqui.',
+    ],
+  },
+  {
     id: '2026-10-16-afazeres-novo-no-topo',
     date: '2026-10-16',
     title: 'Afazer novo fica no topo',

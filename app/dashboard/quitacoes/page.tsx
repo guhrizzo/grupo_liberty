@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
-import { listarQuitacoes, listarVeiculosParaQuitacao } from './actions'
+import { listarFichas, listarQuitacoes, listarVeiculosParaQuitacao } from './actions'
 import QuitacoesClient from './QuitacoesClient'
 
 export const metadata = {
@@ -23,7 +23,11 @@ export default async function QuitacoesPage({
   }
 
   const { veiculo } = await searchParams
-  const [quitacoes, veiculos] = await Promise.all([listarQuitacoes(), listarVeiculosParaQuitacao()])
+  const [quitacoes, veiculos, fichas] = await Promise.all([
+    listarQuitacoes(),
+    listarVeiculosParaQuitacao(),
+    listarFichas(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -32,12 +36,12 @@ export default async function QuitacoesPage({
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Quitações</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Valor de quitação negociado com o banco e a data, por veículo. Aqui fica todo o histórico; na aba Veículos
-          aparece só a última.
+          Uma linha por veículo: situação, último valor negociado e os dados do cliente para ligar ao banco. Clique no
+          veículo para ver o histórico; na aba Veículos aparece só a última quitação.
         </p>
       </div>
 
-      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} veiculoInicial={veiculo ?? ''} />
+      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} veiculoInicial={veiculo ?? ''} />
     </div>
   )
 }
