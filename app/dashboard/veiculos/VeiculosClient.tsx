@@ -22,6 +22,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
+import type { ResumoVeiculo } from './resumo-types'
 import type { UltimaQuitacao } from '../quitacoes/types'
 import type { InteressadoResumo } from '../interesses/types'
 import { maskCPFCNPJ, maskPhone, maskPlate, maskRenavam, maskMoney, parseMoney, onlyDigits, moneyFromNumber } from '@/utils/masks'
@@ -63,6 +64,8 @@ interface VeiculosClientProps {
   veiculos: Veiculo[]
   /** Última quitação negociada de cada veículo (histórico completo em /dashboard/quitacoes). */
   ultimasQuitacoes?: Record<string, UltimaQuitacao>
+  /** Resumo de propostas e manutenções de cada veículo. */
+  resumos?: Record<string, ResumoVeiculo>
 }
 
 /** Última quitação negociada, com atalho para o histórico do veículo. */
@@ -75,6 +78,40 @@ function UltimaQuitacaoLinha({ veiculoId, quitacao }: { veiculoId: string; quita
       <Link href={`/dashboard/quitacoes?veiculo=${veiculoId}`} className="font-semibold underline hover:text-neutral-900">
         Histórico
       </Link>
+    </p>
+  )
+}
+
+const STATUS_PROPOSTA = { pendente: 'Pendente', aceito: 'Aceita', recusado: 'Recusada' } as const
+
+/** Última proposta (negociação) e total de manutenção, com atalho para cada aba. */
+function ResumoAbasLinha({ resumo }: { resumo: ResumoVeiculo | undefined }) {
+  if (!resumo?.proposta && !resumo?.manutencao) return null
+  const { proposta, manutencao } = resumo
+  return (
+    <p className="text-xs text-neutral-500">
+      {proposta && (
+        <>
+          Negociação: <span className="font-semibold text-neutral-700">{STATUS_PROPOSTA[proposta.status]}</span>
+          {proposta.data && ` em ${formatDate(proposta.data.slice(0, 10))}`}
+          {proposta.telefone && ` · ${proposta.telefone}`}{' '}
+          <Link href="/dashboard/propostas" className="font-semibold underline hover:text-neutral-900">
+            Propostas
+          </Link>
+        </>
+      )}
+      {proposta && manutencao && ' · '}
+      {manutencao && (
+        <>
+          Manutenção:{' '}
+          <span className="font-semibold text-neutral-700">
+            {manutencao.total > 0 ? formatCurrency(manutencao.total) : `${manutencao.quantidade} em aberto`}
+          </span>{' '}
+          <Link href="/dashboard/manutencao" className="font-semibold underline hover:text-neutral-900">
+            Detalhes
+          </Link>
+        </>
+      )}
     </p>
   )
 }
@@ -194,7 +231,7 @@ const ABAS_FORM: { valor: AbaForm; label: string }[] = [
   { valor: 'veiculo', label: 'Veículo' },
 ]
 
-export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {} }: VeiculosClientProps) {
+export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {}, resumos = {} }: VeiculosClientProps) {
   const router = useRouter()
   const toast = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -2534,6 +2571,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                         </p>
                         <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
+<ResumoAbasLinha resumo={resumos[v.id]} />
                         <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
                     </div>
@@ -2672,6 +2710,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     <div className="mt-2">
                       <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
+<ResumoAbasLinha resumo={resumos[v.id]} />
                       <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>
 
