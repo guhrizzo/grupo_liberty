@@ -15,6 +15,7 @@ import {
   Button,
   ConfirmDialog,
   EmptyState,
+  FiltrosAtivos,
   Input,
   Modal,
   Select,
@@ -22,6 +23,7 @@ import {
   useToast,
 } from '../../components/ui'
 import { formatCurrency, formatKm, formatDate, formatDateTime } from '@/utils/format'
+import { casaBusca } from '@/utils/busca'
 import { SEGURO_STATUS, type ResumoSeguro } from '../seguro/types'
 import type { ResumoVeiculo } from './resumo-types'
 import type { UltimaQuitacao } from '../quitacoes/types'
@@ -1145,13 +1147,16 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const veiculosFiltrados = useMemo(() => {
     return veiculos.filter((v) => {
       if (filtroCidade && v.localizacao !== filtroCidade) return false
-      if (!filtroBusca.trim()) return true
-      const q = filtroBusca.toLowerCase()
-      return (
-        v.marca.toLowerCase().includes(q) ||
-        v.modelo.toLowerCase().includes(q) ||
-        (v.placa && v.placa.toLowerCase().includes(q))
-      )
+      return casaBusca(filtroBusca, [
+        v.marca,
+        v.modelo,
+        `${v.marca} ${v.modelo}`,
+        v.placa,
+        v.nomeCliente,
+        v.cpfCliente,
+        v.sellerName,
+        v.sellerCpf,
+      ])
     })
   }, [veiculos, filtroCidade, filtroBusca])
 
@@ -2500,7 +2505,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <Input
-                placeholder="Buscar por marca, modelo ou placa..."
+                placeholder="Buscar por nome, modelo, placa ou CPF..."
                 value={filtroBusca}
                 onChange={(e) => setFiltroBusca(e.target.value)}
                 containerClassName="w-full sm:w-64"
@@ -2520,6 +2525,20 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               <SeletorVisualizacao modo={modoVisualizacao} onChange={setModoVisualizacao} />
             </div>
           </div>
+
+          <FiltrosAtivos
+            filtros={[
+              ...(filtroBusca.trim()
+                ? [{ id: 'busca', label: `Busca: ${filtroBusca.trim()}`, onRemove: () => setFiltroBusca('') }]
+                : []),
+              ...(filtroCidade ? [{ id: 'cidade', label: `Cidade: ${filtroCidade}`, onRemove: () => setFiltroCidade('') }] : []),
+            ]}
+            onClear={() => {
+              setFiltroBusca('')
+              setFiltroCidade('')
+            }}
+            className="mb-3"
+          />
 
           {veiculosFiltrados.length === 0 ? (
             <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-12 text-center">

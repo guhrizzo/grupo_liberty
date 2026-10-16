@@ -40,9 +40,11 @@ import {
   Breadcrumb,
   Button,
   ConfirmDialog,
+  FiltrosAtivos,
   Input,
   useToast,
 } from '@/app/components/ui'
+import { casaBusca } from '@/utils/busca'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import { maskMoney, parseMoney } from '@/utils/masks'
@@ -370,12 +372,16 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
 
   const cobrancasFiltradas = useMemo(() => {
     let out = cobrancas
-    const t = search.trim().toLowerCase()
-    if (t) {
-      out = out.filter(
-        (c) =>
-          c.clienteNome.toLowerCase().includes(t) ||
-          c.veiculoResumo.toLowerCase().includes(t),
+    if (search.trim()) {
+      out = out.filter((c) =>
+        casaBusca(search, [
+          c.clienteNome,
+          c.cliente?.cpf,
+          c.cliente?.telefone,
+          c.avalista?.nome,
+          c.avalista?.cpf,
+          c.veiculoResumo,
+        ]),
       )
     }
     if (filterTipo !== 'todos') {
@@ -1131,7 +1137,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por cliente ou veículo..."
+              placeholder="Buscar por nome, CPF, modelo ou placa..."
               className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
             />
             {search && (
@@ -1196,6 +1202,31 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
             ))}
           </div>
         </div>
+
+        <FiltrosAtivos
+          filtros={[
+            ...(search.trim() ? [{ id: 'busca', label: `Busca: ${search.trim()}`, onRemove: () => setSearch('') }] : []),
+            ...(filterStatus !== 'todas'
+              ? [{
+                  id: 'status',
+                  label: `Situação: ${{ 'em-dia': 'Em dia', atrasadas: 'Atrasadas', quites: 'Quites' }[filterStatus] ?? filterStatus}`,
+                  onRemove: () => setFilterStatus('todas'),
+                }]
+              : []),
+            ...(filterTipo !== 'todos'
+              ? [{
+                  id: 'tipo',
+                  label: `Tipo: ${{ promissoria: 'Mensal', quinzenal: 'Quinzenal', aluguel: 'Semanal' }[filterTipo] ?? filterTipo}`,
+                  onRemove: () => setFilterTipo('todos'),
+                }]
+              : []),
+          ]}
+          onClear={() => {
+            setSearch('')
+            setFilterTipo('todos')
+            setFilterStatus('todas')
+          }}
+        />
 
         {/* Cards de cobranças */}
         {cobrancasFiltradas.length === 0 ? (

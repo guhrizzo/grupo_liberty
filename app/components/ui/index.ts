@@ -10,6 +10,9 @@ export type { ChipFilterOption } from './ChipFilter'
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps } from './ConfirmDialog'
 
+export { FiltrosAtivos } from './FiltrosAtivos'
+export type { FiltroAtivo } from './FiltrosAtivos'
+
 export { EmptyState } from './EmptyState'
 export type { EmptyStateProps } from './EmptyState'
 

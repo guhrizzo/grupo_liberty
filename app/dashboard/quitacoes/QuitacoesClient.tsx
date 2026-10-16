@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { IconCar, IconCash, IconListDetails, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
-import { Button, ConfirmDialog, EmptyState, Input, Modal, Select, Textarea, useToast } from '@/app/components/ui'
+import { Button, ConfirmDialog, EmptyState, FiltrosAtivos, Input, Modal, Select, Textarea, useToast } from '@/app/components/ui'
+import { casaBusca } from '@/utils/busca'
 import { formatCurrency, formatDate } from '@/utils/format'
 import { maskMoney, moneyFromNumber, parseMoney } from '@/utils/masks'
 import { atualizarQuitacao, criarQuitacao, criarQuitacoesLote, excluirQuitacao } from './actions'
@@ -42,6 +43,9 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
   const router = useRouter()
   const toast = useToast()
   const [filtroVeiculo, setFiltroVeiculo] = useState(veiculos.some((v) => v.id === veiculoInicial) ? veiculoInicial : '')
+  const [busca, setBusca] = useState('')
+  const [dataDe, setDataDe] = useState('')
+  const [dataAte, setDataAte] = useState('')
   const [editando, setEditando] = useState<Quitacao | 'novo' | null>(null)
   const [excluindo, setExcluindo] = useState<Quitacao | null>(null)
   const [apagando, setApagando] = useState(false)
@@ -63,9 +67,32 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
   }, [quitacoes])
 
   const lista = useMemo(
-    () => (filtroVeiculo ? quitacoes.filter((q) => q.veiculoId === filtroVeiculo) : quitacoes),
-    [quitacoes, filtroVeiculo],
+    () =>
+      quitacoes.filter((q) => {
+        if (filtroVeiculo && q.veiculoId !== filtroVeiculo) return false
+        if (dataDe && q.data < dataDe) return false
+        if (dataAte && q.data > dataAte) return false
+        const v = porId.get(q.veiculoId)
+        return casaBusca(busca, [v?.marca, v?.modelo, v ? `${v.marca} ${v.modelo}` : null, v?.placa, q.observacao])
+      }),
+    [quitacoes, filtroVeiculo, busca, dataDe, dataAte, porId],
   )
+
+  const filtros = [
+    ...(busca.trim() ? [{ id: 'busca', label: `Busca: ${busca.trim()}`, onRemove: () => setBusca('') }] : []),
+    ...(filtroVeiculo
+      ? [{ id: 'veiculo', label: `Veículo: ${nomeVeiculo(porId.get(filtroVeiculo))}`, onRemove: () => setFiltroVeiculo('') }]
+      : []),
+    ...(dataDe ? [{ id: 'de', label: `De: ${formatDate(dataDe)}`, onRemove: () => setDataDe('') }] : []),
+    ...(dataAte ? [{ id: 'ate', label: `Até: ${formatDate(dataAte)}`, onRemove: () => setDataAte('') }] : []),
+  ]
+
+  function limparFiltros() {
+    setBusca('')
+    setFiltroVeiculo('')
+    setDataDe('')
+    setDataAte('')
+  }
 
   const veiculosComQuitacao = useMemo(() => {
     const ids = new Set(quitacoes.map((q) => q.veiculoId))
@@ -91,16 +118,27 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          aria-label="Buscar quitação"
+          placeholder="Buscar por modelo, placa ou observação"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          containerClassName="w-full sm:w-64"
+        />
         <Select
           aria-label="Filtrar por veículo"
           value={filtroVeiculo}
           onChange={(e) => setFiltroVeiculo(e.target.value)}
-          containerClassName="w-full sm:w-80"
+          containerClassName="w-full sm:w-72"
           options={[
             { value: '', label: 'Todos os veículos' },
             ...veiculosComQuitacao.map((v) => ({ value: v.id, label: nomeVeiculo(v) })),
           ]}
         />
+        <Input type="date" aria-label="Negociada a partir de" value={dataDe} onChange={(e) => setDataDe(e.target.value)} containerClassName="w-full sm:w-40" />
+        <Input type="date" aria-label="Negociada até" value={dataAte} onChange={(e) => setDataAte(e.target.value)} containerClassName="w-full sm:w-40" />
+        </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" variant="secondary" onClick={() => setLote(true)} disabled={veiculos.length === 0}>
             <IconListDetails size={16} stroke={2.5} />
@@ -112,6 +150,8 @@ export default function QuitacoesClient({ quitacoes, veiculos, veiculoInicial }:
           </Button>
         </div>
       </div>
+
+      <FiltrosAtivos filtros={filtros} onClear={limparFiltros} />
 
       {lista.length === 0 ? (
         <EmptyState

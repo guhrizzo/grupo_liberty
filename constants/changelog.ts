@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-16-busca-filtros',
+    date: '2026-10-16',
+    title: 'Busca e filtros padronizados',
+    tag: 'melhoria',
+    items: [
+      'Veículos, Propostas, Cobranças, Manutenção e Quitações buscam por nome, modelo, placa e CPF (sem diferenciar acentos, e o CPF vale com ou sem pontos).',
+      'Os filtros em uso aparecem como etiquetas: clique em uma para removê-la, ou em "Limpar tudo".',
+      'Manutenção e Quitações ganharam filtro por data. O cabeçalho da tabela de Manutenção fica fixo ao rolar.',
+    ],
+  },
+  {
     id: '2026-10-16-seguro',
     date: '2026-10-16',
     title: 'Nova aba Seguro',

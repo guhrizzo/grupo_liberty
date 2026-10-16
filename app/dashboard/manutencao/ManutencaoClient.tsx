@@ -27,10 +27,13 @@ import {
   TD,
   EmptyState,
   StatusBadge,
+  FiltrosAtivos,
+  type FiltroAtivo,
   ConfirmDialog,
   Breadcrumb,
   useToast,
 } from '@/app/components/ui'
+import { casaBusca } from '@/utils/busca'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatCurrency, formatDate } from '@/utils/format'
 import type { BadgeTone } from '@/app/components/ui/StatusBadge'
@@ -99,6 +102,8 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Manutencao | null>(null)
   const [search, setSearch] = useState('')
+  const [dataDe, setDataDe] = useState('')
+  const [dataAte, setDataAte] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
   const [confirmDelete, setConfirmDelete] = useState<Manutencao | null>(null)
   const [page, setPage] = useState(1)
@@ -269,16 +274,36 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const filtered = useMemo(() => {
     return items.filter((m) => {
       const matchesStatus = filterStatus === 'todos' || m.status === filterStatus
-      const term = debouncedSearch.toLowerCase()
-      const matchesSearch =
-        !term ||
-        m.veiculoLabel.toLowerCase().includes(term) ||
-        m.tipo.toLowerCase().includes(term) ||
-        m.oficina.toLowerCase().includes(term) ||
-        m.responsavel.toLowerCase().includes(term)
-      return matchesStatus && matchesSearch
+      const veiculo = veiculos.find((v) => v.id === m.veiculoId)
+      const matchesSearch = casaBusca(debouncedSearch, [
+        m.veiculoLabel,
+        veiculo ? `${veiculo.marca} ${veiculo.modelo}` : null,
+        veiculo?.placa,
+        m.tipo,
+        m.oficina,
+        m.responsavel,
+      ])
+      const matchesData =
+        (!dataDe || (m.dataAgendada && m.dataAgendada.slice(0, 10) >= dataDe)) &&
+        (!dataAte || (m.dataAgendada && m.dataAgendada.slice(0, 10) <= dataAte))
+      return matchesStatus && matchesSearch && matchesData
     })
-  }, [items, debouncedSearch, filterStatus])
+  }, [items, veiculos, debouncedSearch, filterStatus, dataDe, dataAte])
+
+  const filtrosAtivos: FiltroAtivo[] = [
+    ...(search.trim()
+      ? [{ id: 'busca', label: `Busca: ${search.trim()}`, onRemove: () => { setSearch(''); setPage(1) } }]
+      : []),
+    ...(filterStatus !== 'todos'
+      ? [{
+          id: 'status',
+          label: `Status: ${STATUS_LABELS[filterStatus as Status] ?? filterStatus}`,
+          onRemove: () => { setFilterStatus('todos'); setPage(1) },
+        }]
+      : []),
+    ...(dataDe ? [{ id: 'de', label: `De: ${formatDate(dataDe)}`, onRemove: () => { setDataDe(''); setPage(1) } }] : []),
+    ...(dataAte ? [{ id: 'ate', label: `Até: ${formatDate(dataAte)}`, onRemove: () => { setDataAte(''); setPage(1) } }] : []),
+  ]
 
   const totalCusto = useMemo(
     () =>
@@ -347,7 +372,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input
-            placeholder="Buscar por veículo, oficina, tipo..."
+            placeholder="Buscar por veículo, placa, oficina, tipo..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value)
@@ -370,6 +395,20 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             <option value="concluida">Concluída</option>
             <option value="cancelada">Cancelada</option>
           </Select>
+          <Input
+            type="date"
+            aria-label="Agendada a partir de"
+            value={dataDe}
+            onChange={(e) => { setDataDe(e.target.value); setPage(1) }}
+            containerClassName="w-full sm:w-40"
+          />
+          <Input
+            type="date"
+            aria-label="Agendada até"
+            value={dataAte}
+            onChange={(e) => { setDataAte(e.target.value); setPage(1) }}
+            containerClassName="w-full sm:w-40"
+          />
         </div>
 
         <div className="flex items-center gap-3">
@@ -387,6 +426,17 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
           </Button>
         </div>
       </div>
+
+      <FiltrosAtivos
+        filtros={filtrosAtivos}
+        onClear={() => {
+          setSearch('')
+          setFilterStatus('todos')
+          setDataDe('')
+          setDataAte('')
+          setPage(1)
+        }}
+      />
 
       {showForm && (
         <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
@@ -530,7 +580,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         />
       ) : (
         <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
-          <Table>
+          <Table stickyHeader>
             <THead>
               <tr>
                 <TH>Veículo / Tipo</TH>

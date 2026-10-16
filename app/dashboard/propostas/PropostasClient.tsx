@@ -22,7 +22,8 @@ import {
   IconArrowUpRight,
 } from '@tabler/icons-react'
 import { updatePropostaStatus, deleteProposta, type Proposta } from './actions'
-import { Breadcrumb, EmptyState, useToast, ZoomIn } from '@/app/components/ui'
+import { Breadcrumb, EmptyState, FiltrosAtivos, useToast, ZoomIn } from '@/app/components/ui'
+import { casaBusca } from '@/utils/busca'
 import { formatCurrency } from '@/utils/format'
 import type { Manutencao } from '../manutencao/types'
 
@@ -144,14 +145,16 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
     if (filterStatus !== 'todos' && p.status !== filterStatus) return false
 
     // Cliente (Nome)
-    const clienteNome = p.nome || p.user_name || ''
-    if (searchNome && !clienteNome.toLowerCase().includes(searchNome.toLowerCase().trim())) {
+    if (searchNome && !casaBusca(searchNome, [p.nome, p.user_name, p.cpf, p.telefone, p.email])) {
       return false
     }
 
     // Veículo (Marca e Modelo)
     const veiculoTexto = p.veiculos ? `${p.veiculos.marca} ${p.veiculos.modelo}` : ''
-    if (searchVeiculo && !veiculoTexto.toLowerCase().includes(searchVeiculo.toLowerCase().trim())) {
+    if (
+      searchVeiculo &&
+      !casaBusca(searchVeiculo, [veiculoTexto, p.veiculo_marca, p.veiculo_modelo, p.veiculo_placa])
+    ) {
       return false
     }
 
@@ -285,6 +288,19 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
             </div>
           </div>
 
+          <FiltrosAtivos
+            filtros={[
+              ...(filterStatus !== 'todos'
+                ? [{ id: 'status', label: `Status: ${filterStatus}`, onRemove: () => setFilterStatus('todos') }]
+                : []),
+              ...(searchNome ? [{ id: 'nome', label: `Cliente: ${searchNome}`, onRemove: () => setSearchNome('') }] : []),
+              ...(searchVeiculo ? [{ id: 'veiculo', label: `Veículo: ${searchVeiculo}`, onRemove: () => setSearchVeiculo('') }] : []),
+              ...(dataInicio ? [{ id: 'de', label: `De: ${dataInicio.split('-').reverse().join('/')}`, onRemove: () => setDataInicio('') }] : []),
+              ...(dataFim ? [{ id: 'ate', label: `Até: ${dataFim.split('-').reverse().join('/')}`, onRemove: () => setDataFim('') }] : []),
+            ]}
+            onClear={handleClearFilters}
+          />
+
           {/* Painel Expansível de Filtros Avançados */}
           {filtersOpen && (
             <ZoomIn className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs space-y-4">
@@ -300,7 +316,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
                       type="text"
                       value={searchNome}
                       onChange={(e) => setSearchNome(e.target.value)}
-                      placeholder="Nome do cliente..."
+                      placeholder="Nome, CPF ou telefone..."
                       className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
                     />
                   </div>
@@ -317,7 +333,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
                       type="text"
                       value={searchVeiculo}
                       onChange={(e) => setSearchVeiculo(e.target.value)}
-                      placeholder="Marca ou modelo..."
+                      placeholder="Marca, modelo ou placa..."
                       className="w-full rounded-lg border border-neutral-200 bg-neutral-50/50 pl-9 pr-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:bg-white focus:outline-none transition-colors"
                     />
                   </div>

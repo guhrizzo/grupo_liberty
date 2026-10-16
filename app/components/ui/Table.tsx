@@ -6,15 +6,19 @@ import { cn } from '@/utils/cn'
 export function Table({
   children,
   className,
+  stickyHeader = false,
 }: {
   children: ReactNode
   className?: string
+  /** Cabeçalho fixo ao rolar listas longas (a tabela rola dentro de uma área com altura máxima). */
+  stickyHeader?: boolean
 }) {
   return (
-    <div className="overflow-x-auto">
+    <div className={stickyHeader ? 'max-h-[70vh] overflow-auto' : 'overflow-x-auto'}>
       <table
         className={cn(
           'w-full border-collapse text-left text-sm text-neutral-600 neon-theme:text-text-md adobe-dark:text-adobe-text-md',
+          stickyHeader && '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-neutral-50',
           className,
         )}
       >
