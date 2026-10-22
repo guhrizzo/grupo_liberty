@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-21-quitacoes-contratos-ordem',
+    date: '2026-10-21',
+    title: 'Quitações: contratos anexados e ordem por cadastro',
+    tag: 'melhoria',
+    items: [
+      'Cada veículo da aba Quitações agora guarda o contrato do cliente e o contrato de prestação de serviços (PDF ou imagem).',
+      'Os veículos mais recentes aparecem em cima, em vez da ordem alfabética.',
+    ],
+  },
+  {
     id: '2026-10-16-quitacoes-por-veiculo',
     date: '2026-10-16',
     title: 'Quitações reorganizada por veículo',

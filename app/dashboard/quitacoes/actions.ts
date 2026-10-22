@@ -1,15 +1,23 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { adminDb } from '@/utils/firebase/admin'
+import { headers } from 'next/headers'
+import { adminDb, adminStorage } from '@/utils/firebase/admin'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { onlyDigits } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getSessionUser, hasPageAccess, type SessionUser } from '@/utils/permissions'
 import { getVehicles } from '../veiculos/actions'
 import {
+  ANEXO_TAMANHO_MAX,
+  ANEXO_TIPOS,
   FICHA_TEXTO_MAX,
   QUITACAO_OBS_MAX,
+  TIPOS_ANEXO,
+  extensaoAnexo,
+  type AnexoQuitacao,
+  type AnexosPorVeiculo,
+  type TipoAnexo,
   type FichaInput,
   type FichaQuitacao,
   type VeiculoTerceiroInput,
@@ -83,6 +91,7 @@ export async function listarVeiculosParaQuitacao(): Promise<VeiculoQuitacaoOpcao
     placa: v.placa,
     foto: v.fotos?.[0] ?? null,
     terceiro: false,
+    criadoEm: v.created_at ?? '',
     sugestao: {
       nome: v.nomeCliente,
       cpf: v.cpfCliente,
@@ -101,6 +110,7 @@ export async function listarVeiculosParaQuitacao(): Promise<VeiculoQuitacaoOpcao
       placa: t.placa ? String(t.placa) : null,
       foto: null,
       terceiro: true,
+      criadoEm: String(t.criadoEm ?? ''),
       sugestao: { nome: null, cpf: null, endereco: null, banco: null, valorParcela: null },
     }
   })
@@ -354,6 +364,152 @@ export async function criarVeiculoTerceiro(input: VeiculoTerceiroInput): Promise
   return { success: 'Veículo de terceiro cadastrado.', id: ref.id }
 }
 
+// ─── Contratos anexados (do cliente e de prestação de serviços) ─────────────
+// Upload direto do navegador para o Storage (a Vercel limita o corpo a ~4,5MB):
+//   1. iniciarUploadAnexoAction → valida e abre uma sessão resumível;
+//   2. o navegador faz PUT do arquivo na URL;
+//   3. concluirUploadAnexoAction → confere o arquivo e grava o documento.
+// Um anexo de cada tipo por veículo; enviar de novo substitui o anterior.
+
+const COL_ANEXOS = 'quitacao_anexos'
+const ID_RE = /^[A-Za-z0-9_-]+$/
+
+const tipoValido = (t: unknown): t is TipoAnexo => TIPOS_ANEXO.some((x) => x.id === t)
+const anexoDocId = (veiculoId: string, tipo: TipoAnexo) => `${veiculoId}_${tipo}`
+const anexoPath = (veiculoId: string, tipo: TipoAnexo, uploadId: string, ext: string) =>
+  `quitacoes/${veiculoId}/${tipo}-${uploadId}.${ext}`
+
+function anexoSerialize(d: FirebaseFirestore.DocumentData): AnexoQuitacao {
+  return {
+    veiculoId: String(d.veiculoId ?? ''),
+    tipo: d.tipo as TipoAnexo,
+    fileName: String(d.fileName ?? ''),
+    size: Number(d.size) || 0,
+    uploadedAt: String(d.uploadedAt ?? ''),
+  }
+}
+
+export async function listarAnexos(): Promise<AnexosPorVeiculo> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return {}
+  const snap = await adminDb.collection(COL_ANEXOS).get()
+  const mapa: AnexosPorVeiculo = {}
+  for (const d of snap.docs) {
+    const a = anexoSerialize(d.data())
+    if (!a.veiculoId || !tipoValido(a.tipo)) continue
+    ;(mapa[a.veiculoId] ??= {})[a.tipo] = a
+  }
+  return mapa
+}
+
+export async function iniciarUploadAnexoAction(input: {
+  veiculoId: string
+  tipo: TipoAnexo
+  fileName: string
+  size: number
+}): Promise<{ error: string } | { uploadId: string; uploadUrl: string; contentType: string }> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return acesso
+
+  const veiculoId = String(input?.veiculoId ?? '')
+  const fileName = String(input?.fileName ?? '')
+  const ext = extensaoAnexo(fileName)
+  const size = Number(input?.size)
+  if (!ID_RE.test(veiculoId) || !tipoValido(input?.tipo)) return { error: 'Dados inválidos.' }
+  if (!ext) return { error: 'Envie um PDF ou uma imagem (JPG, PNG ou WebP).' }
+  if (!Number.isFinite(size) || size <= 0) return { error: 'Arquivo vazio.' }
+  if (size > ANEXO_TAMANHO_MAX) return { error: 'Arquivo excede o limite de 10MB.' }
+  if (!(await veiculoExiste(veiculoId))) return { error: 'Veículo não encontrado.' }
+
+  try {
+    const uploadId = adminDb.collection(COL_ANEXOS).doc().id
+    const contentType = ANEXO_TIPOS[ext]
+    const origin = (await headers()).get('origin') ?? undefined
+    const [uploadUrl] = await adminStorage
+      .bucket()
+      .file(anexoPath(veiculoId, input.tipo, uploadId, ext))
+      .createResumableUpload({
+        origin,
+        metadata: { contentType, metadata: { veiculoId, tipo: input.tipo, uploadedBy: acesso.user.uid } },
+      })
+    return { uploadId, uploadUrl, contentType }
+  } catch (err) {
+    console.error('[iniciarUploadAnexoAction]', err)
+    return { error: 'Erro ao preparar o envio do contrato.' }
+  }
+}
+
+export async function concluirUploadAnexoAction(input: {
+  veiculoId: string
+  tipo: TipoAnexo
+  uploadId: string
+  fileName: string
+}): Promise<Resultado & { anexo?: AnexoQuitacao }> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return acesso
+
+  const veiculoId = String(input?.veiculoId ?? '')
+  const uploadId = String(input?.uploadId ?? '')
+  const fileName = String(input?.fileName ?? '').slice(0, 200)
+  const ext = extensaoAnexo(fileName)
+  // Os ids viram caminho no Storage — nada de "/" ou "..".
+  if (!ID_RE.test(veiculoId) || !/^[A-Za-z0-9]+$/.test(uploadId) || !tipoValido(input?.tipo) || !ext) {
+    return { error: 'Dados inválidos.' }
+  }
+
+  const storagePath = anexoPath(veiculoId, input.tipo, uploadId, ext)
+  const fileRef = adminStorage.bucket().file(storagePath)
+  try {
+    const [existe] = await fileRef.exists()
+    if (!existe) return { error: 'O arquivo não chegou ao servidor. Tente de novo.' }
+
+    // Metadados vêm da sessão aberta no passo 1 — o navegador não os altera.
+    const [meta] = await fileRef.getMetadata()
+    const size = Number(meta.size)
+    if (meta.metadata?.uploadedBy !== acesso.user.uid) return { error: 'Acesso negado.' }
+    if (!Number.isFinite(size) || size <= 0 || size > ANEXO_TAMANHO_MAX) {
+      await fileRef.delete().catch(() => {})
+      return { error: 'Arquivo excede o limite de 10MB.' }
+    }
+
+    const ref = adminDb.collection(COL_ANEXOS).doc(anexoDocId(veiculoId, input.tipo))
+    const anterior = (await ref.get()).data()?.storagePath as string | undefined
+    const dados = {
+      veiculoId,
+      tipo: input.tipo,
+      fileName,
+      contentType: ANEXO_TIPOS[ext],
+      size,
+      storagePath,
+      uploadedByUid: acesso.user.uid,
+      uploadedAt: new Date().toISOString(),
+    }
+    await ref.set(dados)
+    if (anterior && anterior !== storagePath) {
+      await adminStorage.bucket().file(anterior).delete().catch(() => {})
+    }
+    revalidatePath('/dashboard/quitacoes')
+    return { success: 'Contrato anexado.', anexo: anexoSerialize(dados) }
+  } catch (err) {
+    console.error('[concluirUploadAnexoAction]', err)
+    return { error: 'Erro ao salvar o contrato.' }
+  }
+}
+
+export async function excluirAnexoAction(veiculoId: string, tipo: TipoAnexo): Promise<Resultado> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return { error: acesso.error }
+  if (!ID_RE.test(String(veiculoId ?? '')) || !tipoValido(tipo)) return { error: 'Dados inválidos.' }
+  const ref = adminDb.collection(COL_ANEXOS).doc(anexoDocId(veiculoId, tipo))
+  const doc = await ref.get()
+  if (!doc.exists) return { error: 'Contrato não encontrado.' }
+  const storagePath = doc.data()?.storagePath as string | undefined
+  if (storagePath) await adminStorage.bucket().file(storagePath).delete().catch(() => {})
+  await ref.delete()
+  revalidatePath('/dashboard/quitacoes')
+  return { success: 'Contrato removido.' }
+}
+
 /** Remove um veículo de terceiro junto com a ficha e o histórico de quitações dele. */
 export async function excluirVeiculoTerceiro(id: string): Promise<Resultado> {
   const acesso = await checarAcesso()
@@ -364,6 +520,12 @@ export async function excluirVeiculoTerceiro(id: string): Promise<Resultado> {
   const batch = adminDb.batch()
   historico.docs.forEach((d) => batch.delete(d.ref))
   batch.delete(adminDb.collection(COL_FICHAS).doc(id))
+  for (const t of TIPOS_ANEXO) {
+    const anexoRef = adminDb.collection(COL_ANEXOS).doc(anexoDocId(id, t.id))
+    const storagePath = (await anexoRef.get()).data()?.storagePath as string | undefined
+    if (storagePath) await adminStorage.bucket().file(storagePath).delete().catch(() => {})
+    batch.delete(anexoRef)
+  }
   batch.delete(ref)
   await batch.commit()
   revalidatePath('/dashboard/quitacoes')

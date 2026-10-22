@@ -8,10 +8,12 @@ import {
   IconCash,
   IconCheck,
   IconChevronDown,
+  IconFileText,
   IconListDetails,
   IconPencil,
   IconPlus,
   IconTrash,
+  IconUpload,
   IconUserEdit,
 } from '@tabler/icons-react'
 import {
@@ -29,16 +31,25 @@ import { formatCurrency, formatDate } from '@/utils/format'
 import { maskCPFCNPJ, maskMoney, moneyFromNumber, parseMoney } from '@/utils/masks'
 import {
   atualizarQuitacao,
+  concluirUploadAnexoAction,
   criarQuitacao,
   criarQuitacoesLote,
   criarVeiculoTerceiro,
   definirQuitado,
+  excluirAnexoAction,
   excluirQuitacao,
   excluirVeiculoTerceiro,
+  iniciarUploadAnexoAction,
   salvarFicha,
 } from './actions'
 import {
+  ANEXO_TAMANHO_MAX,
   QUITACAO_OBS_MAX,
+  TIPOS_ANEXO,
+  extensaoAnexo,
+  type AnexoQuitacao,
+  type AnexosPorVeiculo,
+  type TipoAnexo,
   type FichaQuitacao,
   type Quitacao,
   type VeiculoQuitacaoOpcao,
@@ -48,6 +59,7 @@ interface Props {
   quitacoes: Quitacao[]
   veiculos: VeiculoQuitacaoOpcao[]
   fichas: Record<string, FichaQuitacao>
+  anexos: AnexosPorVeiculo
   veiculoInicial: string
 }
 
@@ -85,7 +97,7 @@ function FotoVeiculo({ v }: { v: VeiculoQuitacaoOpcao | undefined }) {
   )
 }
 
-export default function QuitacoesClient({ quitacoes, veiculos, fichas, veiculoInicial }: Props) {
+export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, veiculoInicial }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [busca, setBusca] = useState('')
@@ -120,10 +132,11 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, veiculoIn
           const f = fichas[v.id]
           return casaBusca(busca, [v.marca, v.modelo, `${v.marca} ${v.modelo}`, v.placa, f?.nome, f?.cpf, f?.numeroContrato])
         })
-        // Não quitados primeiro; dentro de cada grupo, ordem alfabética.
+        // Não quitados primeiro; dentro de cada grupo, o cadastrado por último fica em cima.
         .sort(
           (a, b) =>
             Number(fichas[a.id]?.quitado === true) - Number(fichas[b.id]?.quitado === true) ||
+            b.criadoEm.localeCompare(a.criadoEm) ||
             nomeVeiculo(a).localeCompare(nomeVeiculo(b), 'pt-BR'),
         ),
     [veiculos, fichas, busca, situacao],
@@ -378,6 +391,8 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, veiculoIn
                       )}
                     </section>
 
+                    <AnexosSection veiculoId={v.id} anexos={anexos[v.id] ?? {}} />
+
                     <section>
                       <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-neutral-500">
                         Histórico de quitação
@@ -502,6 +517,138 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, veiculoIn
         loading={ocupado}
       />
     </div>
+  )
+}
+
+/** Os dois contratos do veículo (do cliente e de prestação de serviços), enviados direto ao Storage. */
+function AnexosSection({
+  veiculoId,
+  anexos,
+}: {
+  veiculoId: string
+  anexos: Partial<Record<TipoAnexo, AnexoQuitacao>>
+}) {
+  const router = useRouter()
+  const toast = useToast()
+  const [enviando, setEnviando] = useState<TipoAnexo | null>(null)
+  const [removendo, setRemovendo] = useState<TipoAnexo | null>(null)
+  const [confirmar, setConfirmar] = useState<TipoAnexo | null>(null)
+
+  async function enviar(tipo: TipoAnexo, arquivo: File) {
+    if (!extensaoAnexo(arquivo.name)) return void toast.error('Envie um PDF ou uma imagem (JPG, PNG ou WebP).')
+    if (arquivo.size > ANEXO_TAMANHO_MAX) return void toast.error('Arquivo excede o limite de 10MB.')
+    setEnviando(tipo)
+    try {
+      const inicio = await iniciarUploadAnexoAction({ veiculoId, tipo, fileName: arquivo.name, size: arquivo.size })
+      if ('error' in inicio) return void toast.error(inicio.error, 'Não foi possível anexar')
+      let res: Response
+      try {
+        res = await fetch(inicio.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': inicio.contentType },
+          body: arquivo,
+        })
+      } catch {
+        return void toast.error('Falha de conexão ao enviar o arquivo. Tente novamente.', 'Não foi possível anexar')
+      }
+      if (!res.ok) return void toast.error(`Falha ao enviar o arquivo (HTTP ${res.status}).`, 'Não foi possível anexar')
+      const fim = await concluirUploadAnexoAction({ veiculoId, tipo, uploadId: inicio.uploadId, fileName: arquivo.name })
+      if (fim.error) return void toast.error(fim.error, 'Não foi possível anexar')
+      toast.success(fim.success || 'Contrato anexado.')
+      router.refresh()
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  async function remover() {
+    if (!confirmar) return
+    const tipo = confirmar
+    setRemovendo(tipo)
+    try {
+      const res = await excluirAnexoAction(veiculoId, tipo)
+      if (res.error) toast.error(res.error, 'Não foi possível remover')
+      else {
+        toast.success(res.success || 'Contrato removido.')
+        router.refresh()
+      }
+    } finally {
+      setRemovendo(null)
+      setConfirmar(null)
+    }
+  }
+
+  return (
+    <section>
+      <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-neutral-500">Contratos anexados</h4>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {TIPOS_ANEXO.map(({ id, label }) => {
+          const anexo = anexos[id]
+          const ocupado = enviando === id || removendo === id
+          return (
+            <div key={id} className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3">
+              <p className="text-sm font-semibold text-neutral-700">{label}</p>
+              {anexo ? (
+                <a
+                  href={`/api/quitacoes/${veiculoId}/anexos/${id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 items-center gap-2 text-sm font-semibold text-liberty-deep hover:underline"
+                >
+                  <IconFileText size={16} stroke={2} className="shrink-0" />
+                  <span className="truncate">{anexo.fileName}</span>
+                </a>
+              ) : (
+                <p className="text-sm text-neutral-500">Nenhum arquivo anexado.</p>
+              )}
+              <div className="flex gap-2">
+                <label
+                  className={
+                    'inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 ' +
+                    (ocupado ? 'opacity-50' : 'cursor-pointer hover:bg-neutral-50')
+                  }
+                >
+                  <IconUpload size={14} stroke={2.5} />
+                  {enviando === id ? 'Enviando...' : anexo ? 'Substituir' : 'Anexar'}
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"
+                    className="sr-only"
+                    disabled={ocupado}
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0]
+                      e.target.value = ''
+                      if (arquivo) void enviar(id, arquivo)
+                    }}
+                  />
+                </label>
+                {anexo && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmar(id)}
+                    disabled={ocupado}
+                    aria-label={`Remover ${label.toLowerCase()}`}
+                    className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                  >
+                    <IconTrash size={14} stroke={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <ConfirmDialog
+        open={confirmar != null}
+        onClose={() => !removendo && setConfirmar(null)}
+        onConfirm={remover}
+        title="Remover contrato anexado?"
+        description="O arquivo é apagado. Você pode anexar outro depois."
+        confirmLabel="Remover"
+        tone="danger"
+        loading={removendo != null}
+      />
+    </section>
   )
 }
 
