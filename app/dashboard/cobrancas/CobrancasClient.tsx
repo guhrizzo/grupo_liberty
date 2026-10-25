@@ -3048,20 +3048,6 @@ function NovaCobrancaModal({
             </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {tipo === 'promissoria' && (
-                <Input
-                  id="diaVencimento"
-                  label="Dia do Vencimento"
-                  type="number"
-                  min="1"
-                  max="31"
-                  value={diaVencimento}
-                  onChange={(e) => setDiaVencimento(e.target.value)}
-                  leftIcon={<IconHash size={14} />}
-                  hint="Para cobranças mensais."
-                  required
-                />
-              )}
               <Input
                 id="primeiraParcela"
                 label={labelPrimeiraParcela(tipo)}
@@ -3069,6 +3055,7 @@ function NovaCobrancaModal({
                 value={primeiraParcela}
                 onChange={(e) => setPrimeiraParcela(e.target.value)}
                 leftIcon={<IconCalendar size={14} />}
+                hint={tipo === 'promissoria' ? 'As demais parcelas vencem no mesmo dia dos meses seguintes.' : undefined}
                 required
               />
             </div>

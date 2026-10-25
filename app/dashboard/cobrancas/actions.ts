@@ -524,7 +524,7 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
       valorTotal,
       valorEntrada: valorEntrada > 0 ? valorEntrada : null,
       numeroParcelas,
-      diaVencimento,
+      diaVencimento: new Date(primeiraParcela + 'T12:00:00').getDate(),
       tipo,
       diasAvisoAntecedencia,
       avisarAtraso,
@@ -557,7 +557,8 @@ export async function criarCobranca(formData: FormData): Promise<CobrancaRespons
         const ano = baseDate.getFullYear() + Math.floor(alvoMes / 12)
         const mes = ((alvoMes % 12) + 12) % 12
         const ultimoDia = new Date(ano, mes + 1, 0).getDate()
-        const dia = Math.min(Math.max(diaVencimento, 1), ultimoDia)
+        // O dia vem da data da 1ª parcela, para a 1ª vencer exatamente na data escolhida.
+        const dia = Math.min(Math.max(baseDate.getDate(), 1), ultimoDia)
         dataVencimento = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`
       }
 
