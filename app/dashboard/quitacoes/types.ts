@@ -22,6 +22,8 @@ export interface VeiculoQuitacaoOpcao {
   foto: string | null
   /** Veículo de fora (cliente que contratou o serviço), cadastrado só para negociar a quitação. */
   terceiro: boolean
+  /** Quando entrou no sistema (ISO) — ordena a lista, o mais novo em cima. */
+  criadoEm: string
   /** Dados já cadastrados no veículo, usados como sugestão ao preencher a ficha. */
   sugestao: {
     nome: string | null
@@ -81,6 +83,40 @@ export interface QuitacaoLoteInput {
 export interface UltimaQuitacao {
   valor: number
   data: string
+}
+
+/** Os dois contratos que ficam anexados ao veículo na aba Quitações. */
+export type TipoAnexo = 'cliente' | 'servicos'
+
+export const TIPOS_ANEXO: { id: TipoAnexo; label: string }[] = [
+  { id: 'cliente', label: 'Contrato do cliente' },
+  { id: 'servicos', label: 'Contrato de prestação de serviços' },
+]
+
+export interface AnexoQuitacao {
+  veiculoId: string
+  tipo: TipoAnexo
+  fileName: string
+  size: number
+  uploadedAt: string
+}
+
+export type AnexosPorVeiculo = Record<string, Partial<Record<TipoAnexo, AnexoQuitacao>>>
+
+/** Extensões aceitas → content-type. */
+export const ANEXO_TIPOS: Record<string, string> = {
+  pdf: 'application/pdf',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+export const ANEXO_TAMANHO_MAX = 10 * 1024 * 1024
+
+export function extensaoAnexo(fileName: string): string | null {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? ''
+  return ext in ANEXO_TIPOS ? ext : null
 }
 
 export const QUITACAO_OBS_MAX = 300

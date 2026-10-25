@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
-import { listarFichas, listarQuitacoes, listarVeiculosParaQuitacao } from './actions'
+import { listarAnexos, listarFichas, listarQuitacoes, listarVeiculosParaQuitacao } from './actions'
 import QuitacoesClient from './QuitacoesClient'
 
 export const metadata = {
@@ -23,10 +23,11 @@ export default async function QuitacoesPage({
   }
 
   const { veiculo } = await searchParams
-  const [quitacoes, veiculos, fichas] = await Promise.all([
+  const [quitacoes, veiculos, fichas, anexos] = await Promise.all([
     listarQuitacoes(),
     listarVeiculosParaQuitacao(),
     listarFichas(),
+    listarAnexos(),
   ])
 
   return (
@@ -41,7 +42,7 @@ export default async function QuitacoesPage({
         </p>
       </div>
 
-      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} veiculoInicial={veiculo ?? ''} />
+      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} anexos={anexos} veiculoInicial={veiculo ?? ''} />
     </div>
   )
 }

@@ -24,6 +24,27 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-10-23-cobrancas-vencimento-primeira-parcela',
+    date: '2026-10-23',
+    title: 'Cobranças: 1ª parcela vence na data escolhida',
+    tag: 'correcao',
+    items: [
+      'Ao criar uma cobrança mensal, a 1ª parcela às vezes vencia no dia 1º em vez da data escolhida (ex.: escolhia dia 25 e o vencimento saía 01). O sistema usava o campo "Dia do Vencimento", que vinha preenchido com 1, e ignorava a data da 1ª parcela.',
+      'Agora o campo "Dia do Vencimento" foi removido: a 1ª parcela vence na data informada e as demais no mesmo dia dos meses seguintes.',
+      'Cobranças já criadas não mudam — se alguma ficou com a data errada, edite o vencimento da parcela.',
+    ],
+  },
+  {
+    id: '2026-10-21-quitacoes-contratos-ordem',
+    date: '2026-10-21',
+    title: 'Quitações: contratos anexados e ordem por cadastro',
+    tag: 'melhoria',
+    items: [
+      'Cada veículo da aba Quitações agora guarda o contrato do cliente e o contrato de prestação de serviços (PDF ou imagem).',
+      'Os veículos mais recentes aparecem em cima, em vez da ordem alfabética.',
+    ],
+  },
+  {
     id: '2026-10-16-quitacoes-por-veiculo',
     date: '2026-10-16',
     title: 'Quitações reorganizada por veículo',
