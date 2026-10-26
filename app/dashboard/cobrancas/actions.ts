@@ -28,7 +28,7 @@ import {
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export type TipoCobranca = 'aluguel' | 'promissoria' | 'quinzenal'
-export type StatusParcela = 'pendente' | 'parcial' | 'pago' | 'atrasado'
+export type StatusParcela = 'pendente' | 'parcial' | 'pago' | 'atrasado' | 'suspensa'
 
 export interface Pagamento {
   id: string
@@ -91,6 +91,11 @@ export interface Parcela {
   valorEditadoPor: string | null // nome de quem fez a alteração
   valorEditadoMotivo: string | null // motivo informado (opcional)
   valorEditadoEm: string | null // data/hora da última edição
+  /**
+   * Suspensa pelo encerramento do contrato: não gera cobrança, atraso, multa,
+   * juros nem lembrete. `valorRestante` é 0 enquanto estiver suspensa.
+   */
+  suspensa: boolean
 }
 
 export interface Cobranca {
@@ -122,7 +127,17 @@ export interface Cobranca {
   /** Preenchido quando a cobrança está na lixeira (ISO 8601). */
   excluidaEm: string | null
   excluidaPor: string | null
+  /** Contrato encerrado (ex.: veículo devolvido) — parcelas futuras suspensas. */
+  encerrada: EncerramentoCobranca | null
   parcelas: Parcela[]
+}
+
+export interface EncerramentoCobranca {
+  em: string // ISO 8601 — quando foi registrado
+  data: string // YYYY-MM-DD — data do encerramento/devolução
+  motivo: string
+  por: string
+  parcelasSuspensas: number
 }
 
 /**
@@ -224,8 +239,10 @@ function computeStatus(
   dataVencimento: string,
   valorPago: number,
   calculo: ResultadoEncargos,
+  suspensa: boolean,
 ): StatusParcela {
   if (calculo.totalDevido <= EPSILON) return 'pago'
+  if (suspensa) return 'suspensa'
   if (diasEntre(dataVencimento, hojeSaoPaulo()) > 0) return 'atrasado'
   if (valorPago > 0) return 'parcial'
   return 'pendente'
@@ -261,8 +278,9 @@ function serializeParcela(
       return d ? { ...p, paraEncargos: d.paraEncargos, paraPrincipal: d.paraPrincipal } : p
     })
   const valorPago = round2(pagamentosOrdenados.reduce((s, p) => s + p.valor, 0))
-  const status = computeStatus(data.dataVencimento, valorPago, calculo)
-  const temEncargos = calculo.multa + calculo.juros > EPSILON
+  const suspensa = Boolean(data.suspensa)
+  const status = computeStatus(data.dataVencimento, valorPago, calculo, suspensa)
+  const temEncargos = !suspensa && calculo.multa + calculo.juros > EPSILON
   return {
     id,
     cobrancaId: data.cobrancaId,
@@ -276,8 +294,8 @@ function serializeParcela(
         ? pagamentosOrdenados[pagamentosOrdenados.length - 1].data
         : null,
     valorPago,
-    valorRestante: calculo.totalDevido,
-    principalRestante: calculo.principalRestante,
+    valorRestante: suspensa ? 0 : calculo.totalDevido,
+    principalRestante: suspensa ? 0 : calculo.principalRestante,
     encargos: temEncargos
       ? {
           multa: calculo.multa,
@@ -302,6 +320,7 @@ function serializeParcela(
     valorEditadoPor: data.valorEditadoPor ?? null,
     valorEditadoMotivo: data.valorEditadoMotivo ?? null,
     valorEditadoEm: data.valorEditadoEm ?? null,
+    suspensa,
   }
 }
 
@@ -442,6 +461,7 @@ async function carregarCobrancas(excluidas: boolean): Promise<Cobranca[]> {
       criadoPorUid: data.criadoPorUid ?? null,
       excluidaEm: data.excluidaEm ?? null,
       excluidaPor: data.excluidaPor ?? null,
+      encerrada: data.encerrada ? (data.encerrada as EncerramentoCobranca) : null,
       parcelas: parcelasPorCobranca.get(doc.id) ?? [],
     }
   })
@@ -798,6 +818,7 @@ export async function enviarEmailCobranca(cobrancaId: string): Promise<CobrancaR
 
     for (const parcelaDoc of parcelasSnap.docs) {
       const parcela = parcelaDoc.data()
+      if (parcela.suspensa) continue // contrato encerrado
       const calculo = calcularParcela(parcela, taxas, pagamentosPorParcela.get(parcelaDoc.id) ?? [], hoje)
       if (calculo.totalDevido <= EPSILON) continue // já quitada
 
@@ -1453,5 +1474,116 @@ export async function restaurarCobranca(cobrancaId: string): Promise<CobrancaRes
   } catch (err: any) {
     console.error('[restaurarCobranca]', err)
     return { error: 'Erro ao restaurar cobrança.' }
+  }
+}
+
+/**
+ * Encerra o contrato (ex.: cliente devolveu o veículo): suspende as parcelas
+ * que ainda não venceram e não foram quitadas, para que não gerem cobrança,
+ * atraso, multa, juros nem lembrete. Parcelas pagas e parcelas já vencidas
+ * (em atraso ou vencendo hoje) não são alteradas — pagamentos e receitas no
+ * financeiro ficam intactos. Reversível por `reabrirCobranca`.
+ */
+export async function encerrarCobranca(
+  cobrancaId: string,
+  data: string,
+  motivo: string,
+): Promise<CobrancaResponse> {
+  let nome = ''
+  try {
+    const user = await assertAuthorized()
+    nome = user.name || user.email || 'Usuário'
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+    const motivoLimpo = (motivo || '').trim()
+    if (!motivoLimpo) return { error: 'Informe o motivo do encerramento.' }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data || '')) return { error: 'Informe a data do encerramento.' }
+
+    const cobrancaRef = adminDb.collection('cobrancas').doc(cobrancaId)
+    const cobrancaDoc = await cobrancaRef.get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    const cobranca = cobrancaDoc.data()!
+    if (cobranca.excluidaEm) return { error: 'Esta cobrança está na lixeira.' }
+    if (cobranca.encerrada) return { error: 'Este contrato já está encerrado.' }
+
+    const taxas = taxasDaCobranca(cobranca)
+    const [parcelasSnap, pagamentosSnap] = await Promise.all([
+      adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get(),
+      adminDb.collection('cobranca_pagamentos').where('cobrancaId', '==', cobrancaId).get(),
+    ])
+    const pagamentosPorParcela = agruparPagamentosPorParcela(pagamentosSnap)
+    const hoje = hojeSaoPaulo()
+
+    const batch = adminDb.batch()
+    let suspensas = 0
+    for (const doc of parcelasSnap.docs) {
+      const p = doc.data()
+      if (p.suspensa) continue
+      if (p.dataVencimento <= hoje) continue // já venceu (ou vence hoje): continua devida
+      const calculo = calcularParcela(p, taxas, pagamentosPorParcela.get(doc.id) ?? [])
+      if (calculo.totalDevido <= EPSILON) continue // já quitada
+      batch.update(doc.ref, { suspensa: true })
+      suspensas++
+    }
+    if (suspensas === 0) {
+      return { error: 'Não há parcelas a vencer para suspender neste contrato.' }
+    }
+
+    const encerrada: EncerramentoCobranca = {
+      em: new Date().toISOString(),
+      data,
+      motivo: motivoLimpo,
+      por: nome,
+      parcelasSuspensas: suspensas,
+    }
+    batch.update(cobrancaRef, { encerrada })
+    await batch.commit()
+
+    revalidatePath('/dashboard/cobrancas')
+    return {
+      success: `Contrato encerrado — ${suspensas} parcela${suspensas === 1 ? '' : 's'} suspensa${suspensas === 1 ? '' : 's'}.`,
+    }
+  } catch (err) {
+    console.error('[encerrarCobranca]', err)
+    return { error: 'Erro ao encerrar o contrato.' }
+  }
+}
+
+/** Desfaz o encerramento: as parcelas suspensas voltam a cobrar normalmente. */
+export async function reabrirCobranca(cobrancaId: string): Promise<CobrancaResponse> {
+  try {
+    await assertAuthorized()
+  } catch (err: unknown) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+
+  try {
+    if (!cobrancaId) return { error: 'Cobrança inválida.' }
+    const cobrancaRef = adminDb.collection('cobrancas').doc(cobrancaId)
+    const cobrancaDoc = await cobrancaRef.get()
+    if (!cobrancaDoc.exists) return { error: 'Cobrança não encontrada.' }
+    if (!cobrancaDoc.data()?.encerrada) return { error: 'Este contrato não está encerrado.' }
+
+    const parcelasSnap = await adminDb
+      .collection('cobranca_parcelas')
+      .where('cobrancaId', '==', cobrancaId)
+      .get()
+
+    const batch = adminDb.batch()
+    for (const doc of parcelasSnap.docs) {
+      if (doc.data().suspensa) batch.update(doc.ref, { suspensa: false })
+    }
+    batch.update(cobrancaRef, { encerrada: null })
+    await batch.commit()
+
+    revalidatePath('/dashboard/cobrancas')
+    return { success: 'Contrato reaberto — as parcelas suspensas voltaram a cobrar.' }
+  } catch (err) {
+    console.error('[reabrirCobranca]', err)
+    return { error: 'Erro ao reabrir o contrato.' }
   }
 }

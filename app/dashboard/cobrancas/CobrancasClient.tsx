@@ -35,6 +35,8 @@ import {
   IconEdit,
   IconHistory,
   IconPercentage,
+  IconArrowBackUp,
+  IconPlayerPause,
 } from '@tabler/icons-react'
 import {
   Breadcrumb,
@@ -55,6 +57,8 @@ import {
   removerPagamento,
   resetParcela,
   deletarCobranca,
+  encerrarCobranca,
+  reabrirCobranca,
   restaurarCobranca,
   atualizarLembrete,
   editarCobranca,
@@ -108,14 +112,22 @@ function mesLabel(anoMes: string): string {
   return data.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
 }
 
-/** Cobrança quite = todas as parcelas já pagas (fila terminada). */
+/** Cobrança quite = todas as parcelas já pagas ou suspensas (fila terminada). */
 function isCobrancaQuite(c: Cobranca): boolean {
-  return c.parcelas.length > 0 && c.parcelas.every((p) => p.pago)
+  return c.parcelas.length > 0 && c.parcelas.every((p) => p.pago || p.suspensa)
+}
+
+/** Valor do contrato sem as parcelas suspensas pelo encerramento. */
+function valorContratoAtivo(c: Cobranca): number {
+  return c.parcelas.reduce(
+    (a, p) => a + (p.suspensa ? -p.valorParcela : 0),
+    c.valorTotal,
+  )
 }
 
 /** Parcela em aberto com o vencimento mais próximo (a mesma que o envio de e-mail alveja). */
 function getParcelaMaisUrgente(c: Cobranca): Parcela | null {
-  const abertas = c.parcelas.filter((p) => !p.pago)
+  const abertas = c.parcelas.filter((p) => !p.pago && !p.suspensa)
   if (abertas.length === 0) return null
   return abertas.reduce((min, p) => (p.dataVencimento < min.dataVencimento ? p : min))
 }
@@ -189,6 +201,13 @@ function StatusBadge({ status }: { status: Parcela['status'] }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sky-700">
         <IconCoin size={10} stroke={2.5} /> Parcial
+      </span>
+    )
+  }
+  if (status === 'suspensa') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neutral-600">
+        <IconPlayerPause size={10} stroke={2.5} /> Suspensa
       </span>
     )
   }
@@ -266,6 +285,10 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showVeiculoPicker, setShowVeiculoPicker] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [encerrarId, setEncerrarId] = useState<string | null>(null)
+  const [encerrarData, setEncerrarData] = useState('')
+  const [encerrarMotivo, setEncerrarMotivo] = useState('')
+  const [reabrirId, setReabrirId] = useState<string | null>(null)
   const [showLixeira, setShowLixeira] = useState(false)
   const [restaurandoId, setRestaurandoId] = useState<string | null>(null)
   const [expandedMes, setExpandedMes] = useState<string | null>(null)
@@ -292,7 +315,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
   // Filtros da lista
   const [search, setSearch] = useState('')
   const [filterTipo, setFilterTipo] = useState<'todos' | TipoCobranca>('todos')
-  const [filterStatus, setFilterStatus] = useState<'todas' | 'em-dia' | 'atrasadas' | 'quites'>('todas')
+  const [filterStatus, setFilterStatus] = useState<'todas' | 'em-dia' | 'atrasadas' | 'quites' | 'encerradas'>('todas')
 
   // Form
   const [clienteNome, setClienteNome] = useState('')
@@ -331,7 +354,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
     [todasParcelas],
   )
   const totalGeral = useMemo(
-    () => cobrancas.reduce((a, c) => a + c.valorTotal, 0),
+    () => cobrancas.reduce((a, c) => a + valorContratoAtivo(c), 0),
     [cobrancas],
   )
   const totalPagoGeral = useMemo(
@@ -354,7 +377,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
     const limite = new Date(hoje)
     limite.setDate(limite.getDate() + 7)
     return todasParcelas
-      .filter((p) => !p.pago && p.status !== 'atrasado')
+      .filter((p) => !p.pago && !p.suspensa && p.status !== 'atrasado')
       .filter((p) => {
         const venc = new Date(p.dataVencimento + 'T00:00:00')
         return venc >= hoje && venc <= limite
@@ -390,9 +413,10 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
     if (filterStatus !== 'todas') {
       out = out.filter((c) => {
         const hasAtrasada = c.parcelas.some((p) => p.status === 'atrasado')
-        const allPagas = c.parcelas.length > 0 && c.parcelas.every((p) => p.pago)
+        const allPagas = isCobrancaQuite(c)
         if (filterStatus === 'atrasadas') return hasAtrasada
-        if (filterStatus === 'quites') return allPagas
+        if (filterStatus === 'quites') return allPagas && !c.encerrada
+        if (filterStatus === 'encerradas') return Boolean(c.encerrada)
         if (filterStatus === 'em-dia') return !hasAtrasada && !allPagas
         return true
       })
@@ -877,6 +901,39 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
     })
   }, [deleteId, cobrancas, router, toast])
 
+  const handleEncerrar = useCallback(async () => {
+    if (!encerrarId) return
+    const id = encerrarId
+    startTransition(async () => {
+      const result = await encerrarCobranca(id, encerrarData, encerrarMotivo)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(result.success || 'Contrato encerrado.')
+        setEncerrarId(null)
+        router.refresh()
+      }
+    })
+  }, [encerrarId, encerrarData, encerrarMotivo, router, toast])
+
+  const handleReabrir = useCallback(async () => {
+    if (!reabrirId) return
+    const id = reabrirId
+    startTransition(async () => {
+      const result = await reabrirCobranca(id)
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(result.success || 'Contrato reaberto.')
+        setReabrirId(null)
+        router.refresh()
+      }
+    })
+  }, [reabrirId, router, toast])
+
+  const cobrancaParaEncerrar = encerrarId ? cobrancas.find((c) => c.id === encerrarId) : null
+  const cobrancaParaReabrir = reabrirId ? cobrancas.find((c) => c.id === reabrirId) : null
+
   const cobrancaParaExcluir = deleteId ? cobrancas.find((c) => c.id === deleteId) : null
 
   const handleRestaurar = useCallback(
@@ -1024,7 +1081,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
           value={formatCurrency(totalPendente)}
           icon={IconClock}
           tone="warning"
-          hint={`${todasParcelas.filter((p) => !p.pago).length} parcelas pendentes`}
+          hint={`${todasParcelas.filter((p) => !p.pago && !p.suspensa).length} parcelas pendentes`}
         />
         <KpiCard
           label="Em atraso"
@@ -1159,6 +1216,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
                 { id: 'em-dia', label: 'Em dia' },
                 { id: 'atrasadas', label: 'Atrasadas' },
                 { id: 'quites', label: 'Quites' },
+                { id: 'encerradas', label: 'Encerradas' },
               ] as const
             ).map((opt) => (
               <button
@@ -1209,7 +1267,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
             ...(filterStatus !== 'todas'
               ? [{
                   id: 'status',
-                  label: `Situação: ${{ 'em-dia': 'Em dia', atrasadas: 'Atrasadas', quites: 'Quites' }[filterStatus] ?? filterStatus}`,
+                  label: `Situação: ${{ 'em-dia': 'Em dia', atrasadas: 'Atrasadas', quites: 'Quites', encerradas: 'Encerradas' }[filterStatus] ?? filterStatus}`,
                   onRemove: () => setFilterStatus('todas'),
                 }]
               : []),
@@ -1265,6 +1323,12 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
                 isExpanded={expandedId === c.id}
                 onToggleExpand={() => setExpandedId((curr) => (curr === c.id ? null : c.id))}
                 onRequestDelete={() => setDeleteId(c.id)}
+                onRequestEncerrar={() => {
+                  setEncerrarId(c.id)
+                  setEncerrarData(hojeNoFuso())
+                  setEncerrarMotivo('Veículo devolvido pelo cliente')
+                }}
+                onReabrir={() => setReabrirId(c.id)}
                 onEditarLembrete={handleAbrirLembrete}
                 onToggleSino={handleToggleSino}
                 onEditar={handleAbrirEditar}
@@ -1609,6 +1673,142 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
         />
       )}
 
+      {/* Encerrar contrato (veículo devolvido) */}
+      {cobrancaParaEncerrar && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setEncerrarId(null)
+            }}
+          >
+            <div className="w-full max-w-md rounded-t-2xl bg-white shadow-2xl border border-neutral-200 overflow-hidden sm:rounded-2xl">
+              <div className="flex items-start gap-3 border-b border-neutral-100 bg-neutral-50 px-5 py-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-200 text-neutral-700">
+                  <IconPlayerPause size={20} stroke={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-bold text-neutral-950">Encerrar contrato</h3>
+                  <p className="mt-0.5 text-xs text-neutral-500">
+                    {cobrancaParaEncerrar.clienteNome} · {cobrancaParaEncerrar.veiculoResumo}
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-3 px-5 py-4">
+                {(() => {
+                  const hoje = hojeNoFuso()
+                  const aSuspender = cobrancaParaEncerrar.parcelas.filter(
+                    (p) => !p.pago && !p.suspensa && p.dataVencimento > hoje,
+                  )
+                  const devidas = cobrancaParaEncerrar.parcelas.filter(
+                    (p) => !p.pago && !p.suspensa && p.dataVencimento <= hoje,
+                  )
+                  return (
+                    <div className="space-y-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700">
+                      <p>
+                        <strong>{aSuspender.length}</strong> parcela{aSuspender.length === 1 ? '' : 's'} a
+                        vencer ({formatCurrency(aSuspender.reduce((a, p) => a + p.principalRestante, 0))})
+                        ficam <strong>suspensas</strong>: sem cobrança, atraso, multa, juros nem e-mail.
+                      </p>
+                      <p>
+                        <strong>{devidas.length}</strong> parcela{devidas.length === 1 ? '' : 's'} já
+                        vencida{devidas.length === 1 ? '' : 's'} e não paga{devidas.length === 1 ? '' : 's'}{' '}
+                        continuam devidas. Parcelas pagas não mudam.
+                      </p>
+                    </div>
+                  )
+                })()}
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-500">
+                    Data da devolução / encerramento
+                  </label>
+                  <input
+                    type="date"
+                    value={encerrarData}
+                    onChange={(e) => setEncerrarData(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-500">
+                    Motivo
+                  </label>
+                  <textarea
+                    value={encerrarMotivo}
+                    onChange={(e) => setEncerrarMotivo(e.target.value)}
+                    rows={2}
+                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm"
+                  />
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  Dá para reabrir o contrato depois; as parcelas suspensas voltam a cobrar.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/40 px-5 py-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setEncerrarId(null)}
+                  className="flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEncerrar}
+                  disabled={isPending || !encerrarMotivo.trim() || !encerrarData}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-neutral-900 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-neutral-800 disabled:opacity-50 transition-ui cursor-pointer"
+                >
+                  {isPending ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlayerPause size={14} stroke={2.5} />}
+                  Encerrar contrato
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Reabrir contrato */}
+      {cobrancaParaReabrir && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setReabrirId(null)
+            }}
+          >
+            <div className="w-full max-w-md rounded-t-2xl bg-white shadow-2xl border border-neutral-200 overflow-hidden sm:rounded-2xl">
+              <div className="space-y-3 px-5 py-4">
+                <h3 className="text-base font-bold text-neutral-950">Reabrir contrato</h3>
+                <p className="text-xs text-neutral-700">
+                  Contrato de <strong>{cobrancaParaReabrir.clienteNome}</strong> encerrado em{' '}
+                  {cobrancaParaReabrir.encerrada ? formatDate(cobrancaParaReabrir.encerrada.data) : ''}.
+                  As parcelas suspensas voltam a cobrar normalmente (as que já venceram nesse período
+                  entram em atraso, com multa e juros).
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 border-t border-neutral-100 bg-neutral-50/40 px-5 py-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setReabrirId(null)}
+                  className="flex-1 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReabrir}
+                  disabled={isPending}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50 transition-ui cursor-pointer"
+                >
+                  {isPending ? <IconLoader2 size={14} className="animate-spin" /> : <IconArrowBackUp size={14} stroke={2.5} />}
+                  Reabrir contrato
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
       {/* Confirmação de exclusão — com nome do cliente */}
       {cobrancaParaExcluir && typeof document !== 'undefined' &&
         createPortal(
@@ -1872,6 +2072,8 @@ function CobrancaCard({
   isExpanded,
   onToggleExpand,
   onRequestDelete,
+  onRequestEncerrar,
+  onReabrir,
   onEditarLembrete,
   onToggleSino,
   onEditar,
@@ -1890,6 +2092,8 @@ function CobrancaCard({
   isExpanded: boolean
   onToggleExpand: () => void
   onRequestDelete: () => void
+  onRequestEncerrar: () => void
+  onReabrir: () => void
   onEditarLembrete: (cobranca: Cobranca) => void
   onToggleSino: (cobranca: Cobranca) => void
   onEditar: (cobranca: Cobranca) => void
@@ -1912,10 +2116,10 @@ function CobrancaCard({
   const temAtraso = c.parcelas.some((p) => p.status === 'atrasado')
   const encargosCobranca = c.parcelas.reduce((a, p) => a + encargosDaParcela(p), 0)
   // Progresso sobre o total devido (contrato + multa/juros gerados).
-  const devidoCobranca = c.valorTotal + encargosCobranca
+  const devidoCobranca = valorContratoAtivo(c) + encargosCobranca
   const percentual = devidoCobranca > 0 ? Math.min((totalPago / devidoCobranca) * 100, 100) : 0
   const proxVenc = c.parcelas
-    .filter((p) => !p.pago && p.status !== 'atrasado')
+    .filter((p) => !p.pago && !p.suspensa && p.status !== 'atrasado')
     .sort((a, b) => a.dataVencimento.localeCompare(b.dataVencimento))[0]
 
   return (
@@ -1945,6 +2149,12 @@ function CobrancaCard({
             <span className="truncate text-sm font-bold text-neutral-900 md:text-base">
               {c.clienteNome}
             </span>
+            {c.encerrada && (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-700">
+                <IconPlayerPause size={10} stroke={2.5} />
+                ENCERRADO
+              </span>
+            )}
             {temAtraso && (
               <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
@@ -1966,7 +2176,7 @@ function CobrancaCard({
             {formatCurrency(totalPago)}
           </p>
           <p className="text-[10px] text-neutral-500">
-            de {formatCurrency(c.valorTotal)}
+            de {formatCurrency(valorContratoAtivo(c))}
           </p>
           {encargosCobranca > 0.01 && (
             <p className="text-[10px] font-semibold text-rose-600">
@@ -2126,6 +2336,50 @@ function CobrancaCard({
               <IconPencil size={14} stroke={2} />
             </span>
           )}
+          {canEdit && c.encerrada && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onReabrir()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onReabrir()
+                }
+              }}
+              aria-label="Reabrir contrato"
+              title="Reabrir contrato — as parcelas suspensas voltam a cobrar"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+            >
+              <IconArrowBackUp size={15} stroke={2} />
+            </span>
+          )}
+          {canEdit && !c.encerrada && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRequestEncerrar()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  onRequestEncerrar()
+                }
+              }}
+              aria-label="Encerrar contrato"
+              title="Encerrar contrato (veículo devolvido) — suspende as parcelas a vencer"
+              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 transition-colors"
+            >
+              <IconCircleX size={15} stroke={2} />
+            </span>
+          )}
           {canEdit && (
             <span
               role="button"
@@ -2168,7 +2422,7 @@ function CobrancaCard({
             {formatCurrency(totalPago)}
           </p>
           <p className="text-[10px] text-neutral-500">
-            de {formatCurrency(c.valorTotal)}
+            de {formatCurrency(valorContratoAtivo(c))}
           </p>
           {encargosCobranca > 0.01 && (
             <p className="text-[10px] font-semibold text-rose-600">
@@ -2477,7 +2731,9 @@ function ParcelasList({
               className={`flex items-center gap-3 px-4 py-3 ${
                 p.pago
                   ? 'bg-emerald-50/30'
-                  : p.status === 'atrasado'
+                  : p.suspensa
+                    ? 'bg-neutral-50 opacity-70'
+                    : p.status === 'atrasado'
                     ? 'bg-rose-50/30'
                     : p.status === 'parcial'
                       ? 'bg-sky-50/30'
@@ -2509,7 +2765,7 @@ function ParcelasList({
                 </div>
                 <p className="mt-0.5 text-[11px] text-neutral-500">
                   Vence {formatDate(p.dataVencimento)}
-                  {!p.pago && p.status !== 'atrasado' && dias >= 0 && (
+                  {!p.pago && !p.suspensa && p.status !== 'atrasado' && dias >= 0 && (
                     <span className="ml-1 font-semibold text-amber-600">
                       · em {dias} dia{dias === 1 ? '' : 's'}
                     </span>
@@ -2519,7 +2775,7 @@ function ParcelasList({
                       · {Math.abs(dias)} dia{Math.abs(dias) === 1 ? '' : 's'} atrasado
                     </span>
                   )}
-                  {!p.pago && p.valorPago > 0 && (
+                  {!p.pago && !p.suspensa && p.valorPago > 0 && (
                     <span className="ml-1 font-semibold text-sky-600">
                       · falta <FaltaTexto parcela={p} />
                     </span>
@@ -2589,7 +2845,7 @@ function ParcelasList({
                   </td>
                   <td className="px-5 py-3 text-neutral-600 align-top">
                     {formatDate(p.dataVencimento)}
-                    {!p.pago && p.status !== 'atrasado' && dias >= 0 && (
+                    {!p.pago && !p.suspensa && p.status !== 'atrasado' && dias >= 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-amber-600">
                         em {dias} dia{dias === 1 ? '' : 's'}
                       </p>
@@ -2619,7 +2875,7 @@ function ParcelasList({
                       <ParcelaValorEditadoBadge parcela={p} />
                       <EncargosIsentosBadge parcela={p} canEdit={canEdit} onClick={onIsentar} />
                     </div>
-                    {!p.pago && p.valorPago > 0 && (
+                    {!p.pago && !p.suspensa && p.valorPago > 0 && (
                       <p className="mt-0.5 text-[11px] font-semibold text-sky-600">
                         pago {formatCurrency(p.valorPago)} · falta <FaltaTexto parcela={p} />
                       </p>
@@ -2704,7 +2960,7 @@ function ExtratoMesDetalhes({
           <p className="text-base font-bold text-amber-600">
             {formatCurrency(
               parcelas
-                .filter((p) => !p.pago && p.status !== 'atrasado')
+                .filter((p) => !p.pago && !p.suspensa && p.status !== 'atrasado')
                 .reduce((a, p) => a + p.valorRestante, 0),
             )}
           </p>
@@ -2746,7 +3002,7 @@ function ExtratoMesDetalhes({
                   </p>
                   <p className="truncate text-[10px] text-neutral-500">
                     {formatDate(p.dataVencimento)} · {formatCurrency(p.valorParcela)}
-                    {!p.pago && p.valorPago > 0 && (
+                    {!p.pago && !p.suspensa && p.valorPago > 0 && (
                       <span className="ml-1 font-semibold text-sky-600">
                         · falta <FaltaTexto parcela={p} />
                       </span>
