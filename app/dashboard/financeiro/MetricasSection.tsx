@@ -37,6 +37,9 @@ const CARD =
   'rounded-2xl border border-neutral-200 bg-white shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2'
 
 const inteiro = (n: number) => n.toLocaleString('pt-BR')
+const dias = (n: number) => `${inteiro(n)} ${n === 1 ? 'dia' : 'dias'}`
+/** OTM do mês: média de dias em estoque dos veículos vendidos nele; nulo sem vendas. */
+const otm = (m: MetricasMes) => (m.vendidos > 0 ? Math.round(m.diasVendidos / m.vendidos) : null)
 
 /** Valor compacto para eixo: R$ 12 mil, R$ 1,2 mi. */
 function moedaCompacta(n: number) {
@@ -112,12 +115,13 @@ export default function MetricasSection({ metricas, cores }: { metricas: Metrica
       </div>
 
       {/* Mês atual vs anterior */}
-      <section aria-label={`Resumo de ${rotuloMes(atual.mes)}`} className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <section aria-label={`Resumo de ${rotuloMes(atual.mes)}`} className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         <Kpi rotulo="Faturamento" formatar={formatCurrency} atual={atual.faturamento} anterior={anterior?.faturamento} />
         <Kpi rotulo="Custos" formatar={formatCurrency} atual={atual.custos} anterior={anterior?.custos} />
         <Kpi rotulo="Lucro" formatar={formatCurrency} atual={atual.lucro} anterior={anterior?.lucro} />
         <Kpi rotulo="Veículos adquiridos" formatar={inteiro} atual={atual.veiculos} anterior={anterior?.veiculos} />
         <Kpi rotulo="Manutenções" formatar={inteiro} atual={atual.manutencoes} anterior={anterior?.manutencoes} />
+        <Kpi rotulo="Tempo médio de venda" formatar={dias} atual={otm(atual)} anterior={anterior ? otm(anterior) : undefined} />
       </section>
       <p className="-mt-2 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
         {rotuloMes(atual.mes)} (mês em aberto) comparado com {anterior ? rotuloMes(anterior.mes) : 'o mês anterior'}.
@@ -153,6 +157,15 @@ export default function MetricasSection({ metricas, cores }: { metricas: Metrica
             formatarEixo={inteiro}
             formatarValor={(n) => `${inteiro(n)} ${n === 1 ? 'veículo' : 'veículos'}`}
             extra={(m) => (m.veiculosValor > 0 ? `Aquisição: ${formatCurrency(m.veiculosValor)}` : null)}
+            inteiros
+          />
+          <Grafico
+            titulo="Tempo médio para vender (OTM)"
+            meses={meses}
+            series={[{ nome: 'Dias', cor: COR.faturamento, valor: (m) => otm(m) ?? 0 }]}
+            formatarEixo={inteiro}
+            formatarValor={dias}
+            extra={(m) => (m.vendidos > 0 ? `${inteiro(m.vendidos)} ${m.vendidos === 1 ? 'veículo vendido' : 'veículos vendidos'}` : 'Nenhuma venda')}
             inteiros
           />
           <Grafico
@@ -256,12 +269,13 @@ function Kpi({
 }: {
   rotulo: string
   formatar: (n: number) => string
-  atual: number
-  anterior?: number
+  /** Nulo = sem dados no mês (mostra "—"). */
+  atual: number | null
+  anterior?: number | null
 }) {
-  const valor = formatar(atual)
+  const valor = atual === null ? '—' : formatar(atual)
   let variacao: { icone: React.ReactNode; texto: string } | null = null
-  if (anterior !== undefined) {
+  if (atual !== null && anterior != null) {
     if (atual === anterior) variacao = { icone: <IconMinus size={12} stroke={2.5} />, texto: 'igual' }
     else if (anterior === 0) {
       variacao = { icone: <IconArrowUpRight size={12} stroke={2.5} />, texto: 'novo' }
@@ -284,7 +298,9 @@ function Kpi({
         </p>
       )}
       {anterior !== undefined && (
-        <p className="truncate text-[11px] text-neutral-400 adobe-dark:text-adobe-text-lo">Mês anterior: {formatar(anterior)}</p>
+        <p className="truncate text-[11px] text-neutral-400 adobe-dark:text-adobe-text-lo">
+          Mês anterior: {anterior === null ? '—' : formatar(anterior)}
+        </p>
       )}
     </div>
   )
@@ -469,7 +485,7 @@ function TabelaMetricas({ meses }: { meses: MetricasMes[] }) {
   const TD = 'px-3 py-2 text-right tabular-nums text-neutral-800 adobe-dark:text-adobe-text-hi'
   return (
     <div className={CARD + ' overflow-x-auto'}>
-      <table className="w-full min-w-[720px] text-xs">
+      <table className="w-full min-w-[860px] text-xs">
         <thead className="border-b border-neutral-200 adobe-dark:border-adobe-line">
           <tr>
             <th className={TH + ' text-left'}>Mês</th>
@@ -480,6 +496,8 @@ function TabelaMetricas({ meses }: { meses: MetricasMes[] }) {
             <th className={TH}>Aquisição</th>
             <th className={TH}>Manutenções</th>
             <th className={TH}>Gasto manut.</th>
+            <th className={TH}>Vendidos</th>
+            <th className={TH}>OTM</th>
           </tr>
         </thead>
         <tbody>
@@ -493,6 +511,8 @@ function TabelaMetricas({ meses }: { meses: MetricasMes[] }) {
               <td className={TD}>{formatCurrency(m.veiculosValor)}</td>
               <td className={TD}>{inteiro(m.manutencoes)}</td>
               <td className={TD}>{formatCurrency(m.manutencoesValor)}</td>
+              <td className={TD}>{inteiro(m.vendidos)}</td>
+              <td className={TD}>{otm(m) === null ? '—' : dias(otm(m)!)}</td>
             </tr>
           ))}
         </tbody>

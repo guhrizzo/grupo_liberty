@@ -39,6 +39,7 @@ import {
 } from '@/constants/debitos'
 import { quitacaoEstimada } from '@/utils/financing'
 import { parcelasAtrasoAtual } from '@/utils/veiculos/parcelas-atraso'
+import { diasEmEstoque } from '@/utils/veiculos/tempo-estoque'
 import { CUSTOS_EXTRAS } from '@/constants/custos'
 import {
   createVehicle,
@@ -197,6 +198,20 @@ function ParcelasAtrasoLinha({ v }: { v: Veiculo }) {
       {v.parcelasAtrasoEm && v.parcelasAtraso !== atual ? (
         <span> (eram {v.parcelasAtraso} em {formatDate(v.parcelasAtrasoEm)})</span>
       ) : null}
+    </p>
+  )
+}
+
+/** OTM do veículo: dias em estoque (entrada → hoje) ou, se vendido, entrada → venda. */
+function TempoEstoqueLinha({ v }: { v: Veiculo }) {
+  if (v.terceiro) return null
+  const dias = diasEmEstoque(v)
+  if (dias === null) return null
+  const texto = `${dias} ${dias === 1 ? 'dia' : 'dias'}`
+  return (
+    <p className="text-xs text-neutral-500">
+      {v.vendidoEm ? 'Vendido em' : 'Em estoque há'}{' '}
+      <span className="font-bold text-liberty-deep">{texto}</span>
     </p>
   )
 }
@@ -2704,6 +2719,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                         <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
 <ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
+                        <TempoEstoqueLinha v={v} />
                         <ParcelasAtrasoLinha v={v} />
                         <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
@@ -2847,6 +2863,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
 <ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
+                      <TempoEstoqueLinha v={v} />
                       <ParcelasAtrasoLinha v={v} />
                       <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>

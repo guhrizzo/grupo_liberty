@@ -25,6 +25,10 @@ export interface MetricasMes {
   /** Manutenções pagas (com baixa) no mês. */
   manutencoes: number
   manutencoesValor: number
+  /** Veículos da Liberty vendidos no mês (sem terceiros). */
+  vendidos: number
+  /** Soma dos dias em estoque (entrada → venda) desses veículos; a média é o OTM. */
+  diasVendidos: number
 }
 
 /** Cores escolhidas pelo ADM supremo (hex `#rrggbb`); ausente = cor padrão. */
