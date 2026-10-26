@@ -5,6 +5,8 @@ import { logout } from '@/app/login/actions'
 import DashboardShell from '@/app/components/DashboardShell'
 import { ChangelogModal } from '@/app/components/ChangelogModal'
 import { temAcessoPagina } from '@/constants/permissoes'
+import SinoPendencias from '@/app/components/SinoPendencias'
+import { getPendencias } from '@/utils/pendencias/listar'
 
 export default async function DashboardLayout({
   children,
@@ -79,6 +81,8 @@ export default async function DashboardLayout({
     console.error('[DashboardLayout] Erro ao buscar tarefas pendentes:', e)
   }
 
+  const pendencias = await getPendencias(role, permissions)
+
   return (
     <div className="min-h-screen bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
       <DashboardShell
@@ -93,6 +97,7 @@ export default async function DashboardLayout({
         ordemMenu={ordemMenu}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
+        <SinoPendencias pendencias={pendencias} />
         <div className="mx-auto max-w-7xl">{children}</div>
         <ChangelogModal />
       </main>
