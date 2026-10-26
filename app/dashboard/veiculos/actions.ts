@@ -204,6 +204,10 @@ export interface Veiculo {
   /** Débitos detalhados por categoria. Calcula o total que aparece em `debitos`. */
   debitosItens?: Array<{ chave: string; valor: number; label?: string | null }> | null
   parcelasRestantes: number | null
+  /** Parcelas em atraso no dia `parcelasAtrasoEm`; o valor atual vem de parcelasAtrasoAtual(). */
+  parcelasAtraso?: number | null
+  /** Data (YYYY-MM-DD) em que `parcelasAtraso` foi informado. */
+  parcelasAtrasoEm?: string | null
   // Financiamento — projeção de quitação
   /** Banco do financiamento (texto livre). Mantido por compat com cadastros antigos. */
   banco: string | null
@@ -261,6 +265,7 @@ export type VeiculoFieldErrors = {
   dataAquisicao?: string
   debitos?: string
   parcelasRestantes?: string
+  parcelasAtraso?: string
   taxaJuros?: string
   valorEntrada?: string
 }
@@ -361,6 +366,8 @@ export async function getVehicles(): Promise<Veiculo[]> {
             }>)
           : null,
         parcelasRestantes: data.parcelasRestantes ?? null,
+        parcelasAtraso: data.parcelasAtraso ?? null,
+        parcelasAtrasoEm: data.parcelasAtrasoEm ?? null,
         banco: data.banco || null,
         bancoCodigo: data.bancoCodigo || null,
         quitacaoPercent:
@@ -537,6 +544,16 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) + custosExtrasTotal || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  const parcelasAtrasoRaw = (formData.get('parcelasAtraso') as string) || ''
+  const parcelasAtraso = parcelasAtrasoRaw ? parseInt(parcelasAtrasoRaw, 10) : null
+  const parcelasAtrasoEmRaw = ((formData.get('parcelasAtrasoEm') as string) || '').trim()
+  // A data é a do preenchimento; se o cliente não mandar (ou mandar lixo), vale hoje.
+  const parcelasAtrasoEm =
+    parcelasAtraso === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(parcelasAtrasoEmRaw)
+        ? parcelasAtrasoEmRaw
+        : new Date().toISOString().slice(0, 10)
   // Financiamento — projeção de quitação
   const bancoRaw = ((formData.get('banco') as string) || '').trim()
   const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
@@ -644,6 +661,9 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   if (parcelasRestantes !== null && (Number.isNaN(parcelasRestantes) || parcelasRestantes < 0)) {
     fieldErrors.parcelasRestantes = 'Parcelas inválidas.'
   }
+  if (parcelasAtraso !== null && (Number.isNaN(parcelasAtraso) || parcelasAtraso < 0)) {
+    fieldErrors.parcelasAtraso = 'Parcelas em atraso inválidas.'
+  }
 
   if (taxaJuros !== null && (Number.isNaN(taxaJuros) || taxaJuros < 0 || taxaJuros > 50)) {
     fieldErrors.taxaJuros = 'Taxa de juros inválida (0 a 50%).'
@@ -702,6 +722,8 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       debitos,
       debitosItens,
       parcelasRestantes,
+      parcelasAtraso,
+      parcelasAtrasoEm,
       banco,
       bancoCodigo,
       quitacaoPercent,
@@ -853,6 +875,16 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   const custoEfetivoTotal = (debitos ?? 0) + (precoAquisicao ?? 0) + custosExtrasTotal || null
   const parcelasRestantesRaw = (formData.get('parcelasRestantes') as string) || ''
   const parcelasRestantes = parcelasRestantesRaw ? parseInt(parcelasRestantesRaw, 10) : null
+  const parcelasAtrasoRaw = (formData.get('parcelasAtraso') as string) || ''
+  const parcelasAtraso = parcelasAtrasoRaw ? parseInt(parcelasAtrasoRaw, 10) : null
+  const parcelasAtrasoEmRaw = ((formData.get('parcelasAtrasoEm') as string) || '').trim()
+  // A data é a do preenchimento; se o cliente não mandar (ou mandar lixo), vale hoje.
+  const parcelasAtrasoEm =
+    parcelasAtraso === null
+      ? null
+      : /^\d{4}-\d{2}-\d{2}$/.test(parcelasAtrasoEmRaw)
+        ? parcelasAtrasoEmRaw
+        : new Date().toISOString().slice(0, 10)
   // Financiamento — projeção de quitação
   const bancoRaw = ((formData.get('banco') as string) || '').trim()
   const bancoCodigoRaw = ((formData.get('bancoCodigo') as string) || '').trim().toLowerCase()
@@ -960,6 +992,9 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
   if (parcelasRestantes !== null && (Number.isNaN(parcelasRestantes) || parcelasRestantes < 0)) {
     fieldErrors.parcelasRestantes = 'Parcelas inválidas.'
   }
+  if (parcelasAtraso !== null && (Number.isNaN(parcelasAtraso) || parcelasAtraso < 0)) {
+    fieldErrors.parcelasAtraso = 'Parcelas em atraso inválidas.'
+  }
 
   if (taxaJuros !== null && (Number.isNaN(taxaJuros) || taxaJuros < 0 || taxaJuros > 50)) {
     fieldErrors.taxaJuros = 'Taxa de juros inválida (0 a 50%).'
@@ -1038,6 +1073,8 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       debitos,
       debitosItens,
       parcelasRestantes,
+      parcelasAtraso,
+      parcelasAtrasoEm,
       banco,
       bancoCodigo,
       quitacaoPercent,
