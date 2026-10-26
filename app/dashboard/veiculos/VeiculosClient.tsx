@@ -38,6 +38,7 @@ import {
   type DebitoItemDefinicao,
 } from '@/constants/debitos'
 import { quitacaoEstimada } from '@/utils/financing'
+import { parcelasAtrasoAtual } from '@/utils/veiculos/parcelas-atraso'
 import { CUSTOS_EXTRAS } from '@/constants/custos'
 import {
   createVehicle,
@@ -177,6 +178,25 @@ function QuitacaoEstimadaLinha({
       ) : (
         <span>informe banco (% desconto), valor da parcela e parcelas restantes</span>
       )}
+    </p>
+  )
+}
+
+/** Parcelas em atraso hoje: o valor informado no cadastro + 1 por mês que passou. */
+function ParcelasAtrasoLinha({ v }: { v: Veiculo }) {
+  const atual = parcelasAtrasoAtual({
+    base: v.parcelasAtraso,
+    informadoEm: v.parcelasAtrasoEm,
+    parcelasRestantes: v.parcelasRestantes,
+  })
+  if (atual == null) return null
+  return (
+    <p className="text-xs text-neutral-500">
+      Parcelas em atraso:{' '}
+      <span className={atual > 0 ? 'font-bold text-red-600' : 'font-bold text-liberty-deep'}>{atual}</span>
+      {v.parcelasAtrasoEm && v.parcelasAtraso !== atual ? (
+        <span> (eram {v.parcelasAtraso} em {formatDate(v.parcelasAtrasoEm)})</span>
+      ) : null}
     </p>
   )
 }
@@ -329,6 +349,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [bancoCnpjs, setBancoCnpjs] = useState('')
   const [valorEntrada, setValorEntrada] = useState('')
   const [parcelasRestantes, setParcelasRestantes] = useState('')
+  const [parcelasAtraso, setParcelasAtraso] = useState('')
+  // Dia em que o atraso foi informado: o sistema soma 1 por mês a partir dele.
+  const [parcelasAtrasoEm, setParcelasAtrasoEm] = useState('')
   const [valorParcela, setValorParcela] = useState('')
   const [custoAcumulado, setCustoAcumulado] = useState('')
   // Preço pago para adquirir o veículo. Valor interno de custo — não entra em
@@ -646,6 +669,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     setBancoCodigo('')
     setValorEntrada('')
     setParcelasRestantes('')
+    setParcelasAtraso('')
+    setParcelasAtrasoEm('')
     setValorParcela('')
     setCustoAcumulado('')
     setPrecoAquisicao('')
@@ -797,6 +822,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
         : '',
     )
     setParcelasRestantes(veiculo.parcelasRestantes !== null ? String(veiculo.parcelasRestantes) : '')
+    setParcelasAtraso(veiculo.parcelasAtraso != null ? String(veiculo.parcelasAtraso) : '')
+    setParcelasAtrasoEm(veiculo.parcelasAtrasoEm ?? '')
     setValorParcela(veiculo.valorParcela ? formatCurrency(veiculo.valorParcela).replace('R$', '').trim() : '')
     setCustoAcumulado(veiculo.custoAcumulado ? formatCurrency(veiculo.custoAcumulado).replace('R$', '').trim() : '')
     setPrecoAquisicao(
@@ -943,6 +970,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('bancoCnpjs', bancoCnpjs)
       formData.append('valorEntrada', valorEntrada ? String(parseMoney(valorEntrada) || 0) : '')
       formData.append('parcelasRestantes', parcelasRestantes)
+      formData.append('parcelasAtraso', parcelasAtraso)
+      formData.append('parcelasAtrasoEm', parcelasAtrasoEm)
       formData.append('valorParcela', valorParcela ? String(parseMoney(valorParcela) || 0) : '')
       formData.append('custoAcumulado', custoAcumulado ? String(parseMoney(custoAcumulado) || 0) : '')
       formData.append('precoAquisicao', precoAquisicao ? String(parseMoney(precoAquisicao) || 0) : '')
@@ -1783,6 +1812,26 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       placeholder="Ex: 24"
                       inputMode="numeric"
                       error={fieldErrors.parcelasRestantes}
+                    />
+
+                    <Input
+                      id="parcelasAtraso"
+                      label="Parcelas em atraso hoje"
+                      type="number"
+                      min="0"
+                      value={parcelasAtraso}
+                      onChange={(e) => {
+                        setParcelasAtraso(e.target.value)
+                        setParcelasAtrasoEm(new Date().toLocaleDateString('en-CA'))
+                      }}
+                      placeholder="Ex: 3"
+                      inputMode="numeric"
+                      error={fieldErrors.parcelasAtraso}
+                      hint={
+                        parcelasAtrasoEm
+                          ? `Informado em ${formatDate(parcelasAtrasoEm)}. O sistema soma 1 por mês a partir dessa data.`
+                          : 'O sistema soma 1 por mês a partir do dia do cadastro.'
+                      }
                     />
                   </div>
                 </div>
@@ -2655,6 +2704,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                         <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                         <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
 <ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
+                        <ParcelasAtrasoLinha v={v} />
                         <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                       </div>
                     </div>
@@ -2797,6 +2847,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       <BancoAcessoriaLinha banco={v.banco} telefones={v.telefonesAcessoria} />
                       <UltimaQuitacaoLinha veiculoId={v.id} quitacao={ultimasQuitacoes[v.id]} />
 <ResumoAbasLinha resumo={resumos[v.id]} seguro={seguros[v.id]} />
+                      <ParcelasAtrasoLinha v={v} />
                       <QuitacaoEstimadaLinha valorParcela={v.valorParcela} parcelasRestantes={v.parcelasRestantes} descontoPercent={v.descontoPercent} />
                     </div>
 
