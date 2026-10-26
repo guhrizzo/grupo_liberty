@@ -80,6 +80,7 @@ export async function processarLembretesCobranca(): Promise<ProcessarLembretesRe
 
     for (const parcelaDoc of parcelasSnap.docs) {
       const parcela = parcelaDoc.data()
+      if (parcela.suspensa) continue // contrato encerrado
       verificados++
 
       // Principal + multa/juros por atraso até hoje (0% em cobranças antigas).
