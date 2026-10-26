@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
 import { assertAlgumaAba, isAdmSupremo } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
-import { normalizarProspeccao } from './prospeccao-parse'
+import { chavesDuplicidade, normalizarProspeccao } from './prospeccao-parse'
 import { emailValido } from './prospeccao-proposta'
 import {
   OBSERVACAO_MAX,
@@ -144,11 +144,35 @@ export async function importarProspeccoes(
   if (validos.length === 0) return { error: 'Nenhuma linha com nome do executado.' }
 
   try {
+    // Não duplica leads: ignora linhas que já existem no cadastro ou que se
+    // repetem dentro da própria planilha.
+    const existentes = await adminDb.collection(COLLECTION).get()
+    const vistas = new Set<string>()
+    for (const d of existentes.docs) {
+      const reg = normalizarProspeccao({ ...d.data(), cpfCnpj: decryptOrRaw(d.data().cpfCnpj) })
+      chavesDuplicidade(reg).forEach((k) => vistas.add(k))
+    }
+    const novos = validos.filter((dados) => {
+      const chaves = chavesDuplicidade(dados)
+      if (chaves.some((k) => vistas.has(k))) return false
+      chaves.forEach((k) => vistas.add(k))
+      return true
+    })
+    const duplicados = validos.length - novos.length
+    if (novos.length === 0) {
+      return {
+        error:
+          validos.length === 1
+            ? 'Esse lead já está cadastrado.'
+            : `Todos os ${validos.length} leads já estão cadastrados.`,
+      }
+    }
+
     const batch = adminDb.batch()
     // Mantém a ordem da planilha na listagem (mais recente primeiro): cada
     // linha recebe um created_at 1ms menor que a anterior.
     const base = Date.now()
-    validos.forEach((dados, i) => {
+    novos.forEach((dados, i) => {
       const ts = new Date(base - i).toISOString()
       batch.set(adminDb.collection(COLLECTION).doc(), {
         ...paraGravar(dados),
@@ -160,8 +184,10 @@ export async function importarProspeccoes(
     await batch.commit()
     revalidar()
     return {
-      success: `${validos.length} registro(s) importado(s).`,
-      importados: validos.length,
+      success:
+        `${novos.length} registro(s) importado(s).` +
+        (duplicados ? ` ${duplicados} já cadastrado(s) foram ignorados.` : ''),
+      importados: novos.length,
     }
   } catch (error) {
     return { error: `Erro ao importar: ${erroMsg(error, 'erro inesperado')}` }

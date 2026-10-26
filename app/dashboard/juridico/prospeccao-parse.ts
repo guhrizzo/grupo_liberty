@@ -89,6 +89,28 @@ export function normalizarProspeccao(raw: Partial<Record<keyof ProspeccaoInput, 
 }
 
 /**
+ * Chaves que identificam um lead para detectar duplicidade na importação.
+ * Dois leads são o mesmo se compartilham qualquer chave: CPF/CNPJ, placa,
+ * processo + nome (um processo pode ter mais de um executado) ou, sem nenhum
+ * desses dados, nome + telefone.
+ */
+export function chavesDuplicidade(d: ProspeccaoInput): string[] {
+  const so = (s: string) => s.replace(/\W/g, '').toLowerCase()
+  const nome = normalizarCabecalho(d.nomeExecutado)
+  const chaves: string[] = []
+  const doc = d.cpfCnpj.replace(/\D/g, '')
+  if (doc.length >= 11) chaves.push(`doc:${doc}`)
+  const placa = so(d.placa)
+  if (placa.length >= 7) chaves.push(`placa:${placa}`)
+  const processo = so(d.numeroProcesso)
+  if (processo && nome) chaves.push(`proc:${processo}|${nome}`)
+  if (chaves.length === 0 && nome) {
+    chaves.push(`nome:${nome}|${d.telefone1.replace(/\D/g, '')}`)
+  }
+  return chaves
+}
+
+/**
  * Quebra o texto colado do Excel/Sheets em linhas e células. Segue o formato
  * que as planilhas usam na área de transferência: células separadas por TAB,
  * e célula com quebra de linha, TAB ou aspas vem entre aspas (aspas internas
