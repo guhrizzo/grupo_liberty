@@ -3,6 +3,7 @@
 import { adminDb } from '@/utils/firebase/admin'
 import { getSessionUser, isAdmSupremo } from '@/utils/permissions'
 import { isManutencaoBaixada, valorManutencao } from '@/app/dashboard/manutencao/types'
+import { diasEmEstoque } from '@/utils/veiculos/tempo-estoque'
 import { deslocarMes, intervaloDoMes, mesAtual } from './periodo'
 import {
   COR_HEX,
@@ -36,7 +37,18 @@ export async function getMetricas(periodoBruto: number): Promise<MetricasFinance
   const porMes = new Map<string, MetricasMes>(
     meses.map((mes) => [
       mes,
-      { mes, faturamento: 0, custos: 0, lucro: 0, veiculos: 0, veiculosValor: 0, manutencoes: 0, manutencoesValor: 0 },
+      {
+        mes,
+        faturamento: 0,
+        custos: 0,
+        lucro: 0,
+        veiculos: 0,
+        veiculosValor: 0,
+        manutencoes: 0,
+        manutencoesValor: 0,
+        vendidos: 0,
+        diasVendidos: 0,
+      },
     ]),
   )
   const inicio = intervaloDoMes(meses[0]).inicio
@@ -68,6 +80,17 @@ export async function getMetricas(periodoBruto: number): Promise<MetricasFinance
       if (!m) continue
       m.veiculos += 1
       m.veiculosValor += Number(v.precoAquisicao) || 0
+    }
+
+    // OTM: o veículo conta no mês da venda.
+    for (const doc of veiculos.docs) {
+      const v = doc.data()
+      if (v.terceiro === true || !v.vendidoEm) continue
+      const m = porMes.get(mesDe(v.vendidoEm) ?? '')
+      const dias = diasEmEstoque({ dataAquisicao: v.dataAquisicao, created_at: v.created_at, vendidoEm: v.vendidoEm })
+      if (!m || dias === null) continue
+      m.vendidos += 1
+      m.diasVendidos += dias
     }
 
     for (const doc of manutencoes.docs) {
