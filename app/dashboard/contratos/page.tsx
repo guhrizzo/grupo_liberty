@@ -6,6 +6,8 @@ import { listarTodosContratosVeiculoAction } from '@/app/veiculos/[id]/actions'
 import { listarCategoriasContrato } from './categorias.actions'
 import { listarModelosContrato } from './modelos/actions'
 import ModelosContratoSection from './modelos/ModelosContratoSection'
+import GerarContratoSection, { type VeiculoParaContrato } from './gerar/GerarContratoSection'
+import { parcelasAtrasoAtual } from '@/utils/veiculos/parcelas-atraso'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +31,23 @@ export default async function ContratosPage() {
     ano: v.ano,
     placa: v.placa ?? '',
     preco: v.preco,
+  }))
+
+  const veiculosGerar: VeiculoParaContrato[] = veiculosList.map((v) => ({
+    id: v.id,
+    rotulo: `${v.marca ?? ''} ${v.modelo ?? ''} ${v.ano ?? ''}${v.placa ? ` — ${v.placa}` : ''}`.trim(),
+    marcaModelo: `${v.marca ?? ''} ${v.modelo ?? ''}`.trim(),
+    ano: v.ano ? String(v.ano) : '',
+    placa: v.placa ?? '',
+    fipe: v.tabelaFipe ?? null,
+    renavam: v.renavam ?? '',
+    banco: v.banco ?? '',
+    valorParcela: v.valorParcela ?? null,
+    parcelasAtraso: parcelasAtrasoAtual({
+      base: v.parcelasAtraso,
+      informadoEm: v.parcelasAtrasoEm,
+      parcelasRestantes: v.parcelasRestantes,
+    }),
   }))
 
   // Lista todos os contratos anexados aos veículos (coleção `veiculo_contratos`).
@@ -81,7 +100,12 @@ export default async function ContratosPage() {
       userRole={session.role}
       categorias={categorias}
       podeGerenciarCategorias={hasPageAccess(session, 'contratos')}
-      secaoModelos={<ModelosContratoSection initialModelos={modelos} />}
+      secaoModelos={
+        <>
+          <GerarContratoSection veiculos={veiculosGerar} />
+          <ModelosContratoSection initialModelos={modelos} />
+        </>
+      }
     />
   )
 }
