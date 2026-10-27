@@ -208,11 +208,29 @@ function TempoEstoqueLinha({ v }: { v: Veiculo }) {
   const dias = diasEmEstoque(v)
   if (dias === null) return null
   const texto = `${dias} ${dias === 1 ? 'dia' : 'dias'}`
-  return (
+  const compra = v.dataAquisicao ? (
     <p className="text-xs text-neutral-500">
-      {v.vendidoEm ? 'Vendido em' : 'Em estoque há'}{' '}
-      <span className="font-bold text-liberty-deep">{texto}</span>
+      Comprado em <span className="font-bold text-liberty-deep">{formatDate(v.dataAquisicao)}</span>
     </p>
+  ) : null
+  if (v.vendidoEm) {
+    return (
+      <>
+        {compra}
+        <p className="text-xs text-neutral-500">
+          Vendido em <span className="font-bold text-liberty-deep">{formatDate(v.vendidoEm)}</span>
+          {' '}· {texto} em estoque
+        </p>
+      </>
+    )
+  }
+  return (
+    <>
+      {compra}
+      <p className="text-xs text-neutral-500">
+        Em estoque há <span className="font-bold text-liberty-deep">{texto}</span>
+      </p>
+    </>
   )
 }
 
@@ -2088,7 +2106,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 <div className="mt-3 sm:w-1/2">
                   <Input
                     id="dataAquisicao"
-                    label="Data de aquisição"
+                    label="Data de chegada / aquisição (opcional)"
+                    hint="Se não informar, vale a data do cadastro no sistema."
                     type="date"
                     value={dataAquisicao}
                     onChange={(e) => setDataAquisicao(e.target.value)}
