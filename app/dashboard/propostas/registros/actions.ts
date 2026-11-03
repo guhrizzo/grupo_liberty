@@ -509,7 +509,9 @@ export async function definirPropostaFechada(
   vendedorUid: string | null,
 ): Promise<{ success?: string; error?: string }> {
   try {
-    await assertAuthorized()
+    const user = await assertAuthorized()
+    // Só os ADM supremos escolhem quem fechou; os demais sempre fecham no próprio nome.
+    if (vendedorUid && !isAdmSupremo(user)) vendedorUid = user.uid
     if (!id) return { error: 'ID da proposta inválido.' }
 
     const ref = adminDb.collection('propostas_registradas').doc(id)

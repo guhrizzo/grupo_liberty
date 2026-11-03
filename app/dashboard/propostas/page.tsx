@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { adminDb } from '@/utils/firebase/admin'
-import { getSessionUser, hasPageAccess } from '@/utils/permissions'
+import { getSessionUser, hasPageAccess, isAdmSupremo } from '@/utils/permissions'
 import { getPropostasRegistradas } from './registros/actions'
 import { getVendedoresMetas } from '@/app/dashboard/metas/actions'
 import PropostasRegistradasClient from './registros/PropostasRegistradasClient'
@@ -36,6 +36,8 @@ export default async function PropostasPage() {
       propostas={propostas}
       vendedores={vendedores}
       propostasSitePendentes={pendentesSite}
+      podeEscolherVendedor={isAdmSupremo(user)}
+      usuarioUid={user.uid}
     />
   )
 }

@@ -38,6 +38,9 @@ interface PropostasRegistradasClientProps {
   vendedores: VendedorOpcao[]
   /** Propostas do site aguardando resposta (contador no botão). */
   propostasSitePendentes?: number
+  /** Só os ADM supremos escolhem quem fechou; para os demais é sempre o próprio usuário. */
+  podeEscolherVendedor?: boolean
+  usuarioUid?: string
 }
 
 type StatusProposta = PropostaRegistrada['status']
@@ -80,6 +83,8 @@ export default function PropostasRegistradasClient({
   propostas,
   vendedores,
   propostasSitePendentes = 0,
+  podeEscolherVendedor = false,
+  usuarioUid = '',
 }: PropostasRegistradasClientProps) {
   // No celular os cards começam recolhidos; a setinha abre os detalhes.
   const [abertos, setAbertos] = useState<Set<string>>(() => new Set())
@@ -584,7 +589,7 @@ export default function PropostasRegistradasClient({
                       <div
                         role="group"
                         aria-label={`Status da proposta de ${p.nome}`}
-                        className="grid w-full grid-cols-2 gap-1 sm:grid-cols-4 rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:w-auto"
+                        className={`grid w-full grid-cols-2 gap-1 sm:grid-cols-4 rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:w-auto`}
                       >
                         {STATUS_PROPOSTA.map((o) => (
                           <button
@@ -695,6 +700,8 @@ export default function PropostasRegistradasClient({
           key={fechando.id}
           proposta={fechando}
           vendedores={vendedores}
+          podeEscolher={podeEscolherVendedor}
+          usuarioUid={usuarioUid}
           onClose={() => setFechando(null)}
           onDone={() => {
             setFechando(null)
@@ -744,11 +751,15 @@ export default function PropostasRegistradasClient({
 function FecharPropostaModal({
   proposta,
   vendedores,
+  podeEscolher,
+  usuarioUid,
   onClose,
   onDone,
 }: {
   proposta: PropostaRegistrada
   vendedores: VendedorOpcao[]
+  podeEscolher: boolean
+  usuarioUid: string
   onClose: () => void
   onDone: () => void
 }) {
@@ -765,13 +776,14 @@ function FecharPropostaModal({
   ]
 
   async function confirmar() {
-    if (!vendedorUid) {
+    const fechadoPor = podeEscolher ? vendedorUid : usuarioUid
+    if (!fechadoPor) {
       toast.error('Escolha quem fechou a proposta.')
       return
     }
     setSalvando(true)
     try {
-      const res = await definirPropostaFechada(proposta.id, vendedorUid)
+      const res = await definirPropostaFechada(proposta.id, fechadoPor)
       if (res.error) {
         toast.error(res.error, 'Não foi possível fechar')
         return
@@ -791,6 +803,7 @@ function FecharPropostaModal({
       description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
     >
       <div className="mt-4 space-y-4">
+        {podeEscolher ? (
         <Select
           label="Quem fechou?"
           hint={
@@ -802,6 +815,9 @@ function FecharPropostaModal({
           onChange={(e) => setVendedorUid(e.target.value)}
           options={opcoes}
         />
+        ) : (
+          <p className="text-sm text-neutral-600">A proposta será fechada no seu nome e conta para a sua meta no mês de hoje.</p>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
             Cancelar
