@@ -10,6 +10,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { IconChevronDown, IconCheck } from '@tabler/icons-react'
 import { cn } from '@/utils/cn'
 
@@ -95,6 +96,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  // O dropdown vai num portal com posição fixa para não ser cortado por modais com rolagem.
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const hiddenSelectRef = useRef<HTMLSelectElement | null>(null)
 
   // Sincroniza valor controlado quando mudar externamente
@@ -114,10 +119,15 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     if (!isOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
+      const alvo = e.target as Node
+      if (containerRef.current?.contains(alvo) || dropdownRef.current?.contains(alvo)) return
+      setIsOpen(false)
     }
+    const reposicionar = () => {
+      const r = triggerRef.current?.getBoundingClientRect()
+      if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width })
+    }
+    reposicionar()
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -127,7 +137,11 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 
     document.addEventListener('mousedown', handleClickOutside)
     document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', reposicionar)
+    window.addEventListener('scroll', reposicionar, true)
     return () => {
+      window.removeEventListener('resize', reposicionar)
+      window.removeEventListener('scroll', reposicionar, true)
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
@@ -195,6 +209,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 
         {/* Gatilho Visível Estilizado */}
         <button
+          ref={triggerRef}
           type="button"
           disabled={disabled}
           onClick={() => setIsOpen((prev) => !prev)}
@@ -237,10 +252,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         </button>
 
         {/* Dropdown Flutuante Estilizado */}
-        {isOpen && (
+        {isOpen && pos && createPortal(
           <div
+            ref={dropdownRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
             className={cn(
-              'absolute left-0 right-0 top-full mt-1.5 z-50 max-h-60 overflow-y-auto rounded-xl border p-1 shadow-xl',
+              'z-[100] max-h-60 overflow-y-auto rounded-xl border p-1 shadow-xl',
               'animate-zoom-in-95 backdrop-blur-md',
               // tema claro
               'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/10',
@@ -283,7 +300,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
                 </button>
               )
             })}
-          </div>
+          </div>,
+          containerRef.current?.closest('.neon-theme, .adobe-dark') ?? document.body,
         )}
       </div>
 

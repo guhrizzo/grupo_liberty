@@ -14,6 +14,7 @@ import {
   IconPencil,
   IconPhone,
   IconPlus,
+  IconUsers,
   IconTrash,
   IconSearch,
   IconWallet,
@@ -21,6 +22,7 @@ import {
   IconX,
 } from '@tabler/icons-react'
 import {
+  definirPropostaAceita,
   definirPropostaFechada,
   definirPropostaRecusada,
   deletePropostaRegistrada,
@@ -44,11 +46,12 @@ const STATUS_PROPOSTA: { valor: StatusProposta; label: string; ativo: string; se
   { valor: 'pendente', label: 'Em aberto', ativo: 'bg-amber-500 text-white', selo: 'bg-amber-100 text-amber-800' },
   { valor: 'recusado', label: 'Recusada', ativo: 'bg-rose-600 text-white', selo: 'bg-rose-100 text-rose-700' },
   { valor: 'aceito', label: 'Aceita', ativo: 'bg-emerald-600 text-white', selo: 'bg-emerald-100 text-emerald-700' },
+  { valor: 'fechado', label: 'Fechado', ativo: 'bg-liberty-deep text-white', selo: 'bg-liberty/15 text-liberty-deep' },
 ]
 
-/** Só as aceitas entram na comissão (e nas metas). */
-function somaComissaoAceitas(lista: PropostaRegistrada[]) {
-  return lista.reduce((acc, p) => acc + (p.status === 'aceito' ? (p.comissao_vendedor ?? 0) : 0), 0)
+/** Só as fechadas entram na comissão (e nas metas). */
+function somaComissaoFechadas(lista: PropostaRegistrada[]) {
+  return lista.reduce((acc, p) => acc + (p.status === 'fechado' ? (p.comissao_vendedor ?? 0) : 0), 0)
 }
 
 function formatDate(dateStr: string) {
@@ -119,8 +122,27 @@ export default function PropostasRegistradasClient({
     })
   }, [propostas, searchNome, selectedMonth, statusFiltro, motivoFiltro])
 
-  const comissaoTotal = useMemo(() => somaComissaoAceitas(filtered), [filtered])
-  const aceitasCount = filtered.filter((p) => p.status === 'aceito').length
+  const comissaoTotal = useMemo(() => somaComissaoFechadas(filtered), [filtered])
+  const fechadasCount = filtered.filter((p) => p.status === 'fechado').length
+
+  // Espaço de clientes (aba Fechado): uma linha por cliente, com os veículos que ele fechou.
+  const clientesFechados = useMemo(() => {
+    if (statusFiltro !== 'fechado') return []
+    const map = new Map<string, { nome: string; cpf?: string; telefone: string; email: string; veiculos: string[]; ultima: string }>()
+    for (const p of filtered) {
+      const key = p.cpf || `${p.nome.toLowerCase()}|${p.telefone}`
+      const veiculo = `${p.veiculo_marca} ${p.veiculo_modelo}`.trim()
+      const dataFechamento = p.fechada_em ?? p.created_at
+      const atual = map.get(key)
+      if (atual) {
+        atual.veiculos.push(veiculo)
+        if (dataFechamento > atual.ultima) atual.ultima = dataFechamento
+      } else {
+        map.set(key, { nome: p.nome, cpf: p.cpf, telefone: p.telefone, email: p.email, veiculos: [veiculo], ultima: dataFechamento })
+      }
+    }
+    return Array.from(map.values()).sort((x, y) => y.ultima.localeCompare(x.ultima))
+  }, [filtered, statusFiltro])
 
   const grupos = useMemo(() => {
     const map = new Map<string, PropostaRegistrada[]>()
@@ -136,7 +158,7 @@ export default function PropostasRegistradasClient({
         key,
         label: mesLabel(key),
         items,
-        comissaoTotal: somaComissaoAceitas(items),
+        comissaoTotal: somaComissaoFechadas(items),
       }))
   }, [filtered])
 
@@ -173,10 +195,25 @@ export default function PropostasRegistradasClient({
     }
   }
 
+  const aceitarDireto = async (p: PropostaRegistrada) => {
+    setAlterandoId(p.id)
+    try {
+      const res = await definirPropostaAceita(p.id)
+      if (res.error) toast.error(res.error, 'Não foi possível alterar')
+      else {
+        toast.success(res.success || 'Proposta aceita.')
+        router.refresh()
+      }
+    } finally {
+      setAlterandoId(null)
+    }
+  }
+
   const trocarStatus = (p: PropostaRegistrada, novo: StatusProposta) => {
     if (novo === p.status) return
-    if (novo === 'aceito') return setFechando(p)
-    if (novo === 'pendente') return p.status === 'aceito' ? setConfirmReabrir(p) : void reabrirDireto(p)
+    if (novo === 'fechado') return setFechando(p)
+    if (novo === 'aceito') return void aceitarDireto(p)
+    if (novo === 'pendente') return p.status === 'fechado' ? setConfirmReabrir(p) : void reabrirDireto(p)
     return setRecusando(p)
   }
 
@@ -305,7 +342,7 @@ export default function PropostasRegistradasClient({
             </span>
             <div>
               <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-liberty-deep/70">
-                Comissão das aceitas {hasActiveFilters ? '(filtrada)' : ''}
+                Comissão das fechadas {hasActiveFilters ? '(filtrada)' : ''}
               </p>
               <p className="text-2xl font-black leading-tight text-liberty-deep">
                 {formatCurrency(comissaoTotal)}
@@ -314,7 +351,7 @@ export default function PropostasRegistradasClient({
           </div>
           <p className="text-xs text-neutral-500">
             {filtered.length} proposta{filtered.length === 1 ? '' : 's'} registrada
-            {filtered.length === 1 ? '' : 's'} · {aceitasCount} aceita{aceitasCount === 1 ? '' : 's'}
+            {filtered.length === 1 ? '' : 's'} · {fechadasCount} fechada{fechadasCount === 1 ? '' : 's'}
           </p>
         </div>
       </div>
@@ -389,6 +426,47 @@ export default function PropostasRegistradasClient({
         )}
       </div>
 
+      {statusFiltro === 'fechado' && clientesFechados.length > 0 && (
+        <section aria-label="Clientes fechados" className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs sm:p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <IconUsers size={16} className="text-liberty-deep" />
+            <h2 className="text-sm font-extrabold uppercase tracking-wider text-neutral-700">Clientes</h2>
+            <span className="text-xs text-neutral-500">
+              {clientesFechados.length} cliente{clientesFechados.length === 1 ? '' : 's'} com proposta fechada
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {clientesFechados.map((c) => (
+              <div key={c.cpf || `${c.nome}|${c.telefone}`} className="rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+                <p className="text-sm font-bold text-neutral-900">{c.nome}</p>
+                {c.cpf && <p className="mt-0.5 text-[11px] text-neutral-500">{c.cpf}</p>}
+                <div className="mt-2 space-y-1 text-xs text-neutral-600">
+                  {c.telefone && (
+                    <p className="inline-flex items-center gap-1 font-semibold text-neutral-800">
+                      <IconPhone size={13} className="text-neutral-400" />
+                      {c.telefone}
+                    </p>
+                  )}
+                  {c.email && (
+                    <p className="flex items-center gap-1 break-all">
+                      <IconMail size={13} className="shrink-0 text-neutral-400" />
+                      {c.email}
+                    </p>
+                  )}
+                  <p className="flex items-start gap-1">
+                    <IconCar size={13} className="mt-0.5 shrink-0 text-neutral-400" />
+                    {c.veiculos.join(', ')}
+                  </p>
+                </div>
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                  Fechado em {new Date(c.ultima).toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<IconCash size={24} stroke={1.5} />}
@@ -443,10 +521,10 @@ export default function PropostasRegistradasClient({
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${cfg.selo}`}
                             >
-                              {p.status === 'aceito' && <IconCircleCheck size={12} stroke={2.5} />}
+                              {p.status === 'fechado' && <IconCircleCheck size={12} stroke={2.5} />}
                               {cfg.label}
-                              {p.status === 'aceito' && p.fechada_por_nome ? ` por ${p.fechada_por_nome}` : ''}
-                              {p.status === 'aceito' && p.fechada_em
+                              {p.status === 'fechado' && p.fechada_por_nome ? ` por ${p.fechada_por_nome}` : ''}
+                              {p.status === 'fechado' && p.fechada_em
                                 ? ` · ${new Date(p.fechada_em).toLocaleDateString('pt-BR')}`
                                 : ''}
                             </span>
@@ -506,7 +584,7 @@ export default function PropostasRegistradasClient({
                       <div
                         role="group"
                         aria-label={`Status da proposta de ${p.nome}`}
-                        className="grid w-full grid-cols-3 gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:w-auto"
+                        className="grid w-full grid-cols-2 gap-1 sm:grid-cols-4 rounded-lg border border-neutral-200 bg-neutral-50 p-1 sm:w-auto"
                       >
                         {STATUS_PROPOSTA.map((o) => (
                           <button
@@ -516,7 +594,7 @@ export default function PropostasRegistradasClient({
                             onClick={() => trocarStatus(p, o.valor)}
                             aria-pressed={p.status === o.valor}
                             className={`rounded-md px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 ${
-                              p.status === o.valor ? o.ativo : 'text-neutral-600 hover:bg-white'
+                              p.status === o.valor ? o.ativo : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:hover:bg-adobe-bg-4 adobe-dark:hover:text-adobe-text-hi'
                             }`}
                           >
                             {o.label}
@@ -594,13 +672,13 @@ export default function PropostasRegistradasClient({
                       </span>
                       <p
                         className={`mt-1.5 text-lg font-black ${
-                          p.status === 'aceito' ? 'text-liberty-deep' : 'text-neutral-400 line-through decoration-1'
+                          p.status === 'fechado' ? 'text-liberty-deep' : 'text-neutral-400 line-through decoration-1'
                         }`}
                       >
                         {p.comissao_vendedor != null ? formatCurrency(p.comissao_vendedor) : '—'}
                       </p>
-                      {p.status !== 'aceito' && (
-                        <p className="mt-0.5 text-[11px] text-neutral-500">Só conta quando a proposta for aceita.</p>
+                      {p.status !== 'fechado' && (
+                        <p className="mt-0.5 text-[11px] text-neutral-500">Só conta quando a proposta for fechada.</p>
                       )}
                     </div>
                   </div>
@@ -630,7 +708,7 @@ export default function PropostasRegistradasClient({
         onClose={() => !reabrindo && setConfirmReabrir(null)}
         onConfirm={() => confirmReabrir && handleReabrir(confirmReabrir)}
         title="Voltar para em aberto"
-        description="A proposta deixa de estar aceita: sai da comissão e da meta do vendedor."
+        description="A proposta deixa de estar fechada: sai da comissão e da meta do vendedor."
         confirmLabel="Voltar para em aberto"
         loading={reabrindo}
       />
@@ -695,10 +773,10 @@ function FecharPropostaModal({
     try {
       const res = await definirPropostaFechada(proposta.id, vendedorUid)
       if (res.error) {
-        toast.error(res.error, 'Não foi possível aceitar')
+        toast.error(res.error, 'Não foi possível fechar')
         return
       }
-      toast.success(res.success || 'Proposta aceita.')
+      toast.success(res.success || 'Proposta fechada.')
       onDone()
     } finally {
       setSalvando(false)
@@ -709,7 +787,7 @@ function FecharPropostaModal({
     <Modal
       open
       onClose={() => !salvando && onClose()}
-      title="Marcar como aceita"
+      title="Marcar como fechada"
       description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
     >
       <div className="mt-4 space-y-4">
@@ -789,9 +867,9 @@ function RecusarPropostaModal({
       description={`${proposta.nome} · ${proposta.veiculo_marca} ${proposta.veiculo_modelo}`}
     >
       <div className="mt-4 space-y-4">
-        {proposta.status === 'aceito' && (
+        {proposta.status === 'fechado' && (
           <p className="text-sm text-neutral-600">
-            A proposta estava aceita: ao recusar, ela sai da comissão e da meta do vendedor.
+            A proposta estava fechada: ao recusar, ela sai da comissão e da meta do vendedor.
           </p>
         )}
         <Select label="Motivo da recusa" value={motivo} onChange={(e) => setMotivo(e.target.value)} options={opcoes} />

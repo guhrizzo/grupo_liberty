@@ -59,8 +59,8 @@ export interface PropostaRegistrada {
   vendedor_uid: string | null
   vendedor_email: string | null
 
-  /** `aceito` = proposta fechada (o veículo foi comprado). */
-  status: 'pendente' | 'aceito' | 'recusado'
+  /** `aceito` = etapa intermediária; `fechado` = veículo comprado (conta comissão e metas). */
+  status: 'pendente' | 'aceito' | 'recusado' | 'fechado'
   created_at: string
 
   /** Quem fechou (conta para as metas) — gravado ao marcar como fechada. */
@@ -529,7 +529,7 @@ export async function definirPropostaFechada(
         return { error: 'Vendedor não encontrado.' }
       }
       await ref.update({
-        status: 'aceito',
+        status: 'fechado',
         fechada_por_uid: vendedorUid,
         fechada_por_nome: nome,
         fechada_em: nowIso,
@@ -551,7 +551,41 @@ export async function definirPropostaFechada(
 
     revalidatePath('/dashboard/propostas', 'layout')
     revalidatePath('/dashboard/metas')
-    return { success: vendedorUid ? 'Proposta marcada como aceita.' : 'Proposta voltou para em aberto.' }
+    return { success: vendedorUid ? 'Proposta marcada como fechada.' : 'Proposta voltou para em aberto.' }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro ao atualizar a proposta.'
+    return { error: message }
+  }
+}
+
+/**
+ * Marca a proposta como aceita: etapa intermediária, ainda sem comissão nem
+ * meta (isso só acontece ao fechar). Limpa quem fechou, se estava fechada.
+ */
+export async function definirPropostaAceita(
+  id: string,
+): Promise<{ success?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+    if (!id) return { error: 'ID da proposta inválido.' }
+
+    const ref = adminDb.collection('propostas_registradas').doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Proposta não encontrada.' }
+
+    await ref.update({
+      status: 'aceito',
+      fechada_por_uid: null,
+      fechada_por_nome: null,
+      fechada_em: null,
+      motivo_recusa: null,
+      motivo_recusa_detalhe: null,
+      updated_at: new Date().toISOString(),
+    })
+
+    revalidatePath('/dashboard/propostas', 'layout')
+    revalidatePath('/dashboard/metas')
+    return { success: 'Proposta marcada como aceita.' }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao atualizar a proposta.'
     return { error: message }

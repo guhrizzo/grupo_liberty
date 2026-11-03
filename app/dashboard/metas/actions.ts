@@ -74,12 +74,12 @@ async function fechadasPorVendedorMes(vendedorUid?: string): Promise<Map<string,
   const col = adminDb.collection('propostas_registradas')
   const snap = vendedorUid
     ? await col.where('fechada_por_uid', '==', vendedorUid).get()
-    : await col.where('status', '==', 'aceito').get()
+    : await col.where('status', '==', 'fechado').get()
 
   const mapa = new Map<string, MetaProposta[]>()
   for (const doc of snap.docs) {
     const p = doc.data()
-    if (p.status !== 'aceito' || !p.fechada_por_uid || !p.fechada_em) continue
+    if (p.status !== 'fechado' || !p.fechada_por_uid || !p.fechada_em) continue
     const chave = idDaMeta(p.fechada_por_uid, mesAtual(new Date(p.fechada_em)))
     const lista = mapa.get(chave) ?? []
     lista.push({
