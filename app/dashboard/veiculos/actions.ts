@@ -87,6 +87,20 @@ function somarCustosExtras(data: Record<string, unknown>): number {
  * "Baixada" = tem objeto `baixa` OU (legado) já tinha `custo > 0` e não está
  * cancelada. O valor é `baixa.valor` quando há baixa, senão o `custo` legado.
  */
+/**
+ * Data da venda informada à mão (YYYY-MM-DD, não pode ser futura) → ISO ao meio-dia
+ * UTC, para o dia não mudar nos fusos. Vazia/ausente → nulo.
+ */
+function dataVendaParaIso(valor: string | null | undefined): { iso: string | null; error?: string } {
+  const v = (valor ?? '').trim()
+  if (!v) return { iso: null }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(new Date(`${v}T12:00:00Z`).getTime())) {
+    return { iso: null, error: 'Data da venda inválida.' }
+  }
+  if (v > hojeSaoPaulo()) return { iso: null, error: 'A data da venda não pode ser no futuro.' }
+  return { iso: `${v}T12:00:00.000Z` }
+}
+
 export async function recalcularCustoEfetivoTotal(veiculoId: string): Promise<void> {
   if (!veiculoId) return
   try {
@@ -156,6 +170,8 @@ export interface Veiculo {
    * apaga o registro. Vence o `publico` na hora de decidir o que o site mostra.
    */
   vendidoEm: string | null
+  /** Quando a venda foi registrada no sistema (a `vendidoEm` pode ser retroativa). Base do prazo de exibição/limpeza. */
+  vendidoRegistradoEm: string | null
   /** Preço pelo qual foi vendido (R$). Gravado ao marcar como vendido; lançado como receita no Financeiro. */
   precoVendaFinal?: number | null
   /** Lucro da venda em % sobre o custo efetivo total (`(venda − custo) / custo`). Interno. */
@@ -332,6 +348,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
         publico:
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
         vendidoEm: data.vendidoEm ?? null,
+        vendidoRegistradoEm: data.vendidoRegistradoEm ?? null,
         precoVendaFinal: data.precoVendaFinal ?? null,
         lucroVendaPercent: data.lucroVendaPercent ?? null,
         terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
@@ -496,9 +513,13 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
   const estoqueEstadoRaw = ((formData.get('estoqueEstado') as string) || '').trim()
   let publico = publicoRaw !== 'false'
   let vendidoEm: string | null = null
+  let vendidoRegistradoEm: string | null = null
   if (estoqueEstadoRaw === 'vendido') {
     publico = true
-    vendidoEm = new Date().toISOString()
+    const dataVenda = dataVendaParaIso(formData.get('dataVenda') as string | null)
+    if (dataVenda.error) return { error: dataVenda.error }
+    vendidoRegistradoEm = new Date().toISOString()
+    vendidoEm = dataVenda.iso ?? vendidoRegistradoEm
   } else if (estoqueEstadoRaw === 'privado') {
     publico = false
   } else if (estoqueEstadoRaw === 'disponivel') {
@@ -701,6 +722,7 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       localizacao,
       publico,
       vendidoEm,
+      vendidoRegistradoEm,
       // Veículo cadastrado pelo dashboard é sempre da Liberty. O fluxo de
       // anúncios de terceiros grava `terceiro: true` por outra via.
       terceiro: false,
@@ -1125,6 +1147,7 @@ function lancamentoDaVenda(veiculoId: string) {
 export async function registrarVendaVeiculo(
   id: string,
   precoVenda: number,
+  dataVenda?: string,
 ): Promise<VeiculoResponse> {
   let user: { uid: string }
   try {
@@ -1136,6 +1159,8 @@ export async function registrarVendaVeiculo(
   if (!Number.isFinite(precoVenda) || precoVenda <= 0) {
     return { error: 'Informe o preço de venda.' }
   }
+  const dataInformada = dataVendaParaIso(dataVenda)
+  if (dataInformada.error) return { error: dataInformada.error }
 
   try {
     // Garante que o custo usado no lucro está atualizado (manutenções etc.).
@@ -1154,7 +1179,8 @@ export async function registrarVendaVeiculo(
     const nomeVeiculo = [dados.marca, dados.modelo, dados.ano].filter(Boolean).join(' ')
     const batch = adminDb.batch()
     batch.update(docRef, {
-      vendidoEm: now,
+      vendidoEm: dataInformada.iso ?? now,
+      vendidoRegistradoEm: now,
       precoVendaFinal: precoVenda,
       lucroVendaPercent,
       updated_at: now,
@@ -1164,7 +1190,7 @@ export async function registrarVendaVeiculo(
       categoria: 'Venda de Veículo',
       tipo: 'receita',
       valor: precoVenda,
-      data: hojeSaoPaulo(),
+      data: dataInformada.iso ? dataInformada.iso.slice(0, 10) : hojeSaoPaulo(),
       status: 'concluido',
       origemVeiculoId: id,
       created_by: user?.uid ?? null,
@@ -1218,14 +1244,17 @@ export async function setVeiculoEstoqueEstado(
     let success: string
     if (estado === 'vendido') {
       patch.vendidoEm = now
+      patch.vendidoRegistradoEm = now
       success = 'Veículo marcado como vendido.'
     } else if (estado === 'privado') {
       patch.publico = false
       patch.vendidoEm = null
+      patch.vendidoRegistradoEm = null
       success = 'Veículo agora está privado.'
     } else {
       patch.publico = true
       patch.vendidoEm = null
+      patch.vendidoRegistradoEm = null
       success = 'Veículo de volta ao estoque.'
     }
 
@@ -1251,3 +1280,47 @@ export async function setVeiculoEstoqueEstado(
   }
 }
 
+
+
+/**
+ * Corrige a data da venda de um veículo já vendido (a venda pode ter sido
+ * registrada num dia diferente do dia em que aconteceu). Acerta também a data
+ * da receita lançada no Financeiro, se existir.
+ */
+export async function atualizarDataVenda(
+  id: string,
+  dataVenda: string,
+): Promise<VeiculoResponse> {
+  try {
+    await assertPodeGerenciarVeiculos()
+  } catch (err: any) {
+    return { error: err.message }
+  }
+
+  const data = dataVendaParaIso(dataVenda)
+  if (data.error) return { error: data.error }
+  if (!data.iso) return { error: 'Informe a data da venda.' }
+
+  try {
+    const docRef = adminDb.collection('veiculos').doc(id)
+    const doc = await docRef.get()
+    if (!doc.exists) return { error: 'Veículo não encontrado.' }
+    if (!doc.data()?.vendidoEm) return { error: 'O veículo não está marcado como vendido.' }
+
+    const now = new Date().toISOString()
+    const batch = adminDb.batch()
+    batch.update(docRef, { vendidoEm: data.iso, updated_at: now })
+    const lancRef = lancamentoDaVenda(id)
+    if ((await lancRef.get()).exists) {
+      batch.update(lancRef, { data: data.iso.slice(0, 10), updated_at: now })
+    }
+    await batch.commit()
+
+    revalidatePath('/dashboard/veiculos')
+    revalidatePath('/dashboard/financeiro')
+    revalidatePath('/')
+    return { success: 'Data da venda atualizada.' }
+  } catch (error: any) {
+    return { error: `Erro ao atualizar a data da venda: ${error.message}` }
+  }
+}

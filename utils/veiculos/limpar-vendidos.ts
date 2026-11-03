@@ -10,7 +10,7 @@ export interface LimparVendidosResultado {
 }
 
 /**
- * Apaga de vez os veículos marcados como vendidos há mais de
+ * Apaga de vez os veículos cujas vendas foram registradas há mais de
  * `VENDIDO_TTL_DIAS` dias. Chamado pelo cron `/api/cron/limpar-vendidos`.
  *
  * A query é um range sobre o campo único `vendidoEm` (ISO 8601, ordenável
@@ -27,6 +27,9 @@ export async function limparVeiculosVendidos(): Promise<LimparVendidosResultado>
   let removidos = 0
   let erros = 0
   for (const doc of snap.docs) {
+    // O prazo conta de quando a venda foi registrada: a `vendidoEm` pode ser retroativa.
+    const registrado = doc.data().vendidoRegistradoEm
+    if (typeof registrado === 'string' && registrado >= cutoff) continue
     try {
       await apagarVeiculoCompleto(doc.id)
       removidos++

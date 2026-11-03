@@ -36,7 +36,7 @@ export default async function HomePage() {
     .filter((v) => v.publico === true && !v.vendidoEm)
     .map(toPublicVeiculo)
   const vendidos = todosVeiculos
-    .filter((v) => vendidoVisivel(v.vendidoEm))
+    .filter((v) => vendidoVisivel(v.vendidoRegistradoEm ?? v.vendidoEm))
     .map(toPublicVeiculo)
 
   return (

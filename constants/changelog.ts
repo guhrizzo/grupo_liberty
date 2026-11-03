@@ -24,6 +24,20 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-03-propostas-fechado-data-venda',
+    date: '2026-11-03',
+    title: 'Propostas: aba Fechado · Veículos: data da venda',
+    tag: 'novo',
+    items: [
+      'Propostas: nova aba "Fechado". Só as propostas fechadas somam comissão e contam nas metas; "Aceita" virou uma etapa intermediária, sem comissão.',
+      'Aba Fechado tem um painel de Clientes, com contatos e veículos de cada um.',
+      'Ao fechar, só os ADM supremos escolhem quem fechou; para os demais a proposta fica no nome de quem fechou.',
+      'Veículos: a data da venda agora é informada à mão (modal de venda, cadastro e edição) e pode ser retroativa.',
+      'Veículos vendidos mostram "Vendido há X dias". Os 30 dias na vitrine contam do registro da venda.',
+      'Cards de veículos alinhados na mesma altura, com os botões sem cortar; menus de seleção não ficam mais cortados dentro de janelas.',
+    ],
+  },
+  {
     id: '2026-10-23-cobrancas-vencimento-primeira-parcela',
     date: '2026-10-23',
     title: 'Cobranças: 1ª parcela vence na data escolhida',

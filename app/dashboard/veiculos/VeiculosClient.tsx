@@ -39,7 +39,7 @@ import {
 } from '@/constants/debitos'
 import { quitacaoEstimada } from '@/utils/financing'
 import { parcelasAtrasoAtual } from '@/utils/veiculos/parcelas-atraso'
-import { diasEmEstoque } from '@/utils/veiculos/tempo-estoque'
+import { diasEmEstoque, diasEntre } from '@/utils/veiculos/tempo-estoque'
 import { CUSTOS_EXTRAS } from '@/constants/custos'
 import {
   createVehicle,
@@ -48,6 +48,7 @@ import {
   uploadVehiclePhotos,
   setVeiculoEstoqueEstado,
   registrarVendaVeiculo,
+  atualizarDataVenda,
   type Veiculo,
   type LocalizacaoVeiculo,
   type VeiculoFieldErrors,
@@ -203,6 +204,15 @@ function ParcelasAtrasoLinha({ v }: { v: Veiculo }) {
 }
 
 /** OTM do veículo: dias em estoque (entrada → hoje) ou, se vendido, entrada → venda. */
+const FUSO_SP = 'America/Sao_Paulo'
+
+/** YYYY-MM-DD (fuso de SP) para o `<input type="date">`; `agora` se não houver data. */
+function dataParaInput(iso?: string | null): string {
+  const d = iso ? new Date(iso) : new Date()
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString('en-CA', { timeZone: FUSO_SP })
+}
+
 function TempoEstoqueLinha({ v }: { v: Veiculo }) {
   if (v.terceiro) return null
   const dias = diasEmEstoque(v)
@@ -214,6 +224,7 @@ function TempoEstoqueLinha({ v }: { v: Veiculo }) {
     </p>
   ) : null
   if (v.vendidoEm) {
+    const diasVendido = diasEntre(v.vendidoEm)
     return (
       <>
         {compra}
@@ -221,6 +232,14 @@ function TempoEstoqueLinha({ v }: { v: Veiculo }) {
           Vendido em <span className="font-bold text-liberty-deep">{formatDate(v.vendidoEm)}</span>
           {' '}· {texto} em estoque
         </p>
+        {diasVendido !== null && (
+          <p className="text-xs text-neutral-500">
+            Vendido há{' '}
+            <span className="font-bold text-liberty-deep">
+              {diasVendido === 0 ? 'menos de 1 dia' : `${diasVendido} ${diasVendido === 1 ? 'dia' : 'dias'}`}
+            </span>
+          </p>
+        )}
       </>
     )
   }
@@ -492,6 +511,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   // setVeiculoEstoqueEstado em actions.ts) quando editando um veículo existente.
   const [estadoSaving, setEstadoSaving] = useState(false)
   const [vendaModalOpen, setVendaModalOpen] = useState(false)
+  const [dataVenda, setDataVenda] = useState(() => dataParaInput())
+  const [dataVendaSalvando, setDataVendaSalvando] = useState(false)
   const [precoVendaInput, setPrecoVendaInput] = useState('')
   const [vendaSaving, setVendaSaving] = useState(false)
 
@@ -840,6 +861,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }
 
     setEstoqueEstado(estoqueEstadoDe(veiculo))
+    setDataVenda(dataParaInput(veiculo.vendidoEm))
     setBanco(veiculo.banco || '')
     setBancoCodigo(veiculo.bancoCodigo || '')
     setQuitacaoPercent(
@@ -985,6 +1007,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       formData.append('descricao', descricao)
       formData.append('localizacao', localizacaoValor)
       formData.append('estoqueEstado', estoqueEstado)
+      if (estoqueEstado === 'vendido') formData.append('dataVenda', dataVenda)
       // Fallback de compat pro caminho legado de createVehicle.
       formData.append('publico', String(estoqueEstado !== 'privado'))
 
@@ -1110,6 +1133,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     const anterior = estoqueEstado
 
     if (!editingId) {
+      if (novo === 'vendido' && !dataVenda) setDataVenda(dataParaInput())
       setEstoqueEstado(novo)
       return
     }
@@ -1118,6 +1142,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     // estado só muda quando a venda é confirmada (confirmarVenda).
     if (novo === 'vendido') {
       setPrecoVendaInput(maskMoney(preco))
+      setDataVenda(dataParaInput())
       setVendaModalOpen(true)
       return
     }
@@ -1142,6 +1167,24 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }
   }
 
+  // Veículo já vendido: corrige a data da venda na hora (sem passar pelo resto do formulário).
+  const salvarDataVenda = async () => {
+    if (!editingId || !dataVenda) return
+    setDataVendaSalvando(true)
+    try {
+      const result = await atualizarDataVenda(editingId, dataVenda)
+      if (result.error) toast.error(result.error)
+      else {
+        toast.success(result.success || 'Data da venda atualizada.')
+        router.refresh()
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar a data da venda.')
+    } finally {
+      setDataVendaSalvando(false)
+    }
+  }
+
   // Venda: preço informado no modal → lucro = venda − custo efetivo total.
   const precoVendaNum = parseMoney(precoVendaInput) || 0
   const lucroVenda = precoVendaNum - custoEfetivoTotal
@@ -1155,7 +1198,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }
     setVendaSaving(true)
     try {
-      const result = await registrarVendaVeiculo(editingId, precoVendaNum)
+      const result = await registrarVendaVeiculo(editingId, precoVendaNum, dataVenda)
       if (result.error) {
         toast.error(result.error)
       } else {
@@ -1554,9 +1597,34 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                     ))}
                   </div>
                   {estoqueEstado === 'vendido' && (
-                    <p className="mt-1.5 text-xs text-amber-700">
-                      Fica na seção “Vendidos” do site por 30 dias e depois é removido automaticamente.
-                    </p>
+                    <>
+                      <p className="mt-1.5 text-xs text-amber-700">
+                        Fica na seção “Vendidos” do site por 30 dias e depois é removido automaticamente.
+                      </p>
+                      <div className="mt-3 flex max-w-xs items-end gap-2">
+                        <div className="flex-1">
+                          <Input
+                            id="dataVenda"
+                            label="Data da venda"
+                            type="date"
+                            max={dataParaInput()}
+                            value={dataVenda}
+                            onChange={(e) => setDataVenda(e.target.value)}
+                          />
+                        </div>
+                        {editingId && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={salvarDataVenda}
+                            loading={dataVendaSalvando}
+                            disabled={!dataVenda}
+                          >
+                            Salvar data
+                          </Button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -2781,7 +2849,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 <div
                   key={v.id}
                   data-veiculo-id={v.id}
-                  className="group rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-lg hover:shadow-neutral-900/5 hover:-translate-y-1 hover:border-neutral-300 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+                  className="group flex h-full flex-col rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden hover:shadow-lg hover:shadow-neutral-900/5 hover:-translate-y-1 hover:border-neutral-300 transition-[box-shadow,border-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-neutral-100">
@@ -2835,7 +2903,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   </div>
 
                   {/* Info */}
-                  <div className="p-4">
+                  <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <h4 className="text-base font-bold text-neutral-900 truncate">
@@ -2909,12 +2977,12 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                       </div>
                     )}
 
-                      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mt-auto flex flex-col gap-3 pt-3">
                         <p className="text-lg font-bold text-neutral-950">
                           {formatCurrency(v.preco)}
                         </p>
 
-                        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Link
                             href={`/veiculos/${v.id}`}
                             target="_blank"
@@ -2968,6 +3036,14 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
             placeholder="R$ 0,00"
             leftIcon={<IconCash size={14} />}
             autoFocus
+          />
+          <Input
+            id="dataVendaModal"
+            label="Data da venda"
+            type="date"
+            max={dataParaInput()}
+            value={dataVenda}
+            onChange={(e) => setDataVenda(e.target.value)}
           />
 
           <dl className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-sm space-y-1.5">
@@ -3031,7 +3107,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
               variant="liberty"
               onClick={confirmarVenda}
               loading={vendaSaving}
-              disabled={!(precoVendaNum > 0)}
+              disabled={!(precoVendaNum > 0) || !dataVenda}
             >
               Confirmar venda
             </Button>
