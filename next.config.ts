@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Só no `next dev`: deixa abrir o painel por túnel (ex.: webhook do Asaas via cloudflared).
+  allowedDevOrigins: ['*.trycloudflare.com'],
   serverExternalPackages: ['firebase-admin', 'jwks-rsa', 'jose'],
   experimental: {
     serverActions: {

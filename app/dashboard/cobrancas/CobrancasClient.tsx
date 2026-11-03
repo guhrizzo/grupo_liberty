@@ -51,6 +51,7 @@ import { formatCurrency, formatDate } from '@/utils/format'
 import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import { maskMoney, parseMoney } from '@/utils/masks'
 import type { Cobranca, Parcela, Pagamento, TipoCobranca } from './actions'
+import AsaasParcelaPanel from './AsaasParcelaPanel'
 import {
   criarCobranca,
   registrarPagamento,
@@ -1501,6 +1502,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
         <PagamentoModal
           parcela={pagamentoParcela}
           cliente={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.clienteNome ?? null}
+          veiculoId={cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)?.veiculoId ?? null}
           taxas={(() => {
             const cob = cobrancas.find((c) => c.id === pagamentoParcela.cobrancaId)
             return {
@@ -3417,6 +3419,7 @@ function NovaCobrancaModal({
 function PagamentoModal({
   parcela,
   cliente,
+  veiculoId,
   taxas,
   loading,
   onClose,
@@ -3424,6 +3427,7 @@ function PagamentoModal({
 }: {
   parcela: Parcela
   cliente: string | null
+  veiculoId: string | null
   /** Taxas de encargos da cobrança (0 em cobranças anteriores à regra). */
   taxas: { multaPct: number; jurosMensalPct: number; encargosDesde: string | null }
   loading: boolean
@@ -3610,6 +3614,14 @@ function PagamentoModal({
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-700">
               {errorMsg}
             </p>
+          )}
+
+          {veiculoId && !parcela.pago && (
+            <AsaasParcelaPanel
+              parcelaId={parcela.id}
+              cobrancaId={parcela.cobrancaId}
+              veiculoId={veiculoId}
+            />
           )}
         </div>
 
