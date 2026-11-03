@@ -11,6 +11,7 @@ export interface Compromisso {
   horaInicio: string | null // HH:MM
   horaFim: string | null
   participantes: { uid: string; nome: string; conectado: boolean; erro: string | null; sincronizado: boolean }[]
+  criadoPorUid: string
   criadoPorNome: string
   atualizadoEm: string
 }

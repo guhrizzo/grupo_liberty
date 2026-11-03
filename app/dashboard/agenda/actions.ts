@@ -28,12 +28,18 @@ const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function checarAdmSupremo(): Promise<{ user: SessionUser } | { error: string }> {
+async function checarLogado(): Promise<{ user: SessionUser } | { error: string }> {
   const user = await getSessionUser()
   if (!user) return { error: 'Não autenticado.' }
-  if (!isAdmSupremo(user)) return { error: 'Acesso negado. Apenas o ADM supremo gerencia a agenda.' }
   return { user }
 }
+
+/** O ADM supremo gerencia qualquer compromisso; os demais, só os que eles mesmos criaram. */
+function podeGerenciar(user: SessionUser, data: FirebaseFirestore.DocumentData | undefined): boolean {
+  return isAdmSupremo(user) || data?.criadoPorUid === user.uid
+}
+
+const SEM_PERMISSAO = 'Você só pode alterar compromissos que você mesmo criou.'
 
 function revalidar() {
   revalidatePath('/dashboard/agenda')
@@ -64,6 +70,7 @@ function serialize(
       erro: erros[uid] ?? null,
       sincronizado: !!eventos[uid],
     })),
+    criadoPorUid: data.criadoPorUid ?? '',
     criadoPorNome: data.criadoPorNome ?? '',
     atualizadoEm: data.atualizadoEm ?? '',
   }
@@ -135,11 +142,14 @@ export async function desconectarGoogle(): Promise<AgendaResponse> {
   }
 }
 
-// ─── CRUD do ADM supremo ─────────────────────────────────────────────────────
+// ─── CRUD ────────────────────────────────────────────────────────────────────
 
-/** Cria (sem `id`) ou edita (com `id`) um compromisso e sincroniza com o Google. */
+/**
+ * Cria (sem `id`) ou edita (com `id`) um compromisso e sincroniza com o Google.
+ * Qualquer usuário marca na própria agenda; só o ADM supremo escolhe participantes.
+ */
 export async function salvarCompromisso(formData: FormData): Promise<AgendaResponse> {
-  const check = await checarAdmSupremo()
+  const check = await checarLogado()
   if ('error' in check) return { error: check.error }
   const { user } = check
 
@@ -152,7 +162,9 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
   const diaInteiro = texto('diaInteiro') === 'true'
   const horaInicio = diaInteiro ? null : texto('horaInicio') || null
   const horaFim = diaInteiro ? null : texto('horaFim') || null
-  const participantesUids = [...new Set(formData.getAll('participantes').map(String).filter(Boolean))]
+  const participantesUids = isAdmSupremo(user)
+    ? [...new Set(formData.getAll('participantes').map(String).filter(Boolean))]
+    : [user.uid]
 
   const fieldErrors: CompromissoFieldErrors = {}
   if (!titulo) fieldErrors.titulo = 'Informe um título.'
@@ -203,6 +215,7 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
       const ref = adminDb.collection(COLECAO).doc(id)
       const atual = await ref.get()
       if (!atual.exists) return { error: 'Compromisso não encontrado.' }
+      if (!podeGerenciar(user, atual.data())) return { error: SEM_PERMISSAO }
       const antes: string[] = atual.data()?.participantesUids ?? []
       removidos = antes.filter((u) => !participantesUids.includes(u))
       await ref.update(dados)
@@ -238,12 +251,14 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
 }
 
 export async function excluirCompromisso(id: string): Promise<AgendaResponse> {
-  const check = await checarAdmSupremo()
+  const check = await checarLogado()
   if ('error' in check) return { error: check.error }
+  const { user } = check
   try {
     const ref = adminDb.collection(COLECAO).doc(id)
     const doc = await ref.get()
     if (!doc.exists) return { error: 'Compromisso não encontrado.' }
+    if (!podeGerenciar(user, doc.data())) return { error: SEM_PERMISSAO }
     const eventos: Record<string, string> = doc.data()?.googleEventos ?? {}
     if (integracaoConfigurada()) {
       await Promise.all(
@@ -263,12 +278,14 @@ export async function excluirCompromisso(id: string): Promise<AgendaResponse> {
 
 /** Tenta de novo levar o compromisso para o Google de todos os participantes. */
 export async function ressincronizarCompromisso(id: string): Promise<AgendaResponse> {
-  const check = await checarAdmSupremo()
+  const check = await checarLogado()
   if ('error' in check) return { error: check.error }
+  const { user } = check
   if (!integracaoConfigurada()) return { error: 'A integração com o Google Agenda não está configurada.' }
   try {
     const doc = await adminDb.collection(COLECAO).doc(id).get()
     if (!doc.exists) return { error: 'Compromisso não encontrado.' }
+    if (!podeGerenciar(user, doc.data())) return { error: SEM_PERMISSAO }
     const falhas = await sincronizar(id, doc.data()!, [], await origem())
     revalidar()
     return falhas.length > 0

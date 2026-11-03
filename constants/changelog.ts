@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-03-agenda-todos-marcam',
+    date: '2026-11-03',
+    title: 'Agenda: cada um marca na própria agenda',
+    tag: 'novo',
+    items: [
+      'Todos os usuários agora podem criar compromissos na própria agenda, com data, horário, local e descrição.',
+      'Quem criou pode editar e excluir o que criou. Compromissos marcados pela administração continuam só para leitura.',
+      'Com o Google Agenda conectado, o compromisso vai automaticamente para o seu Google.',
+      'A administração continua podendo marcar compromissos para outras pessoas.',
+    ],
+  },
+  {
     id: '2026-11-03-feedback-fotos',
     date: '2026-11-03',
     title: 'Bugs e melhorias: anexe fotos ao reportar',

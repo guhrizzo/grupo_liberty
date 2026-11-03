@@ -156,14 +156,12 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
           <p className="mt-0.5 text-xs text-neutral-500 md:mt-1 md:text-sm adobe-dark:text-adobe-text-lo">
             {admSupremo
               ? 'Marque compromissos para a equipe. Quem conectou o Google Agenda recebe o evento automaticamente.'
-              : 'Seus compromissos. Conecte o Google Agenda para recebê-los automaticamente na sua agenda.'}
+              : 'Marque seus compromissos. Conecte o Google Agenda para recebê-los automaticamente na sua agenda.'}
           </p>
         </div>
-        {admSupremo && (
-          <Button variant="liberty" leftIcon={<IconPlus size={16} stroke={2.5} />} onClick={() => setEditando('novo')}>
-            Novo compromisso
-          </Button>
-        )}
+        <Button variant="liberty" leftIcon={<IconPlus size={16} stroke={2.5} />} onClick={() => setEditando('novo')}>
+          Novo compromisso
+        </Button>
       </header>
 
       {/* Conexão com o Google */}
@@ -244,10 +242,10 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
           description={
             admSupremo
               ? 'Crie um compromisso, escolha a data, o horário e os participantes.'
-              : 'Quando a administração marcar um compromisso com você, ele aparece aqui.'
+              : 'Crie um compromisso na sua agenda ou aguarde a administração marcar um com você.'
           }
           action={
-            admSupremo && !verAnteriores ? (
+            !verAnteriores ? (
               <Button variant="liberty" size="sm" leftIcon={<IconPlus size={14} stroke={2.5} />} onClick={() => setEditando('novo')}>
                 Novo compromisso
               </Button>
@@ -271,7 +269,7 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
                   <CompromissoCard
                     key={c.id}
                     c={c}
-                    admSupremo={admSupremo}
+                    podeGerenciar={admSupremo || c.criadoPorUid === meuUid}
                     meuUid={meuUid}
                     integracao={conexao.configurada}
                     ocupado={ocupado}
@@ -286,11 +284,12 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
         </div>
       )}
 
-      {admSupremo && editando !== null && (
+      {editando !== null && (
         <CompromissoModal
           key={editando === 'novo' ? 'novo' : editando.id}
           compromisso={editando === 'novo' ? null : editando}
           usuarios={usuarios}
+          admSupremo={admSupremo}
           hoje={hoje}
           onClose={() => setEditando(null)}
           onSaved={() => {
@@ -328,7 +327,7 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
 
 function CompromissoCard({
   c,
-  admSupremo,
+  podeGerenciar,
   meuUid,
   integracao,
   ocupado,
@@ -337,7 +336,7 @@ function CompromissoCard({
   onRessincronizar,
 }: {
   c: Compromisso
-  admSupremo: boolean
+  podeGerenciar: boolean
   meuUid: string
   integracao: boolean
   ocupado: boolean
@@ -365,7 +364,7 @@ function CompromissoCard({
             <p className="mt-1.5 whitespace-pre-line text-xs text-neutral-600 adobe-dark:text-adobe-text-md">{c.descricao}</p>
           )}
         </div>
-        {admSupremo && (
+        {podeGerenciar && (
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -412,7 +411,7 @@ function CompromissoCard({
             </span>
           )
         })}
-        {admSupremo && comErro && (
+        {podeGerenciar && comErro && (
           <button
             type="button"
             disabled={ocupado}
@@ -433,12 +432,14 @@ function CompromissoCard({
 function CompromissoModal({
   compromisso,
   usuarios,
+  admSupremo,
   hoje,
   onClose,
   onSaved,
 }: {
   compromisso: Compromisso | null
   usuarios: UsuarioAgenda[]
+  admSupremo: boolean
   hoje: string
   onClose: () => void
   onSaved: () => void
@@ -488,7 +489,7 @@ function CompromissoModal({
       fd.append('horaFim', horaFim)
       fd.append('local', local)
       fd.append('descricao', descricao)
-      participantes.forEach((uid) => fd.append('participantes', uid))
+      if (admSupremo) participantes.forEach((uid) => fd.append('participantes', uid))
       const r = await salvarCompromisso(fd)
       setErrors(r.fieldErrors ?? {})
       if (r.error) {
@@ -508,7 +509,11 @@ function CompromissoModal({
       open
       onClose={() => !salvando && onClose()}
       title={compromisso ? 'Editar compromisso' : 'Novo compromisso'}
-      description="Os participantes que conectaram o Google Agenda recebem o evento automaticamente."
+      description={
+        admSupremo
+          ? 'Os participantes que conectaram o Google Agenda recebem o evento automaticamente.'
+          : 'O compromisso fica na sua agenda e vai para o seu Google Agenda, se estiver conectado.'
+      }
       size="lg"
     >
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
@@ -578,6 +583,7 @@ function CompromissoModal({
           rows={3}
           maxLength={AGENDA_DESCRICAO_MAX}
         />
+        {admSupremo && (
         <div>
           <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">
             Participantes
@@ -599,6 +605,7 @@ function CompromissoModal({
           </ul>
           {errors.participantes && <p className="mt-1.5 text-xs font-semibold text-rose-600">{errors.participantes}</p>}
         </div>
+        )}
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
             Cancelar
