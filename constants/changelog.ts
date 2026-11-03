@@ -24,6 +24,28 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-03-agenda-eventos-google',
+    date: '2026-11-03',
+    title: 'Agenda: veja os eventos do seu Google Agenda',
+    tag: 'novo',
+    items: [
+      'Quem conectou o Google Agenda agora vê, na aba Agenda, os eventos que adicionou direto no celular ou no Google, junto com os compromissos do painel.',
+      'Esses eventos são só seus: ninguém mais vê. Para a administração ver um evento, marque "Compartilhar com a administração" nele.',
+      'Eventos do Google são somente leitura no painel; para alterar, edite no Google Agenda.',
+    ],
+  },
+  {
+    id: '2026-11-03-agenda-privacidade',
+    date: '2026-11-03',
+    title: 'Agenda: o que você cria é só seu (a menos que compartilhe)',
+    tag: 'melhoria',
+    items: [
+      'Cada pessoa vê os compromissos em que participa e os que ela mesma criou, inclusive os que marcou para outras pessoas.',
+      'O que alguém cria na própria agenda só ele vê. Para a administração ver, é só marcar "Compartilhar com a administração" no compromisso.',
+      'A administração deixa de ver automaticamente tudo o que a equipe cria; vê o que criou, o que participa e o que for compartilhado com ela.',
+    ],
+  },
+  {
     id: '2026-11-03-agenda-todos-marcam',
     date: '2026-11-03',
     title: 'Agenda: cada um marca na própria agenda',

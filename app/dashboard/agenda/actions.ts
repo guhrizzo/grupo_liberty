@@ -9,6 +9,9 @@ import {
   desconectar,
   excluirEvento,
   integracaoConfigurada,
+  listarEventosGoogle,
+  obterEventoGoogle,
+  type EventoGoogleLido,
   uidsConectados,
   urlAutorizacao,
 } from '@/utils/google-agenda'
@@ -21,9 +24,13 @@ import {
   type Compromisso,
   type CompromissoFieldErrors,
   type ConexaoGoogle,
+  type EventoGoogle,
 } from './types'
 
 const COLECAO = 'agenda'
+// Eventos do Google que o dono liberou para a administração: `${uid}_${eventId}`.
+const COMPARTILHADOS = 'agenda_google_compartilhados'
+const DIA_MS = 86_400_000
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -34,9 +41,13 @@ async function checarLogado(): Promise<{ user: SessionUser } | { error: string }
   return { user }
 }
 
-/** O ADM supremo gerencia qualquer compromisso; os demais, só os que eles mesmos criaram. */
+/**
+ * Gerencia quem criou o compromisso; o ADM supremo também gerencia os que o
+ * criador compartilhou com a administração.
+ */
 function podeGerenciar(user: SessionUser, data: FirebaseFirestore.DocumentData | undefined): boolean {
-  return isAdmSupremo(user) || data?.criadoPorUid === user.uid
+  if (data?.criadoPorUid === user.uid) return true
+  return isAdmSupremo(user) && data?.compartilhado === true
 }
 
 const SEM_PERMISSAO = 'Você só pode alterar compromissos que você mesmo criou.'
@@ -71,6 +82,7 @@ function serialize(
       sincronizado: !!eventos[uid],
     })),
     criadoPorUid: data.criadoPorUid ?? '',
+    compartilhado: data.compartilhado === true,
     criadoPorNome: data.criadoPorNome ?? '',
     atualizadoEm: data.atualizadoEm ?? '',
   }
@@ -78,21 +90,29 @@ function serialize(
 
 // ─── Leitura ─────────────────────────────────────────────────────────────────
 
-/** ADM supremo vê todos; os demais, só onde são participantes. */
+/**
+ * Cada um vê onde é participante e o que criou. O ADM supremo vê também o que
+ * os outros criaram e compartilharam com a administração.
+ */
 export async function getCompromissos(): Promise<Compromisso[]> {
   try {
     const user = await getSessionUser()
     if (!user) return []
     // Só igualdade/array-contains: não exige índice composto; ordena em memória.
-    const snap = isAdmSupremo(user)
-      ? await adminDb.collection(COLECAO).get()
-      : await adminDb.collection(COLECAO).where('participantesUids', 'array-contains', user.uid).get()
+    const col = adminDb.collection(COLECAO)
+    const consultas = [
+      col.where('participantesUids', 'array-contains', user.uid).get(),
+      col.where('criadoPorUid', '==', user.uid).get(),
+      ...(isAdmSupremo(user) ? [col.where('compartilhado', '==', true).get()] : []),
+    ]
+    const docs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+    for (const snap of await Promise.all(consultas)) snap.docs.forEach((d) => docs.set(d.id, d))
 
     const todos = new Set<string>()
-    snap.docs.forEach((d) => (d.data().participantesUids ?? []).forEach((u: string) => todos.add(u)))
+    docs.forEach((d) => (d.data().participantesUids ?? []).forEach((u: string) => todos.add(u)))
     const conectados = integracaoConfigurada() ? await uidsConectados([...todos]) : new Set<string>()
 
-    return snap.docs
+    return [...docs.values()]
       .map((d) => serialize(d.id, d.data(), conectados))
       .sort(
         (a, b) =>
@@ -116,6 +136,92 @@ export async function getConexaoGoogle(): Promise<ConexaoGoogle> {
   } catch (err) {
     console.error('[getConexaoGoogle]', err)
     return { configurada, email: null }
+  }
+}
+
+// ─── Eventos do Google (somente leitura) ─────────────────────────────────────
+
+/**
+ * Eventos da agenda do Google do próprio usuário (e, para o ADM supremo, os que
+ * outras pessoas compartilharam). Nada é gravado: lê direto do Google.
+ */
+export async function getEventosGoogle(): Promise<EventoGoogle[]> {
+  try {
+    const user = await getSessionUser()
+    if (!user || !integracaoConfigurada()) return []
+
+    const compartilhados = await adminDb.collection(COMPARTILHADOS).get()
+    const idsMeus = new Set<string>()
+    const deOutros: { uid: string; eventId: string; donoNome: string }[] = []
+    compartilhados.docs.forEach((d) => {
+      const x = d.data()
+      if (x.uid === user.uid) idsMeus.add(x.eventId)
+      else if (isAdmSupremo(user)) deOutros.push({ uid: x.uid, eventId: x.eventId, donoNome: x.donoNome ?? 'Usuário' })
+    })
+
+    const agora = Date.now()
+    const lidos = await listarEventosGoogle(
+      user.uid,
+      new Date(agora - 60 * DIA_MS),
+      new Date(agora + 180 * DIA_MS),
+    ).catch((err) => {
+      console.error('[getEventosGoogle] próprios', err)
+      return [] as EventoGoogleLido[]
+    })
+    const proprios: EventoGoogle[] = lidos.map((e) => ({
+      ...e,
+      uid: user.uid,
+      donoNome: user.name || user.email || 'Você',
+      compartilhado: idsMeus.has(e.id),
+    }))
+
+    const alheios = (
+      await Promise.all(
+        deOutros.map(async (c) => {
+          try {
+            const e = await obterEventoGoogle(c.uid, c.eventId)
+            return e ? { ...e, uid: c.uid, donoNome: c.donoNome, compartilhado: true } : null
+          } catch (err) {
+            console.error('[getEventosGoogle] compartilhado', c.uid, err)
+            return null
+          }
+        }),
+      )
+    ).filter((e): e is EventoGoogle => e !== null)
+
+    return [...proprios, ...alheios]
+  } catch (err) {
+    console.error('[getEventosGoogle]', err)
+    return []
+  }
+}
+
+/** O dono libera (ou retira) um evento do próprio Google para a administração ver. */
+export async function compartilharEventoGoogle(eventId: string, compartilhar: boolean): Promise<AgendaResponse> {
+  const check = await checarLogado()
+  if ('error' in check) return { error: check.error }
+  const { user } = check
+  if (!eventId) return { error: 'Evento inválido.' }
+  try {
+    const ref = adminDb.collection(COMPARTILHADOS).doc(`${user.uid}_${eventId}`)
+    if (compartilhar) {
+      // Confere que o evento existe mesmo na agenda dessa pessoa.
+      const evento = await obterEventoGoogle(user.uid, eventId)
+      if (!evento) return { error: 'Evento não encontrado no seu Google Agenda.' }
+      await ref.set({
+        uid: user.uid,
+        eventId,
+        donoNome: user.name || user.email || 'Usuário',
+        compartilhadoEm: new Date().toISOString(),
+      })
+    } else {
+      await ref.delete()
+    }
+    revalidar()
+    return { success: compartilhar ? 'Evento compartilhado com a administração.' : 'Evento voltou a ser só seu.' }
+  } catch (err) {
+    console.error('[compartilharEventoGoogle]', err)
+    return { error: 'Erro ao alterar o compartilhamento.' }
   }
 }
 
@@ -162,6 +268,7 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
   const diaInteiro = texto('diaInteiro') === 'true'
   const horaInicio = diaInteiro ? null : texto('horaInicio') || null
   const horaFim = diaInteiro ? null : texto('horaFim') || null
+  const compartilhadoInformado = texto('compartilhado') === 'true'
   const participantesUids = isAdmSupremo(user)
     ? [...new Set(formData.getAll('participantes').map(String).filter(Boolean))]
     : [user.uid]
@@ -195,7 +302,7 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
   if (Object.keys(fieldErrors).length > 0) return { error: 'Verifique os campos destacados.', fieldErrors }
 
   const now = new Date().toISOString()
-  const dados = {
+  const dados: Record<string, unknown> = {
     titulo,
     descricao,
     local,
@@ -218,10 +325,13 @@ export async function salvarCompromisso(formData: FormData): Promise<AgendaRespo
       if (!podeGerenciar(user, atual.data())) return { error: SEM_PERMISSAO }
       const antes: string[] = atual.data()?.participantesUids ?? []
       removidos = antes.filter((u) => !participantesUids.includes(u))
+      // Só quem criou muda o compartilhamento.
+      if (atual.data()?.criadoPorUid === user.uid) dados.compartilhado = !isAdmSupremo(user) && compartilhadoInformado
       await ref.update(dados)
     } else {
       const ref = await adminDb.collection(COLECAO).add({
         ...dados,
+        compartilhado: !isAdmSupremo(user) && compartilhadoInformado,
         googleEventos: {},
         googleErros: {},
         criadoPorUid: user.uid,

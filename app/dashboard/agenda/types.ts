@@ -12,8 +12,44 @@ export interface Compromisso {
   horaFim: string | null
   participantes: { uid: string; nome: string; conectado: boolean; erro: string | null; sincronizado: boolean }[]
   criadoPorUid: string
+  /** O criador (não-ADM) liberou o compromisso para a administração ver. */
+  compartilhado: boolean
   criadoPorNome: string
   atualizadoEm: string
+}
+
+/** Evento da agenda do Google de alguém (somente leitura no painel). */
+export interface EventoGoogle {
+  id: string
+  /** Dono da agenda do Google. */
+  uid: string
+  donoNome: string
+  titulo: string
+  descricao: string
+  local: string
+  data: string // YYYY-MM-DD
+  diaInteiro: boolean
+  horaInicio: string | null
+  horaFim: string | null
+  /** O dono liberou o evento para a administração ver. */
+  compartilhado: boolean
+}
+
+/** Evento da agenda do Google de alguém (somente leitura no painel). */
+export interface EventoGoogle {
+  id: string
+  /** Dono da agenda do Google. */
+  uid: string
+  donoNome: string
+  titulo: string
+  descricao: string
+  local: string
+  data: string // YYYY-MM-DD
+  diaInteiro: boolean
+  horaInicio: string | null
+  horaFim: string | null
+  /** O dono liberou o evento para a administração ver. */
+  compartilhado: boolean
 }
 
 export interface ConexaoGoogle {

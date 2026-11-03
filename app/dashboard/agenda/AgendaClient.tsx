@@ -27,6 +27,7 @@ import {
   desconectarGoogle,
   excluirCompromisso,
   iniciarConexaoGoogle,
+  compartilharEventoGoogle,
   ressincronizarCompromisso,
   salvarCompromisso,
 } from './actions'
@@ -38,11 +39,13 @@ import {
   type Compromisso,
   type CompromissoFieldErrors,
   type ConexaoGoogle,
+  type EventoGoogle,
   type UsuarioAgenda,
 } from './types'
 
 interface AgendaClientProps {
   compromissos: Compromisso[]
+  eventosGoogle: EventoGoogle[]
   conexao: ConexaoGoogle
   usuarios: UsuarioAgenda[]
   admSupremo: boolean
@@ -97,7 +100,13 @@ function GoogleLogo({ size = 20 }: { size?: number }) {
   )
 }
 
-export default function AgendaClient({ compromissos, conexao, usuarios, admSupremo, meuUid, hoje }: AgendaClientProps) {
+type Item = { tipo: 'painel'; c: Compromisso } | { tipo: 'google'; e: EventoGoogle }
+
+const dataDe = (i: Item) => (i.tipo === 'painel' ? i.c.data : i.e.data)
+const diaInteiroDe = (i: Item) => (i.tipo === 'painel' ? i.c.diaInteiro : i.e.diaInteiro)
+const horaDe = (i: Item) => (i.tipo === 'painel' ? i.c.horaInicio : i.e.horaInicio) ?? ''
+
+export default function AgendaClient({ compromissos, eventosGoogle, conexao, usuarios, admSupremo, meuUid, hoje }: AgendaClientProps) {
   const router = useRouter()
   const toast = useToast()
   const [verAnteriores, setVerAnteriores] = useState(false)
@@ -141,15 +150,31 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
     }
   }
 
-  const proximos = useMemo(() => compromissos.filter((c) => c.data >= hoje), [compromissos, hoje])
-  const anteriores = useMemo(() => compromissos.filter((c) => c.data < hoje).reverse(), [compromissos, hoje])
+  // Compromissos do painel + eventos lidos do Google, juntos e em ordem.
+  const itens = useMemo<Item[]>(
+    () =>
+      [
+        ...compromissos.map((c): Item => ({ tipo: 'painel', c })),
+        ...eventosGoogle.map((e): Item => ({ tipo: 'google', e })),
+      ].sort(
+        (a, b) =>
+          dataDe(a).localeCompare(dataDe(b)) ||
+          Number(!diaInteiroDe(a)) - Number(!diaInteiroDe(b)) ||
+          horaDe(a).localeCompare(horaDe(b)),
+      ),
+    [compromissos, eventosGoogle],
+  )
+  const proximos = useMemo(() => itens.filter((i) => dataDe(i) >= hoje), [itens, hoje])
+  const anteriores = useMemo(() => itens.filter((i) => dataDe(i) < hoje).reverse(), [itens, hoje])
 
   const grupos = useMemo(() => {
     const base = (verAnteriores ? anteriores : proximos).filter(
-      (c) => !filtroPessoa || c.participantes.some((p) => p.uid === filtroPessoa),
+      (i) =>
+        !filtroPessoa ||
+        (i.tipo === 'painel' ? i.c.participantes.some((p) => p.uid === filtroPessoa) : i.e.uid === filtroPessoa),
     )
-    const mapa = new Map<string, Compromisso[]>()
-    for (const c of base) mapa.set(c.data, [...(mapa.get(c.data) ?? []), c])
+    const mapa = new Map<string, Item[]>()
+    for (const i of base) mapa.set(dataDe(i), [...(mapa.get(dataDe(i)) ?? []), i])
     return [...mapa.entries()]
   }, [verAnteriores, anteriores, proximos, filtroPessoa])
 
@@ -276,19 +301,29 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
                 {rotuloDia(data, hoje)}
               </h2>
               <ul className="space-y-2">
-                {itens.map((c) => (
+                {itens.map((item) =>
+                  item.tipo === 'google' ? (
+                    <EventoGoogleCard
+                      key={`g-${item.e.uid}-${item.e.id}`}
+                      e={item.e}
+                      meuUid={meuUid}
+                      admSupremo={admSupremo}
+                      onAlterado={() => router.refresh()}
+                    />
+                  ) : (
                   <CompromissoCard
-                    key={c.id}
-                    c={c}
-                    podeGerenciar={admSupremo || c.criadoPorUid === meuUid}
+                    key={item.c.id}
+                    c={item.c}
+                    podeGerenciar={item.c.criadoPorUid === meuUid || (admSupremo && item.c.compartilhado)}
                     meuUid={meuUid}
                     integracao={conexao.configurada}
                     ocupado={ocupado}
-                    onEditar={() => setEditando(c)}
-                    onExcluir={() => setExcluir(c)}
-                    onRessincronizar={() => executar(() => ressincronizarCompromisso(c.id))}
+                    onEditar={() => setEditando(item.c)}
+                    onExcluir={() => setExcluir(item.c)}
+                    onRessincronizar={() => executar(() => ressincronizarCompromisso(item.c.id))}
                   />
-                ))}
+                  ),
+                )}
               </ul>
             </section>
           ))}
@@ -301,6 +336,7 @@ export default function AgendaClient({ compromissos, conexao, usuarios, admSupre
           compromisso={editando === 'novo' ? null : editando}
           usuarios={usuarios}
           admSupremo={admSupremo}
+          meuUid={meuUid}
           hoje={hoje}
           onClose={() => setEditando(null)}
           onSaved={() => {
@@ -422,6 +458,12 @@ function CompromissoCard({
             </span>
           )
         })}
+        {c.criadoPorUid && c.criadoPorUid !== meuUid && (
+          <span className="text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">Criado por {c.criadoPorNome}</span>
+        )}
+        {c.criadoPorUid === meuUid && c.compartilhado && (
+          <span className="text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">Compartilhado com a administração</span>
+        )}
         {podeGerenciar && comErro && (
           <button
             type="button"
@@ -438,12 +480,94 @@ function CompromissoCard({
   )
 }
 
+// ─── Evento lido do Google (somente leitura) ────────────────────────────────
+
+function EventoGoogleCard({
+  e,
+  meuUid,
+  admSupremo,
+  onAlterado,
+}: {
+  e: EventoGoogle
+  meuUid: string
+  admSupremo: boolean
+  onAlterado: () => void
+}) {
+  const toast = useToast()
+  const [salvando, setSalvando] = useState(false)
+  const meu = e.uid === meuUid
+  const horario = e.diaInteiro || !e.horaInicio ? 'Dia inteiro' : e.horaFim ? `${e.horaInicio} – ${e.horaFim}` : e.horaInicio
+
+  async function alternar(compartilhar: boolean) {
+    setSalvando(true)
+    try {
+      const r = await compartilharEventoGoogle(e.id, compartilhar)
+      if (r.error) toast.error(r.error)
+      else {
+        toast.success(r.success || 'Feito.')
+        onAlterado()
+      }
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  return (
+    <li className={CARD + ' p-4'}>
+      <div className="flex flex-wrap items-start gap-3">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-neutral-100 px-2.5 py-1 text-xs font-bold tabular-nums text-neutral-700 adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md">
+          <IconClock size={13} stroke={2.2} />
+          {horario}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold text-neutral-950 adobe-dark:text-adobe-text-hi">{e.titulo}</h3>
+          {e.local && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-600 adobe-dark:text-adobe-text-md">
+              <IconMapPin size={13} stroke={2} className="shrink-0" />
+              {e.local}
+            </p>
+          )}
+          {e.descricao && (
+            <p className="mt-1.5 line-clamp-3 whitespace-pre-line text-xs text-neutral-600 adobe-dark:text-adobe-text-md">
+              {e.descricao}
+            </p>
+          )}
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-[11px] font-semibold text-neutral-600 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md">
+          <GoogleLogo size={11} />
+          {meu ? 'Do seu Google Agenda' : `Do Google de ${e.donoNome} · compartilhado`}
+        </span>
+        {meu && !admSupremo && (
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold text-neutral-600 adobe-dark:text-adobe-text-md">
+            <input
+              type="checkbox"
+              checked={e.compartilhado}
+              disabled={salvando}
+              onChange={(ev) => alternar(ev.target.checked)}
+              className="h-3.5 w-3.5 cursor-pointer accent-[var(--color-liberty,#0284c7)]"
+            />
+            Compartilhar com a administração
+          </label>
+        )}
+        {meu && (
+          <span className="text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
+            Para alterar, edite no Google Agenda.
+          </span>
+        )}
+      </div>
+    </li>
+  )
+}
+
 // ─── Modal criar/editar ──────────────────────────────────────────────────────
 
 function CompromissoModal({
   compromisso,
   usuarios,
   admSupremo,
+  meuUid,
   hoje,
   onClose,
   onSaved,
@@ -451,6 +575,7 @@ function CompromissoModal({
   compromisso: Compromisso | null
   usuarios: UsuarioAgenda[]
   admSupremo: boolean
+  meuUid: string
   hoje: string
   onClose: () => void
   onSaved: () => void
@@ -466,6 +591,9 @@ function CompromissoModal({
   const [participantes, setParticipantes] = useState(
     () => new Set(compromisso?.participantes.map((p) => p.uid) ?? []),
   )
+  const [compartilhado, setCompartilhado] = useState(compromisso?.compartilhado ?? false)
+  // Só o criador (que não é ADM supremo) decide se a administração vê o compromisso.
+  const podeCompartilhar = !admSupremo && (!compromisso || compromisso.criadoPorUid === meuUid)
   const [errors, setErrors] = useState<CompromissoFieldErrors>({})
   const [salvando, setSalvando] = useState(false)
 
@@ -500,6 +628,7 @@ function CompromissoModal({
       fd.append('horaFim', horaFim)
       fd.append('local', local)
       fd.append('descricao', descricao)
+      if (podeCompartilhar) fd.append('compartilhado', String(compartilhado))
       if (admSupremo) participantes.forEach((uid) => fd.append('participantes', uid))
       const r = await salvarCompromisso(fd)
       setErrors(r.fieldErrors ?? {})
@@ -594,6 +723,22 @@ function CompromissoModal({
           rows={3}
           maxLength={AGENDA_DESCRICAO_MAX}
         />
+        {podeCompartilhar && (
+          <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-neutral-200 p-3 text-sm text-neutral-700 adobe-dark:border-adobe-line adobe-dark:text-adobe-text-md">
+            <input
+              type="checkbox"
+              checked={compartilhado}
+              onChange={(e) => setCompartilhado(e.target.checked)}
+              className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--color-liberty,#0284c7)]"
+            />
+            <span>
+              <span className="font-semibold">Compartilhar com a administração</span>
+              <span className="block text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">
+                Por padrão só você vê este compromisso. Marque para a administração também poder vê-lo.
+              </span>
+            </span>
+          </label>
+        )}
         {admSupremo && (
         <div>
           <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">

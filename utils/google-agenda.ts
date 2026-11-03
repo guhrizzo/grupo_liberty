@@ -278,3 +278,107 @@ export async function excluirEvento(uid: string, eventId: string): Promise<void>
     throw err
   }
 }
+
+// ─── Leitura dos eventos do Google ───────────────────────────────────────────
+
+/** Evento lido do Google, já normalizado para o fuso do negócio. */
+export interface EventoGoogleLido {
+  id: string
+  titulo: string
+  descricao: string
+  local: string
+  data: string // YYYY-MM-DD (dia do início)
+  diaInteiro: boolean
+  horaInicio: string | null // HH:MM
+  horaFim: string | null
+}
+
+const MARCA_PAINEL = 'Compromisso do painel Liberty Car'
+
+function emFusoAgenda(iso: string): { data: string; hora: string } | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: FUSO_AGENDA,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  )
+  return { data: `${p.year}-${p.month}-${p.day}`, hora: `${p.hour}:${p.minute}` }
+}
+
+interface ItemGoogle {
+  id?: string
+  status?: string
+  summary?: string
+  description?: string
+  location?: string
+  start?: { date?: string; dateTime?: string }
+  end?: { date?: string; dateTime?: string }
+}
+
+/** Normaliza um evento do Google; `null` para cancelados, sem data ou criados pelo próprio painel. */
+function converterEvento(item: ItemGoogle): EventoGoogleLido | null {
+  if (!item.id || item.status === 'cancelled' || !item.start) return null
+  // Eventos que o painel mandou para o Google já existem como compromissos.
+  if ((item.description ?? '').includes(MARCA_PAINEL)) return null
+  const base = {
+    id: item.id,
+    titulo: item.summary?.trim() || '(Sem título)',
+    descricao: item.description ?? '',
+    local: item.location ?? '',
+  }
+  if (item.start.date) {
+    return { ...base, data: item.start.date, diaInteiro: true, horaInicio: null, horaFim: null }
+  }
+  const ini = item.start.dateTime ? emFusoAgenda(item.start.dateTime) : null
+  if (!ini) return null
+  const fim = item.end?.dateTime ? emFusoAgenda(item.end.dateTime) : null
+  return {
+    ...base,
+    data: ini.data,
+    diaInteiro: false,
+    horaInicio: ini.hora,
+    horaFim: fim && fim.data === ini.data && fim.hora > ini.hora ? fim.hora : null,
+  }
+}
+
+/** Eventos da agenda principal de `uid` entre `desde` e `ate` (recorrentes já expandidos). */
+export async function listarEventosGoogle(uid: string, desde: Date, ate: Date): Promise<EventoGoogleLido[]> {
+  try {
+    const params = new URLSearchParams({
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250',
+      timeMin: desde.toISOString(),
+      timeMax: ate.toISOString(),
+    })
+    const res = await chamar(uid, `${API}?${params}`, { method: 'GET' })
+    if (!res.ok) throw new Error(await erroDe(res))
+    const json = (await res.json()) as { items?: ItemGoogle[] }
+    return (json.items ?? []).map(converterEvento).filter((e): e is EventoGoogleLido => e !== null)
+  } catch (err) {
+    if (err instanceof SemConta) return []
+    throw err
+  }
+}
+
+/** Um evento específico de `uid` (`null` se não existe mais, foi cancelado ou é do painel). */
+export async function obterEventoGoogle(uid: string, eventId: string): Promise<EventoGoogleLido | null> {
+  try {
+    const res = await chamar(uid, `${API}/${encodeURIComponent(eventId)}`, { method: 'GET' })
+    if (res.status === 404 || res.status === 410) return null
+    if (!res.ok) throw new Error(await erroDe(res))
+    return converterEvento((await res.json()) as ItemGoogle)
+  } catch (err) {
+    if (err instanceof SemConta) return null
+    throw err
+  }
+}
