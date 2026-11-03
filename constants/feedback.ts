@@ -57,3 +57,6 @@ export function ehFeedbackStatus(v: unknown): v is FeedbackStatus {
     v === 'aberto' || v === 'em_analise' || v === 'resolvido' || v === 'descartado'
   )
 }
+
+/** Fotos por report (limite do formulário e do servidor). */
+export const FEEDBACK_MAX_FOTOS = 5

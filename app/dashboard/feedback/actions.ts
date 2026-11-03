@@ -1,11 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { adminDb } from '@/utils/firebase/admin'
+import { adminDb, adminStorage } from '@/utils/firebase/admin'
+import { converterFotoParaWebp, FOTO_CACHE_CONTROL } from '@/utils/veiculos/foto-webp'
 import { getSessionUser, isOwner } from '@/utils/permissions'
 import {
   ehFeedbackStatus,
   ehFeedbackTipo,
+  FEEDBACK_MAX_FOTOS,
   type FeedbackStatus,
 } from '@/constants/feedback'
 import type { Feedback, FeedbackAtualizacao, FeedbackFieldErrors, FeedbackResponse } from './types'
@@ -30,8 +32,10 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Feedback {
     criadoEm: data.criadoEm ?? '',
     atualizadoEm: data.atualizadoEm ?? data.criadoEm ?? '',
     atualizacoes,
+    fotos: Array.isArray(data.fotos) ? data.fotos.filter((u: unknown) => typeof u === 'string') : [],
   }
 }
+
 
 /** Garante que quem chama é o dono. Retorna a mensagem de erro, ou null se ok. */
 async function checarDono(): Promise<string | null> {
@@ -73,11 +77,40 @@ export async function criarFeedback(formData: FormData): Promise<FeedbackRespons
   else if (descricao.length > 4000) fieldErrors.descricao = 'Máximo de 4000 caracteres.'
   if (telaRaw.length > 140) fieldErrors.tela = 'Máximo de 140 caracteres.'
 
+  const arquivos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
+  if (arquivos.length > FEEDBACK_MAX_FOTOS) fieldErrors.fotos = `Máximo de ${FEEDBACK_MAX_FOTOS} fotos.`
+  else if (arquivos.some((f) => !f.type.startsWith('image/'))) fieldErrors.fotos = 'Envie apenas imagens.'
+
   if (Object.keys(fieldErrors).length > 0) {
     return { error: 'Verifique os campos destacados.', fieldErrors }
   }
 
   try {
+    const fotos: string[] = []
+    const fotosPaths: string[] = []
+    if (arquivos.length > 0) {
+      const bucket = adminStorage.bucket()
+      for (const file of arquivos) {
+        const original = Buffer.from(await file.arrayBuffer())
+        let buffer: Buffer = original
+        let ext = file.name.split('.').pop() || 'jpg'
+        let contentType = file.type || 'image/jpeg'
+        try {
+          buffer = await converterFotoParaWebp(original)
+          ext = 'webp'
+          contentType = 'image/webp'
+        } catch {
+          // formato não convertível: sobe o original
+        }
+        const path = `feedback/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        const ref = bucket.file(path)
+        await ref.save(buffer, { metadata: { contentType, cacheControl: FOTO_CACHE_CONTROL } })
+        await ref.makePublic()
+        fotos.push(ref.publicUrl())
+        fotosPaths.push(path)
+      }
+    }
+
     const now = new Date().toISOString()
     await adminDb.collection('feedback').add({
       tipo: tipoRaw,
@@ -91,6 +124,8 @@ export async function criarFeedback(formData: FormData): Promise<FeedbackRespons
       criadoEm: now,
       atualizadoEm: now,
       atualizacoes: [],
+      fotos,
+      fotosPaths,
     })
 
     revalidatePath('/dashboard/feedback')
@@ -164,7 +199,16 @@ export async function deletarFeedback(id: string): Promise<FeedbackResponse> {
   if (!id) return { error: 'Report inválido.' }
 
   try {
-    await adminDb.collection('feedback').doc(id).delete()
+    const ref = adminDb.collection('feedback').doc(id)
+    const paths: unknown = (await ref.get()).data()?.fotosPaths
+    await ref.delete()
+    // Apaga as imagens anexadas (melhor esforço: falha aqui não desfaz a remoção).
+    if (Array.isArray(paths)) {
+      const bucket = adminStorage.bucket()
+      await Promise.all(
+        paths.filter((p): p is string => typeof p === 'string').map((p) => bucket.file(p).delete().catch(() => {})),
+      )
+    }
     revalidatePath('/dashboard/feedback')
     return { success: 'Report removido.' }
   } catch (err) {

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-03-feedback-fotos',
+    date: '2026-11-03',
+    title: 'Bugs e melhorias: anexe fotos ao reportar',
+    tag: 'novo',
+    items: [
+      'No "Novo report" agora dá para anexar até 5 fotos (prints do erro ou da ideia).',
+      'As fotos aparecem no report e abrem em tamanho real ao clicar.',
+    ],
+  },
+  {
     id: '2026-11-03-propostas-fechado-data-venda',
     date: '2026-11-03',
     title: 'Propostas: aba Fechado · Veículos: data da venda',

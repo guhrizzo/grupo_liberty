@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import {
@@ -14,6 +14,7 @@ import {
   IconUser,
   IconClock,
   IconSend,
+  IconPhoto,
 } from '@tabler/icons-react'
 import { Breadcrumb, Button, ConfirmDialog, Input, Textarea, EmptyState, useToast } from '@/app/components/ui'
 import { formatDate, formatDateTime } from '@/utils/format'
@@ -21,6 +22,7 @@ import {
   FEEDBACK_STATUS,
   FEEDBACK_STATUS_ORDEM,
   FEEDBACK_TIPOS,
+  FEEDBACK_MAX_FOTOS,
   type FeedbackStatus,
   type FeedbackTipo,
 } from '@/constants/feedback'
@@ -385,6 +387,24 @@ function FeedbackCard({
         <div className="border-t border-neutral-100 px-4 py-4 space-y-4">
           <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-700">{item.descricao}</p>
 
+          {item.fotos.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {item.fotos.map((url, i) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Abrir foto ${i + 1} em tamanho real`}
+                  className="block overflow-hidden rounded-lg border border-neutral-200 transition-opacity hover:opacity-80"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Foto ${i + 1} do report`} className="h-24 w-24 object-cover" />
+                </a>
+              ))}
+            </div>
+          )}
+
           {item.tela && (
             <p className="text-[11px] text-neutral-500">
               <span className="font-bold uppercase tracking-wider">Onde:</span> {item.tela}
@@ -487,17 +507,31 @@ function NovoReportModal({
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [tela, setTela] = useState('')
+  const [fotos, setFotos] = useState<File[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const previews = useMemo(() => fotos.map((f) => URL.createObjectURL(f)), [fotos])
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews])
+
+  function adicionarFotos(lista: FileList | null) {
+    if (!lista) return
+    const imagens = Array.from(lista).filter((f) => f.type.startsWith('image/'))
+    setFotos((atual) => [...atual, ...imagens].slice(0, FEEDBACK_MAX_FOTOS))
+  }
 
   if (typeof document === 'undefined') return null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (fotos.reduce((t, f) => t + f.size, 0) > 9 * 1024 * 1024) {
+      setErrors({ fotos: 'As fotos somam mais de 9 MB. Remova alguma ou use imagens menores.' })
+      return
+    }
     const fd = new FormData()
     fd.append('tipo', tipo)
     fd.append('titulo', titulo)
     fd.append('descricao', descricao)
     fd.append('tela', tela)
+    fotos.forEach((f) => fd.append('fotos', f))
     const fieldErrors = await onSubmit(fd)
     setErrors(fieldErrors ?? {})
   }
@@ -586,6 +620,47 @@ function NovoReportModal({
             maxLength={140}
             error={errors.tela}
           />
+
+          <div>
+            <span className="mb-1.5 block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+              Fotos (opcional)
+            </span>
+            {previews.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {previews.map((src, i) => (
+                  <div key={src} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`Foto ${i + 1}`} className="h-16 w-16 rounded-lg border border-neutral-200 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setFotos((atual) => atual.filter((_, j) => j !== i))}
+                      aria-label={`Remover foto ${i + 1}`}
+                      className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-rose-600 text-white shadow cursor-pointer"
+                    >
+                      <IconX size={12} stroke={3} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {fotos.length < FEEDBACK_MAX_FOTOS && (
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui">
+                <IconPhoto size={14} stroke={2.2} />
+                Adicionar foto ({fotos.length}/{FEEDBACK_MAX_FOTOS})
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) => {
+                    adicionarFotos(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            )}
+            {errors.fotos && <p className="mt-1.5 text-xs font-semibold text-rose-600">{errors.fotos}</p>}
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-neutral-100 bg-neutral-50/60 px-5 py-3">

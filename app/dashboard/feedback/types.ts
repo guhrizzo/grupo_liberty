@@ -21,6 +21,8 @@ export interface Feedback {
   criadoEm: string
   atualizadoEm: string
   atualizacoes: FeedbackAtualizacao[]
+  /** URLs públicas das imagens anexadas ao reportar. */
+  fotos: string[]
 }
 
 export type FeedbackFieldErrors = {
@@ -28,6 +30,7 @@ export type FeedbackFieldErrors = {
   titulo?: string
   descricao?: string
   tela?: string
+  fotos?: string
 }
 
 export type FeedbackResponse = {
