@@ -9,6 +9,8 @@ import {
   IconBulb,
   IconX,
   IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
   IconTrash,
   IconMessagePlus,
   IconUser,
@@ -68,6 +70,90 @@ function StatusBadge({ status }: { status: FeedbackStatus }) {
   )
 }
 
+const MESES = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+/** "YYYY-MM" do report, no fuso de Brasília (igual no servidor e no navegador). */
+function mesDoReport(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'sem-data'
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }).slice(0, 7)
+}
+
+function rotuloMes(chave: string): string {
+  if (chave === 'sem-data') return 'Sem data'
+  const [ano, mes] = chave.split('-')
+  return `${MESES[Number(mes) - 1] ?? mes} de ${ano}`
+}
+
+/** Soma `delta` meses a uma chave "YYYY-MM". */
+function somarMeses(chave: string, delta: number): string {
+  const [ano, mes] = chave.split('-').map(Number)
+  const d = new Date(Date.UTC(ano, mes - 1 + delta, 1))
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/** Ainda não foi feito: segue aparecendo nos meses seguintes. */
+function estaPendente(status: FeedbackStatus): boolean {
+  return status === 'aberto' || status === 'em_analise'
+}
+
+interface ContagemStatus {
+  aberto: number
+  em_analise: number
+  resolvido: number
+  descartado: number
+}
+
+/** Barra de andamento: feito (resolvido) × em análise × ainda não feito. Descartados ficam de fora. */
+function ProgressoBarra({ c, titulo }: { c: ContagemStatus; titulo?: string }) {
+  const total = c.aberto + c.em_analise + c.resolvido
+  const pct = total > 0 ? Math.round((c.resolvido / total) * 100) : 0
+  const w = (n: number) => (total > 0 ? `${(n / total) * 100}%` : '0%')
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+          {titulo ?? 'Andamento'}
+        </p>
+        <p className="text-sm font-bold tabular-nums text-neutral-950">
+          {pct}% <span className="text-[11px] font-medium text-neutral-500">feito</span>
+        </p>
+      </div>
+      <div
+        className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-neutral-200/70"
+        role="img"
+        aria-label={`${pct}% feito: ${c.resolvido} resolvidos, ${c.em_analise} em análise, ${c.aberto} abertos`}
+      >
+        <div className="h-full bg-emerald-500 transition-[width] duration-700" style={{ width: w(c.resolvido) }} />
+        <div className="h-full bg-sky-500 transition-[width] duration-700" style={{ width: w(c.em_analise) }} />
+      </div>
+      <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-neutral-500">
+        <li className="flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+          {c.resolvido} resolvido{c.resolvido === 1 ? '' : 's'}
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" />
+          {c.em_analise} em análise
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-400" />
+          {c.aberto} não feito{c.aberto === 1 ? '' : 's'}
+        </li>
+        {c.descartado > 0 && (
+          <li className="flex items-center gap-1.5 text-neutral-400">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-300" />
+            {c.descartado} descartado{c.descartado === 1 ? '' : 's'}
+          </li>
+        )}
+      </ul>
+    </div>
+  )
+}
+
 export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) {
   const router = useRouter()
   const toast = useToast()
@@ -81,19 +167,37 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
   const [filtroTipo, setFiltroTipo] = useState<'todos' | FeedbackTipo>('todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | FeedbackStatus>('todos')
 
-  const contagem = useMemo(() => {
-    const c = { total: itens.length, aberto: 0, em_analise: 0, resolvido: 0, descartado: 0 }
-    for (const it of itens) c[it.status]++
+  // Calendário: um mês por vez. O que ainda não foi feito (aberto / em análise)
+  // continua aparecendo nos meses seguintes até ser resolvido ou descartado.
+  const mesAtualChave = useMemo(() => mesDoReport(new Date().toISOString()), [])
+  const [mesSel, setMesSel] = useState(mesAtualChave)
+  const primeiroMes = useMemo(() => {
+    const todos = itens.map((it) => mesDoReport(it.criadoEm)).filter((m) => m !== 'sem-data')
+    return todos.length > 0 ? todos.reduce((a, b) => (a < b ? a : b)) : mesAtualChave
+  }, [itens, mesAtualChave])
+
+  const itensDoMes = useMemo(
+    () =>
+      itens.filter((it) => {
+        const criado = mesDoReport(it.criadoEm)
+        return criado === mesSel || (criado < mesSel && estaPendente(it.status))
+      }),
+    [itens, mesSel],
+  )
+
+  const statsDoMes = useMemo(() => {
+    const c: ContagemStatus = { aberto: 0, em_analise: 0, resolvido: 0, descartado: 0 }
+    for (const it of itensDoMes) c[it.status]++
     return c
-  }, [itens])
+  }, [itensDoMes])
 
   const filtrados = useMemo(() => {
-    return itens.filter((it) => {
+    return itensDoMes.filter((it) => {
       if (filtroTipo !== 'todos' && it.tipo !== filtroTipo) return false
       if (filtroStatus !== 'todos' && it.status !== filtroStatus) return false
       return true
     })
-  }, [itens, filtroTipo, filtroStatus])
+  }, [itensDoMes, filtroTipo, filtroStatus])
 
   const filtrosAtivos = filtroTipo !== 'todos' || filtroStatus !== 'todos'
 
@@ -136,9 +240,13 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
   )
 
   const handleAtualizacao = useCallback(
-    (id: string, texto: string, onDone: () => void) => {
+    (id: string, texto: string, fotos: File[], onDone: () => void) => {
       startTransition(async () => {
-        const result = await adicionarAtualizacaoFeedback(id, texto)
+        const fd = new FormData()
+        fd.append('id', id)
+        fd.append('texto', texto)
+        fotos.forEach((f) => fd.append('fotos', f))
+        const result = await adicionarAtualizacaoFeedback(fd)
         if (result.error) toast.error(result.error)
         else {
           toast.success(result.success || 'Atualização adicionada.')
@@ -186,20 +294,63 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
         </Button>
       </header>
 
-      <section aria-label="Resumo" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(
-          [
-            { label: 'Total', value: contagem.total },
-            { label: 'Abertos', value: contagem.aberto },
-            { label: 'Em análise', value: contagem.em_analise },
-            { label: 'Resolvidos', value: contagem.resolvido },
-          ] as const
-        ).map((k) => (
-          <div key={k.label} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xs">
-            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">{k.label}</p>
-            <p className="mt-1 text-2xl font-bold text-neutral-950 tabular-nums">{k.value}</p>
+      {/* Resumo do mês selecionado, dividido em células */}
+      <section
+        aria-label={`Resumo de ${rotuloMes(mesSel)}`}
+        className="overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-200 shadow-xs"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-3">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Mês anterior"
+              disabled={mesSel <= primeiroMes}
+              onClick={() => setMesSel((m) => somarMeses(m, -1))}
+              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 cursor-pointer disabled:cursor-default"
+            >
+              <IconChevronLeft size={16} />
+            </button>
+            <h2 className="min-w-40 px-2 text-center text-base font-bold text-neutral-950">
+              {rotuloMes(mesSel)}
+            </h2>
+            <button
+              type="button"
+              aria-label="Próximo mês"
+              disabled={mesSel >= mesAtualChave}
+              onClick={() => setMesSel((m) => somarMeses(m, 1))}
+              className="rounded-lg border border-neutral-200 bg-white p-1.5 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 cursor-pointer disabled:cursor-default"
+            >
+              <IconChevronRight size={16} />
+            </button>
           </div>
-        ))}
+          {mesSel !== mesAtualChave && (
+            <button
+              type="button"
+              onClick={() => setMesSel(mesAtualChave)}
+              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-neutral-700 hover:bg-neutral-100 cursor-pointer"
+            >
+              Mês atual
+            </button>
+          )}
+        </div>
+        <div className="mt-px grid grid-cols-2 gap-px lg:grid-cols-4">
+          {(
+            [
+              { label: 'Total', value: itensDoMes.length },
+              { label: 'Abertos', value: statsDoMes.aberto },
+              { label: 'Em análise', value: statsDoMes.em_analise },
+              { label: 'Resolvidos', value: statsDoMes.resolvido },
+            ] as const
+          ).map((k) => (
+            <div key={k.label} className="bg-white p-4">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">{k.label}</p>
+              <p className="mt-1 text-2xl font-bold text-neutral-950 tabular-nums">{k.value}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-px bg-white p-4">
+          <ProgressoBarra c={statsDoMes} titulo="Andamento do mês" />
+        </div>
       </section>
 
       {/* Filtros */}
@@ -279,26 +430,34 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
             </Button>
           }
         />
-      ) : filtrados.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm font-semibold text-neutral-500">
-          Nenhum report com esses filtros.
-        </div>
       ) : (
-        <ul className="space-y-3">
-          {filtrados.map((it) => (
-            <FeedbackCard
-              key={it.id}
-              item={it}
-              isOwner={isOwner}
-              expanded={expandedId === it.id}
-              onToggle={() => setExpandedId((c) => (c === it.id ? null : it.id))}
-              busy={isPending}
-              onStatus={handleStatus}
-              onAtualizacao={handleAtualizacao}
-              onRequestDelete={() => setDeleteId(it.id)}
-            />
-          ))}
-        </ul>
+        <section aria-label={rotuloMes(mesSel)} className="space-y-3">
+          {filtrados.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm font-semibold text-neutral-500">
+              {filtrosAtivos ? 'Nenhum report com esses filtros neste mês.' : 'Nenhum report neste mês.'}
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {filtrados.map((it) => {
+                const criado = mesDoReport(it.criadoEm)
+                return (
+                  <FeedbackCard
+                    key={it.id}
+                    item={it}
+                    carregadoDe={criado !== mesSel ? rotuloMes(criado) : undefined}
+                    isOwner={isOwner}
+                    expanded={expandedId === it.id}
+                    onToggle={() => setExpandedId((c) => (c === it.id ? null : it.id))}
+                    busy={isPending}
+                    onStatus={handleStatus}
+                    onAtualizacao={handleAtualizacao}
+                    onRequestDelete={() => setDeleteId(it.id)}
+                  />
+                )
+              })}
+            </ul>
+          )}
+        </section>
       )}
 
       {showModal && (
@@ -327,6 +486,7 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
 
 function FeedbackCard({
   item,
+  carregadoDe,
   isOwner,
   expanded,
   onToggle,
@@ -336,15 +496,27 @@ function FeedbackCard({
   onRequestDelete,
 }: {
   item: Feedback
+  /** Mês em que foi aberto, quando está sendo mostrado num mês posterior. */
+  carregadoDe?: string
   isOwner: boolean
   expanded: boolean
   onToggle: () => void
   busy: boolean
   onStatus: (id: string, status: FeedbackStatus) => void
-  onAtualizacao: (id: string, texto: string, onDone: () => void) => void
+  onAtualizacao: (id: string, texto: string, fotos: File[], onDone: () => void) => void
   onRequestDelete: () => void
 }) {
   const [nota, setNota] = useState('')
+  const [notaErro, setNotaErro] = useState<string | null>(null)
+  const [notaFotos, setNotaFotos] = useState<File[]>([])
+  const notaPreviews = useMemo(() => notaFotos.map((f) => URL.createObjectURL(f)), [notaFotos])
+  useEffect(() => () => notaPreviews.forEach((u) => URL.revokeObjectURL(u)), [notaPreviews])
+
+  function anexarFotos(lista: FileList | null) {
+    if (!lista) return
+    const imagens = Array.from(lista).filter((f) => f.type.startsWith('image/'))
+    setNotaFotos((atual) => [...atual, ...imagens].slice(0, FEEDBACK_MAX_FOTOS))
+  }
 
   return (
     <li className="rounded-2xl border border-neutral-200 bg-white shadow-xs">
@@ -358,6 +530,11 @@ function FeedbackCard({
           <div className="flex flex-wrap items-center gap-2">
             <TipoBadge tipo={item.tipo} />
             <StatusBadge status={item.status} />
+            {carregadoDe && (
+              <span className="inline-flex items-center rounded-full border border-neutral-200 px-2.5 py-0.5 text-[10px] font-semibold text-neutral-500">
+                Pendente desde {carregadoDe}
+              </span>
+            )}
           </div>
           <p className="mt-2 text-sm font-bold text-neutral-950">{item.titulo}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-neutral-500">
@@ -419,7 +596,24 @@ function FeedbackCard({
               <ul className="space-y-2 border-l-2 border-neutral-100 pl-3">
                 {item.atualizacoes.map((a, i) => (
                   <li key={i} className="text-[13px] text-neutral-700">
-                    <p className="whitespace-pre-wrap">{a.texto}</p>
+                    {a.texto && <p className="whitespace-pre-wrap">{a.texto}</p>}
+                    {a.fotos.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        {a.fotos.map((url, j) => (
+                          <a
+                            key={url}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Abrir foto ${j + 1} da atualização em tamanho real`}
+                            className="block overflow-hidden rounded-lg border border-neutral-200 transition-opacity hover:opacity-80"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt={`Foto ${j + 1} da atualização`} className="h-24 w-24 object-cover" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                     <p className="mt-0.5 text-[10px] font-medium text-neutral-400">{formatDateTime(a.em)}</p>
                   </li>
                 ))}
@@ -462,6 +656,41 @@ function FeedbackCard({
                   rows={2}
                   maxLength={2000}
                 />
+                {notaPreviews.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {notaPreviews.map((src, i) => (
+                      <div key={src} className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`Foto ${i + 1}`} className="h-16 w-16 rounded-lg border border-neutral-200 object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setNotaFotos((atual) => atual.filter((_, j) => j !== i))}
+                          aria-label={`Remover foto ${i + 1}`}
+                          className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-rose-600 text-white shadow cursor-pointer"
+                        >
+                          <IconX size={12} stroke={3} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {notaFotos.length < FEEDBACK_MAX_FOTOS && (
+                  <label className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui">
+                    <IconPhoto size={14} stroke={2.2} />
+                    Adicionar foto ({notaFotos.length}/{FEEDBACK_MAX_FOTOS})
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        anexarFotos(e.target.files)
+                        e.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+                {notaErro && <p className="mt-1.5 text-xs font-semibold text-rose-600">{notaErro}</p>}
                 <div className="mt-2 flex items-center justify-between">
                   <button
                     type="button"
@@ -477,8 +706,18 @@ function FeedbackCard({
                     size="sm"
                     leftIcon={<IconMessagePlus size={14} stroke={2} />}
                     loading={busy}
-                    disabled={!nota.trim()}
-                    onClick={() => onAtualizacao(item.id, nota.trim(), () => setNota(''))}
+                    disabled={!nota.trim() && notaFotos.length === 0}
+                    onClick={() => {
+                      if (notaFotos.reduce((t, f) => t + f.size, 0) > 9 * 1024 * 1024) {
+                        setNotaErro('As fotos somam mais de 9 MB. Remova alguma ou use imagens menores.')
+                        return
+                      }
+                      setNotaErro(null)
+                      onAtualizacao(item.id, nota.trim(), notaFotos, () => {
+                        setNota('')
+                        setNotaFotos([])
+                      })
+                    }}
                   >
                     Adicionar
                   </Button>

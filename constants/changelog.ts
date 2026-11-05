@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-feedback-meses-progresso-fotos',
+    date: '2026-11-05',
+    title: 'Bugs & Melhorias: meses, andamento e fotos nas respostas',
+    tag: 'melhoria',
+    items: [
+      'Os reports agora são vistos mês a mês, como num calendário (setas para navegar), cada mês com uma barra de andamento (% feito, em análise e não feito).',
+      'O que ainda não foi feito (aberto ou em análise) continua aparecendo nos meses seguintes, marcado como "Pendente desde" o mês de origem.',
+      'Há também uma barra de andamento geral no topo da página.',
+      'Ao responder um report, é possível anexar fotos à atualização.',
+    ],
+  },
+  {
     id: '2026-11-05-cobrancas-minimizar',
     date: '2026-11-05',
     title: 'Cobranças: minimizar "A receber em breve" e a Semana',

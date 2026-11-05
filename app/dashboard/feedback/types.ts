@@ -6,6 +6,8 @@ import type { FeedbackTipo, FeedbackStatus } from '@/constants/feedback'
 export interface FeedbackAtualizacao {
   texto: string
   em: string // ISO — quando o dono registrou
+  /** URLs públicas das imagens anexadas à atualização. */
+  fotos: string[]
 }
 
 export interface Feedback {

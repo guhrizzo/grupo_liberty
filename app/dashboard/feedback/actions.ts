@@ -16,7 +16,11 @@ import type { Feedback, FeedbackAtualizacao, FeedbackFieldErrors, FeedbackRespon
 
 function serialize(id: string, data: FirebaseFirestore.DocumentData): Feedback {
   const atualizacoes = (Array.isArray(data.atualizacoes) ? data.atualizacoes : [])
-    .map((a: FeedbackAtualizacao) => ({ texto: String(a.texto ?? ''), em: String(a.em ?? '') }))
+    .map((a: FeedbackAtualizacao) => ({
+      texto: String(a.texto ?? ''),
+      em: String(a.em ?? ''),
+      fotos: Array.isArray(a.fotos) ? a.fotos.filter((u: unknown) => typeof u === 'string') : [],
+    }))
     .sort((a: FeedbackAtualizacao, b: FeedbackAtualizacao) => a.em.localeCompare(b.em))
 
   return {
@@ -36,6 +40,34 @@ function serialize(id: string, data: FirebaseFirestore.DocumentData): Feedback {
   }
 }
 
+
+/** Converte (webp quando possível) e publica as imagens; devolve URLs e caminhos. */
+async function subirFotos(arquivos: File[]): Promise<{ fotos: string[]; paths: string[] }> {
+  const fotos: string[] = []
+  const paths: string[] = []
+  if (arquivos.length === 0) return { fotos, paths }
+  const bucket = adminStorage.bucket()
+  for (const file of arquivos) {
+    const original = Buffer.from(await file.arrayBuffer())
+    let buffer: Buffer = original
+    let ext = file.name.split('.').pop() || 'jpg'
+    let contentType = file.type || 'image/jpeg'
+    try {
+      buffer = await converterFotoParaWebp(original)
+      ext = 'webp'
+      contentType = 'image/webp'
+    } catch {
+      // formato não convertível: sobe o original
+    }
+    const path = `feedback/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const ref = bucket.file(path)
+    await ref.save(buffer, { metadata: { contentType, cacheControl: FOTO_CACHE_CONTROL } })
+    await ref.makePublic()
+    fotos.push(ref.publicUrl())
+    paths.push(path)
+  }
+  return { fotos, paths }
+}
 
 /** Garante que quem chama é o dono. Retorna a mensagem de erro, ou null se ok. */
 async function checarDono(): Promise<string | null> {
@@ -86,30 +118,7 @@ export async function criarFeedback(formData: FormData): Promise<FeedbackRespons
   }
 
   try {
-    const fotos: string[] = []
-    const fotosPaths: string[] = []
-    if (arquivos.length > 0) {
-      const bucket = adminStorage.bucket()
-      for (const file of arquivos) {
-        const original = Buffer.from(await file.arrayBuffer())
-        let buffer: Buffer = original
-        let ext = file.name.split('.').pop() || 'jpg'
-        let contentType = file.type || 'image/jpeg'
-        try {
-          buffer = await converterFotoParaWebp(original)
-          ext = 'webp'
-          contentType = 'image/webp'
-        } catch {
-          // formato não convertível: sobe o original
-        }
-        const path = `feedback/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-        const ref = bucket.file(path)
-        await ref.save(buffer, { metadata: { contentType, cacheControl: FOTO_CACHE_CONTROL } })
-        await ref.makePublic()
-        fotos.push(ref.publicUrl())
-        fotosPaths.push(path)
-      }
-    }
+    const { fotos, paths: fotosPaths } = await subirFotos(arquivos)
 
     const now = new Date().toISOString()
     await adminDb.collection('feedback').add({
@@ -160,30 +169,41 @@ export async function atualizarStatusFeedback(
   }
 }
 
-export async function adicionarAtualizacaoFeedback(
-  id: string,
-  texto: string,
-): Promise<FeedbackResponse> {
+export async function adicionarAtualizacaoFeedback(formData: FormData): Promise<FeedbackResponse> {
   const erro = await checarDono()
   if (erro) return { error: erro }
 
+  const id = ((formData.get('id') as string) || '').trim()
   if (!id) return { error: 'Report inválido.' }
-  const textoTrim = (texto || '').trim()
-  if (!textoTrim) return { error: 'Escreva a atualização.' }
+  const textoTrim = ((formData.get('texto') as string) || '').trim()
   if (textoTrim.length > 2000) return { error: 'Máximo de 2000 caracteres.' }
+
+  const arquivos = (formData.getAll('fotos') as File[]).filter((f) => f && f.size > 0)
+  if (!textoTrim && arquivos.length === 0) return { error: 'Escreva a atualização ou anexe uma foto.' }
+  if (arquivos.length > FEEDBACK_MAX_FOTOS) return { error: `Máximo de ${FEEDBACK_MAX_FOTOS} fotos.` }
+  if (arquivos.some((f) => !f.type.startsWith('image/'))) return { error: 'Envie apenas imagens.' }
 
   try {
     const ref = adminDb.collection('feedback').doc(id)
     const doc = await ref.get()
     if (!doc.exists) return { error: 'Report não encontrado.' }
 
+    const { fotos, paths } = await subirFotos(arquivos)
+
     const now = new Date().toISOString()
     const anteriores: FeedbackAtualizacao[] = Array.isArray(doc.data()?.atualizacoes)
       ? doc.data()!.atualizacoes
       : []
-    const atualizacoes = [...anteriores, { texto: textoTrim, em: now }]
+    const atualizacoes = [...anteriores, { texto: textoTrim, em: now, fotos }]
+    const pathsAnteriores: string[] = Array.isArray(doc.data()?.atualizacoesFotosPaths)
+      ? doc.data()!.atualizacoesFotosPaths
+      : []
 
-    await ref.update({ atualizacoes, atualizadoEm: now })
+    await ref.update({
+      atualizacoes,
+      atualizacoesFotosPaths: [...pathsAnteriores, ...paths],
+      atualizadoEm: now,
+    })
     revalidatePath('/dashboard/feedback')
     return { success: 'Atualização adicionada.' }
   } catch (err) {
@@ -200,10 +220,14 @@ export async function deletarFeedback(id: string): Promise<FeedbackResponse> {
 
   try {
     const ref = adminDb.collection('feedback').doc(id)
-    const paths: unknown = (await ref.get()).data()?.fotosPaths
+    const dados = (await ref.get()).data()
+    const paths: unknown[] = [
+      ...(Array.isArray(dados?.fotosPaths) ? dados.fotosPaths : []),
+      ...(Array.isArray(dados?.atualizacoesFotosPaths) ? dados.atualizacoesFotosPaths : []),
+    ]
     await ref.delete()
     // Apaga as imagens anexadas (melhor esforço: falha aqui não desfaz a remoção).
-    if (Array.isArray(paths)) {
+    if (paths.length > 0) {
       const bucket = adminStorage.bucket()
       await Promise.all(
         paths.filter((p): p is string => typeof p === 'string').map((p) => bucket.file(p).delete().catch(() => {})),
