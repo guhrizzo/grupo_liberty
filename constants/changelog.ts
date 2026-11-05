@@ -31,6 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       'O quadro "A receber em breve" e a grade da aba Semana agora têm uma seta para minimizar.',
       'A escolha fica salva neste navegador.',
+      'Resumo de Cobranças redesenhado: Total contratado em destaque, com gráfico da situação da carteira (recebido, a vencer e em atraso).',
     ],
   },
   {
