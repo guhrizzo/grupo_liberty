@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   thrdTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
@@ -301,19 +301,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   propText: {
-    fontSize: 12,
+    fontSize: 13.5,
     color: COLORS.textMuted,
     fontFamily: INTER_FONT,
     lineHeight: 1.35,
   },
   carValue: {
-    fontSize: 22,
+    fontSize: 30,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.greenValue,
   },
   longText: {
-    fontSize: 11,
+    fontSize: 12.5,
     lineHeight: 1.4,
     color: COLORS.textMuted,
     marginVertical: 8,
@@ -324,8 +324,8 @@ const styles = StyleSheet.create({
   },
   checkItem: {
     flexDirection: 'row',
-    gap: 7,
-    marginBottom: 8,
+    gap: 8,
+    marginBottom: 9,
     alignItems: 'flex-start',
   },
   checkImg: {
@@ -334,23 +334,23 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   checkText: {
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textMuted,
     lineHeight: 1.35,
     flex: 1,
   },
   fthTitle: {
-    fontSize: 16,
+    fontSize: 26,
     fontFamily: INTER_FONT,
     fontWeight: 600,
     color: COLORS.textLight,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   condicoesP: {
-    fontSize: 11,
+    fontSize: 13,
     color: COLORS.textMuted,
     lineHeight: 1.45,
-    marginBottom: 6,
+    marginBottom: 9,
   },
 })
 
@@ -363,19 +363,36 @@ function formatNumeroBRL(value: number | null | undefined): string {
 }
 
 /** Valor em reais com o "R$" menor que o número (sem dois-pontos). */
-function BrlInline({ value, size }: { value: number | null | undefined; size: number }) {
+function BrlInline({
+  value,
+  size,
+  rs,
+}: {
+  value: number | null | undefined
+  size: number
+  /** Tamanho do "R$" (padrão: igual ao do número). */
+  rs?: number
+}) {
   return (
     <>
-      <Text style={{ fontSize: size * 0.65 }}>R$ </Text>
+      <Text style={{ fontSize: rs ?? size }}>R$ </Text>
       {formatNumeroBRL(value)}
     </>
   )
 }
 
-function Brl({ value, style }: { value: number | null | undefined; style: { fontSize?: number } }) {
+function Brl({
+  value,
+  style,
+  rs,
+}: {
+  value: number | null | undefined
+  style: { fontSize?: number }
+  rs?: number
+}) {
   return (
     <Text style={style}>
-      <BrlInline value={value} size={style.fontSize ?? 12} />
+      <BrlInline value={value} size={style.fontSize ?? 12} rs={rs} />
     </Text>
   )
 }
@@ -530,9 +547,9 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
       ? condicoes.split('\n\n')
       : [
           'A proposta é válida por 5 dias a partir da data de emissão deste documento.',
-          'O processo de quitação pode levar de 6 a 12 meses, conforme análise do caso e da financeira.',
-          'Durante esse período, o cliente não será mais responsável pelo pagamento do financiamento, impostos ou multas relacionados ao veículo.',
-          'Após o processo finalizado, nenhuma pendência financeira recairá sobre o antigo proprietário.',
+          'O processo de quitação pode levar de 6 a 12 meses, conforme\nanálise do caso e da financeira.',
+          'Durante esse período, o cliente não será mais responsável pelo pagamento do\nfinanciamento, impostos ou multas relacionados ao veículo.',
+          'Após o processo finalizado, nenhuma pendência financeira recairá\nsobre o antigo proprietário',
           'Um contrato formal será assinado para segurança de ambas as partes.',
         ]
 
@@ -706,7 +723,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                   Mesmo que o veículo esteja gerando um prejuízo acumulado de
                   mais de{' '}
                   <Text style={{ color: COLORS.redInfo, fontWeight: 600 }}>
-                    <BrlInline value={prejuizoTotal} size={11} />
+                    <BrlInline value={prejuizoTotal} size={12.5} />
                   </Text>
                   , a LibertyCar se
                   compromete e assume todos os riscos e responsabilidades do
