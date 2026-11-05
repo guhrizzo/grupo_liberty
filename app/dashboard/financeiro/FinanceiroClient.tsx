@@ -1,5 +1,7 @@
 'use client'
 
+import { SemanaTab } from '@/app/dashboard/cobrancas/SemanaTab'
+import type { Cobranca } from '@/app/dashboard/cobrancas/actions'
 import {
   startTransition,
   useEffect,
@@ -63,7 +65,7 @@ import {
   type TransacaoTipo,
 } from './types'
 
-export type AbaFinanceiro = 'lancamentos' | 'contas-fixas'
+export type AbaFinanceiro = 'lancamentos' | 'contas-fixas' | 'semana'
 
 export default function FinanceiroClient({
   initialTransacoes,
@@ -76,6 +78,7 @@ export default function FinanceiroClient({
   pagamentosContasFixas,
   pendenciasContasFixas,
   podeVerResumo,
+  cobrancas,
 }: {
   initialTransacoes: Transacao[]
   /** Mês exibido (`YYYY-MM`). */
@@ -92,6 +95,8 @@ export default function FinanceiroClient({
   pendenciasContasFixas: ContaFixaPendente[]
   /** Só o ADM supremo vê os cards de balanço/receitas/despesas do mês. */
   podeVerResumo: boolean
+  /** Só carregadas na aba Semana. */
+  cobrancas: Cobranca[]
 }) {
   const router = useRouter()
   const toast = useToast()
@@ -403,6 +408,7 @@ export default function FinanceiroClient({
           [
             ['lancamentos', 'Lançamentos'],
             ['contas-fixas', 'Contas fixas'],
+            ['semana', 'Semana'],
           ] as const
         ).map(([valor, rotulo]) => (
           <button
@@ -424,6 +430,7 @@ export default function FinanceiroClient({
       </div>
 
       {/* Seletor de período — tudo abaixo daqui é escopado neste mês. */}
+      {aba !== 'semana' && (
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
         <div className="flex items-center gap-1">
           <button
@@ -495,8 +502,11 @@ export default function FinanceiroClient({
               : `Contas fixas de ${rotuloMesCurto(mes)}`}
         </span>
       </div>
+      )}
 
-      {aba === 'contas-fixas' ? (
+      {aba === 'semana' ? (
+        <SemanaTab cobrancas={cobrancas} />
+      ) : aba === 'contas-fixas' ? (
         <ContasFixasClient
           contas={contasFixas}
           pagamentos={pagamentosContasFixas}
@@ -657,7 +667,7 @@ export default function FinanceiroClient({
                       </span>
                     </td>
                     <td
-                      className={`px-6 py-4 text-right font-black text-sm ${
+                      className={`px-6 py-4 whitespace-nowrap text-right font-black text-sm ${
                         t.tipo === 'receita' ? 'text-emerald-600 adobe-dark:text-emerald-400' : 'text-rose-600 adobe-dark:text-rose-400'
                       }`}
                     >

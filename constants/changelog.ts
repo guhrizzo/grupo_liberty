@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-cobrancas-semana',
+    date: '2026-11-05',
+    title: 'Aba Semana em Cobranças e Financeiro',
+    tag: 'novo',
+    items: [
+      'Nova aba "Semana" em Cobranças e no Financeiro: grade de segunda a domingo com o cliente e a parcela que vence em cada dia.',
+      'Mostra valor e status de cada parcela e o total a receber da semana; navegue entre semanas pelas setas.',
+    ],
+  },
+  {
     id: '2026-11-03-agenda-eventos-google',
     date: '2026-11-03',
     title: 'Agenda: veja os eventos do seu Google Agenda',

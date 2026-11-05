@@ -7,6 +7,7 @@ import {
   getContasFixasPendentes,
   getPagamentosContasFixas,
 } from './contasFixas/actions'
+import { getCobrancas } from '@/app/dashboard/cobrancas/actions'
 import FinanceiroClient, { type AbaFinanceiro } from './FinanceiroClient'
 
 export const metadata = {
@@ -32,7 +33,11 @@ export default async function FinanceiroPage({
   // Métricas mudaram para a Visão Geral; link antigo ?aba=metricas vai pra lá.
   if (abaBruta === 'metricas') redirect('/dashboard')
   const admSupremo = isAdmSupremo(user)
-  const aba: AbaFinanceiro = abaBruta === 'contas-fixas' ? 'contas-fixas' : 'lancamentos'
+  const aba: AbaFinanceiro = abaBruta === 'contas-fixas'
+    ? 'contas-fixas'
+    : abaBruta === 'semana'
+      ? 'semana'
+      : 'lancamentos'
 
   // Sem `?mes=` na URL o painel segue o mês corrente — é isso que faz a virada
   // automática da meia-noite do dia 1 funcionar, já que `mesAtual()` é
@@ -42,11 +47,12 @@ export default async function FinanceiroPage({
   const mes = mesFixadoNaUrl ? mesBruto : mesAtual()
 
   // Transações e intervalo sempre: o seletor de mês depende deles nas duas abas.
-  const [transacoes, intervalo, contasFixas, pendenciasContasFixas] = await Promise.all([
+  const [transacoes, intervalo, contasFixas, pendenciasContasFixas, cobrancas] = await Promise.all([
     getTransacoes(mes),
     getIntervaloDeMeses(),
     aba === 'contas-fixas' ? getContasFixas() : Promise.resolve([]),
     getContasFixasPendentes(),
+    aba === 'semana' ? getCobrancas() : Promise.resolve([]),
   ])
   const pagamentosContasFixas =
     aba === 'contas-fixas'
@@ -68,6 +74,7 @@ export default async function FinanceiroPage({
       pagamentosContasFixas={pagamentosContasFixas}
       pendenciasContasFixas={pendenciasContasFixas}
       podeVerResumo={admSupremo}
+      cobrancas={cobrancas}
     />
   )
 }

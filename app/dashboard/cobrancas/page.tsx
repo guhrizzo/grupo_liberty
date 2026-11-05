@@ -20,7 +20,8 @@ export default async function CobrancasPage({
 
   const { aba: abaParam } = await searchParams
   const abaBruta = Array.isArray(abaParam) ? abaParam[0] : abaParam
-  const aba = abaBruta === 'clientes' ? 'clientes' : 'cobrancas'
+  const aba =
+    abaBruta === 'clientes' ? 'clientes' : abaBruta === 'semana' ? 'semana' : 'cobrancas'
 
   const [cobrancas, excluidas, veiculos] = await Promise.all([
     getCobrancas(),

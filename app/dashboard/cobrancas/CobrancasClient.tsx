@@ -85,6 +85,7 @@ import {
   type ClienteForm,
 } from './PessoaFields'
 import { ClientesTab } from './ClientesTab'
+import { SemanaTab } from './SemanaTab'
 import {
   normalizarAvalista,
   normalizarCliente,
@@ -94,7 +95,7 @@ import {
 
 interface CobrancasClientProps {
   cobrancas: Cobranca[]
-  aba: 'cobrancas' | 'clientes'
+  aba: 'cobrancas' | 'clientes' | 'semana'
   /** Cobranças na lixeira (excluídas há menos de 60 dias). */
   excluidas: Cobranca[]
   veiculos: Veiculo[]
@@ -1034,6 +1035,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
           [
             ['cobrancas', 'Cobranças', '/dashboard/cobrancas'],
             ['clientes', 'Clientes', '/dashboard/cobrancas?aba=clientes'],
+            ['semana', 'Semana', '/dashboard/cobrancas?aba=semana'],
           ] as const
         ).map(([valor, rotulo, href]) => (
           <Link
@@ -1053,6 +1055,8 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
       </div>
 
       {aba === 'clientes' && <ClientesTab cobrancas={cobrancas} />}
+
+      {aba === 'semana' && <SemanaTab cobrancas={cobrancas} />}
 
       {aba === 'cobrancas' && (
       <>
