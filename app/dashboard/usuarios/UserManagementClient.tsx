@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { PAGE_DEFAULT_ROLES } from '@/constants/permissoes'
-import { IconUserPlus, IconTrash, IconUsers, IconKey, IconX, IconShield } from '@tabler/icons-react'
+import { IconUserPlus, IconArrowLeft, IconTrash, IconUsers, IconKey, IconX, IconShield } from '@tabler/icons-react'
 import { createUserAction, getAllUsersAction, updateUserRoleAction, deleteUserAction, updateUserPermissionsAction } from './actions'
 import {
   Button,
@@ -49,6 +49,8 @@ type PermKey = typeof PERMISSION_TABS[number]['key']
 
 export default function UserManagementClient({ currentUser, currentUserRole }: UserManagementClientProps) {
   const [loading, setLoading] = useState(false)
+  // 'novo' abre o cadastro numa tela própria, no lugar da lista
+  const [view, setView] = useState<'lista' | 'novo'>('lista')
   const [allUsers, setAllUsers] = useState<any[]>([])
   const toast = useToast()
 
@@ -168,6 +170,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
         setPassword('')
         setConfirmPassword('')
         setRole('vendedor')
+        setView('lista')
       }
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao criar usuário.', 'Erro inesperado')
@@ -275,17 +278,39 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             Controle de Acessos
           </h1>
         </div>
+        {view === 'lista' ? (
+          <Button
+            variant="liberty"
+            leftIcon={<IconUserPlus size={16} />}
+            onClick={() => setView('novo')}
+          >
+            Cadastrar colaborador
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            leftIcon={<IconArrowLeft size={16} />}
+            onClick={() => setView('lista')}
+            disabled={loading}
+          >
+            Voltar para a lista
+          </Button>
+        )}
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-12">
-          {/* Formulário de Criação */}
-          <div className="lg:col-span-4">
-            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs">
-              <h2 className="text-lg font-semibold text-neutral-900 mb-6">
+      <div className="grid gap-8">
+          {/* Formulário de Criação (tela própria) */}
+          {view === 'novo' && (
+          <div className="mx-auto w-full max-w-2xl">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs md:p-8">
+              <h2 className="text-xl font-semibold text-neutral-900">
                 Cadastrar Novo Colaborador
               </h2>
+              <p className="mt-1 mb-6 text-sm text-neutral-500">
+                Preencha os dados de acesso. O colaborador entra com o e-mail e a senha definidos aqui.
+              </p>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="grid gap-5 sm:grid-cols-2">
                 <Input
                   id="name"
                   label="Nome Completo"
@@ -308,6 +333,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                   inputMode="email"
                 />
 
+                <div className="sm:col-span-2">
                 <Select
                   id="role"
                   label="Perfil de Acesso *"
@@ -321,6 +347,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                   <option value="suporte">Suporte</option>
                   <option value="admin" disabled={!isAdmin}>Administrador</option>
                 </Select>
+                </div>
 
                 <Input
                   id="password"
@@ -346,14 +373,21 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                   autoComplete="new-password"
                 />
 
-                <div className="pt-2">
+                <div className="flex flex-col-reverse gap-2 pt-2 sm:col-span-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setView('lista')}
+                    disabled={loading}
+                  >
+                    Cancelar
+                  </Button>
                   <Button
                     type="submit"
                     variant="liberty"
                     loading={loading}
                     loadingLabel="Cadastrando..."
                     leftIcon={<IconUserPlus size={16} />}
-                    fullWidth
                   >
                     Cadastrar Usuário
                   </Button>
@@ -362,8 +396,11 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
             </div>
           </div>
 
+          )}
+
           {/* Tabela de Usuários */}
-          <div className="lg:col-span-8">
+          {view === 'lista' && (
+          <div>
             <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs flex flex-col h-full">
               <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -473,8 +510,8 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                 variant="secondary"
                                 onClick={() => handleOpenPermModal(u)}
                                 disabled={loading}
-                                leftIcon={<IconKey size={12} />}
-                                className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50 flex-1"
+                                leftIcon={<IconKey size={14} />}
+                                className="disabled:!opacity-50 flex-1"
                               >
                                 Permissões
                               </Button>
@@ -484,8 +521,8 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                               variant="secondary"
                               onClick={() => handleDeleteClick(u)}
                               disabled={bloqueado || loading}
-                              leftIcon={<IconTrash size={12} />}
-                              className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50 flex-1"
+                              leftIcon={<IconTrash size={14} />}
+                              className="disabled:!opacity-50 flex-1"
                             >
                               Excluir
                             </Button>
@@ -544,8 +581,8 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                       variant="secondary"
                                       onClick={() => handleOpenPermModal(u)}
                                       disabled={loading}
-                                      leftIcon={<IconKey size={12} />}
-                                      className="!border-indigo-200 !text-indigo-600 hover:!bg-indigo-50 disabled:!opacity-50"
+                                      leftIcon={<IconKey size={14} />}
+                                      className="disabled:!opacity-50"
                                     >
                                       Permissões
                                     </Button>
@@ -555,8 +592,8 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
                                     variant="secondary"
                                     onClick={() => handleDeleteClick(u)}
                                     disabled={bloqueado || loading}
-                                    leftIcon={<IconTrash size={12} />}
-                                    className="!border-rose-200 !text-rose-600 hover:!bg-rose-50 disabled:!opacity-50"
+                                    leftIcon={<IconTrash size={14} />}
+                                    className="disabled:!opacity-50"
                                   >
                                     Excluir
                                   </Button>
@@ -600,6 +637,7 @@ export default function UserManagementClient({ currentUser, currentUserRole }: U
               )}
             </div>
           </div>
+          )}
         </div>
 
       {/* Modal de Permissões */}

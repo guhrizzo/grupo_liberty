@@ -24,13 +24,24 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    id: '2026-11-05-proposta-pdf-valores',
+    id: '2026-11-05-usuarios-cadastro-tela-propria',
     date: '2026-11-05',
-    title: 'PDF da proposta: valores mais limpos',
+    title: 'Controle de Acessos: cadastro em tela própria',
     tag: 'melhoria',
     items: [
-      'Os valores em reais não têm mais dois-pontos depois do "R$" e o "R$" ficou menor que o número.',
-      'O prejuízo acumulado na Proposta Comercial aparece em vermelho e negrito.',
+      'O formulário de cadastro de colaborador saiu do lado da lista: agora abre pelo botão "Cadastrar colaborador", numa tela só dele.',
+      'A lista de colaboradores ocupa a largura toda da página.',
+    ],
+  },
+  {
+    id: '2026-11-05-proposta-pdf-valores',
+    date: '2026-11-05',
+    title: 'PDF da proposta: visual renovado',
+    tag: 'melhoria',
+    items: [
+      'Os valores em reais não têm mais dois-pontos depois do "R$", e o "R$" tem o mesmo tamanho do número.',
+      'O prejuízo acumulado na Proposta Comercial aparece em vermelho e negrito, e o valor de mercado/FIPE em amarelo.',
+      'O título da capa ficou maior, e a última página (Proposta Comercial e Condições e Garantias) foi ampliada para ocupar a página inteira.',
     ],
   },
   {

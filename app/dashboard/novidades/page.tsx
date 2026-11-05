@@ -1,6 +1,6 @@
 import { IconSparkles } from '@tabler/icons-react'
 import { Breadcrumb, EmptyState } from '@/app/components/ui'
-import { ChangelogEntryItem } from '@/app/components/ChangelogEntryItem'
+import { NovidadesLista } from './NovidadesLista'
 import { CHANGELOG } from '@/constants/changelog'
 
 export const metadata = {
@@ -30,11 +30,7 @@ export default function NovidadesPage() {
           description="As atualizações do sistema vão aparecer aqui."
         />
       ) : (
-        <div className="max-w-2xl rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs divide-y divide-neutral-100 md:p-6">
-          {CHANGELOG.map((entry) => (
-            <ChangelogEntryItem key={entry.id} entry={entry} />
-          ))}
-        </div>
+        <NovidadesLista entries={CHANGELOG} />
       )}
     </div>
   )

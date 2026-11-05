@@ -2,7 +2,7 @@ import { IconSparkles, IconArrowUpRight, IconBug } from '@tabler/icons-react'
 import { formatDate } from '@/utils/format'
 import type { ChangelogEntry, ChangelogTag } from '@/constants/changelog'
 
-const TAG_META: Record<
+export const TAG_META: Record<
   ChangelogTag,
   { label: string; classes: string; Icon: typeof IconSparkles }
 > = {
