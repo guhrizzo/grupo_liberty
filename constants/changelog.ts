@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-menu-logo',
+    date: '2026-11-05',
+    title: 'Logo da Liberty Car no menu lateral',
+    tag: 'melhoria',
+    items: [
+      'O topo do menu lateral agora mostra o logo oficial da Liberty Car no lugar do ícone de carro.',
+    ],
+  },
+  {
     id: '2026-11-05-usuarios-cadastro-tela-propria',
     date: '2026-11-05',
     title: 'Controle de Acessos: cadastro em tela própria',

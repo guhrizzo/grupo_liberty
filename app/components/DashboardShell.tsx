@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
+import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
 import { usePathname } from 'next/navigation'
 import {
   IconHome,
@@ -391,14 +393,14 @@ export default function DashboardShell({
           <>
             {/* Mobile (exibe o logo completo se o drawer estiver aberto) */}
             <div className="flex md:hidden items-center gap-2.5 min-w-0">
-              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]">
-                <IconCar size={20} stroke={2.2} />
-              </div>
               <div className="flex flex-col leading-none min-w-0">
-                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate adobe-dark:text-[var(--color-adobe-text-hi)]">
-                  LIBERTY CAR
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
+                <Image
+                  src={LOGO_LIBERTY}
+                  alt="Liberty Car"
+                  priority
+                  className="h-auto w-[116px]"
+                />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-1.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno
                 </span>
               </div>
@@ -421,14 +423,14 @@ export default function DashboardShell({
           /* Quando expandido: marca + botão de recolher */
           <>
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="h-9 w-9 rounded-lg grid place-items-center bg-liberty/10 text-liberty-deep shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]">
-                <IconCar size={20} stroke={2.2} />
-              </div>
               <div className="flex flex-col leading-none min-w-0">
-                <span className="text-lg font-black tracking-tighter text-neutral-950 truncate adobe-dark:text-[var(--color-adobe-text-hi)]">
-                  LIBERTY CAR
-                </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-0.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
+                <Image
+                  src={LOGO_LIBERTY}
+                  alt="Liberty Car"
+                  priority
+                  className="h-auto w-[116px]"
+                />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-1.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno
                 </span>
               </div>

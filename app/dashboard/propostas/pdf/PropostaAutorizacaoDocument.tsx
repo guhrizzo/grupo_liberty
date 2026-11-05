@@ -48,6 +48,9 @@ const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-blue.png')
 const CHECK_BLUE = toImageDataUrl('check-blue.png')
 const SETA = toImageDataUrl('seta.png')
 
+// Sem hifenização: palavras nunca são cortadas no fim da linha.
+Font.registerHyphenationCallback((palavra) => [palavra])
+
 let fontsRegistered = false
 try {
   const headingPath = resolvePublicPath('HeadingNowTrial-46Bold.ttf')
@@ -375,7 +378,7 @@ function BrlInline({
 }) {
   return (
     <>
-      <Text style={{ fontSize: rs ?? size }}>R$ </Text>
+      <Text style={{ fontSize: rs ?? size }}>{'R$ '}</Text>
       {formatNumeroBRL(value)}
     </>
   )
