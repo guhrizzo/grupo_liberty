@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-cobrancas-minimizar',
+    date: '2026-11-05',
+    title: 'Cobranças: minimizar "A receber em breve" e a Semana',
+    tag: 'melhoria',
+    items: [
+      'O quadro "A receber em breve" e a grade da aba Semana agora têm uma seta para minimizar.',
+      'A escolha fica salva neste navegador.',
+    ],
+  },
+  {
     id: '2026-11-05-cobrancas-semana',
     date: '2026-11-05',
     title: 'Aba Semana em Cobranças e Financeiro',

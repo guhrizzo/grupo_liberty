@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { IconChevronLeft, IconChevronRight, IconCalendarWeek } from '@tabler/icons-react'
+import { useEffect, useMemo, useState } from 'react'
+import { IconChevronDown, IconChevronLeft, IconChevronRight, IconCalendarWeek } from '@tabler/icons-react'
 import { formatCurrency } from '@/utils/format'
 import type { Cobranca, Parcela } from './actions'
 
@@ -55,6 +55,21 @@ function estiloStatus(p: Parcela): { rotulo: string; classe: string } {
 export function SemanaTab({ cobrancas }: { cobrancas: Cobranca[] }) {
   const [inicio, setInicio] = useState(() => segundaDaSemana(new Date()))
   const hojeIso = paraIso(new Date())
+  const [aberto, setAberto] = useState(true)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lê preferência do navegador após a hidratação
+      if (localStorage.getItem('cobrancas:semana-minimizada') === '1') setAberto(false)
+    } catch {}
+  }, [])
+  function alternar() {
+    setAberto((v) => {
+      try {
+        localStorage.setItem('cobrancas:semana-minimizada', v ? '1' : '0')
+      } catch {}
+      return !v
+    })
+  }
 
   const porData = useMemo(() => {
     const mapa = new Map<string, ItemDia[]>()
@@ -101,6 +116,15 @@ export function SemanaTab({ cobrancas }: { cobrancas: Cobranca[] }) {
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onClick={alternar}
+            aria-expanded={aberto}
+            aria-label={aberto ? 'Minimizar semana' : 'Expandir semana'}
+            className="rounded-lg border border-neutral-200 bg-white p-2 text-neutral-600 hover:bg-neutral-100"
+          >
+            <IconChevronDown size={16} className={`transition-transform ${aberto ? '' : '-rotate-90'}`} />
+          </button>
+          <button
+            type="button"
             aria-label="Semana anterior"
             onClick={() => setInicio((d) => addDias(d, -7))}
             className="rounded-lg border border-neutral-200 bg-white p-2 text-neutral-600 hover:bg-neutral-100"
@@ -127,6 +151,7 @@ export function SemanaTab({ cobrancas }: { cobrancas: Cobranca[] }) {
         </div>
       </header>
 
+      {aberto && (
       <div className="grid grid-cols-1 gap-2 md:grid-cols-4 2xl:grid-cols-7">
         {dias.map((d, i) => {
           const iso = paraIso(d)
@@ -178,6 +203,7 @@ export function SemanaTab({ cobrancas }: { cobrancas: Cobranca[] }) {
           )
         })}
       </div>
+      )}
     </section>
   )
 }

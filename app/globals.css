@@ -798,7 +798,14 @@ html:has(> body.adobe-dark) {
 }
 
 .adobe-dark
-  :is(.bg-amber-50, .bg-amber-50\/95, .bg-amber-50\/40, .bg-amber-100, .bg-yellow-50):not(
+  :is(
+    .bg-amber-50,
+    .bg-amber-50\/95,
+    .bg-amber-50\/40,
+    .bg-amber-50\/30,
+    .bg-amber-100,
+    .bg-yellow-50
+  ):not(
     [class*='adobe-dark:bg-']
   ) {
   background-color: rgba(245, 158, 11, 0.16);

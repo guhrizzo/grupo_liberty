@@ -12,7 +12,6 @@ import {
   IconClock,
   IconAlertTriangle,
   IconCurrencyDollar,
-  IconCircleCheck,
   IconCircleX,
   IconCar,
   IconCalendar,
@@ -315,6 +314,22 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
 
   // Filtros da lista
   const [search, setSearch] = useState('')
+  // "A receber em breve" pode ser minimizado; a escolha fica salva neste navegador.
+  const [proximosAberto, setProximosAberto] = useState(true)
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- lê preferência do navegador após a hidratação
+      if (localStorage.getItem('cobrancas:proximos-minimizado') === '1') setProximosAberto(false)
+    } catch {}
+  }, [])
+  function alternarProximos() {
+    setProximosAberto((v) => {
+      try {
+        localStorage.setItem('cobrancas:proximos-minimizado', v ? '1' : '0')
+      } catch {}
+      return !v
+    })
+  }
   const [filterTipo, setFilterTipo] = useState<'todos' | TipoCobranca>('todos')
   const [filterStatus, setFilterStatus] = useState<'todas' | 'em-dia' | 'atrasadas' | 'quites' | 'encerradas'>('todas')
 
@@ -1063,58 +1078,66 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
       {/* ─── KPIs principais ─── */}
       <section
         aria-label="Resumo financeiro"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-3 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]"
       >
         <KpiCard
+          destaque
           label="Total contratado"
           value={formatCurrency(totalGeral)}
-          icon={IconStack2}
-          tone="neutral"
           hint={`${cobrancas.length} cobranças`}
-        />
-        <KpiCard
-          label="Total recebido"
-          value={formatCurrency(totalRecebido)}
-          icon={IconCircleCheck}
-          tone="success"
-          hint={`${todasParcelas.filter((p) => p.pago).length} parcelas pagas`}
-          progress={percentualGeralRecebido}
-        />
-        <KpiCard
-          label="A receber"
-          value={formatCurrency(totalPendente)}
-          icon={IconClock}
-          tone="warning"
-          hint={`${todasParcelas.filter((p) => !p.pago && !p.suspensa).length} parcelas pendentes`}
-        />
-        <KpiCard
-          label="Em atraso"
-          value={formatCurrency(totalAtrasado)}
-          icon={IconCircleX}
-          tone="danger"
-          hint={`${cobrancasAtrasadas} cobrança${cobrancasAtrasadas === 1 ? '' : 's'} com atraso`}
-        />
+        >
+          <SituacaoCarteira
+            recebido={totalRecebido}
+            aVencer={Math.max(totalPendente - totalAtrasado, 0)}
+            atrasado={totalAtrasado}
+          />
+        </KpiCard>
+        <div className="grid gap-3">
+          <KpiCard
+            label="Total recebido"
+            value={formatCurrency(totalRecebido)}
+            hint={`${todasParcelas.filter((p) => p.pago).length} parcelas pagas`}
+            progress={percentualGeralRecebido}
+          />
+          <KpiCard
+            label="A receber"
+            value={formatCurrency(totalPendente)}
+            hint={`${todasParcelas.filter((p) => !p.pago && !p.suspensa).length} parcelas pendentes`}
+          />
+          <KpiCard
+            label="Em atraso"
+            value={formatCurrency(totalAtrasado)}
+            hint={`${cobrancasAtrasadas} cobrança${cobrancasAtrasadas === 1 ? '' : 's'} com atraso`}
+          />
+        </div>
       </section>
 
       {/* ─── Próximos vencimentos ─── */}
       {proximosVencimentos.length > 0 && (
         <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xs md:p-5">
-          <header className="mb-3 flex items-center justify-between gap-2">
+          <header className={`flex items-center justify-between gap-2 ${proximosAberto ? 'mb-3' : ''}`}>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-liberty/10 text-liberty">
-                <IconCalendarEvent size={16} stroke={2} />
-              </div>
               <div>
                 <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-                  Próximos vencimentos (7 dias)
+                  Próximos vencimentos (7 dias) · {proximosVencimentos.length}
                 </p>
                 <h3 className="text-sm font-bold text-neutral-950">A receber em breve</h3>
               </div>
             </div>
-            <span className="rounded-full border border-liberty/30 bg-liberty/10 px-2 py-0.5 text-[10px] font-bold text-liberty-deep">
-              {proximosVencimentos.length}
-            </span>
+            <button
+              type="button"
+              onClick={alternarProximos}
+              aria-expanded={proximosAberto}
+              aria-label={proximosAberto ? 'Minimizar a receber em breve' : 'Expandir a receber em breve'}
+              className="ml-auto rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 cursor-pointer"
+            >
+              <IconChevronDown
+                size={16}
+                className={`transition-transform ${proximosAberto ? '' : '-rotate-90'}`}
+              />
+            </button>
           </header>
+          {proximosAberto && (
           <ul className="divide-y divide-neutral-100">
             {proximosVencimentos.map((p) => {
               const cob = cobrancas.find((c) => c.id === p.cobrancaId)
@@ -1152,6 +1175,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
               )
             })}
           </ul>
+          )}
         </section>
       )}
 
@@ -2009,57 +2033,101 @@ function LixeiraModal({
   )
 }
 
+/** Barra segmentada: como está a carteira (recebido, a vencer, em atraso). */
+function SituacaoCarteira({
+  recebido,
+  aVencer,
+  atrasado,
+}: {
+  recebido: number
+  aVencer: number
+  atrasado: number
+}) {
+  const total = recebido + aVencer + atrasado
+  const itens = [
+    { rotulo: 'Recebido', valor: recebido, barra: 'bg-emerald-500', ponto: 'bg-emerald-500' },
+    { rotulo: 'A vencer', valor: aVencer, barra: 'bg-amber-400', ponto: 'bg-amber-400' },
+    { rotulo: 'Em atraso', valor: atrasado, barra: 'bg-rose-500', ponto: 'bg-rose-500' },
+  ]
+  if (total <= 0) return null
+  const pct = (v: number) => (v / total) * 100
+  return (
+    <div className="mt-8 border-t border-neutral-100 pt-5">
+      <p className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500">
+        Situação da carteira
+      </p>
+      <div
+        className="mt-3 flex h-3 gap-0.5 overflow-hidden rounded-full"
+        role="img"
+        aria-label={itens.map((i) => `${i.rotulo} ${pct(i.valor).toFixed(0)}%`).join(', ')}
+      >
+        {itens.map(
+          (i) =>
+            i.valor > 0 && (
+              <div
+                key={i.rotulo}
+                className={`${i.barra} h-full transition-[width] duration-700`}
+                style={{ width: `${pct(i.valor)}%` }}
+              />
+            ),
+        )}
+      </div>
+      <ul className="mt-4 grid grid-cols-3 gap-3">
+        {itens.map((i) => (
+          <li key={i.rotulo} className="min-w-0">
+            <p className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${i.ponto}`} />
+              {i.rotulo}
+            </p>
+            <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-neutral-900">
+              {formatCurrency(i.valor)}
+            </p>
+            <p className="text-[11px] tabular-nums text-neutral-400">{pct(i.valor).toFixed(0)}%</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function KpiCard({
   label,
   value,
-  icon: Icon,
-  tone,
   hint,
   progress,
+  destaque = false,
+  children,
 }: {
   label: string
   value: string
-  icon: React.ComponentType<{ size?: number; stroke?: number; className?: string }>
-  tone: 'success' | 'warning' | 'danger' | 'neutral'
   hint?: string
   progress?: number
+  /** Cartão grande (Total contratado). */
+  destaque?: boolean
+  children?: React.ReactNode
 }) {
-  const toneStyles: Record<typeof tone, string> = {
-    success: 'border-emerald-200 bg-emerald-50/30',
-    warning: 'border-amber-200 bg-amber-50/30',
-    danger: 'border-rose-200 bg-rose-50/30',
-    neutral: 'border-neutral-200 bg-white',
-  }
-  const valueColor: Record<typeof tone, string> = {
-    success: 'text-emerald-700',
-    warning: 'text-amber-700',
-    danger: 'text-rose-700',
-    neutral: 'text-neutral-950',
-  }
-  const iconBg: Record<typeof tone, string> = {
-    success: 'bg-emerald-100 text-emerald-600',
-    warning: 'bg-amber-100 text-amber-600',
-    danger: 'bg-rose-100 text-rose-600',
-    neutral: 'bg-neutral-100 text-neutral-600',
-  }
   return (
-    <div className={`rounded-2xl border p-4 shadow-xs md:p-5 ${toneStyles[tone]}`}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500">
-          {label}
-        </span>
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg md:h-9 md:w-9 ${iconBg[tone]}`}>
-          <Icon size={16} stroke={2} />
-        </div>
-      </div>
-      <p className={`mt-2 text-lg font-black tabular-nums md:text-2xl ${valueColor[tone]}`}>
+    <div
+      className={`rounded-2xl border border-neutral-200 bg-white shadow-xs ${
+        destaque ? 'flex flex-col justify-center p-6 md:p-8' : 'p-3.5 md:px-5'
+      }`}
+    >
+      <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500">
+        {label}
+      </span>
+      <p
+        className={`font-black tabular-nums text-neutral-950 ${
+          destaque ? 'mt-3 text-3xl md:text-5xl' : 'mt-1 text-lg md:text-xl'
+        }`}
+      >
         {value}
       </p>
       {hint && <p className="mt-0.5 text-[11px] text-neutral-500">{hint}</p>}
+      {children}
       {typeof progress === 'number' && (
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-neutral-200/60">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-200/60">
           <div
-            className="h-full rounded-full bg-emerald-500 transition-[width] duration-700"
+            className="h-full rounded-full bg-neutral-500 transition-[width] duration-700"
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
