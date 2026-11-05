@@ -96,6 +96,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    id: '2026-11-03-asaas-reserva-quitacao',
+    date: '2026-11-03',
+    title: 'Cobrança pelo Asaas com reserva de quitação',
+    tag: 'novo',
+    items: [
+      'No pagamento de uma parcela, é possível gerar Pix ou boleto pelo Asaas; o pagamento dá baixa na parcela sozinho.',
+      'Cada veículo tem um percentual de reserva (sugerido pelo saldo devedor): ele é separado automaticamente do valor recebido.',
+      'Estornos desfazem a baixa e a reserva; cobranças vencidas e divergências aparecem na parcela. Cartão ainda não está disponível.',
+    ],
+  },
+  {
     id: '2026-11-03-agenda-eventos-google',
     date: '2026-11-03',
     title: 'Agenda: veja os eventos do seu Google Agenda',

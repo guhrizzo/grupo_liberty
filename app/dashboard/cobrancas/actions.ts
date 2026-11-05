@@ -17,6 +17,15 @@ import {
 } from '@/utils/cobrancas/encargos'
 import { ENCARGOS_PADRAO } from '@/constants/encargos'
 import {
+  EPSILON,
+  round2,
+  taxasDaCobranca,
+  calcularParcela,
+  pagamentosDoSnap,
+  registrarPagamentoCore,
+  type TaxasEncargos,
+} from '@/utils/cobrancas/pagamento-core'
+import {
   normalizarAvalista,
   normalizarCliente,
   validarAvalista,
@@ -159,12 +168,6 @@ export type CobrancaResponse = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const EPSILON = 0.01
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
-}
-
 function addWeeks(date: Date, weeks: number): Date {
   const d = new Date(date)
   d.setDate(d.getDate() + weeks * 7)
@@ -179,47 +182,6 @@ function addDays(date: Date, days: number): Date {
 
 function toDateString(date: Date): string {
   return date.toISOString().split('T')[0]
-}
-
-interface TaxasEncargos {
-  multaPct: number
-  jurosMensalPct: number
-  encargosDesde: string | null
-}
-
-/** Taxas gravadas na cobrança — cobranças anteriores à regra não têm (= 0). */
-function taxasDaCobranca(data: FirebaseFirestore.DocumentData | undefined): TaxasEncargos {
-  return {
-    multaPct: typeof data?.multaPct === 'number' ? data.multaPct : 0,
-    jurosMensalPct: typeof data?.jurosMensalPct === 'number' ? data.jurosMensalPct : 0,
-    encargosDesde: typeof data?.encargosDesde === 'string' ? data.encargosDesde : null,
-  }
-}
-
-/** Roda o cálculo de encargos de uma parcela (dados crus do Firestore). */
-function calcularParcela(
-  parcela: FirebaseFirestore.DocumentData,
-  taxas: TaxasEncargos,
-  pagamentos: PagamentoEncargosInput[],
-  referencia: string = hojeSaoPaulo(),
-): ResultadoEncargos {
-  return calcularEncargos({
-    valorParcela: parcela.valorParcela,
-    dataVencimento: parcela.dataVencimento,
-    multaPct: taxas.multaPct,
-    jurosMensalPct: taxas.jurosMensalPct,
-    encargosDesde: taxas.encargosDesde,
-    isento: Boolean(parcela.encargosIsentos),
-    pagamentos,
-    referencia,
-  })
-}
-
-function pagamentosDoSnap(snap: FirebaseFirestore.QuerySnapshot): PagamentoEncargosInput[] {
-  return snap.docs.map((doc) => {
-    const d = doc.data()
-    return { id: doc.id, valor: d.valor || 0, data: d.data, criadoEm: d.criadoEm }
-  })
 }
 
 function agruparPagamentosPorParcela(
@@ -344,39 +306,6 @@ async function assertAuthorized() {
 // Isso permite perguntar ao usuário, na hora de remover de um lado, se quer
 // remover do outro também (em vez de cascatear silenciosamente).
 
-async function registrarReceitaCobranca(params: {
-  descricao: string
-  valor: number
-  data: string
-  uid: string | null
-  pagamentoId: string
-  cobrancaId: string
-  parcelaId: string
-}): Promise<string | null> {
-  try {
-    const now = new Date().toISOString()
-    const docRef = adminDb.collection('transacoes').doc()
-    await docRef.set({
-      descricao: params.descricao,
-      categoria: 'Venda de Veículo',
-      tipo: 'receita',
-      valor: params.valor,
-      data: params.data,
-      status: 'concluido',
-      created_by: params.uid,
-      created_at: now,
-      updated_at: now,
-      origem: 'cobranca', // marca lançamentos gerados automaticamente por pagamentos
-      origemPagamentoId: params.pagamentoId,
-      origemCobrancaId: params.cobrancaId,
-      origemParcelaId: params.parcelaId,
-    })
-    return docRef.id
-  } catch (err) {
-    console.error('[registrarReceitaCobranca]', err)
-    return null
-  }
-}
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
@@ -919,77 +848,13 @@ export async function registrarPagamento(
     }
     if (!data) return { error: 'Informe a data do pagamento.' }
 
-    const parcelaRef = adminDb.collection('cobranca_parcelas').doc(parcelaId)
-    const parcelaDoc = await parcelaRef.get()
-    if (!parcelaDoc.exists) return { error: 'Parcela não encontrada.' }
-    const parcelaData = parcelaDoc.data()!
-
-    const [pagamentosSnap, cobrancaDoc] = await Promise.all([
-      adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', parcelaId).get(),
-      // Dados da cobrança: taxas de encargos + descrição da receita no financeiro.
-      adminDb.collection('cobrancas').doc(parcelaData.cobrancaId).get(),
-    ])
-    const cobranca = cobrancaDoc.data()
-    const taxas = taxasDaCobranca(cobranca)
-    const pagamentosExistentes = pagamentosDoSnap(pagamentosSnap)
-    const totalPago = round2(pagamentosExistentes.reduce((s, p) => s + p.valor, 0))
-
-    // Devido na data do pagamento (principal + multa/juros até essa data).
-    const antes = calcularParcela(parcelaData, taxas, pagamentosExistentes, data)
-    const saldo = antes.totalDevido
-
-    if (saldo <= EPSILON) return { error: 'Esta parcela já está totalmente paga.' }
+    const r = await registrarPagamentoCore({ parcelaId, valor, data, uid })
+    if (!r.ok) return { error: r.error }
+    const { parcela: parcelaData, cobranca, quitada, restante, totalPagoAntes: totalPago } = r
     const valorArredondado = round2(valor)
-
-    // Gera o id do pagamento antes de gravar (sem custo de rede) para poder
-    // guardar o vínculo dos dois lados desde a criação.
-    const pagamentoRef = adminDb.collection('cobranca_pagamentos').doc()
-
-    // Simula com o novo pagamento: rejeita se sobrar valor além do devido, e
-    // descobre quanto dele vai para encargos e quanto abate a parcela.
-    const depois = calcularParcela(
-      parcelaData,
-      taxas,
-      [...pagamentosExistentes, { id: pagamentoRef.id, valor: valorArredondado, data, criadoEm: new Date().toISOString() }],
-      data,
-    )
-    if (valorArredondado > saldo + EPSILON || depois.excedente > EPSILON) {
-      return {
-        error: `Valor maior que o total devido em ${data.split('-').reverse().join('/')} (R$ ${saldo.toFixed(2).replace('.', ',')}).`,
-      }
-    }
-    const divisao = depois.divisao.find((d) => d.pagamentoId === pagamentoRef.id)
-    const encargosPagosAgora = divisao?.paraEncargos ?? 0
-    const principalPagoAgora = divisao?.paraPrincipal ?? valorArredondado
-
-    const descricaoBase = cobranca
-      ? `Parcela ${parcelaData.numeroParcela}/${cobranca.numeroParcelas} — ${cobranca.clienteNome} (${cobranca.veiculoResumo})`
-      : `Parcela ${parcelaData.numeroParcela} — cobrança`
-
-    const transacaoId = await registrarReceitaCobranca({
-      descricao:
-        encargosPagosAgora > EPSILON
-          ? `${descricaoBase} — inclui R$ ${encargosPagosAgora.toFixed(2).replace('.', ',')} de multa/juros`
-          : descricaoBase,
-      valor: valorArredondado,
-      data,
-      uid,
-      pagamentoId: pagamentoRef.id,
-      cobrancaId: parcelaData.cobrancaId,
-      parcelaId,
-    })
-
-    await pagamentoRef.set({
-      parcelaId,
-      cobrancaId: parcelaData.cobrancaId,
-      valor: valorArredondado,
-      data,
-      criadoEm: new Date().toISOString(),
-      transacaoId: transacaoId ?? null,
-    })
-
-    const restante = depois.totalDevido
-    const quitada = restante <= EPSILON
+    const encargosPagosAgora = r.encargosPagosAgora
+    const principalPagoAgora = r.principalPagoAgora
+    const pagamentoRef = { id: r.pagamentoId }
 
     // Comprovante ao cliente (e-mail HTML + recibo PDF). Best-effort: qualquer
     // problema aqui vira um `status` e nunca desfaz o pagamento.
