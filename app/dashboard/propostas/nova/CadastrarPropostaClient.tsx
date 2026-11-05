@@ -730,8 +730,8 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
     valor: propostaPreviaValorFinal,
   }
 
-  // Comissão do vendedor = R$ 300 fixos + 6% sobre a diferença entre a
-  // proposta prévia (calculada) e a proposta real (valor comercial digitado).
+  // Comissão do vendedor = mínimo de R$ 300; os 6% só entram quando a proposta
+  // real (valor comercial digitado) é menor que a proposta prévia (calculada).
   const comissaoVendedor = useMemo(() => {
     if (valorPropostaNum == null || propostaPreviaCalc.valor == null) return null
     return calcularComissaoVendedor(propostaPreviaCalc.valor, valorPropostaNum)
@@ -1487,8 +1487,8 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                     {comissaoVendedor != null ? formatCurrency(comissaoVendedor) : '—'}
                   </p>
                   <p className="mt-2">
-                    Fórmula: R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e
-                    o valor da proposta (máximo R$ 1.200).
+                    Fórmula: mínimo de R$ 300. Só quando o valor da proposta é menor que a
+                    proposta prévia somam-se 6% sobre a diferença (máximo R$ 1.200).
                   </p>
                 </div>
               </div>

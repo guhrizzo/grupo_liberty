@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-comissao-minima',
+    date: '2026-11-05',
+    title: 'Comissão do vendedor: mínimo de R$ 300',
+    tag: 'correcao',
+    items: [
+      'A comissão nunca fica abaixo de R$ 300. Os 6% só são somados quando o valor da proposta é menor que a proposta prévia (máximo R$ 1.200).',
+    ],
+  },
+  {
     id: '2026-11-05-menu-logo',
     date: '2026-11-05',
     title: 'Logo da Liberty Car no menu lateral',

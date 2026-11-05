@@ -311,7 +311,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
           </div>
         </div>
         <p className="hidden max-w-[240px] shrink-0 text-right text-[11px] text-neutral-500 sm:block">
-          R$ 300 fixos + 6% sobre a diferença entre a proposta prévia e o valor da proposta (máximo R$ 1.200).
+          Mínimo de R$ 300. Só quando o valor da proposta é menor que a proposta prévia somam-se 6% sobre a diferença (máximo R$ 1.200).
         </p>
       </div>
 

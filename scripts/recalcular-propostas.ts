@@ -1,7 +1,7 @@
 /**
  * Recalcula proposta prévia e comissão das propostas registradas com a regra
  * atual: prévia = 1/2 FIPE − quitação estimada − IPVA/licenciamento/multas −
- * peças de reparo (mínimo 0); comissão = 300 + 6% × (prévia − valor), 0..1.200.
+ * peças de reparo (mínimo 0); comissão = 300 + 6% × máx(0, prévia − valor), 300..1.200.
  * Só mexe em `proposta_previa` e `comissao_vendedor`.
  *
  * Uso (raiz do projeto, .env.local preenchido):

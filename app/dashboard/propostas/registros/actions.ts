@@ -53,7 +53,7 @@ export interface PropostaRegistrada {
   valor: number | null
   /** Proposta prévia calculada no cadastro. */
   proposta_previa: number | null
-  /** R$ 300 fixos + 6% sobre (proposta prévia − proposta), máximo R$ 1.200. */
+  /** Mínimo R$ 300; 6% sobre (prévia − proposta) só quando a proposta é menor que a prévia; máximo R$ 1.200. */
   comissao_vendedor: number | null
 
   vendedor_uid: string | null
@@ -134,8 +134,8 @@ export async function createPropostaRegistrada(
       return { error: 'Valor da proposta prévia inválido.' }
     }
 
-    // Comissão = R$ 300 fixos + 6% sobre a diferença entre a proposta prévia
-    // e a proposta real. Guardada no cadastro para manter o histórico
+    // Comissão = mínimo de R$ 300; os 6% sobre a diferença só entram quando a
+    // proposta real é menor que a proposta prévia. Guardada no cadastro para manter o histórico
     // consistente mesmo se a fórmula mudar no futuro.
     const comissaoVendedor =
       valor != null && propostaPreviaNum != null
