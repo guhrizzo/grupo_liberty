@@ -106,6 +106,7 @@ const COLORS = {
   borderLine: 'rgba(255, 255, 255, 0.15)',
   redInfo: '#ff1a40',
   greenValue: '#22c55e',
+  yellowInfo: '#facc15',
 }
 
 const styles = StyleSheet.create({
@@ -131,7 +132,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   h1Title: {
-    fontSize: 125,
+    // margem direita negativa: deixa o título usar um pouco da margem da página
+    marginRight: -25,
+    fontSize: 160,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -140,7 +143,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   h1Span: {
-    fontSize: 112,
+    fontSize: 140,
     fontFamily: HEADING_FONT,
     fontWeight: 'bold',
     color: COLORS.textLight,
@@ -245,6 +248,12 @@ const styles = StyleSheet.create({
     fontFamily: INTER_FONT,
     fontWeight: 500,
   },
+  dadosValueYellow: {
+    fontSize: 12,
+    color: COLORS.yellowInfo,
+    fontFamily: INTER_FONT,
+    fontWeight: 600,
+  },
   dadosValueRed: {
     fontSize: 12,
     color: COLORS.redInfo,
@@ -345,13 +354,30 @@ const styles = StyleSheet.create({
   },
 })
 
-function formatBRL(value: number | null | undefined): string {
-  if (value == null || Number.isNaN(value)) return 'R$: 0,00'
-  const fmt = new Intl.NumberFormat('pt-BR', {
+function formatNumeroBRL(value: number | null | undefined): string {
+  const n = value == null || Number.isNaN(value) ? 0 : value
+  return new Intl.NumberFormat('pt-BR', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value)
-  return `R$: ${fmt}`
+  }).format(n)
+}
+
+/** Valor em reais com o "R$" menor que o número (sem dois-pontos). */
+function BrlInline({ value, size }: { value: number | null | undefined; size: number }) {
+  return (
+    <>
+      <Text style={{ fontSize: size * 0.65 }}>R$ </Text>
+      {formatNumeroBRL(value)}
+    </>
+  )
+}
+
+function Brl({ value, style }: { value: number | null | undefined; style: { fontSize?: number } }) {
+  return (
+    <Text style={style}>
+      <BrlInline value={value} size={style.fontSize ?? 12} />
+    </Text>
+  )
 }
 
 const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -573,7 +599,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
               </View>
               <View style={styles.dadosRow}>
                 <Text style={styles.dadosLabel}>Valor de mercado/FIPE:</Text>
-                <Text style={styles.dadosValue}>{formatBRL(veiculoValorFipe)}</Text>
+                <Brl style={styles.dadosValueYellow} value={veiculoValorFipe} />
               </View>
 
               <View style={styles.pathLine} />
@@ -594,13 +620,15 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
               </View>
               <View style={styles.dadosRow}>
                 <Text style={styles.dadosLabel}>Valor da parcela:</Text>
-                <Text style={styles.dadosValue}>{formatBRL(valParcela)}</Text>
+                <Brl style={styles.dadosValue} value={valParcela} />
               </View>
               <View style={styles.dadosRow}>
                 <Text style={styles.dadosLabel}>Saldo devedor total:</Text>
-                <Text style={calcSaldoDevedor <= 0 ? styles.dadosValue : styles.dadosValueRed}>
-                  {calcSaldoDevedor <= 0 ? 'Saldo Positivo' : formatBRL(calcSaldoDevedor)}
-                </Text>
+                {calcSaldoDevedor <= 0 ? (
+                  <Text style={styles.dadosValue}>Saldo Positivo</Text>
+                ) : (
+                  <Brl style={styles.dadosValueRed} value={calcSaldoDevedor} />
+                )}
               </View>
 
               {temPendencias && (
@@ -611,16 +639,14 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                   {debitosLista.map((d) => (
                     <View key={d.chave} style={styles.dadosRow}>
                       <Text style={styles.dadosLabel}>{d.label}:</Text>
-                      <Text style={styles.dadosValue}>
-                        {formatBRL(Number(d.valor) || 0)}
-                      </Text>
+                      <Brl style={styles.dadosValue} value={Number(d.valor) || 0} />
                     </View>
                   ))}
                   <View style={styles.dadosRow}>
                     <Text style={styles.dadosLabelRed}>
                       Total de débitos:
                     </Text>
-                    <Text style={styles.dadosValueRed}>{formatBRL(totEncargos)}</Text>
+                    <Brl style={styles.dadosValueRed} value={totEncargos} />
                   </View>
                 </>
               )}
@@ -635,14 +661,12 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                       {pecasConsertoList.map((p, idx) => (
                         <View key={idx} style={styles.dadosRow}>
                           <Text style={styles.dadosLabel}>{p.nome}</Text>
-                          <Text style={styles.dadosValueRed}>
-                            {formatBRL(Number(p.valor) || 0)}
-                          </Text>
+                          <Brl style={styles.dadosValueRed} value={Number(p.valor) || 0} />
                         </View>
                       ))}
                       <View style={styles.dadosRow}>
                         <Text style={styles.dadosLabelRed}>Total de peças</Text>
-                        <Text style={styles.dadosValueRed}>{formatBRL(totalPecasConserto)}</Text>
+                        <Brl style={styles.dadosValueRed} value={totalPecasConserto} />
                       </View>
                     </>
                   ) : (
@@ -651,9 +675,7 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                         Peças que precisam de reparo:{' '}
                         {pecasConsertoTextoFallback || 'N/A'}
                       </Text>
-                      <Text style={styles.dadosValueRed}>
-                        {formatBRL(totalPecasConserto)}
-                      </Text>
+                      <Brl style={styles.dadosValueRed} value={totalPecasConserto} />
                     </View>
                   )}
                 </>
@@ -677,12 +699,16 @@ export default function PropostaAutorizacaoDocument(props: PropostaAutorizacaoDo
                     A empresa LibertyCar propõe adquirir o{'\n'}
                     veículo descrito acima por:
                   </Text>
-                  <Text style={styles.carValue}>{formatBRL(propostaValorFinal)}</Text>
+                  <Brl style={styles.carValue} value={propostaValorFinal} />
                 </View>
 
                 <Text style={styles.longText}>
                   Mesmo que o veículo esteja gerando um prejuízo acumulado de
-                  mais de {formatBRL(prejuizoTotal)}, a LibertyCar se
+                  mais de{' '}
+                  <Text style={{ color: COLORS.redInfo, fontWeight: 600 }}>
+                    <BrlInline value={prejuizoTotal} size={11} />
+                  </Text>
+                  , a LibertyCar se
                   compromete e assume todos os riscos e responsabilidades do
                   processo, pagando à vista por algo que, na prática, está em
                   situação desfavorável.

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-05-proposta-pdf-valores',
+    date: '2026-11-05',
+    title: 'PDF da proposta: valores mais limpos',
+    tag: 'melhoria',
+    items: [
+      'Os valores em reais não têm mais dois-pontos depois do "R$" e o "R$" ficou menor que o número.',
+      'O prejuízo acumulado na Proposta Comercial aparece em vermelho e negrito.',
+    ],
+  },
+  {
     id: '2026-11-05-feedback-meses-progresso-fotos',
     date: '2026-11-05',
     title: 'Bugs & Melhorias: meses, andamento e fotos nas respostas',
