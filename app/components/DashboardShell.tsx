@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
+import LOGO_LIBERTY_CLARO from '@/app/public/logo-liberty-car-white.png'
 import { usePathname } from 'next/navigation'
 import {
   IconHome,
@@ -398,7 +399,13 @@ export default function DashboardShell({
                   src={LOGO_LIBERTY}
                   alt="Liberty Car"
                   priority
-                  className="h-auto w-[116px]"
+                  className="h-auto w-[116px] adobe-dark:hidden"
+                />
+                <Image
+                  src={LOGO_LIBERTY_CLARO}
+                  alt="Liberty Car"
+                  priority
+                  className="hidden h-auto w-[116px] adobe-dark:block"
                 />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-1.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno
@@ -428,7 +435,13 @@ export default function DashboardShell({
                   src={LOGO_LIBERTY}
                   alt="Liberty Car"
                   priority
-                  className="h-auto w-[116px]"
+                  className="h-auto w-[116px] adobe-dark:hidden"
+                />
+                <Image
+                  src={LOGO_LIBERTY_CLARO}
+                  alt="Liberty Car"
+                  priority
+                  className="hidden h-auto w-[116px] adobe-dark:block"
                 />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-neutral-400 mt-1.5 adobe-dark:text-[var(--color-adobe-text-lo)]">
                   Painel Interno

@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-06-novo-logo',
+    date: '2026-11-06',
+    title: 'Novo logo da Liberty Car',
+    tag: 'melhoria',
+    items: [
+      'O menu lateral e os PDFs (proposta e recibo) agora usam o novo logo da Liberty Car, com fundo transparente (e versão clara no tema escuro do menu).',
+    ],
+  },
+  {
     id: '2026-11-05-comissao-minima',
     date: '2026-11-05',
     title: 'Comissão do vendedor: mínimo de R$ 300',
