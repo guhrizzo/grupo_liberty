@@ -1,14 +1,14 @@
 import Link from 'next/link'
-import { IconCar, IconArrowLeft } from '@tabler/icons-react'
+import Image from 'next/image'
+import { IconArrowLeft } from '@tabler/icons-react'
+import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
 import { Button } from './components/ui'
 
 export default function NotFound() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-neutral-50">
       <div className="max-w-md w-full text-center space-y-5">
-        <div className="mx-auto h-16 w-16 rounded-2xl bg-liberty/10 border border-liberty/30 flex items-center justify-center">
-          <IconCar size={32} className="text-liberty" />
-        </div>
+        <Image src={LOGO_LIBERTY} alt="Liberty Car" priority className="mx-auto h-auto w-40" />
         <div>
           <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty">
             Erro 404
