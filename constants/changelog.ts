@@ -24,6 +24,13 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-06-proposta-logo-branco',
+    date: '2026-11-06',
+    title: 'PDF da proposta com logo branco',
+    tag: 'melhoria',
+    items: ['A capa do PDF da proposta agora usa o logo da Liberty Car na versão branca.'],
+  },
+  {
     id: '2026-11-06-sino-leva-ao-item',
     date: '2026-11-06',
     title: 'Notificações levam direto ao item',

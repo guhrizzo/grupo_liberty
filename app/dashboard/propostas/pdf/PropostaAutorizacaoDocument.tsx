@@ -44,7 +44,7 @@ const toImageDataUrl = (fileName: string, mime = 'image/png'): string => {
 const FUNDO_1 = toImageDataUrl('fundo-1.png')
 const FUNDO_2 = toImageDataUrl('fundo-2.png')
 const FUNDO_3 = toImageDataUrl('fundo-3.png')
-const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-blue.png')
+const LOGO_LIBERTY = toImageDataUrl('logo-liberty-car-white.png')
 const CHECK_BLUE = toImageDataUrl('check-blue.png')
 const SETA = toImageDataUrl('seta.png')
 
