@@ -115,13 +115,22 @@ export default function MetricasSection({ metricas, cores }: { metricas: Metrica
       </div>
 
       {/* Mês atual vs anterior */}
-      <section aria-label={`Resumo de ${rotuloMes(atual.mes)}`} className="grid grid-cols-2 gap-3 lg:grid-cols-6">
-        <Kpi rotulo="Faturamento" formatar={formatCurrency} atual={atual.faturamento} anterior={anterior?.faturamento} />
-        <Kpi rotulo="Custos" formatar={formatCurrency} atual={atual.custos} anterior={anterior?.custos} />
-        <Kpi rotulo="Lucro" formatar={formatCurrency} atual={atual.lucro} anterior={anterior?.lucro} />
-        <Kpi rotulo="Veículos adquiridos" formatar={inteiro} atual={atual.veiculos} anterior={anterior?.veiculos} />
-        <Kpi rotulo="Manutenções" formatar={inteiro} atual={atual.manutencoes} anterior={anterior?.manutencoes} />
-        <Kpi rotulo="Tempo médio de venda" formatar={dias} atual={otm(atual)} anterior={anterior ? otm(anterior) : undefined} />
+      <section
+        aria-label={`Resumo de ${rotuloMes(atual.mes)}`}
+        className="grid gap-3 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]"
+      >
+        {/* Esquerda: os números do dinheiro, grandes */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(13.5rem,1fr))] gap-3">
+          <Kpi grande rotulo="Faturamento" formatar={formatCurrency} atual={atual.faturamento} anterior={anterior?.faturamento} />
+          <Kpi grande rotulo="Custos" formatar={formatCurrency} atual={atual.custos} anterior={anterior?.custos} />
+          <Kpi grande rotulo="Lucro" formatar={formatCurrency} atual={atual.lucro} anterior={anterior?.lucro} />
+        </div>
+        {/* Direita: operação, menores e empilhados */}
+        <div className="grid gap-3">
+          <Kpi rotulo="Veículos adquiridos" formatar={inteiro} atual={atual.veiculos} anterior={anterior?.veiculos} />
+          <Kpi rotulo="Manutenções" formatar={inteiro} atual={atual.manutencoes} anterior={anterior?.manutencoes} />
+          <Kpi rotulo="Tempo médio de venda" formatar={dias} atual={otm(atual)} anterior={anterior ? otm(anterior) : undefined} />
+        </div>
       </section>
       <p className="-mt-2 text-[11px] text-neutral-500 adobe-dark:text-adobe-text-lo">
         {rotuloMes(atual.mes)} (mês em aberto) comparado com {anterior ? rotuloMes(anterior.mes) : 'o mês anterior'}.
@@ -168,15 +177,17 @@ export default function MetricasSection({ metricas, cores }: { metricas: Metrica
             extra={(m) => (m.vendidos > 0 ? `${inteiro(m.vendidos)} ${m.vendidos === 1 ? 'veículo vendido' : 'veículos vendidos'}` : 'Nenhuma venda')}
             inteiros
           />
-          <Grafico
-            titulo="Manutenções pagas"
-            meses={meses}
-            series={[{ nome: 'Manutenções', cor: COR.faturamento, valor: (m) => m.manutencoes }]}
-            formatarEixo={inteiro}
-            formatarValor={(n) => `${inteiro(n)} ${n === 1 ? 'manutenção' : 'manutenções'}`}
-            extra={(m) => (m.manutencoesValor > 0 ? `Gasto: ${formatCurrency(m.manutencoesValor)}` : null)}
-            inteiros
-          />
+          <div className="lg:col-span-2">
+            <Grafico
+              titulo="Manutenções pagas"
+              meses={meses}
+              series={[{ nome: 'Manutenções', cor: COR.faturamento, valor: (m) => m.manutencoes }]}
+              formatarEixo={inteiro}
+              formatarValor={(n) => `${inteiro(n)} ${n === 1 ? 'manutenção' : 'manutenções'}`}
+              extra={(m) => (m.manutencoesValor > 0 ? `Gasto: ${formatCurrency(m.manutencoesValor)}` : null)}
+              inteiros
+            />
+          </div>
         </div>
       )}
     </div>
@@ -266,12 +277,15 @@ function Kpi({
   formatar,
   atual,
   anterior,
+  grande = false,
 }: {
   rotulo: string
   formatar: (n: number) => string
   /** Nulo = sem dados no mês (mostra "—"). */
   atual: number | null
   anterior?: number | null
+  /** Cartão grande (valores em dinheiro). */
+  grande?: boolean
 }) {
   const valor = atual === null ? '—' : formatar(atual)
   let variacao: { icone: React.ReactNode; texto: string } | null = null
@@ -287,18 +301,35 @@ function Kpi({
       }
     }
   }
+  if (!grande) {
+    // Compacto: rótulo e variação à esquerda, valor à direita.
+    return (
+      <div className={CARD + ' flex items-center justify-between gap-3 px-4 py-3'}>
+        <div className="min-w-0">
+          <p className="whitespace-nowrap text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">{rotulo}</p>
+          {anterior !== undefined && (
+            <p className="mt-0.5 whitespace-nowrap text-[11px] text-neutral-400 adobe-dark:text-adobe-text-lo">
+              Mês anterior: {anterior === null ? '—' : formatar(anterior)}
+              {variacao && <span className="ml-1 font-semibold">· {variacao.texto}</span>}
+            </p>
+          )}
+        </div>
+        <p className="shrink-0 whitespace-nowrap text-base font-bold tabular-nums text-neutral-950 adobe-dark:text-adobe-text-hi">{valor}</p>
+      </div>
+    )
+  }
   return (
-    <div className={CARD + ' p-4'}>
+    <div className={CARD + ' flex flex-col justify-center p-5 md:p-6'}>
       <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 adobe-dark:text-adobe-text-lo">{rotulo}</p>
-      <p className="mt-1 truncate text-xl font-bold tabular-nums text-neutral-950 adobe-dark:text-adobe-text-hi">{valor}</p>
+      <p className="mt-2 whitespace-nowrap text-xl font-bold tabular-nums text-neutral-950 xl:text-2xl adobe-dark:text-adobe-text-hi">{valor}</p>
       {variacao && (
-        <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
+        <p className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-neutral-500 adobe-dark:text-adobe-text-lo">
           {variacao.icone}
           {variacao.texto}
         </p>
       )}
       {anterior !== undefined && (
-        <p className="truncate text-[11px] text-neutral-400 adobe-dark:text-adobe-text-lo">
+        <p className="whitespace-nowrap text-[11px] text-neutral-400 adobe-dark:text-adobe-text-lo">
           Mês anterior: {anterior === null ? '—' : formatar(anterior)}
         </p>
       )}

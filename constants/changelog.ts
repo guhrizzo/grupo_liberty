@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-06-metricas-grafico-largo',
+    date: '2026-11-06',
+    title: 'Métricas: gráfico de manutenções em largura total',
+    tag: 'melhoria',
+    items: [
+      'O gráfico "Manutenções pagas" agora ocupa a largura toda, sem deixar um espaço vazio ao lado.',
+    ],
+  },
+  {
     id: '2026-11-06-novo-logo',
     date: '2026-11-06',
     title: 'Novo logo da Liberty Car',
