@@ -889,9 +889,14 @@ function RecusarPropostaModal({
           </p>
         )}
         <Select label="Motivo da recusa" value={motivo} onChange={(e) => setMotivo(e.target.value)} options={opcoes} />
-        {motivo === 'outro' && (
+        {motivo && (
           <Textarea
-            label="Qual o motivo?"
+            label={motivo === 'outro' ? 'Qual o motivo?' : 'Detalhes da recusa (opcional)'}
+            placeholder={
+              motivo === 'preco'
+                ? 'Ex.: o valor oferecido por nós foi R$ 10 mil, mas o cliente queria R$ 20 mil.'
+                : 'Descreva o que levou à recusa.'
+            }
             value={detalhe}
             maxLength={MOTIVO_DETALHE_MAX}
             onChange={(e) => setDetalhe(e.target.value)}

@@ -16,5 +16,5 @@ export const MOTIVO_DETALHE_MAX = 300
 export function textoMotivoRecusa(motivo: string | null, detalhe: string | null): string {
   if (!motivo) return 'Não informado'
   const label = MOTIVOS_RECUSA.find((m) => m.valor === motivo)?.label ?? 'Não informado'
-  return motivo === 'outro' && detalhe ? `Outro: ${detalhe}` : label
+  return detalhe ? `${label}: ${detalhe}` : label
 }

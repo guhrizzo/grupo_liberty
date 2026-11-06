@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-06-recusa-detalhes',
+    date: '2026-11-06',
+    title: 'Detalhes ao recusar uma proposta',
+    tag: 'melhoria',
+    items: [
+      'Ao marcar uma proposta como recusada, agora dá para escrever o que levou à recusa em qualquer motivo (ex.: "oferecemos R$ 10 mil, o cliente queria R$ 20 mil").',
+      'O texto aparece junto do motivo na lista de propostas.',
+    ],
+  },
+  {
     id: '2026-11-06-proposta-logo-branco',
     date: '2026-11-06',
     title: 'PDF da proposta com logo branco',

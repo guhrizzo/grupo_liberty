@@ -608,7 +608,7 @@ export async function definirPropostaRecusada(
     if (!id) return { error: 'ID da proposta inválido.' }
 
     if (!MOTIVOS_RECUSA.some((m) => m.valor === motivo)) return { error: 'Escolha o motivo da recusa.' }
-    const detalheLimpo = motivo === 'outro' ? sanitizeText(detalhe).slice(0, MOTIVO_DETALHE_MAX) : ''
+    const detalheLimpo = sanitizeText(detalhe).slice(0, MOTIVO_DETALHE_MAX)
     if (motivo === 'outro' && !detalheLimpo) return { error: 'Descreva o motivo da recusa.' }
 
     const ref = adminDb.collection('propostas_registradas').doc(id)
