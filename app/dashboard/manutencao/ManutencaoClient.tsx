@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   IconPlus,
   IconTool,
@@ -106,7 +106,25 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
   const [dataAte, setDataAte] = useState('')
   const [filterStatus, setFilterStatus] = useState<'todos' | Status>('todos')
   const [confirmDelete, setConfirmDelete] = useState<Manutencao | null>(null)
-  const [page, setPage] = useState(1)
+  // Vindo do sino de pendências (?destaque=<id>): abre direto na página que tem a ordem.
+  const destaqueId = useSearchParams().get('destaque')
+  const [page, setPage] = useState(() => {
+    const i = destaqueId ? initialManutencoes.findIndex((m) => m.id === destaqueId) : -1
+    return i >= 0 ? Math.floor(i / PAGE_SIZE) + 1 : 1
+  })
+  // Já estava nesta página e clicou em outra notificação: reposiciona sem filtros.
+  const [ultimoDestaque, setUltimoDestaque] = useState(destaqueId)
+  if (destaqueId !== ultimoDestaque) {
+    setUltimoDestaque(destaqueId)
+    const i = destaqueId ? initialManutencoes.findIndex((m) => m.id === destaqueId) : -1
+    if (i >= 0) {
+      setSearch('')
+      setDataDe('')
+      setDataAte('')
+      setFilterStatus('todos')
+      setPage(Math.floor(i / PAGE_SIZE) + 1)
+    }
+  }
   const [submitting, setSubmitting] = useState(false)
   const [pecasModalOpen, setPecasModalOpen] = useState(false)
   const [pecasState, setPecasState] = useState<PecaValor[]>([])
@@ -313,6 +331,15 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
       ),
     [filtered],
   )
+  const resumoCusto = useMemo(() => {
+    const valores = filtered.filter((m) => isManutencaoBaixada(m)).map((m) => valorManutencao(m))
+    const qtd = valores.length
+    return {
+      qtd,
+      media: qtd > 0 ? valores.reduce((a, b) => a + b, 0) / qtd : 0,
+      maior: qtd > 0 ? Math.max(...valores) : 0,
+    }
+  }, [filtered])
   const aguardandoBaixa = useMemo(
     () => items.filter((m) => m.status !== 'cancelada' && !isManutencaoBaixada(m)).length,
     [items],
@@ -331,46 +358,74 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Manutenção' }]}
       />
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo de Manutenção</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Ordens de serviço, agendamentos e histórico de manutenções da frota.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Módulo de Manutenção</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            Ordens de serviço, agendamentos e histórico de manutenções da frota.
+          </p>
+        </div>
+        <Button
+          variant="liberty"
+          onClick={openCreate}
+          leftIcon={<IconPlus size={16} stroke={2.5} />}
+          className="self-start"
+        >
+          Nova Manutenção
+        </Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-            Ordens abertas
-          </p>
-          <p className="mt-1 text-2xl font-bold text-neutral-950">
-            {items.filter((m) => m.status === 'agendada' || m.status === 'em_execucao').length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-            Aguardando baixa
-          </p>
-          <p className="mt-1 text-2xl font-bold text-neutral-950">{aguardandoBaixa}</p>
-        </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
-            Concluídas
-          </p>
-          <p className="mt-1 text-2xl font-bold text-neutral-950">
-            {items.filter((m) => m.status === 'concluida').length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* Principal */}
+        <div className="flex flex-col justify-center rounded-xl border border-neutral-200 bg-white p-5 shadow-xs md:p-6">
           <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
             Custo baixado (filtrado)
           </p>
-          <p className="mt-1 text-2xl font-bold text-neutral-950">{formatCurrency(totalCusto)}</p>
+          <p className="mt-2 whitespace-nowrap text-2xl font-black tabular-nums text-neutral-950 md:text-4xl">
+            {formatCurrency(totalCusto)}
+          </p>
+          <p className="mt-1 text-xs text-neutral-500">
+            {resumoCusto.qtd === 0
+              ? 'Nenhuma manutenção baixada neste filtro'
+              : `Soma de ${resumoCusto.qtd} ${resumoCusto.qtd === 1 ? 'manutenção baixada' : 'manutenções baixadas'}`}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3 border-t border-neutral-200 pt-4">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Custo médio</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-neutral-950">{formatCurrency(resumoCusto.media)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Maior baixa</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-neutral-950">{formatCurrency(resumoCusto.maior)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Os outros três dividem a altura do cartão principal */}
+        <div className="grid gap-4 lg:grid-rows-3">
+          {[
+            {
+              rotulo: 'Ordens abertas',
+              valor: items.filter((m) => m.status === 'agendada' || m.status === 'em_execucao').length,
+            },
+            { rotulo: 'Aguardando baixa', valor: aguardandoBaixa },
+            { rotulo: 'Concluídas', valor: items.filter((m) => m.status === 'concluida').length },
+          ].map((k) => (
+            <div
+              key={k.rotulo}
+              className="flex items-center justify-between gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-3 shadow-xs"
+            >
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">
+                {k.rotulo}
+              </p>
+              <p className="text-2xl font-bold tabular-nums text-neutral-950">{k.valor}</p>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Input
             placeholder="Buscar por veículo, placa, oficina, tipo..."
             value={search}
@@ -411,19 +466,12 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-3">
           <div className="text-xs text-neutral-500 hidden sm:block whitespace-nowrap">
             {filtered.length === 0
               ? '0 itens'
               : `Mostrando ${fromItem}–${toItem} de ${filtered.length}`}
           </div>
-          <Button
-            variant="liberty"
-            onClick={openCreate}
-            leftIcon={<IconPlus size={16} stroke={2.5} />}
-          >
-            Nova Manutenção
-          </Button>
         </div>
       </div>
 
@@ -580,7 +628,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
         />
       ) : (
         <div className="rounded-xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
-          <Table stickyHeader>
+          <Table>
             <THead>
               <tr>
                 <TH>Veículo / Tipo</TH>
@@ -594,7 +642,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
             </THead>
             <TBody>
               {visible.map((m) => (
-                <TR key={m.id}>
+                <TR key={m.id} destaqueId={m.id}>
                   <TD>
                     <div className="font-semibold text-neutral-900">{m.veiculoLabel}</div>
                     <div className="text-xs text-neutral-500">{m.tipo}</div>

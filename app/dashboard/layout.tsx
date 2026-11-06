@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { adminAuth, adminDb } from '@/utils/firebase/admin'
@@ -6,6 +7,7 @@ import DashboardShell from '@/app/components/DashboardShell'
 import { ChangelogModal } from '@/app/components/ChangelogModal'
 import { temAcessoPagina } from '@/constants/permissoes'
 import SinoPendencias from '@/app/components/SinoPendencias'
+import DestaqueQuery from '@/app/components/DestaqueQuery'
 import { getPendencias } from '@/utils/pendencias/listar'
 
 export default async function DashboardLayout({
@@ -81,7 +83,7 @@ export default async function DashboardLayout({
     console.error('[DashboardLayout] Erro ao buscar tarefas pendentes:', e)
   }
 
-  const pendencias = await getPendencias(role, permissions)
+  const pendencias = await getPendencias({ uid: user.uid, email: user.email ?? null, name: displayName, role, permissions })
 
   return (
     <div className="min-h-screen bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
@@ -97,8 +99,13 @@ export default async function DashboardLayout({
         ordemMenu={ordemMenu}
       />
       <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
-        <SinoPendencias pendencias={pendencias} />
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <div className="mx-auto max-w-7xl">
+          <SinoPendencias pendencias={pendencias} />
+          <Suspense fallback={null}>
+            <DestaqueQuery />
+          </Suspense>
+          {children}
+        </div>
         <ChangelogModal />
       </main>
     </div>

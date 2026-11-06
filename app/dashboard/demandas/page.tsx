@@ -28,7 +28,7 @@ export default async function TarefasPage({
   const aba = abaRaw === 'lembretes' || abaRaw === 'pendencias' ? abaRaw : 'tarefas'
 
   if (aba === 'pendencias') {
-    const pendencias = await getPendencias(user.role, user.permissions)
+    const pendencias = await getPendencias(user)
     return (
       <>
         <AbasDemandas ativa="pendencias" />

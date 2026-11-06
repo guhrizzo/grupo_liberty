@@ -30,7 +30,7 @@ export function StatusBadge({ tone = 'neutral', children, className, size = 'xs'
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border font-extrabold uppercase tracking-wider',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border font-extrabold uppercase tracking-wider',
         size === 'sm' ? 'text-[11px] px-2.5 py-0.5' : 'text-[10px] px-2.5 py-0.5',
         tones[tone],
         className,

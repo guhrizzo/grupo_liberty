@@ -18,7 +18,7 @@ export function Table({
       <table
         className={cn(
           'w-full border-collapse text-left text-sm text-neutral-600 neon-theme:text-text-md adobe-dark:text-adobe-text-md',
-          stickyHeader && '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-neutral-50',
+          stickyHeader && '[&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:bg-neutral-50 neon-theme:[&_thead_th]:bg-[var(--color-bg-2)] adobe-dark:[&_thead_th]:bg-adobe-bg-2',
           className,
         )}
       >
@@ -44,14 +44,18 @@ export function TR({
   children,
   className,
   onClick,
+  destaqueId,
 }: {
   children: ReactNode
   className?: string
   onClick?: () => void
+  /** Permite que `?destaque=<id>` (sino de pendências) destaque esta linha. */
+  destaqueId?: string
 }) {
   return (
     <tr
       onClick={onClick}
+      data-destaque={destaqueId}
       className={cn(
         'hover:bg-neutral-50/80 neon-theme:hover:bg-[var(--color-bg-2)]/60 adobe-dark:hover:bg-adobe-bg-3/60 transition-[background-color] duration-200 ease-out',
         onClick && 'cursor-pointer',

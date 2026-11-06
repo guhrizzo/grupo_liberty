@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconAlertTriangle, IconCalendarEvent, IconChecks, IconTool } from '@tabler/icons-react'
+import { IconAlertTriangle, IconCalendarEvent, IconChecks, IconChecklist, IconTool } from '@tabler/icons-react'
 import { Breadcrumb, EmptyState } from '@/app/components/ui'
 import { formatDate } from '@/utils/format'
 import { PENDENCIA_ORIGEM_LABEL, type Pendencia } from '@/utils/pendencias/types'
@@ -23,7 +23,7 @@ export default function PendenciasClient({ pendencias }: { pendencias: Pendencia
       <div>
         <h1 className="text-xl font-bold text-neutral-900 adobe-dark:text-adobe-text-hi">Pendências</h1>
         <p className="mt-1 text-sm text-neutral-600 adobe-dark:text-adobe-text-md">
-          Serviços que precisam ser executados em outros módulos. Cada item some daqui quando é concluído
+          Suas tarefas e serviços que precisam ser executados. Cada item some daqui quando é concluído
           no módulo de origem.
         </p>
       </div>
@@ -57,7 +57,7 @@ export default function PendenciasClient({ pendencias }: { pendencias: Pendencia
                       : 'bg-neutral-100 text-neutral-600 adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md')
                   }
                 >
-                  <IconTool size={18} />
+                  {p.origem === 'tarefa' ? <IconChecklist size={18} /> : <IconTool size={18} />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-neutral-900 adobe-dark:text-adobe-text-hi">

@@ -472,7 +472,7 @@ function TarefaCard({
   const podeResponder = souResponsavel && !t.fechada
 
   return (
-    <li className={CARD + ' p-4 space-y-3' + (atrasada ? ' border-rose-300 adobe-dark:border-rose-500/40' : '')}>
+    <li data-destaque={t.id} className={CARD + ' p-4 space-y-3' + (atrasada ? ' border-rose-300 adobe-dark:border-rose-500/40' : '')}>
       <div className="flex flex-wrap items-center gap-2">
         {/* "Normal" é o padrão: só ganha tag quando foi escolhido algo acima. */}
         {t.prioridade !== 'normal' && (

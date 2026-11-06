@@ -24,6 +24,37 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-06-sino-leva-ao-item',
+    date: '2026-11-06',
+    title: 'Notificações levam direto ao item',
+    tag: 'melhoria',
+    items: [
+      'Ao clicar numa notificação do sino, você é levado ao item exato (tarefa ou manutenção), na página certa da lista.',
+      'O item fica destacado com um anel que pulsa rapidamente e some suave e um aviso na tela mostra onde olhar.',
+    ],
+  },
+  {
+    id: '2026-11-06-manutencao-card-custo',
+    date: '2026-11-06',
+    title: 'Manutenção: card de custo completo e lista sem corte',
+    tag: 'melhoria',
+    items: [
+      'O card "Custo baixado" agora mostra também quantas manutenções foram baixadas, o custo médio e a maior baixa.',
+      'A lista de manutenções não rola mais dentro de uma área própria, então nenhuma linha fica cortada.',
+    ],
+  },
+  {
+    id: '2026-11-06-sino-por-usuario',
+    date: '2026-11-06',
+    title: 'Sino de notificações renovado e por usuário',
+    tag: 'melhoria',
+    items: [
+      'Cada pessoa vê no sino só as próprias pendências (tarefas de Demandas e manutenções em que é responsável). O ADM supremo continua vendo as de todos.',
+      'Novo visual: botão redondo, contador mais legível, lista separada em atrasadas, para hoje e próximas, e sino que balança ao avisar.',
+      'O sino agora fica na linha do topo do conteúdo e acompanha a rolagem, sem cobrir botões ou a barra de rolagem.',
+    ],
+  },
+  {
     id: '2026-11-06-metricas-grafico-largo',
     date: '2026-11-06',
     title: 'Métricas: gráfico de manutenções em largura total',
