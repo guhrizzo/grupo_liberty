@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatCurrency, formatDate } from '@/utils/format'
+import MarcaAsaas from '@/app/components/MarcaAsaas'
+import MarcaSerasa from '@/app/components/MarcaSerasa'
 import NegativacaoBox from '@/app/dashboard/cobrancas/NegativacaoBox'
 import type { LinhaNegativacao } from '@/app/dashboard/cobrancas/negativacao-actions'
 
@@ -83,7 +85,7 @@ export default function NegativacoesClient({
       <header>
         <h1 className="text-xl font-bold text-neutral-950">Negativações</h1>
         <p className="text-sm text-neutral-500">
-          Negativação no Serasa de cobranças do Asaas vencidas e não pagas.
+          Negativação no <MarcaSerasa /> de cobranças do <MarcaAsaas /> vencidas e não pagas.
           {!podeNegativar && ' Apenas administradores podem negativar ou cancelar.'}
         </p>
       </header>

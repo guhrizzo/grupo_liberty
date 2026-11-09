@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { formatCurrency, formatDate } from '@/utils/format'
+import MarcaSerasa from '@/app/components/MarcaSerasa'
 import type { NegativacaoRegistro } from '@/utils/asaas/negativacao'
 import {
   atualizarNegativacaoAsaas,
@@ -158,7 +159,9 @@ export default function NegativacaoBox({ paymentId, vencida, negativacao, podeNe
       {negativacao && (
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-bold text-neutral-800">Negativação (Serasa)</span>
+            <span className="font-bold text-neutral-800">
+              Negativação <MarcaSerasa />
+            </span>
             <span className={`font-bold ${STATUS_COR[negativacao.status] ?? 'text-amber-700 adobe-dark:text-amber-300'}`}>
               {STATUS_LABEL[negativacao.status] ?? negativacao.status}
             </span>
@@ -217,7 +220,9 @@ export default function NegativacaoBox({ paymentId, vencida, negativacao, podeNe
 
       {aberto && (
         <form onSubmit={enviar} className="space-y-2 rounded-lg border border-rose-200 p-3 adobe-dark:border-rose-400/30">
-          <p className="text-xs font-bold text-rose-700 adobe-dark:text-rose-300">Negativar no Serasa</p>
+          <p className="text-xs font-bold text-rose-700 adobe-dark:text-rose-300">
+            Negativar no <MarcaSerasa />
+          </p>
           {simulacao && (
             <p className={`text-[11px] font-semibold ${simulacao.permitido ? 'text-emerald-700 adobe-dark:text-emerald-300' : 'text-rose-700 adobe-dark:text-rose-300'}`}>
               {simulacao.permitido

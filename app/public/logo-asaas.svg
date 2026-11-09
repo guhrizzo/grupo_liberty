@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="130 218 1740 308" width="1740" height="308">
+  <defs>
+    <path id="a-counter" fill-rule="evenodd" d="M822 513 L980 232 L1016 232 L1172 513 L1129 513 L1113 482 C1085 440 1045 424 997 424 C949 424 909 440 881 482 L865 513 Z M927 401 L997 274 L1068 401 C1045 392 1022 388 997 388 C972 388 949 392 927 401 Z"/>
+    <path id="s-letra" fill="none" stroke-width="38" d="M788 280 C745 255 700 243 655 243 C585 243 532 270 532 310 C532 345 570 360 612 365 L712 376 C770 380 790 400 790 435 C790 478 745 502 673 502 C610 502 555 485 511 458"/>
+  </defs>
+  <g fill="#0033E6" stroke="#0033E6">
+    <!-- A (com a aba no topo) -->
+    <path stroke="none" fill-rule="evenodd" d="M138 513 L277 265 L240 265 C228 265 220 262 212 254 L190 232 L313 232 C328 232 338 238 345 250 L489 513 L445 513 L429 482 C401 440 361 424 313 424 C265 424 225 440 197 482 L182 513 Z M243 401 L313 274 L384 401 C361 392 338 388 313 388 C288 388 265 392 243 401 Z"/>
+    <use href="#s-letra"/>
+    <use href="#a-counter" stroke="none"/>
+    <use href="#a-counter" stroke="none" transform="translate(368 0)"/>
+    <use href="#s-letra" transform="translate(1051 0)"/>
+  </g>
+</svg>
