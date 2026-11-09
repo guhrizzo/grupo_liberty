@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
 import { registrarPagamentoCore } from '@/utils/cobrancas/pagamento-core'
 import { buscarCobranca, type AsaasPayment } from '@/utils/asaas/client'
+import { sincronizarNegativacao } from '@/utils/asaas/negativacao'
 import {
   COL_COBRANCAS,
   COL_EVENTOS,
@@ -17,7 +18,8 @@ import {
 // PAYMENT_CONFIRMED, PAYMENT_RECEIVED, PAYMENT_OVERDUE, PAYMENT_DELETED,
 // PAYMENT_REFUNDED, PAYMENT_PARTIALLY_REFUNDED, PAYMENT_CHARGEBACK_REQUESTED,
 // PAYMENT_CHARGEBACK_DISPUTE_LOST, PAYMENT_SPLIT_DONE,
-// PAYMENT_SPLIT_DIVERGENCE_BLOCK, PAYMENT_SPLIT_DIVERGENCE_BLOCK_FINISHED.
+// PAYMENT_SPLIT_DIVERGENCE_BLOCK, PAYMENT_SPLIT_DIVERGENCE_BLOCK_FINISHED,
+// PAYMENT_DUNNING_REQUESTED, PAYMENT_DUNNING_RECEIVED (negativação).
 
 export const dynamic = 'force-dynamic'
 
@@ -138,6 +140,10 @@ export async function POST(request: NextRequest) {
         break
       case 'PAYMENT_CHARGEBACK_REQUESTED':
         await atualizarCobranca(pagamento.id, { revisaoManual: 'Chargeback solicitado — acompanhar.' })
+        break
+      case 'PAYMENT_DUNNING_REQUESTED':
+      case 'PAYMENT_DUNNING_RECEIVED':
+        await sincronizarNegativacao(pagamento.id)
         break
       case 'PAYMENT_SPLIT_DONE':
         await marcarSplitLiquidado(pagamento.id)

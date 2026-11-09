@@ -38,14 +38,16 @@ export class AsaasError extends Error {
 async function chamar<T>(method: string, path: string, body?: unknown): Promise<T> {
   const key = process.env.ASAAS_API_KEY
   if (!key) throw new AsaasError('ASAAS_API_KEY não configurada.', 500)
+  const multipart = body instanceof FormData
   const res = await fetch(`${baseUrl()}${path}`, {
     method,
     headers: {
-      'Content-Type': 'application/json',
+      // Em multipart o fetch define o Content-Type (com o boundary) sozinho.
+      ...(multipart ? {} : { 'Content-Type': 'application/json' }),
       access_token: key,
       'User-Agent': 'grupo-liberty',
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
     cache: 'no-store',
   })
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>
@@ -134,4 +136,116 @@ export function buscarCobranca(id: string): Promise<AsaasPayment> {
 
 export function excluirCobranca(id: string): Promise<{ deleted: boolean }> {
   return chamar('DELETE', `/payments/${encodeURIComponent(id)}`)
+}
+
+// ───────────────────────── Negativação (Serasa) ─────────────────────────
+// Docs: https://docs.asaas.com/reference/criar-uma-negativacao
+// A conta precisa estar habilitada para negativações via API (solicitar ao gerente de contas).
+
+export type AsaasDunningStatus =
+  | 'PENDING'
+  | 'AWAITING_APPROVAL'
+  | 'AWAITING_CANCELLATION'
+  | 'PROCESSED'
+  | 'PAID'
+  | 'PARTIALLY_PAID'
+  | 'DENIED'
+  | 'CANCELLED'
+
+export interface AsaasDunning {
+  id: string
+  dunningNumber?: number
+  status: AsaasDunningStatus
+  type?: string
+  requestDate?: string
+  description?: string
+  value?: number
+  feeValue?: number
+  netValue?: number
+  denialReason?: string | null
+  canBeCancelled?: boolean
+  cannotBeCancelledReason?: string | null
+  isNecessaryResendDocumentation?: boolean
+  payment?: string
+}
+
+export interface AsaasDunningSimulacao {
+  permitido: boolean
+  motivo: string | null
+  valor: number | null
+  taxa: number | null
+  liquido: number | null
+}
+
+/** Dados exigidos pelo Asaas para negativar (todos strings; ver docs). */
+export interface AsaasDunningDados {
+  payment: string
+  description?: string
+  customerName: string
+  customerCpfCnpj: string
+  customerPrimaryPhone: string
+  customerSecondaryPhone?: string
+  customerPostalCode: string
+  customerAddress: string
+  customerAddressNumber: string
+  customerComplement?: string
+  customerProvince: string
+}
+
+function acharComIsAllowed(node: unknown): Record<string, unknown> | null {
+  if (!node || typeof node !== 'object') return null
+  const obj = node as Record<string, unknown>
+  if ('isAllowed' in obj) return obj
+  for (const v of Object.values(obj)) {
+    const r = acharComIsAllowed(v)
+    if (r) return r
+  }
+  return null
+}
+
+const num = (v: unknown): number | null => (typeof v === 'number' ? v : null)
+
+/** Valida se a cobrança pode ser negativada, sem criar nada. */
+export async function simularNegativacao(paymentId: string): Promise<AsaasDunningSimulacao> {
+  const json = await chamar<Record<string, unknown>>(
+    'POST',
+    `/paymentDunnings/simulate?payment=${encodeURIComponent(paymentId)}`,
+    {},
+  )
+  const item = acharComIsAllowed(json) ?? {}
+  return {
+    permitido: item.isAllowed === true,
+    motivo: typeof item.notAllowedReason === 'string' ? item.notAllowedReason : null,
+    valor: num(item.value) ?? num(json.value),
+    taxa: num(item.feeValue) ?? num(json.feeValue),
+    liquido: num(item.netValue) ?? num(json.netValue),
+  }
+}
+
+export async function criarNegativacao(dados: AsaasDunningDados, documento: File): Promise<AsaasDunning> {
+  const form = new FormData()
+  form.append('type', 'CREDIT_BUREAU')
+  for (const [k, v] of Object.entries(dados)) {
+    if (v) form.append(k, v)
+  }
+  form.append('documents', documento, documento.name)
+  return chamar<AsaasDunning>('POST', '/paymentDunnings', form)
+}
+
+export async function listarNegativacoesDaCobranca(paymentId: string): Promise<AsaasDunning[]> {
+  const r = await chamar<{ data: AsaasDunning[] }>(
+    'GET',
+    `/paymentDunnings?payment=${encodeURIComponent(paymentId)}&limit=10`,
+  )
+  return r.data ?? []
+}
+
+export function cancelarNegativacao(id: string): Promise<AsaasDunning> {
+  return chamar<AsaasDunning>('POST', `/paymentDunnings/${encodeURIComponent(id)}/cancel`, {})
+}
+
+export function reenviarDocumentoNegativacao(id: string, documento: File): Promise<AsaasDunning> {
+  const form = new FormData()
+  form.append('documents', documento, documento.name)
+  return chamar<AsaasDunning>('POST', `/paymentDunnings/${encodeURIComponent(id)}/documents`, form)
 }

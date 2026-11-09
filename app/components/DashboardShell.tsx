@@ -31,6 +31,7 @@ import {
   IconHeartHandshake,
   IconReportAnalytics,
   IconRoute,
+  IconUserX,
   IconMenu2,
 
   IconLogout,
@@ -52,7 +53,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route' | 'negativacao'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
@@ -159,6 +160,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'cobrancas',
   },
   {
+    href: '/dashboard/negativacoes',
+    label: 'Negativações',
+    icon: 'negativacao',
+    permissionKey: 'cobrancas',
+  },
+  {
     href: '/dashboard/anuncios',
     label: 'Anúncios',
     icon: 'megaphone',
@@ -259,6 +266,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconCashBanknote className={cls} stroke={2} />
     case 'report':
       return <IconReportAnalytics className={cls} stroke={2} />
+    case 'negativacao':
+      return <IconUserX className={cls} stroke={2} />
   }
 }
 

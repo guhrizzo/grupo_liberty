@@ -11,6 +11,7 @@ import {
   sugerirReservaVeiculo,
   type PainelAsaas,
 } from './asaas-actions'
+import NegativacaoBox from './NegativacaoBox'
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: 'Aguardando pagamento',
@@ -255,6 +256,19 @@ export default function AsaasParcelaPanel({
                 </p>
               )}
               {c.revisaoManual && <p className="mt-1 font-semibold text-amber-700 adobe-dark:text-amber-300">{c.revisaoManual}</p>}
+              {(c.status === 'vencida' || c.negativacao) && (
+                <NegativacaoBox
+                  paymentId={c.paymentId}
+                  vencida={c.status === 'vencida'}
+                  negativacao={c.negativacao}
+                  podeNegativar={painel.podeNegativar}
+                  onMudou={(r) => {
+                    setErro(r.error ?? null)
+                    setAviso(r.success ?? null)
+                    void carregar()
+                  }}
+                />
+              )}
               {c.pendenciaBaixa && (
                 <p className="mt-1 font-semibold text-amber-700 adobe-dark:text-amber-300">
                   Pagamento recebido mas baixa não aplicada: {c.pendenciaBaixa}

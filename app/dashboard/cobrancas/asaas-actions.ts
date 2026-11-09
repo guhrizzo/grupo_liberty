@@ -20,6 +20,7 @@ import {
   excluirCobranca,
   type AsaasBillingType,
 } from '@/utils/asaas/client'
+import type { NegativacaoRegistro } from '@/utils/asaas/negativacao'
 import {
   COL_COBRANCAS,
   COL_LANCAMENTOS,
@@ -40,6 +41,7 @@ export interface AsaasCobrancaInfo {
   divergencia: boolean
   revisaoManual: string | null
   pendenciaBaixa: string | null
+  negativacao: NegativacaoRegistro | null
 }
 
 export interface ReservaVeiculoInfo {
@@ -53,6 +55,7 @@ export interface PainelAsaas {
   configurado: boolean
   cartaoHabilitado: boolean
   podeEditarReserva: boolean
+  podeNegativar: boolean
   reserva: ReservaVeiculoInfo
   cobrancas: AsaasCobrancaInfo[]
 }
@@ -98,11 +101,13 @@ export async function getPainelAsaas(
         divergencia: Boolean(d.divergencia),
         revisaoManual: (d.revisaoManual as string | null) ?? null,
         pendenciaBaixa: (d.pendenciaBaixa as string | null) ?? null,
+        negativacao: (d.negativacao as NegativacaoRegistro | undefined) ?? null,
       }))
     return {
       configurado: asaasConfigurado(),
       cartaoHabilitado: asaasCartaoHabilitado(),
       podeEditarReserva: user.role === 'admin',
+      podeNegativar: user.role === 'admin',
       reserva: await lerReserva(veiculoId),
       cobrancas,
     }

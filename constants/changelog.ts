@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-negativacao-asaas',
+    date: '2026-11-09',
+    title: 'Negativação (Serasa) pelo sistema',
+    tag: 'novo',
+    items: [
+      'Nova aba "Negativações" no menu: lista as negativações em andamento, as cobranças vencidas ainda sem negativação e as encerradas.',
+      'Em cobranças do Asaas vencidas, administradores podem negativar o cliente direto na parcela: o sistema consulta o Asaas, mostra o custo e envia o pedido com o contrato anexado.',
+      'Dá para acompanhar o status, atualizar, reenviar documento e cancelar a negativação.',
+    ],
+  },
+  {
     id: '2026-11-09-reserva-sobre-bruto',
     date: '2026-11-09',
     title: 'Reserva de quitação sobre o valor bruto',
