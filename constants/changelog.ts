@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-quitacoes-documentos',
+    date: '2026-11-09',
+    title: 'Quitações: "Documentos"',
+    tag: 'melhoria',
+    items: [
+      'Na aba Quitações, o anexo "Contrato de prestação de serviços" agora se chama "Documentos".',
+    ],
+  },
+  {
     id: '2026-11-09-negativacao-asaas',
     date: '2026-11-09',
     title: 'Negativação (Serasa) pelo sistema',

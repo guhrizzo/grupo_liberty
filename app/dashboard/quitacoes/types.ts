@@ -90,7 +90,7 @@ export type TipoAnexo = 'cliente' | 'servicos'
 
 export const TIPOS_ANEXO: { id: TipoAnexo; label: string }[] = [
   { id: 'cliente', label: 'Contrato do cliente' },
-  { id: 'servicos', label: 'Contrato de prestação de serviços' },
+  { id: 'servicos', label: 'Documentos' },
 ]
 
 export interface AnexoQuitacao {
