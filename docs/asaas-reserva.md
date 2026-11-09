@@ -1,6 +1,6 @@
 # Reserva de quitação via Asaas (split)
 
-Cada parcela paga pelo Asaas é dividida: o % de reserva do veículo vai para a conta de reserva (split) e o restante fica na conta operacional.
+Cada parcela paga pelo Asaas é dividida: o % de reserva do veículo, calculado sobre o valor BRUTO da cobrança, vai para a conta de reserva (split de valor fixo) e o restante, já descontada a taxa do Asaas, fica na conta operacional.
 
 ## Configuração (variáveis de ambiente)
 
@@ -17,7 +17,7 @@ No painel do Asaas: habilitar o split (Integrações > Segurança) e cadastrar o
 ## Fluxo
 
 1. Admin define o % de reserva do veículo (modal de pagamento da parcela > "Definir reserva"; há sugestão pelo saldo devedor e parcelas em aberto). O % vale para as cobranças geradas depois.
-2. "Gerar Pix"/"Gerar boleto" cria a cobrança no Asaas com `split: [{walletId, percentualValue}]` e grava o % usado em `asaas_cobrancas`.
+2. "Gerar Pix"/"Gerar boleto" cria a cobrança no Asaas com `split: [{walletId, fixedValue}]` (fixedValue = bruto × %) e grava o % usado em `asaas_cobrancas`.
 3. Webhook `PAYMENT_RECEIVED` (ou `CONFIRMED` no cartão): baixa a parcela pelo mesmo núcleo do pagamento manual (`utils/cobrancas/pagamento-core.ts`), lança a receita no financeiro e credita a reserva em `reserva_lancamentos` (bruto, taxa, líquido, reserva, caixa).
 4. `PAYMENT_REFUNDED` / `CHARGEBACK_DISPUTE_LOST`: remove a baixa e a receita e lança o estorno da reserva. `PAYMENT_OVERDUE` marca inadimplência. `PAYMENT_SPLIT_DONE` marca o crédito como liquidado.
 

@@ -45,7 +45,6 @@ export default function AsaasParcelaPanel({
   const [editando, setEditando] = useState(false)
   const [pct, setPct] = useState('')
   const [saldoDevedor, setSaldoDevedor] = useState('')
-  const [taxa, setTaxa] = useState('')
 
   const carregar = useCallback(async () => {
     const r = await getPainelAsaas(parcelaId, veiculoId)
@@ -95,7 +94,7 @@ export default function AsaasParcelaPanel({
     setOcupado(true)
     setErro(null)
     try {
-      const r = await sugerirReservaVeiculo(cobrancaId, parseMoney(saldoDevedor), parseMoney(taxa))
+      const r = await sugerirReservaVeiculo(cobrancaId, parseMoney(saldoDevedor))
       if ('error' in r) setErro(r.error)
       else setPct(String(r.pct).replace('.', ','))
     } finally {
@@ -113,9 +112,9 @@ export default function AsaasParcelaPanel({
     'rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-ui cursor-pointer disabled:opacity-50'
 
   return (
-    <div className="space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-3">
+    <div className="space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-3 adobe-dark:border-violet-400/30 adobe-dark:bg-violet-500/10">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-violet-900">Cobrar pelo Asaas</span>
+        <span className="text-xs font-bold text-violet-900 adobe-dark:text-violet-300">Cobrar pelo Asaas</span>
         <span className="text-[11px] text-neutral-600">
           Reserva do veículo: <b>{painel.reserva.pct}%</b> · acumulado{' '}
           <b>{formatCurrency(painel.reserva.saldoAcumulado)}</b>
@@ -123,12 +122,12 @@ export default function AsaasParcelaPanel({
       </div>
 
       {!painel.configurado && (
-        <p className="text-[11px] font-semibold text-amber-700">
+        <p className="text-[11px] font-semibold text-amber-700 adobe-dark:text-amber-300">
           Asaas não configurado neste ambiente (ASAAS_API_KEY / ASAAS_RESERVA_WALLET_ID).
         </p>
       )}
       {painel.configurado && painel.reserva.pct === 0 && (
-        <p className="text-[11px] font-semibold text-amber-700">
+        <p className="text-[11px] font-semibold text-amber-700 adobe-dark:text-amber-300">
           Este veículo está sem % de reserva: a cobrança sai sem split.
         </p>
       )}
@@ -178,20 +177,10 @@ export default function AsaasParcelaPanel({
                 className="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs"
               />
             </label>
-            <label className="text-[11px] text-neutral-600">
-              Taxa Asaas estimada/parcela
-              <input
-                value={taxa}
-                onChange={(e) => setTaxa(maskMoney(e.target.value))}
-                inputMode="numeric"
-                placeholder="R$ 0,00"
-                className="mt-1 w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs"
-              />
-            </label>
           </div>
           <div className="flex items-end gap-2">
             <label className="flex-1 text-[11px] text-neutral-600">
-              % da reserva (sobre o valor líquido)
+              % da reserva (sobre o valor bruto da parcela)
               <input
                 value={pct}
                 onChange={(e) => setPct(e.target.value.replace(/[^\d,]/g, ''))}
@@ -222,8 +211,8 @@ export default function AsaasParcelaPanel({
         </div>
       )}
 
-      {erro && <p className="text-[11px] font-semibold text-rose-700">{erro}</p>}
-      {aviso && <p className="text-[11px] font-semibold text-emerald-700">{aviso}</p>}
+      {erro && <p className="text-[11px] font-semibold text-rose-700 adobe-dark:text-rose-300">{erro}</p>}
+      {aviso && <p className="text-[11px] font-semibold text-emerald-700 adobe-dark:text-emerald-300">{aviso}</p>}
 
       {painel.cobrancas.length > 0 && (
         <ul className="space-y-1.5">
@@ -244,7 +233,7 @@ export default function AsaasParcelaPanel({
                 </span>
                 <span className="flex gap-3">
                   {c.link && (
-                    <a href={c.link} target="_blank" rel="noreferrer" className="font-bold text-violet-700 underline">
+                    <a href={c.link} target="_blank" rel="noreferrer" className="font-bold text-violet-700 underline adobe-dark:text-violet-300">
                       Abrir link
                     </a>
                   )}
@@ -252,7 +241,7 @@ export default function AsaasParcelaPanel({
                     <button
                       type="button"
                       disabled={ocupado}
-                      className="font-bold text-rose-600 underline cursor-pointer disabled:opacity-50"
+                      className="font-bold text-rose-600 underline adobe-dark:text-rose-400 cursor-pointer disabled:opacity-50"
                       onClick={() => executar(() => cancelarCobrancaAsaas(c.paymentId))}
                     >
                       Cancelar
@@ -261,13 +250,13 @@ export default function AsaasParcelaPanel({
                 </span>
               </div>
               {c.divergencia && (
-                <p className="mt-1 font-semibold text-rose-700">
+                <p className="mt-1 font-semibold text-rose-700 adobe-dark:text-rose-300">
                   Divergência de split bloqueada no Asaas — resolver em até 2 dias úteis.
                 </p>
               )}
-              {c.revisaoManual && <p className="mt-1 font-semibold text-amber-700">{c.revisaoManual}</p>}
+              {c.revisaoManual && <p className="mt-1 font-semibold text-amber-700 adobe-dark:text-amber-300">{c.revisaoManual}</p>}
               {c.pendenciaBaixa && (
-                <p className="mt-1 font-semibold text-amber-700">
+                <p className="mt-1 font-semibold text-amber-700 adobe-dark:text-amber-300">
                   Pagamento recebido mas baixa não aplicada: {c.pendenciaBaixa}
                 </p>
               )}

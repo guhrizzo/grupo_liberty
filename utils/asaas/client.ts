@@ -107,13 +107,15 @@ export async function criarCobranca(params: {
   dueDate: string
   description: string
   externalReference: string
-  /** Percentual da reserva sobre o valor líquido; 0 = sem split. */
+  /** Percentual da reserva sobre o valor BRUTO da cobrança; 0 = sem split. */
   reservaPct: number
 }): Promise<AsaasPayment> {
   const walletId = process.env.ASAAS_RESERVA_WALLET_ID
+  // Valor fixo calculado sobre o bruto (o percentualValue do Asaas incide sobre o líquido).
+  const reserva = Math.round(params.value * params.reservaPct) / 100
   const split =
-    params.reservaPct > 0 && walletId
-      ? [{ walletId, percentualValue: params.reservaPct }]
+    params.reservaPct > 0 && walletId && reserva > 0
+      ? [{ walletId, fixedValue: reserva }]
       : undefined
   return chamar<AsaasPayment>('POST', '/payments', {
     customer: params.customer,

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-reserva-sobre-bruto',
+    date: '2026-11-09',
+    title: 'Reserva de quitação sobre o valor bruto',
+    tag: 'melhoria',
+    items: [
+      'O % da reserva agora incide sobre o valor bruto da parcela (antes era sobre o líquido, depois da taxa do Asaas). A taxa fica por conta do caixa.',
+      'A sugestão de % não pede mais a taxa estimada por parcela.',
+    ],
+  },
+  {
     id: '2026-11-09-numero-contrato-sequencial',
     date: '2026-11-09',
     title: 'Número do contrato sequencial',

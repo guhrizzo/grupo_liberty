@@ -1,7 +1,7 @@
 import 'server-only'
 import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/utils/firebase/admin'
-import { dividirLiquido, round2 } from '@/utils/asaas/reserva'
+import { dividirBruto, round2 } from '@/utils/asaas/reserva'
 import type { AsaasPayment } from '@/utils/asaas/client'
 
 // Coleções:
@@ -32,7 +32,7 @@ export interface LancamentoReserva {
   pct: number
   valorReserva: number
   valorCaixa: number
-  /** 'asaas' = valor lido do split devolvido pelo Asaas; 'estimado' = calculado aqui (% sobre o líquido). */
+  /** 'asaas' = valor lido do split devolvido pelo Asaas; 'estimado' = calculado aqui (% sobre o bruto). */
   fonte: 'asaas' | 'estimado'
   /** 'confirmado' = pagamento aprovado; 'liquidado' = split liquidado (PAYMENT_SPLIT_DONE). */
   status: 'confirmado' | 'liquidado' | 'estornado'
@@ -53,7 +53,7 @@ export async function creditarReserva(payment: AsaasPayment): Promise<Lancamento
     const liquido = round2(payment.netValue ?? payment.value)
     const pct: number = cob.reservaPct ?? 0
     const splitAsaas = payment.split?.find((s) => typeof s.totalValue === 'number')
-    const valorReserva = splitAsaas ? round2(splitAsaas.totalValue!) : dividirLiquido(liquido, pct).reserva
+    const valorReserva = splitAsaas ? round2(splitAsaas.totalValue!) : dividirBruto(bruto, liquido, pct).reserva
 
     const lanc: LancamentoReserva = {
       veiculoId: cob.veiculoId,

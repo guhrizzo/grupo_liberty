@@ -115,7 +115,6 @@ export async function getPainelAsaas(
 export async function sugerirReservaVeiculo(
   cobrancaId: string,
   saldoDevedor: number,
-  taxaEstimadaPorParcela: number,
 ): Promise<AsaasResponse<{ pct: number; parcelasRestantes: number }>> {
   try {
     await autorizar()
@@ -145,7 +144,6 @@ export async function sugerirReservaVeiculo(
       saldoDevedor,
       valorParcelasRestantes: restante,
       parcelasRestantes: qtd,
-      taxaEstimadaPorParcela: Math.max(taxaEstimadaPorParcela, 0),
     })
     return { success: 'ok', pct, parcelasRestantes: qtd }
   } catch (err) {
