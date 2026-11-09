@@ -460,7 +460,7 @@ export async function createProposta(
       input.proposta_previa == null ? null : Number(input.proposta_previa)
     if (
       propostaPreviaNum !== null &&
-      (!Number.isFinite(propostaPreviaNum) || propostaPreviaNum <= 0)
+      (!Number.isFinite(propostaPreviaNum) || propostaPreviaNum < 0)
     ) {
       return { error: 'Valor da proposta prévia inválido.' }
     }

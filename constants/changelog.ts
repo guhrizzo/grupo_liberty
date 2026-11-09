@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-previa-zero',
+    date: '2026-11-09',
+    title: 'Salvar proposta com prévia zerada',
+    tag: 'correcao',
+    items: [
+      'Quando a proposta prévia dá R$ 0,00 (dívida e débitos maiores que metade da FIPE), agora é possível salvar a proposta normalmente.',
+    ],
+  },
+  {
     id: '2026-11-06-recusa-detalhes',
     date: '2026-11-06',
     title: 'Detalhes ao recusar uma proposta',
