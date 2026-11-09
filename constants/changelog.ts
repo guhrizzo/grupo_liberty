@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-busca-ctrl-k',
+    date: '2026-11-09',
+    title: 'Busca rápida (Ctrl+K)',
+    tag: 'novo',
+    items: [
+      'Aperte Ctrl+K (ou ⌘K no Mac) em qualquer tela do painel para abrir a busca e ir direto a uma aba. Use as setas e Enter; Esc fecha.',
+      'A busca só mostra as telas a que você tem acesso e lembra das últimas escolhidas.',
+    ],
+  },
+  {
     id: '2026-11-09-semanais-ajuste-form',
     date: '2026-11-09',
     title: 'Tarefas semanais: formulário mais claro',

@@ -45,6 +45,7 @@ import {
   IconArrowDown,
 } from '@tabler/icons-react'
 import LoadingBar from './LoadingBar'
+import PaletaComandos, { type ItemPaleta } from './PaletaComandos'
 import { ehAdmSupremo, temAcessoAba, type PermissionKey } from '@/constants/permissoes'
 import { Button, ConfirmDialog, Modal, useToast } from './ui'
 import { salvarOrdemMenu } from '@/app/dashboard/menu-actions'
@@ -215,6 +216,16 @@ const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+/** Telas internas pesquisáveis no Ctrl+K; aparecem se o usuário vê a aba `pai`. */
+const ATALHOS_PALETA: { href: string; label: string; pai: string; busca?: string }[] = [
+  { href: '/dashboard/propostas/nova', label: 'Nova proposta', pai: '/dashboard/propostas', busca: 'cadastrar criar' },
+  { href: '/dashboard/propostas/registros', label: 'Propostas registradas', pai: '/dashboard/propostas' },
+  { href: '/dashboard/demandas?aba=semanais', label: 'Tarefas semanais', pai: '/dashboard/demandas', busca: 'rotina' },
+  { href: '/dashboard/demandas?aba=pendencias', label: 'Pendências', pai: '/dashboard/demandas' },
+  { href: '/dashboard/cobrancas?aba=semana', label: 'Cobranças da semana', pai: '/dashboard/cobrancas' },
+  { href: '/dashboard/cobrancas?aba=clientes', label: 'Clientes das cobranças', pai: '/dashboard/cobrancas' },
+]
+
 function NavIcon({ name }: { name: NavItem['icon'] }) {
   const cls = 'h-5 w-5 shrink-0'
   switch (name) {
@@ -359,6 +370,18 @@ export default function DashboardShell({
     }),
     ordem,
   )
+
+  // Busca rápida (Ctrl+K): as abas do menu + atalhos para telas internas, só para
+  // quem tem acesso à aba "pai".
+  const itensPaleta: ItemPaleta[] = [
+    ...allowedItems.map((i) => ({ href: i.href, label: i.label, icone: <NavIcon name={i.icon} /> })),
+    ...ATALHOS_PALETA.filter((a) => allowedItems.some((i) => i.href === a.pai)).map((a) => ({
+      href: a.href,
+      label: a.label,
+      busca: a.busca,
+      icone: <NavIcon name={allowedItems.find((i) => i.href === a.pai)!.icon} />,
+    })),
+  ]
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname?.startsWith(href)
@@ -683,6 +706,8 @@ export default function DashboardShell({
           }}
         />
       )}
+
+      <PaletaComandos itens={itensPaleta} />
 
       {isLoggingOut && <LoadingBar className="h-0.5 fixed top-0 left-0 right-0 z-[100]" />}
     </>
