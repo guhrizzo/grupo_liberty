@@ -149,8 +149,9 @@ export default function SemanaisClient({
               label="Funcionário"
               value={responsavel}
               onChange={(e) => setResponsavel(e.target.value)}
-              placeholder="Escolha..."
             >
+              {/* Opção vazia visível: o que aparece no campo é exatamente o que será salvo. */}
+              <option value="">Escolha o funcionário...</option>
               {usuarios.map((u) => (
                 <option key={u.uid} value={u.uid}>
                   {u.nome}
@@ -158,7 +159,12 @@ export default function SemanaisClient({
               ))}
             </Select>
             <div className="sm:col-span-2">
-              <Textarea label="Detalhes (opcional)" name="descricao" rows={2} />
+              <Textarea
+                label="Detalhes (opcional)"
+                name="descricao"
+                rows={2}
+                placeholder="Ex.: conferir as quitações em aberto e atualizar os valores"
+              />
             </div>
             <div className="sm:col-span-2">
               <Button type="submit" disabled={ocupado || !responsavel}>

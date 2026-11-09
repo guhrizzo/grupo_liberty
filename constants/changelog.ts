@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-semanais-ajuste-form',
+    date: '2026-11-09',
+    title: 'Tarefas semanais: formulário mais claro',
+    tag: 'correcao',
+    items: [
+      'No cadastro de tarefa semanal, o campo Funcionário agora começa em "Escolha o funcionário..." — antes mostrava o primeiro nome da lista sem estar selecionado, e era preciso abrir e escolher de novo.',
+      'O campo Detalhes ganhou um exemplo de preenchimento.',
+    ],
+  },
+  {
     id: '2026-11-09-tarefas-semanais',
     date: '2026-11-09',
     title: 'Tarefas semanais',
