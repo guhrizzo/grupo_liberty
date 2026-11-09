@@ -1,20 +1,23 @@
-import { Skeleton } from '../../components/ui'
+import { Skeleton, SkeletonPage, SkeletonStats, SkeletonTable } from '@/app/components/ui'
 
+/** Visitantes: rótulo + título + subtítulo, 4 cartões, gráfico de visitantes e a tabela de páginas. */
 export default function AnalyticsLoading() {
   return (
-    <div className="space-y-6">
+    <SkeletonPage>
       <div className="space-y-2">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-7 w-56" />
-        <Skeleton className="h-3 w-80" />
+        <Skeleton className="h-2.5 w-20" />
+        <Skeleton className="h-8 w-64" />
+        <Skeleton className="h-4 w-[32rem] max-w-full" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 w-full rounded-2xl" />
-        ))}
+      <SkeletonStats itens={4} className="sm:grid-cols-2 lg:grid-cols-4" />
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
+        <div className="mb-4 flex items-center justify-between">
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-8 w-32 rounded-lg" />
+        </div>
+        <Skeleton className="h-64 w-full rounded-lg" />
       </div>
-      <Skeleton className="h-64 w-full rounded-2xl" />
-      <Skeleton className="h-72 w-full rounded-2xl" />
-    </div>
+      <SkeletonTable colunas={4} linhas={6} />
+    </SkeletonPage>
   )
 }

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-skeleton-fiel',
+    date: '2026-11-09',
+    title: 'Telas de carregamento com o formato real',
+    tag: 'melhoria',
+    items: [
+      'Cada tela do painel e do site agora mostra, enquanto carrega, um esqueleto com a mesma estrutura da página final (cabeçalho, abas, cartões de resumo, filtros, tabelas e listas), em vez de blocos genéricos.',
+      'Telas que não tinham esqueleto ganharam o seu: Cobranças, Financeiro, Seguro, Rastreamento, Consulta FIPE, Negativações, Propostas registradas, Nova proposta, Editar proposta, login e outras.',
+    ],
+  },
+  {
     id: '2026-11-09-site-publico-escuro',
     date: '2026-11-09',
     title: 'Site público com tema escuro e logo',

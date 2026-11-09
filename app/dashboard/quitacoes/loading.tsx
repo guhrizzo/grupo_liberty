@@ -1,19 +1,25 @@
-import { Skeleton } from '../../components/ui'
+import { Skeleton, SkeletonHeader, SkeletonPage, SkeletonRows } from '@/app/components/ui'
 
+/** Quitações: busca + situação, botões de lote/terceiro e a lista de veículos com foto. */
 export default function QuitacoesLoading() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-40" />
-        <Skeleton className="h-3 w-80" />
-      </div>
-      <Skeleton className="h-10 w-full" />
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-neutral-200 bg-white p-4 space-y-2">
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-3 w-32" />
+    <SkeletonPage>
+      <SkeletonHeader />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Skeleton className="h-10 w-full rounded-xl sm:w-72" />
+          <div className="flex gap-1.5">
+            <Skeleton className="h-9 w-24 rounded-lg" />
+            <Skeleton className="h-9 w-36 rounded-lg" />
+            <Skeleton className="h-9 w-32 rounded-lg" />
+          </div>
         </div>
-      ))}
-    </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-56 rounded-lg" />
+          <Skeleton className="h-10 w-44 rounded-lg" />
+        </div>
+      </div>
+      <SkeletonRows linhas={5} miniatura selos={2} />
+    </SkeletonPage>
   )
 }

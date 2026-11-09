@@ -1,32 +1,19 @@
-import { Skeleton } from '../../components/ui'
+import {
+  SkeletonHeader,
+  SkeletonMes,
+  SkeletonPage,
+  SkeletonRows,
+  SkeletonStats,
+} from '@/app/components/ui'
 
+/** Metas: botões de vendedores/nova meta, navegação de mês, resumo e os cartões de meta. */
 export default function MetasLoading() {
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-52" />
-        <Skeleton className="h-3 w-80" />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-neutral-200 bg-white p-4">
-            <Skeleton className="h-3 w-20 mb-2" />
-            <Skeleton className="h-7 w-10" />
-          </div>
-        ))}
-      </div>
-      <div className="space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-neutral-200 bg-white p-4">
-            <div className="flex items-center gap-2">
-              <Skeleton className="h-5 w-14" />
-              <Skeleton className="h-5 w-16" />
-            </div>
-            <Skeleton className="mt-2 h-4 w-2/3" />
-            <Skeleton className="mt-1 h-3 w-32" />
-          </div>
-        ))}
-      </div>
-    </div>
+    <SkeletonPage>
+      <SkeletonHeader acoes={['w-40', 'w-32']} />
+      <SkeletonMes />
+      <SkeletonStats itens={4} />
+      <SkeletonRows linhas={4} selos={1} acao={false} />
+    </SkeletonPage>
   )
 }

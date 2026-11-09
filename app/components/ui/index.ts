@@ -25,7 +25,21 @@ export type { ModalProps } from './Modal'
 export { Select } from './Select'
 export type { SelectProps } from './Select'
 
-export { Skeleton, SkeletonCard, SkeletonTableRow } from './Skeleton'
+export {
+  Skeleton,
+  SkeletonCard,
+  SkeletonTableRow,
+  SkeletonPage,
+  SkeletonHeader,
+  SkeletonTabs,
+  SkeletonStats,
+  SkeletonToolbar,
+  SkeletonRows,
+  SkeletonTable,
+  SkeletonMes,
+  SkeletonForm,
+  SkeletonPublicHeader,
+} from './Skeleton'
 
 export { StatusBadge } from './StatusBadge'
 export type { StatusBadgeProps, BadgeTone } from './StatusBadge'
