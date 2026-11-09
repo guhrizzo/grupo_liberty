@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-tarefas-semanais',
+    date: '2026-11-09',
+    title: 'Tarefas semanais',
+    tag: 'novo',
+    items: [
+      'Nova aba "Semanais" em Demandas: o ADM supremo cadastra tarefas que se repetem toda semana para cada funcionário (ex.: toda terça, verificar quitações).',
+      'A tarefa do dia aparece no sininho do funcionário e continua lá, como atrasada, até ele marcar como feita.',
+    ],
+  },
+  {
     id: '2026-11-09-quitacoes-documentos',
     date: '2026-11-09',
     title: 'Quitações: "Documentos"',

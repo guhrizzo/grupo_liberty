@@ -204,7 +204,7 @@ export default function SinoPendencias({ pendencias }: { pendencias: Pendencia[]
                                   : 'bg-neutral-100 text-neutral-600 adobe-dark:bg-[var(--color-adobe-bg-3)] adobe-dark:text-[var(--color-adobe-text-md)]')
                               }
                             >
-                              {p.origem === 'tarefa' ? <IconChecklist size={17} /> : <IconTool size={17} />}
+                              {p.origem !== 'manutencao' ? <IconChecklist size={17} /> : <IconTool size={17} />}
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="block truncate text-sm font-semibold text-neutral-900 adobe-dark:text-[var(--color-adobe-text-hi)]">

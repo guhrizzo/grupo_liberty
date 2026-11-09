@@ -1,9 +1,10 @@
 import Link from 'next/link'
 
-export type AbaDemandas = 'tarefas' | 'pendencias' | 'lembretes'
+export type AbaDemandas = 'tarefas' | 'semanais' | 'pendencias' | 'lembretes'
 
 const ABAS: { id: AbaDemandas; label: string; href: string }[] = [
   { id: 'tarefas', label: 'Tarefas', href: '/dashboard/demandas' },
+  { id: 'semanais', label: 'Semanais', href: '/dashboard/demandas?aba=semanais' },
   { id: 'pendencias', label: 'Pendências', href: '/dashboard/demandas?aba=pendencias' },
   { id: 'lembretes', label: 'Lembretes ao CEO', href: '/dashboard/demandas?aba=lembretes' },
 ]

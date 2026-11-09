@@ -2,7 +2,7 @@
 // aparecem em Demandas e no sininho do painel. Ficam fora de arquivos
 // 'use server' para poder exportar tipos e constantes.
 
-export type PendenciaOrigem = 'manutencao' | 'tarefa'
+export type PendenciaOrigem = 'manutencao' | 'tarefa' | 'semanal'
 
 export interface Pendencia {
   /** `<origem>:<id do registro>` — chave estável na lista. */
@@ -23,4 +23,5 @@ export interface Pendencia {
 export const PENDENCIA_ORIGEM_LABEL: Record<PendenciaOrigem, string> = {
   manutencao: 'Manutenção',
   tarefa: 'Tarefa',
+  semanal: 'Rotina semanal',
 }

@@ -5,6 +5,8 @@ import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import { getMeusAfazeres, getTarefas, getUsuariosAtribuiveis } from './actions'
 import TarefasClient from './TarefasClient'
 import AbasDemandas from './AbasDemandas'
+import SemanaisClient from './semanais/SemanaisClient'
+import { getTarefasSemanais } from './semanais/actions'
 import LembretesClient from './lembretes/LembretesClient'
 import { getLembretes } from './lembretes/actions'
 import PendenciasClient from './pendencias/PendenciasClient'
@@ -25,7 +27,28 @@ export default async function TarefasPage({
 
   const { aba: abaParam } = await searchParams
   const abaRaw = Array.isArray(abaParam) ? abaParam[0] : abaParam
-  const aba = abaRaw === 'lembretes' || abaRaw === 'pendencias' ? abaRaw : 'tarefas'
+  const aba =
+    abaRaw === 'lembretes' || abaRaw === 'pendencias' || abaRaw === 'semanais' ? abaRaw : 'tarefas'
+
+  if (aba === 'semanais') {
+    const supremo = isAdmSupremo(user)
+    const [tarefasSemanais, usuariosSemanais] = await Promise.all([
+      getTarefasSemanais(),
+      supremo ? getUsuariosAtribuiveis() : Promise.resolve([]),
+    ])
+    return (
+      <>
+        <AbasDemandas ativa="semanais" />
+        <SemanaisClient
+          tarefas={tarefasSemanais}
+          usuarios={usuariosSemanais}
+          admSupremo={supremo}
+          meuUid={user.uid}
+          hoje={hojeNoFuso()}
+        />
+      </>
+    )
+  }
 
   if (aba === 'pendencias') {
     const pendencias = await getPendencias(user)

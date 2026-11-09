@@ -57,7 +57,7 @@ export default function PendenciasClient({ pendencias }: { pendencias: Pendencia
                       : 'bg-neutral-100 text-neutral-600 adobe-dark:bg-adobe-bg-3 adobe-dark:text-adobe-text-md')
                   }
                 >
-                  {p.origem === 'tarefa' ? <IconChecklist size={18} /> : <IconTool size={18} />}
+                  {p.origem !== 'manutencao' ? <IconChecklist size={18} /> : <IconTool size={18} />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-neutral-900 adobe-dark:text-adobe-text-hi">

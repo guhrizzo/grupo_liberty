@@ -4,6 +4,14 @@ import { ehAdmSupremo, temAcessoPagina } from '@/constants/permissoes'
 import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import type { SessionUser } from '@/utils/permissions'
 import type { Pendencia } from './types'
+import {
+  COL_TAREFAS_SEMANAIS,
+  COL_TAREFAS_SEMANAIS_CONCLUSOES,
+  ehDiaSemana,
+  idConclusao,
+  ocorrenciaAtual,
+  rotuloDia,
+} from './semanais'
 
 type UsuarioPendencias = Pick<SessionUser, 'uid' | 'email' | 'name' | 'role' | 'permissions'>
 
@@ -58,6 +66,47 @@ export async function getPendencias(user: UsuarioPendencias): Promise<Pendencia[
     }
   } catch (e) {
     console.error('[pendencias] Erro ao buscar tarefas pendentes:', e)
+  }
+
+  // ── Tarefas semanais (rotina) ──
+  // Pendente = a ocorrência mais recente do dia da semana ainda sem conclusão.
+  try {
+    const snap = todas
+      ? await adminDb.collection(COL_TAREFAS_SEMANAIS).get()
+      : await adminDb.collection(COL_TAREFAS_SEMANAIS).where('responsavelUid', '==', user.uid).get()
+    const regras = snap.docs
+      .filter((doc) => doc.data().ativa !== false)
+      .map((doc) => {
+        const d = doc.data()
+        const dia = ehDiaSemana(d.diaSemana) ? d.diaSemana : 1
+        const desde = typeof d.desde === 'string' ? d.desde : hoje
+        const oc = ocorrenciaAtual(hoje, dia)
+        return { doc, d, dia, oc, valeu: oc >= desde }
+      })
+      .filter((r) => r.valeu)
+    const datas = [...new Set(regras.map((r) => r.oc))]
+    const feitas = new Set<string>()
+    if (datas.length > 0) {
+      const cs = await adminDb.collection(COL_TAREFAS_SEMANAIS_CONCLUSOES).where('data', 'in', datas).get()
+      cs.forEach((c) => feitas.add(c.id))
+    }
+    for (const r of regras) {
+      if (feitas.has(idConclusao(r.doc.id, r.oc))) continue
+      const nome = typeof r.d.responsavelNome === 'string' ? r.d.responsavelNome : ''
+      lista.push({
+        id: `semanal:${r.doc.id}`,
+        origem: 'semanal',
+        titulo: typeof r.d.titulo === 'string' && r.d.titulo ? r.d.titulo : 'Tarefa semanal',
+        detalhe: [rotuloDia(r.dia), todas && nome ? `Responsável: ${nome}` : ''].filter(Boolean).join(' · '),
+        data: r.oc,
+        atrasada: r.oc < hoje,
+        venceHoje: r.oc === hoje,
+        href: '/dashboard/demandas?aba=semanais',
+        responsavel: todas ? nome : undefined,
+      })
+    }
+  } catch (e) {
+    console.error('[pendencias] Erro ao buscar tarefas semanais:', e)
   }
 
   // ── Manutenção ──
