@@ -1106,3 +1106,23 @@ html:has(> body.adobe-dark) {
 @media (prefers-reduced-motion: reduce) {
   .aurora-blob { animation: none; }
 }
+
+/* Bolinhas (grade de pontos) sobre a aurora: aparecem no centro e somem nas bordas. */
+.aurora-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(29, 107, 255, 0.4) 1.3px, transparent 1.7px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 15%, transparent 72%);
+  mask-image: radial-gradient(ellipse at center, #000 15%, transparent 72%);
+  animation: aurora-dots 30s linear infinite;
+}
+.adobe-dark .aurora-dots {
+  background-image: radial-gradient(circle, rgba(147, 197, 253, 0.4) 1.3px, transparent 1.7px);
+}
+@keyframes aurora-dots {
+  to { background-position: 44px 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-dots { animation: none; }
+}

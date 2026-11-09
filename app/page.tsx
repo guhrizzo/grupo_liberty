@@ -56,6 +56,7 @@ export default async function HomePage() {
               <span className="aurora-blob aurora-blob-2" />
               <span className="aurora-blob aurora-blob-3" />
               <span className="aurora-blob aurora-blob-4" />
+              <span className="aurora-dots" />
             </div>
 
             <div className="relative px-6 py-14 md:px-16 md:py-20 text-center max-w-3xl mx-auto space-y-5">
