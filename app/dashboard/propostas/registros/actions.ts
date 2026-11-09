@@ -41,6 +41,20 @@ async function proximoNumeroContrato(): Promise<string> {
   return String(numero)
 }
 
+/** Mostra o próximo número previsto, sem consumi-lo. */
+export async function consultarProximoNumeroContrato(): Promise<{ numero?: string }> {
+  try {
+    await assertAuthorized()
+    const snap = await adminDb.collection('counters').doc('numero_contrato_proposta').get()
+    const ultimo = snap.exists
+      ? Number(snap.data()?.ultimo) || CONTRATO_ULTIMO_NUMERO_BASE
+      : CONTRATO_ULTIMO_NUMERO_BASE
+    return { numero: String(ultimo + 1) }
+  } catch {
+    return {}
+  }
+}
+
 /** Reserva o número da próxima proposta (usado antes de gerar o PDF). */
 export async function reservarNumeroContrato(): Promise<{ numero?: string; error?: string }> {
   try {

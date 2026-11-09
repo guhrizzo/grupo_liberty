@@ -44,7 +44,11 @@ import { parseMoney, onlyDigits, maskPlate } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getBancoByNome } from '@/constants/bancos'
 import { type CreatePropostaInput } from '../actions'
-import { createPropostaRegistrada, reservarNumeroContrato } from '../registros/actions'
+import {
+  consultarProximoNumeroContrato,
+  createPropostaRegistrada,
+  reservarNumeroContrato,
+} from '../registros/actions'
 import type { PropostaPrefill } from '@/app/dashboard/juridico/prospeccao-proposta'
 
 interface CadastrarPropostaClientProps {
@@ -220,6 +224,11 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
   const router = useRouter()
   const toast = useToast()
   const [creating, setCreating] = useState(false)
+  const [proximoNumero, setProximoNumero] = useState<string | null>(null)
+
+  useEffect(() => {
+    consultarProximoNumeroContrato().then((r) => setProximoNumero(r.numero ?? null))
+  }, [])
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   const [searchingPlaca, setSearchingPlaca] = useState(false)
@@ -960,11 +969,11 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                   label="Número do Contrato"
                   name="numero_contrato"
                   placeholder="Gerado automaticamente"
-                  value=""
+                  value={proximoNumero ?? ''}
                   readOnly
                   disabled
                   leftIcon={<IconHash size={14} />}
-                  hint="Numeração automática e sequencial, definida ao salvar."
+                  hint="Numeração automática e sequencial, confirmada ao salvar."
                 />
               </div>
             </SectionBody>
@@ -1638,7 +1647,7 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                 <SummaryRow label="Telefone" value={formData.telefone} />
                 <SummaryRow label="E-mail" value={formData.email} />
                 <SummaryRow label="Data" value={formData.cliente_data} />
-                <SummaryRow label="Contrato" value={formData.numero_contrato || 'automático'} />
+                <SummaryRow label="Contrato" value={proximoNumero ?? 'automático'} />
               </SummarySection>
 
               <SummarySection title="Veículo" icon={IconCar}>
