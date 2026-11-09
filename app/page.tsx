@@ -50,8 +50,13 @@ export default async function HomePage() {
 
           {/* Hero Section */}
           <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-linear-to-br from-liberty/8 via-white to-white shadow-lg shadow-liberty/5">
-            <div className="absolute -top-16 -right-16 sm:-top-24 sm:-right-24 h-40 w-40 sm:h-72 sm:w-72 rounded-full bg-liberty/10 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-16 -left-16 sm:-bottom-24 sm:-left-24 h-40 w-40 sm:h-72 sm:w-72 rounded-full bg-liberty-soft/10 blur-3xl pointer-events-none" />
+            {/* Manchas coloridas em movimento (estilo aurora). Decorativo: fica atrás do texto. */}
+            <div className="aurora" aria-hidden>
+              <span className="aurora-blob aurora-blob-1" />
+              <span className="aurora-blob aurora-blob-2" />
+              <span className="aurora-blob aurora-blob-3" />
+              <span className="aurora-blob aurora-blob-4" />
+            </div>
 
             <div className="relative px-6 py-14 md:px-16 md:py-20 text-center max-w-3xl mx-auto space-y-5">
               <span className="inline-flex items-center gap-2 rounded-full border border-liberty/30 bg-liberty/5 px-3.5 py-1 text-xs font-extrabold uppercase tracking-[0.25em] text-liberty-deep animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]">

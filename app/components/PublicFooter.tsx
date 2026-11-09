@@ -1,4 +1,7 @@
-import { IconCar, IconBrandWhatsapp, IconArrowRight } from '@tabler/icons-react'
+import Image from 'next/image'
+import { IconBrandWhatsapp, IconArrowRight } from '@tabler/icons-react'
+import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
+import LOGO_LIBERTY_CLARO from '@/app/public/logo-liberty-car-white.png'
 import FooterLegalLinks from '@/app/components/FooterLegalLinks'
 
 export default function PublicFooter() {
@@ -7,13 +10,13 @@ export default function PublicFooter() {
       <div className="mx-auto max-w-7xl grid gap-8 sm:grid-cols-3">
         {/* Logo / Sobre */}
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg grid place-items-center bg-liberty/10 liberty-glow">
-              <IconCar size={18} className="text-liberty" stroke={2.2} />
-            </div>
-            <span className="text-base font-black tracking-tighter text-neutral-900">
-              LIBERTY<span className="text-liberty">CAR</span>
-            </span>
+          <div>
+            <Image src={LOGO_LIBERTY} alt="Liberty Car" className="h-auto w-[116px] adobe-dark:hidden" />
+            <Image
+              src={LOGO_LIBERTY_CLARO}
+              alt="Liberty Car"
+              className="hidden h-auto w-[116px] adobe-dark:block"
+            />
           </div>
           <p className="mt-3 text-xs text-neutral-500 leading-relaxed max-w-xs">
             Veículos selecionados com transparência, segurança e as melhores condições de Jaú e Bauru.

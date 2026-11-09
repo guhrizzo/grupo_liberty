@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-site-publico-escuro',
+    date: '2026-11-09',
+    title: 'Site público com tema escuro e logo',
+    tag: 'melhoria',
+    items: [
+      'O site público (home, veículos, anuncie seu veículo) ganhou o botão de tema claro/escuro no cabeçalho. A escolha vale também para o painel.',
+      'O cabeçalho e o rodapé agora usam a logo da Liberty Car (azul no tema claro, branca no escuro).',
+      'A capa da home ganhou manchas azuis em movimento ao fundo.',
+    ],
+  },
+  {
     id: '2026-11-09-foto-google',
     date: '2026-11-09',
     title: 'Foto do Google no menu',

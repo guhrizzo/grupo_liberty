@@ -1031,3 +1031,78 @@ html:has(> body.adobe-dark) {
   box-shadow: 0 16px 36px -12px rgba(0, 163, 224, 0.22), 0 4px 12px -2px rgba(0, 0, 0, 0.05);
   transform: translateY(-5px);
 }
+
+/* ───────────────────────── Aurora (manchas coloridas animadas) ─────────────────────────
+   Fundo decorativo do hero do site público. Quatro manchas azuis desfocadas que
+   derivam devagar, em ritmos diferentes, e se misturam. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.22;
+  will-change: transform;
+}
+.aurora-blob-1 {
+  top: -25%;
+  left: -8%;
+  width: clamp(14rem, 38vw, 26rem);
+  height: clamp(14rem, 38vw, 26rem);
+  background: #31a8ff;
+  animation: aurora-a 16s ease-in-out infinite;
+}
+.aurora-blob-2 {
+  top: -20%;
+  right: -6%;
+  width: clamp(14rem, 36vw, 24rem);
+  height: clamp(14rem, 36vw, 24rem);
+  background: #1d6bff;
+  animation: aurora-b 20s ease-in-out infinite;
+}
+.aurora-blob-3 {
+  bottom: -30%;
+  left: 22%;
+  width: clamp(14rem, 34vw, 24rem);
+  height: clamp(14rem, 34vw, 24rem);
+  background: #60a5fa;
+  animation: aurora-c 18s ease-in-out infinite;
+}
+.aurora-blob-4 {
+  bottom: -22%;
+  right: 4%;
+  width: clamp(12rem, 28vw, 20rem);
+  height: clamp(12rem, 28vw, 20rem);
+  background: #0ea5e9;
+  animation: aurora-d 22s ease-in-out infinite;
+}
+.adobe-dark .aurora-blob {
+  opacity: 0.28;
+}
+@keyframes aurora-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(35%, 25%) scale(1.2); }
+  66% { transform: translate(15%, 55%) scale(0.9); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40% { transform: translate(-40%, 30%) scale(1.15); }
+  70% { transform: translate(-15%, 60%) scale(0.95); }
+}
+@keyframes aurora-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  35% { transform: translate(40%, -35%) scale(1.2); }
+  70% { transform: translate(-30%, -20%) scale(0.9); }
+}
+@keyframes aurora-d {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30% { transform: translate(-45%, -30%) scale(1.15); }
+  65% { transform: translate(-10%, -50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob { animation: none; }
+}
