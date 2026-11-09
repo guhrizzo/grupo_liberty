@@ -146,7 +146,7 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
             onChange={(e) => setConsulta(e.target.value)}
             placeholder="Buscar no painel..."
             aria-label="Buscar no painel"
-            className="h-14 flex-1 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 adobe-dark:text-[var(--color-adobe-text-hi)]"
+            className="input-sem-borda h-14 flex-1 border-0 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 adobe-dark:text-[var(--color-adobe-text-hi)]"
           />
           <kbd className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] font-semibold text-neutral-500 adobe-dark:border-[var(--color-adobe-line)] adobe-dark:text-[var(--color-adobe-text-lo)]">
             esc

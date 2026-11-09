@@ -452,6 +452,15 @@ html:has(> body.adobe-dark) {
   box-shadow: 0 0 0 3px var(--color-adobe-accent-glow);
 }
 
+/* Campo "solto" (sem contorno), ex.: busca Ctrl+K — vence o realce azul de foco acima. */
+.adobe-dark input.input-sem-borda,
+.adobe-dark input.input-sem-borda:focus {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
 .adobe-dark select option {
   background: var(--color-adobe-bg-2);
   color: var(--color-adobe-text-hi);
