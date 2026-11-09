@@ -303,6 +303,8 @@ interface DashboardShellProps {
   email: string
   role: string | null
   displayName: string | null
+  /** Foto da conta Google (login com Google); `null` = mostra as iniciais. */
+  photoUrl?: string | null
   logoutAction: () => Promise<void>
   propostasPendentesCount?: number
   anunciosPendentesCount?: number
@@ -326,6 +328,7 @@ export default function DashboardShell({
   email,
   role,
   displayName,
+  photoUrl = null,
   logoutAction,
   propostasPendentesCount = 0,
   anunciosPendentesCount = 0,
@@ -337,6 +340,7 @@ export default function DashboardShell({
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [confirmLogout, setConfirmLogout] = useState(false)
+  const [fotoFalhou, setFotoFalhou] = useState(false)
   const [ordem, setOrdem] = useState<string[] | null>(ordemMenu)
   const [organizando, setOrganizando] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
@@ -587,7 +591,18 @@ export default function DashboardShell({
             aria-hidden
             title={displayName || email}
           >
-            {initials}
+            {photoUrl && !fotoFalhou ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                onError={() => setFotoFalhou(true)}
+                className="h-full w-full rounded-full object-cover"
+              />
+            ) : (
+              initials
+            )}
             <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-liberty border-2 border-white adobe-dark:bg-[var(--color-adobe-accent)] adobe-dark:border-[var(--color-adobe-bg-0)]" />
           </div>
           <div className={`min-w-0 flex-1 ${collapsed ? 'md:hidden' : ''}`}>

@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-foto-google',
+    date: '2026-11-09',
+    title: 'Foto do Google no menu',
+    tag: 'melhoria',
+    items: [
+      'Quem entra com a conta Google agora vê a própria foto no menu lateral, no lugar das iniciais. Quem entra com e-mail e senha continua com as iniciais.',
+    ],
+  },
+  {
     id: '2026-11-09-busca-ctrl-k',
     date: '2026-11-09',
     title: 'Busca rápida (Ctrl+K)',

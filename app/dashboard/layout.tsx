@@ -22,6 +22,7 @@ export default async function DashboardLayout({
   let user: { uid: string; email: string | null | undefined } | null = null
   let role: string | null = null
   let displayName: string | null = null
+  let photoUrl: string | null = null
   let permissions: Record<string, boolean> = {}
   let ordemMenu: string[] | null = null
 
@@ -35,6 +36,9 @@ export default async function DashboardLayout({
     displayName = ((decoded as unknown) as { name?: string; displayName?: string }).name
       || ((decoded as unknown) as { name?: string; displayName?: string }).displayName
       || null
+    // Login com Google: o token traz a foto da conta (`picture`). Só aceita https.
+    const picture = (decoded as unknown as { picture?: unknown }).picture
+    photoUrl = typeof picture === 'string' && picture.startsWith('https://') ? picture : null
     user = { uid: decoded.uid, email: decoded.email }
   } catch {
     redirect('/login')
@@ -91,6 +95,7 @@ export default async function DashboardLayout({
         email={user.email ?? ''}
         role={role}
         displayName={displayName}
+        photoUrl={photoUrl}
         logoutAction={logout}
         propostasPendentesCount={propostasPendentesCount}
         anunciosPendentesCount={anunciosPendentesCount}
