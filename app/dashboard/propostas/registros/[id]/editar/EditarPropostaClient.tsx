@@ -364,8 +364,10 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
             <Input
               label="Número do Contrato"
               value={formData.numero_contrato}
-              onChange={(e) => setField('numero_contrato', e.target.value)}
+              readOnly
+              disabled
               leftIcon={<IconHash size={14} />}
+              hint="Número fixo, não pode ser alterado."
             />
           </div>
         </div>

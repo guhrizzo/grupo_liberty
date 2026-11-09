@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-09-numero-contrato-sequencial',
+    date: '2026-11-09',
+    title: 'Número do contrato sequencial',
+    tag: 'melhoria',
+    items: [
+      'O número do contrato agora é automático e fixo (não é mais digitado): sequência a partir do 818, +1 a cada proposta gerada.',
+      'O mesmo número aparece no PDF e na proposta salva.',
+    ],
+  },
+  {
     id: '2026-11-09-previa-zero',
     date: '2026-11-09',
     title: 'Salvar proposta com prévia zerada',

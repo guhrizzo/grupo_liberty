@@ -44,7 +44,7 @@ import { parseMoney, onlyDigits, maskPlate } from '@/utils/masks'
 import { validarCPF } from '@/utils/validadorCpf'
 import { getBancoByNome } from '@/constants/bancos'
 import { type CreatePropostaInput } from '../actions'
-import { createPropostaRegistrada } from '../registros/actions'
+import { createPropostaRegistrada, reservarNumeroContrato } from '../registros/actions'
 import type { PropostaPrefill } from '@/app/dashboard/juridico/prospeccao-proposta'
 
 interface CadastrarPropostaClientProps {
@@ -480,8 +480,8 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
     }
   }
 
-  const buildPdfPayload = () => {
-    const p = buildPayloadFromForm()
+  const buildPdfPayload = (base?: CreatePropostaInput) => {
+    const p = base ?? buildPayloadFromForm()
     return {
       veiculo_id: '',
       nome: p.nome,
@@ -541,12 +541,20 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
     setCreating(true)
     try {
       const payload = buildPayloadFromForm()
+      if (!payload.numero_contrato) {
+        const reserva = await reservarNumeroContrato()
+        if (reserva.error || !reserva.numero) {
+          toast.error(reserva.error || 'Não foi possível gerar o número do contrato', 'Erro')
+          return
+        }
+        payload.numero_contrato = reserva.numero
+      }
       const finalName = sanitizeFileName(
         fileName,
         `proposta-${payload.numero_contrato?.replace(/^#/, '') || 'preview'}-${generateFileSuffix()}`,
       )
 
-      const pdfPayload = buildPdfPayload()
+      const pdfPayload = buildPdfPayload(payload)
       const persist = await persistPdf(pdfPayload, finalName)
       if (!persist.ok) {
         setCreating(false)
@@ -951,11 +959,12 @@ export default function CadastrarPropostaClient({ veiculos = [], prefill }: Cada
                 <Input
                   label="Número do Contrato"
                   name="numero_contrato"
-                  placeholder="Ex.: 2024-001"
-                  value={formData.numero_contrato}
-                  onChange={(e) => setField('numero_contrato', e.target.value)}
+                  placeholder="Gerado automaticamente"
+                  value=""
+                  readOnly
+                  disabled
                   leftIcon={<IconHash size={14} />}
-                  hint="Deixe vazio para gerar automaticamente."
+                  hint="Numeração automática e sequencial, definida ao salvar."
                 />
               </div>
             </SectionBody>

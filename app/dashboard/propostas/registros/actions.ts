@@ -20,6 +20,37 @@ async function assertAuthorized() {
   return user
 }
 
+/** Último número de contrato já usado antes do contador automático existir. */
+const CONTRATO_ULTIMO_NUMERO_BASE = 817
+
+/**
+ * Reserva o próximo número de contrato (818, 819, ...) de forma atômica.
+ * Cada chamada consome um número.
+ */
+async function proximoNumeroContrato(): Promise<string> {
+  const ref = adminDb.collection('counters').doc('numero_contrato_proposta')
+  const numero = await adminDb.runTransaction(async (tx) => {
+    const snap = await tx.get(ref)
+    const ultimo = snap.exists
+      ? Number(snap.data()?.ultimo) || CONTRATO_ULTIMO_NUMERO_BASE
+      : CONTRATO_ULTIMO_NUMERO_BASE
+    const proximo = ultimo + 1
+    tx.set(ref, { ultimo: proximo, updated_at: new Date().toISOString() })
+    return proximo
+  })
+  return String(numero)
+}
+
+/** Reserva o número da próxima proposta (usado antes de gerar o PDF). */
+export async function reservarNumeroContrato(): Promise<{ numero?: string; error?: string }> {
+  try {
+    await assertAuthorized()
+    return { numero: await proximoNumeroContrato() }
+  } catch (err: any) {
+    return { error: err.message || 'Erro ao gerar número do contrato.' }
+  }
+}
+
 /** Proposta cadastrada manualmente pela equipe (fora do fluxo de pedidos de clientes). */
 export interface PropostaRegistrada {
   id: string
@@ -153,8 +184,7 @@ export async function createPropostaRegistrada(
 
     const docRef = adminDb.collection('propostas_registradas').doc()
     const numeroContrato =
-      sanitizeText(input.numero_contrato ?? '') ||
-      `#${docRef.id.slice(0, 8).toUpperCase()}`
+      sanitizeText(input.numero_contrato ?? '') || (await proximoNumeroContrato())
 
     const clienteData = sanitizeText(input.cliente_data ?? '') || null
     const nowIso = new Date().toISOString()
