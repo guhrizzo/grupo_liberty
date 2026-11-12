@@ -1,8 +1,8 @@
-// Pendências de módulos (manutenção hoje; checklist pós-compra no futuro) que
+// Pendências de módulos (manutenção, tarefas, rotina semanal e checklist pós-compra) que
 // aparecem em Demandas e no sininho do painel. Ficam fora de arquivos
 // 'use server' para poder exportar tipos e constantes.
 
-export type PendenciaOrigem = 'manutencao' | 'tarefa' | 'semanal'
+export type PendenciaOrigem = 'manutencao' | 'tarefa' | 'semanal' | 'checklist'
 
 export interface Pendencia {
   /** `<origem>:<id do registro>` — chave estável na lista. */
@@ -24,4 +24,5 @@ export const PENDENCIA_ORIGEM_LABEL: Record<PendenciaOrigem, string> = {
   manutencao: 'Manutenção',
   tarefa: 'Tarefa',
   semanal: 'Rotina semanal',
+  checklist: 'Checklist pós-compra',
 }

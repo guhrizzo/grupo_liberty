@@ -4,6 +4,7 @@ import { ehAdmSupremo, temAcessoPagina } from '@/constants/permissoes'
 import { hojeNoFuso } from '@/app/dashboard/financeiro/periodo'
 import type { SessionUser } from '@/utils/permissions'
 import type { Pendencia } from './types'
+import { CHECKLIST_ITENS, CHECKLIST_MESES_BANCO, somarMeses } from '@/app/dashboard/quitacoes/types'
 import {
   COL_TAREFAS_SEMANAIS,
   COL_TAREFAS_SEMANAIS_CONCLUSOES,
@@ -141,6 +142,52 @@ export async function getPendencias(user: UsuarioPendencias): Promise<Pendencia[
       }
     } catch (e) {
       console.error('[pendencias] Erro ao buscar manutenções pendentes:', e)
+    }
+  }
+
+  // ── Checklist pós-compra (Quitações) ──
+  // Só veículos com data da compra na ficha e ainda não quitados. Os 3 itens da
+  // pós-compra aparecem desde a compra; "negociar com o banco" entra quando
+  // passam 6 meses da compra.
+  if (temAcessoPagina(user.role, user.permissions, 'veiculos')) {
+    try {
+      const snap = await adminDb.collection('quitacao_fichas').get()
+      const fichas = snap.docs.filter((doc) => {
+        const d = doc.data()
+        return d.quitado !== true && typeof d.dataCompra === 'string' && d.dataCompra !== ''
+      })
+      await Promise.all(
+        fichas.map(async (doc) => {
+          const d = doc.data()
+          const feito = (d.checklist ?? {}) as Record<string, unknown>
+          const dataBanco = somarMeses(d.dataCompra as string, CHECKLIST_MESES_BANCO)
+          const faltando = CHECKLIST_ITENS.filter((i) => {
+            if (feito[i.id]) return false
+            if (i.grupo === 'pos-compra') return true
+            return i.id === 'banco' && dataBanco <= hoje
+          })
+          if (faltando.length === 0) return
+          const [proprio, terceiro] = await Promise.all([
+            adminDb.collection('veiculos').doc(doc.id).get(),
+            adminDb.collection('quitacao_terceiros').doc(doc.id).get(),
+          ])
+          const v = (proprio.exists ? proprio.data() : terceiro.data()) ?? {}
+          const rotulo = [v.marca, v.modelo, v.ano, v.placa].filter(Boolean).join(' ') || 'Veículo'
+          const bancoPendente = faltando.some((i) => i.id === 'banco')
+          lista.push({
+            id: `checklist:${doc.id}`,
+            origem: 'checklist',
+            titulo: `Checklist pós-compra: ${rotulo}`,
+            detalhe: `Falta: ${faltando.map((i) => i.rotulo.replace(/ \(.*\)$/, '')).join(', ')}`,
+            data: bancoPendente ? dataBanco : '',
+            atrasada: bancoPendente && dataBanco < hoje,
+            venceHoje: bancoPendente && dataBanco === hoje,
+            href: `/dashboard/quitacoes?veiculo=${doc.id}`,
+          })
+        }),
+      )
+    } catch (e) {
+      console.error('[pendencias] Erro ao buscar checklist pós-compra:', e)
     }
   }
 

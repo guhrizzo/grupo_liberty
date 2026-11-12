@@ -34,6 +34,47 @@ export interface VeiculoQuitacaoOpcao {
   }
 }
 
+/** Itens do checklist pós-compra de cada veículo (guardados na ficha, em `checklist`). */
+export const CHECKLIST_ITENS = [
+  { id: 'rastreador', rotulo: 'Retirar rastreador', grupo: 'pos-compra' },
+  { id: 'condutor', rotulo: 'Transferir principal condutor', grupo: 'pos-compra' },
+  { id: 'seguro', rotulo: 'Remover seguro prestamista/mista', grupo: 'pos-compra' },
+  { id: 'anunciar', rotulo: 'Anunciar no grupo e no site', grupo: 'etapas' },
+  { id: 'banco', rotulo: 'Negociar com o banco (após 6 meses em atraso)', grupo: 'etapas' },
+  { id: 'quitacao', rotulo: 'Quitação', grupo: 'etapas' },
+] as const
+
+export type ChecklistId = (typeof CHECKLIST_ITENS)[number]['id']
+
+/** Meses depois da compra para liberar a negociação com o banco. */
+export const CHECKLIST_MESES_BANCO = 6
+
+export interface ChecklistFeito {
+  /** YYYY-MM-DD */
+  em: string
+  porNome: string
+}
+
+export type ChecklistFicha = Partial<Record<ChecklistId, ChecklistFeito>>
+
+/** Registro de um item que foi desmarcado, com o motivo de ter voltado um passo. */
+export interface ChecklistReabertura {
+  item: ChecklistId
+  motivo: string
+  /** ISO */
+  em: string
+  porNome: string
+}
+
+export const CHECKLIST_MOTIVO_MAX = 300
+
+/** Soma meses a uma data YYYY-MM-DD (devolve YYYY-MM-DD). */
+export function somarMeses(data: string, meses: number): string {
+  const [a, m, d] = data.split('-').map(Number)
+  const dt = new Date(a, m - 1 + meses, d)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 /** Dados do cliente e do financiamento para ligar ao banco. Um por veículo (coleção `quitacao_fichas`). */
 export interface FichaQuitacao {
   veiculoId: string
@@ -55,9 +96,13 @@ export interface FichaQuitacao {
   valorParcela: number
   /** Data da compra do veículo (YYYY-MM-DD). */
   dataCompra: string
+  /** O que já foi feito do checklist pós-compra. */
+  checklist: ChecklistFicha
+  /** Itens desmarcados e por quê (mais antigo primeiro). */
+  checklistHistorico: ChecklistReabertura[]
 }
 
-export type FichaInput = Omit<FichaQuitacao, 'quitado' | 'quitadoEm'>
+export type FichaInput = Omit<FichaQuitacao, 'quitado' | 'quitadoEm' | 'checklist' | 'checklistHistorico'>
 
 export interface VeiculoTerceiroInput {
   marca: string

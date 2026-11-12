@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-checklist-pos-compra',
+    date: '2026-11-12',
+    title: 'Checklist pós-compra do veículo',
+    tag: 'novo',
+    items: [
+      'Ao abrir um veículo em Quitações, há um checklist: retirar rastreador, transferir principal condutor, remover seguro prestamista/mista, anunciar no grupo e no site, negociar com o banco e quitação. Cada item mostra quem concluiu e quando.',
+      'Ao desmarcar um item já concluído, abre uma janela pedindo o motivo de ter voltado. O motivo fica registrado e aparece embaixo do item.',
+      'Veículos com data da compra e itens pendentes aparecem em Demandas > Pendências e no sininho. A negociação com o banco entra 6 meses após a compra.',
+    ],
+  },
+  {
     id: '2026-11-12-seletores-padronizados',
     date: '2026-11-12',
     title: 'Abas e filtros com o mesmo visual',

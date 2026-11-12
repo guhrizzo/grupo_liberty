@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb, adminStorage } from '@/utils/firebase/admin'
 import { decrypt, encrypt } from '@/utils/crypto'
 import { onlyDigits } from '@/utils/masks'
@@ -10,6 +11,8 @@ import { getSessionUser, hasPageAccess, type SessionUser } from '@/utils/permiss
 import { getVehicles } from '../veiculos/actions'
 import {
   ANEXO_TAMANHO_MAX,
+  CHECKLIST_ITENS,
+  CHECKLIST_MOTIVO_MAX,
   ANEXO_TIPOS,
   FICHA_TEXTO_MAX,
   QUITACAO_OBS_MAX,
@@ -17,6 +20,9 @@ import {
   extensaoAnexo,
   type AnexoQuitacao,
   type AnexosPorVeiculo,
+  type ChecklistFicha,
+  type ChecklistId,
+  type ChecklistReabertura,
   type TipoAnexo,
   type FichaInput,
   type FichaQuitacao,
@@ -256,7 +262,32 @@ function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQui
     vencimentoParcela: d.vencimentoParcela ?? '',
     valorParcela: Number(d.valorParcela) || 0,
     dataCompra: d.dataCompra ?? '',
+    checklist: checklistSerialize(d.checklist),
+    checklistHistorico: historicoSerialize(d.checklistHistorico),
   }
+}
+
+function historicoSerialize(raw: unknown): ChecklistReabertura[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((x) => x && CHECKLIST_ITENS.some((i) => i.id === x.item))
+    .map((x) => ({
+      item: x.item as ChecklistId,
+      motivo: String(x.motivo ?? ''),
+      em: String(x.em ?? ''),
+      porNome: String(x.porNome ?? ''),
+    }))
+}
+
+function checklistSerialize(raw: unknown): ChecklistFicha {
+  const out: ChecklistFicha = {}
+  if (!raw || typeof raw !== 'object') return out
+  const mapa = raw as Record<string, { em?: unknown; porNome?: unknown } | undefined>
+  for (const { id } of CHECKLIST_ITENS) {
+    const x = mapa[id]
+    if (x) out[id] = { em: String(x.em ?? ''), porNome: String(x.porNome ?? '') }
+  }
+  return out
 }
 
 /** Ficha (dados do cliente + situação) de cada veículo que já tem uma, por id do veículo. */
@@ -323,6 +354,46 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
     )
   revalidatePath('/dashboard/quitacoes')
   return { success: 'Dados do cliente salvos.' }
+}
+
+/** Marca (ou desmarca) um item do checklist pós-compra do veículo. */
+export async function definirChecklistItem(
+  veiculoId: string,
+  item: ChecklistId,
+  feito: boolean,
+  motivo = '',
+): Promise<Resultado> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return { error: acesso.error }
+  if (!CHECKLIST_ITENS.some((i) => i.id === item)) return { error: 'Item inválido.' }
+  if (!veiculoId || !(await veiculoExiste(veiculoId))) return { error: 'Veículo não encontrado.' }
+  const motivoLimpo = String(motivo ?? '').trim()
+  if (feito !== true) {
+    if (!motivoLimpo) return { error: 'Explique por que o item voltou.' }
+    if (motivoLimpo.length > CHECKLIST_MOTIVO_MAX) return { error: `Motivo: máximo de ${CHECKLIST_MOTIVO_MAX} caracteres.` }
+  }
+  const hoje = new Date()
+  const em = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
+  const porNome = acesso.user.name || acesso.user.email || 'Usuário'
+  await adminDb
+    .collection(COL_FICHAS)
+    .doc(veiculoId)
+    .set(
+      {
+        ...(feito === true
+          ? {}
+          : { checklistHistorico: FieldValue.arrayUnion({ item, motivo: motivoLimpo, em: hoje.toISOString(), porNome }) }),
+        checklist: {
+          [item]: feito === true ? { em, porNome } : FieldValue.delete(),
+        },
+        atualizadoEm: new Date().toISOString(),
+        atualizadoPorUid: acesso.user.uid,
+      },
+      { merge: true },
+    )
+  revalidatePath('/dashboard/quitacoes')
+  revalidatePath('/dashboard/demandas')
+  return { success: feito ? 'Item concluído.' : 'Item reaberto.' }
 }
 
 /** Marca (ou desmarca) o veículo como quitado com o banco. */
