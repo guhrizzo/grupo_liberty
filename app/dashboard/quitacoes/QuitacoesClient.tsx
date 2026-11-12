@@ -214,12 +214,12 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input
             aria-label="Buscar veículo"
-            placeholder="Buscar por modelo, placa, cliente ou contrato"
+            placeholder="Buscar modelo, placa, cliente ou contrato"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            containerClassName="w-full sm:w-72"
+            containerClassName="w-full sm:w-96"
           />
-          <div className="flex gap-1.5" role="group" aria-label="Situação">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Situação">
             {(
               [
                 { id: '', label: `Todos (${contagem.todos})` },
@@ -233,7 +233,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                 aria-pressed={situacao === o.id}
                 onClick={() => setSituacao(o.id)}
                 className={
-                  'rounded-lg px-3 py-2 text-xs font-semibold cursor-pointer ' +
+                  'whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold cursor-pointer ' +
                   (situacao === o.id
                     ? 'bg-neutral-950 text-white'
                     : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50')
@@ -371,6 +371,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                               ['Endereço', ficha.endereco],
                               ['Banco', ficha.banco],
                               ['Nº do contrato', ficha.numeroContrato],
+                              ['Data da compra', ficha.dataCompra ? formatDate(ficha.dataCompra) : ''],
                               ['Vencimento da parcela', ficha.vencimentoParcela ? formatDate(ficha.vencimentoParcela) : ''],
                               ['Valor da parcela', ficha.valorParcela > 0 ? formatCurrency(ficha.valorParcela) : ''],
                             ] as const
@@ -836,6 +837,7 @@ function FichaModal({
     const v = ficha?.valorParcela || sug.valorParcela || 0
     return v ? moneyFromNumber(v) : ''
   })
+  const [dataCompra, setDataCompra] = useState(ficha?.dataCompra ?? '')
   const [salvando, setSalvando] = useState(false)
   const idade = calcularIdade(dataNascimento)
 
@@ -854,6 +856,7 @@ function FichaModal({
         numeroContrato,
         vencimentoParcela: vencimento,
         valorParcela: parseMoney(parcela),
+        dataCompra,
       })
       if (res.error) return void toast.error(res.error, 'Não foi possível salvar')
       toast.success(res.success || 'Dados salvos.')
@@ -867,7 +870,7 @@ function FichaModal({
     <Modal open onClose={() => !salvando && onClose()} title={`Dados do cliente · ${nomeVeiculo(veiculo)}`}>
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nome do cliente" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <Input label="Nome do cliente" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome completo" />
           <Input
             label="CPF"
             inputMode="numeric"
@@ -875,17 +878,20 @@ function FichaModal({
             onChange={(e) => setCpf(maskCPFCNPJ(e.target.value))}
             placeholder="000.000.000-00"
           />
-          <Input label="Nome do pai" value={nomePai} onChange={(e) => setNomePai(e.target.value)} />
-          <Input label="Nome da mãe" value={nomeMae} onChange={(e) => setNomeMae(e.target.value)} />
+          <Input label="Nome do pai" value={nomePai} onChange={(e) => setNomePai(e.target.value)} placeholder="Nome completo do pai" />
+          <Input label="Nome da mãe" value={nomeMae} onChange={(e) => setNomeMae(e.target.value)} placeholder="Nome completo da mãe" />
           <Input
             label={idade != null ? `Data de nascimento (${idade} anos)` : 'Data de nascimento'}
             type="date"
             value={dataNascimento}
             onChange={(e) => setDataNascimento(e.target.value)}
           />
-          <Input label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} />
-          <Input label="Banco" value={banco} onChange={(e) => setBanco(e.target.value)} />
-          <Input label="Número do contrato" value={numeroContrato} onChange={(e) => setNumeroContrato(e.target.value)} />
+          <Input label="Data da compra" type="date" value={dataCompra} onChange={(e) => setDataCompra(e.target.value)} />
+          <div className="sm:col-span-2">
+            <Input label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
+          </div>
+          <Input label="Banco" value={banco} onChange={(e) => setBanco(e.target.value)} placeholder="Ex.: Omni, Bradesco" />
+          <Input label="Número do contrato" value={numeroContrato} onChange={(e) => setNumeroContrato(e.target.value)} placeholder="Número do contrato" />
           <Input label="Vencimento da parcela" type="date" value={vencimento} onChange={(e) => setVencimento(e.target.value)} />
           <Input
             label="Valor da parcela (R$)"

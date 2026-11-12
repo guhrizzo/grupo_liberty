@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-quitacoes-data-compra',
+    date: '2026-11-12',
+    title: 'Data da compra do veículo nas Quitações',
+    tag: 'melhoria',
+    items: [
+      'Os dados do cliente na aba Quitações ganharam o campo "Data da compra do veículo", que também aparece na ficha.',
+      'Os campos em branco agora mostram um exemplo de preenchimento (placeholder).',
+    ],
+  },
+  {
     id: '2026-11-09-skeleton-fiel',
     date: '2026-11-09',
     title: 'Telas de carregamento com o formato real',

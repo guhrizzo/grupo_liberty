@@ -255,6 +255,7 @@ function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQui
     numeroContrato: d.numeroContrato ?? '',
     vencimentoParcela: d.vencimentoParcela ?? '',
     valorParcela: Number(d.valorParcela) || 0,
+    dataCompra: d.dataCompra ?? '',
   }
 }
 
@@ -290,7 +291,12 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
   if (cpf && !validarCPF(cpf)) return { error: 'CPF inválido.' }
   const dataNascimento = texto(input.dataNascimento)
   const vencimentoParcela = texto(input.vencimentoParcela)
-  if (!DATA_OPCIONAL_RE.test(dataNascimento) || !DATA_OPCIONAL_RE.test(vencimentoParcela)) {
+  const dataCompra = texto(input.dataCompra)
+  if (
+    !DATA_OPCIONAL_RE.test(dataNascimento) ||
+    !DATA_OPCIONAL_RE.test(vencimentoParcela) ||
+    !DATA_OPCIONAL_RE.test(dataCompra)
+  ) {
     return { error: 'Data inválida.' }
   }
   if (dataNascimento && new Date(`${dataNascimento}T00:00:00`).getTime() > Date.now()) {
@@ -308,6 +314,7 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
         cpf: cpf ? encrypt(cpf) : '',
         dataNascimento,
         vencimentoParcela,
+        dataCompra,
         valorParcela: Math.round(valorParcela * 100) / 100,
         atualizadoEm: new Date().toISOString(),
         atualizadoPorUid: acesso.user.uid,

@@ -53,6 +53,8 @@ export interface FichaQuitacao {
   /** Data do próximo vencimento da parcela (YYYY-MM-DD). */
   vencimentoParcela: string
   valorParcela: number
+  /** Data da compra do veículo (YYYY-MM-DD). */
+  dataCompra: string
 }
 
 export type FichaInput = Omit<FichaQuitacao, 'quitado' | 'quitadoEm'>
