@@ -17,7 +17,9 @@ import {
   IconClock,
   IconSend,
   IconPhoto,
+  IconSearch,
 } from '@tabler/icons-react'
+import { casaBusca } from '@/utils/busca'
 import { Breadcrumb, Button, ConfirmDialog, Input, Textarea, EmptyState, useToast } from '@/app/components/ui'
 import { formatDate, formatDateTime } from '@/utils/format'
 import {
@@ -168,6 +170,7 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
 
   const [filtroTipo, setFiltroTipo] = useState<'todos' | FeedbackTipo>('todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | FeedbackStatus>('todos')
+  const [busca, setBusca] = useState('')
 
   // Calendário: um mês por vez. O que ainda não foi feito (aberto / em análise)
   // continua aparecendo nos meses seguintes até ser resolvido ou descartado.
@@ -193,15 +196,31 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
     return c
   }, [itensDoMes])
 
+  const termoBusca = busca.trim()
+
+  // Com texto na busca, procura em todos os meses (não só no mês selecionado).
   const filtrados = useMemo(() => {
-    return itensDoMes.filter((it) => {
+    return (termoBusca ? itens : itensDoMes).filter((it) => {
       if (filtroTipo !== 'todos' && it.tipo !== filtroTipo) return false
       if (filtroStatus !== 'todos' && it.status !== filtroStatus) return false
+      if (
+        termoBusca &&
+        !casaBusca(termoBusca, [
+          it.titulo,
+          it.descricao,
+          it.tela,
+          it.criadoPorNome,
+          it.tipo === 'bug' ? 'bug' : 'melhoria',
+          ...it.atualizacoes.map((a) => a.texto),
+        ])
+      ) {
+        return false
+      }
       return true
     })
-  }, [itensDoMes, filtroTipo, filtroStatus])
+  }, [itens, itensDoMes, termoBusca, filtroTipo, filtroStatus])
 
-  const filtrosAtivos = filtroTipo !== 'todos' || filtroStatus !== 'todos'
+  const filtrosAtivos = filtroTipo !== 'todos' || filtroStatus !== 'todos' || !!termoBusca
 
   const handleCriar = useCallback(
     async (fd: FormData) => {
@@ -370,6 +389,14 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
 
       {/* Filtros */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          aria-label="Pesquisar reports"
+          placeholder="Pesquisar bugs e melhorias"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          leftIcon={<IconSearch size={14} />}
+          containerClassName="w-full sm:w-72"
+        />
         <div className="flex items-center gap-1.5 overflow-x-auto rounded-lg border border-neutral-200 bg-white p-1">
           {(
             [

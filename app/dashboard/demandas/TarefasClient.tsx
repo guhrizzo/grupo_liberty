@@ -15,6 +15,7 @@ import {
   IconLockOpen,
   IconPencil,
   IconPlus,
+  IconSearch,
   IconTrash,
   IconUser,
   IconX,
@@ -30,6 +31,7 @@ import {
   Textarea,
   useToast,
 } from '@/app/components/ui'
+import { casaBusca } from '@/utils/busca'
 import { formatDate, formatDateTime } from '@/utils/format'
 import {
   TAREFA_DESCRICAO_MAX,
@@ -105,6 +107,7 @@ export default function TarefasClient({
 
   const [verFechadas, setVerFechadas] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
+  const [busca, setBusca] = useState('')
   const [filtroResponsavel, setFiltroResponsavel] = useState('')
   const [filtroPrioridade, setFiltroPrioridade] = useState<TarefaPrioridade | ''>('')
 
@@ -127,8 +130,16 @@ export default function TarefasClient({
 
   const filtradas = useMemo(() => {
     // Pedidos de exclusão ignoram a divisão abertas/fechadas: o ADM quer ver todos.
-    const base = filtroStatus === 'exclusao' ? tarefas : verFechadas ? fechadas : abertas
+    // Com texto na busca, procura também nas fechadas.
+    const termo = busca.trim()
+    const base = filtroStatus === 'exclusao' || termo ? tarefas : verFechadas ? fechadas : abertas
     return base.filter((t) => {
+      if (
+        termo &&
+        !casaBusca(termo, [t.titulo, t.descricao, t.responsavelNome, t.criadoPorNome, t.comentario, t.prazo])
+      ) {
+        return false
+      }
       if (filtroResponsavel && t.responsavelUid !== filtroResponsavel) return false
       if (filtroPrioridade && t.prioridade !== filtroPrioridade) return false
       if (filtroStatus === 'atrasadas') return tarefaAtrasada(t, hoje)
@@ -136,9 +147,9 @@ export default function TarefasClient({
       if (filtroStatus !== 'todos' && t.status !== filtroStatus) return false
       return true
     })
-  }, [tarefas, verFechadas, abertas, fechadas, filtroResponsavel, filtroPrioridade, filtroStatus, hoje])
+  }, [tarefas, verFechadas, abertas, fechadas, busca, filtroResponsavel, filtroPrioridade, filtroStatus, hoje])
 
-  const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel || !!filtroPrioridade
+  const filtrosAtivos = filtroStatus !== 'todos' || !!filtroResponsavel || !!filtroPrioridade || !!busca.trim()
 
   // ADM supremo vê a lista separada por responsável (ordem alfabética);
   // o usuário comum vê só as dele, sem cabeçalho.
@@ -237,6 +248,14 @@ export default function TarefasClient({
         <div className="order-2 min-w-0 space-y-5 md:space-y-6 xl:order-1 xl:col-span-3">
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-2">
+            <Input
+              aria-label="Pesquisar demandas"
+              placeholder="Pesquisar demandas"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              leftIcon={<IconSearch size={14} />}
+              containerClassName="w-full sm:w-64"
+            />
             <div className={CHIP_GROUP}>
               {(
                 [
@@ -316,6 +335,7 @@ export default function TarefasClient({
                   setFiltroStatus('todos')
                   setFiltroResponsavel('')
                   setFiltroPrioridade('')
+                  setBusca('')
                 }}
                 className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-600 hover:bg-neutral-50 transition-ui cursor-pointer adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-md"
               >

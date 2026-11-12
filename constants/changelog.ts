@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-pesquisa-demandas-bugs',
+    date: '2026-11-12',
+    title: 'Pesquisa em Demandas e em Bugs & Melhorias',
+    tag: 'novo',
+    items: [
+      'Demandas ganhou um campo de pesquisa (título, descrição, responsável, comentário e prazo). Com texto digitado, a busca inclui as tarefas fechadas.',
+      'Bugs & Melhorias ganhou um campo de pesquisa (título, descrição, onde, autor e atualizações). Com texto digitado, a busca vale para todos os meses.',
+    ],
+  },
+  {
     id: '2026-11-12-excluir-atualizacao-feedback',
     date: '2026-11-12',
     title: 'Excluir atualização em Bugs & Melhorias',
