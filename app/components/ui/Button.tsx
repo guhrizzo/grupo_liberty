@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, forwardRef, ReactNode } from 'react'
 import { IconLoader2 } from '@tabler/icons-react'
 import { cn } from '@/utils/cn'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'liberty'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-soft' | 'liberty'
 type Size = 'sm' | 'md' | 'lg'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -41,6 +41,9 @@ const variants: Record<Variant, string> = {
   // Ação destrutiva.
   danger:
     'bg-rose-600 hover:bg-rose-500 text-white shadow-sm hover:shadow-rose-500/20 adobe-dark:bg-[var(--color-adobe-danger)] adobe-dark:hover:bg-[#ff7a7a]',
+  // Ação destrutiva discreta — fundo suave e borda translúcida; preenche de vermelho no hover.
+  'danger-soft':
+    'bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-600 hover:border-rose-600 hover:text-white hover:shadow-md hover:shadow-rose-500/25 adobe-dark:bg-[color-mix(in_srgb,var(--color-adobe-danger)_12%,transparent)] adobe-dark:border-[color-mix(in_srgb,var(--color-adobe-danger)_35%,transparent)] adobe-dark:text-[var(--color-adobe-danger)] adobe-dark:hover:bg-[var(--color-adobe-danger)] adobe-dark:hover:border-[var(--color-adobe-danger)] adobe-dark:hover:text-[#1a0a0a] adobe-dark:hover:shadow-[0_6px_18px_-6px_color-mix(in_srgb,var(--color-adobe-danger)_55%,transparent)]',
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

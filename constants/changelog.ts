@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-excluir-tudo-leads',
+    date: '2026-11-12',
+    title: 'Botão "Excluir tudo" mais claro',
+    tag: 'melhoria',
+    items: [
+      'Em Leads, o botão "Excluir tudo" ganhou fundo suave e borda discreta, e se preenche de vermelho ao passar o mouse, deixando claro que é uma ação destrutiva.',
+    ],
+  },
+  {
     id: '2026-11-12-login-legivel',
     date: '2026-11-12',
     title: 'Tela de login mais legível',

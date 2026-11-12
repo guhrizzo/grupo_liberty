@@ -898,11 +898,11 @@ export default function ProspeccaoSection({
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           {itens.length > 0 && (
             <Button
-              variant="secondary"
+              variant="danger-soft"
               onClick={() => setConfirmLote('tudo')}
               disabled={submitting}
               leftIcon={<IconTrash size={16} stroke={2.2} />}
-              className="order-3 !border-rose-200 !text-rose-600 hover:!bg-rose-50 sm:order-none"
+              className="order-3 sm:order-none"
             >
               Excluir tudo
             </Button>
