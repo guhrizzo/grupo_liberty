@@ -1,11 +1,5 @@
 import Link from 'next/link'
-import {
-  IconUsers,
-  IconUserCheck,
-  IconEye,
-  IconCalendarStats,
-  IconAlertTriangle,
-} from '@tabler/icons-react'
+import { IconAlertTriangle } from '@tabler/icons-react'
 import { EmptyState } from '../../components/ui'
 import type { AnalyticsOverview } from './data'
 import VisitorsChart from './VisitorsChart'
@@ -14,31 +8,55 @@ function fmt(n: number): string {
   return new Intl.NumberFormat('pt-BR').format(n)
 }
 
-function Card({
+/** "1,3 páginas por visitante", ou nada quando não há visitantes. */
+function porVisitante(pageviews: number, visitantes: number): string | undefined {
+  if (visitantes <= 0) return undefined
+  const media = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(pageviews / visitantes)
+  return `${media} páginas por visitante`
+}
+
+/** Célula de um painel único de números (sem ícone), separada das vizinhas por linhas. */
+function Celula({
   titulo,
   valor,
   rodape,
-  icon,
+  barra,
+  extra,
 }: {
   titulo: string
   valor: string
   rodape: string
-  icon: React.ReactNode
+  /** Proporção logados × anônimos, desenhada como barra (só nas células de visitantes). */
+  barra?: { logados: number; anonimos: number }
+  /** Linha extra de contexto abaixo do rodapé. */
+  extra?: string
 }) {
+  const total = barra ? barra.logados + barra.anonimos : 0
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 adobe-dark:text-adobe-text-lo">
-          {titulo}
-        </span>
-        <div className="h-9 w-9 rounded-xl bg-liberty/10 text-liberty-deep flex items-center justify-center adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft">
-          {icon}
-        </div>
+    <div className="p-6">
+      <span className="block text-[10px] font-extrabold uppercase leading-4 tracking-widest text-neutral-400 sm:min-h-8 adobe-dark:text-adobe-text-lo">
+        {titulo}
+      </span>
+      <p className="mt-2 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">{valor}</p>
+      {/* Faixa de altura fixa em todas as células, para manter o alinhamento. */}
+      <div className="mt-3 h-1.5" aria-hidden={!barra}>
+        {barra && (
+          <div
+            className="flex h-full overflow-hidden rounded-full bg-neutral-200 adobe-dark:bg-adobe-bg-3"
+            role="img"
+            aria-label={`${barra.logados} logados e ${barra.anonimos} anônimos`}
+          >
+            {total > 0 && (
+              <>
+                <div className="bg-emerald-500" style={{ width: `${(barra.logados / total) * 100}%` }} />
+                <div className="bg-liberty" style={{ width: `${(barra.anonimos / total) * 100}%` }} />
+              </>
+            )}
+          </div>
+        )}
       </div>
-      <p className="mt-3 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">
-        {valor}
-      </p>
-      <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">{rodape}</p>
+      <p className="mt-2 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">{rodape}</p>
+      {extra && <p className="mt-0.5 text-xs font-semibold text-neutral-700 adobe-dark:text-adobe-text-md">{extra}</p>}
     </div>
   )
 }
@@ -70,30 +88,30 @@ export default function AnalyticsView({ dados }: { dados: AnalyticsOverview }) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card
+      <div className="grid overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs divide-y divide-neutral-200 sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 [&>*]:border-neutral-200 sm:[&>*:nth-child(even)]:border-l sm:[&>*:nth-child(n+3)]:border-t lg:[&>*:nth-child(n+3)]:border-t-0 lg:[&>*:not(:first-child)]:border-l adobe-dark:divide-adobe-line adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:[&>*]:border-adobe-line">
+        <Celula
           titulo="Visitantes hoje"
           valor={fmt(hoje.uniqueVisitors)}
           rodape={`${fmt(hoje.loggedVisitors)} logados · ${fmt(anonHoje)} anônimos`}
-          icon={<IconUsers size={20} stroke={2} />}
+          barra={{ logados: hoje.loggedVisitors, anonimos: anonHoje }}
         />
-        <Card
+        <Celula
           titulo={`Visitantes em ${mes.label}`}
           valor={fmt(mes.uniqueVisitors)}
           rodape={`${fmt(mes.loggedVisitors)} logados · ${fmt(anonMes)} anônimos`}
-          icon={<IconCalendarStats size={20} stroke={2} />}
+          barra={{ logados: mes.loggedVisitors, anonimos: anonMes }}
         />
-        <Card
+        <Celula
           titulo="Pageviews hoje"
           valor={fmt(hoje.pageviews)}
           rodape="Páginas abertas hoje (com recargas)"
-          icon={<IconEye size={20} stroke={2} />}
+          extra={porVisitante(hoje.pageviews, hoje.uniqueVisitors)}
         />
-        <Card
+        <Celula
           titulo={`Pageviews em ${mes.label}`}
           valor={fmt(mes.pageviews)}
           rodape="Páginas abertas no mês (com recargas)"
-          icon={<IconUserCheck size={20} stroke={2} />}
+          extra={porVisitante(mes.pageviews, mes.uniqueVisitors)}
         />
       </div>
 

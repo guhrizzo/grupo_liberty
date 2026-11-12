@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-analytics-celulas',
+    date: '2026-11-12',
+    title: 'Números do Analytics em um painel só',
+    tag: 'melhoria',
+    items: [
+      'Visitantes e pageviews (hoje e no mês) agora ficam em um único painel, divididos em células, sem os ícones.',
+      'Nas células de visitantes, uma barra mostra a proporção de logados (verde) e anônimos (azul). Nas de pageviews, aparece a média de páginas por visitante.',
+    ],
+  },
+  {
     id: '2026-11-12-pesquisa-demandas-bugs',
     date: '2026-11-12',
     title: 'Pesquisa em Demandas e em Bugs & Melhorias',
