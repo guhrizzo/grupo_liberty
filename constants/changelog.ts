@@ -26,10 +26,10 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     id: '2026-11-12-excluir-tudo-leads',
     date: '2026-11-12',
-    title: 'Botão "Excluir tudo" mais claro',
+    title: 'Botões de excluir mais claros',
     tag: 'melhoria',
     items: [
-      'Em Leads, o botão "Excluir tudo" ganhou fundo suave e borda discreta, e se preenche de vermelho ao passar o mouse, deixando claro que é uma ação destrutiva.',
+      'Os botões de excluir/remover (inclusive "Excluir tudo" em Leads e as lixeiras das tabelas) ganharam fundo suave e borda discreta, e se preenchem de vermelho ao passar o mouse.',
     ],
   },
   {

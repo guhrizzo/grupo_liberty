@@ -625,7 +625,7 @@ export default function PropostasRegistradasClient({
                         onClick={() => setConfirmDeleteId(p.id)}
                         disabled={deletingId === p.id}
                         aria-label="Excluir proposta"
-                        className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-bold cursor-pointer disabled:opacity-50 btn-danger-soft"
                       >
                         <IconTrash size={14} stroke={2.5} />
                       </button>

@@ -801,7 +801,7 @@ export default function ContratosClient({
                             type="button"
                             onClick={() => setConfirmDelete(c)}
                             aria-label={`Excluir contrato`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors cursor-pointer"
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold cursor-pointer btn-danger-soft"
                           >
                             <IconTrash size={14} />
                           </button>
@@ -1119,7 +1119,7 @@ function GerenciarCategoriasModal({
                           type="button"
                           onClick={() => setConfirmRemover(cat)}
                           aria-label={`Remover ${cat.nome}`}
-                          className="rounded-lg border border-rose-200 p-1.5 text-rose-600 hover:bg-rose-50"
+                          className="rounded-lg p-1.5 btn-danger-soft"
                         >
                           <IconTrash size={15} />
                         </button>

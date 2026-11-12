@@ -186,7 +186,7 @@ export default function InteressesClient({ interesses, estoque }: Props) {
                       type="button"
                       onClick={() => setExcluindo(i)}
                       aria-label="Excluir interesse"
-                      className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                      className="inline-flex items-center rounded-lg px-2.5 py-2 cursor-pointer btn-danger-soft"
                     >
                       <IconTrash size={14} stroke={2.5} />
                     </button>

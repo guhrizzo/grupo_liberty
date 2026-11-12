@@ -425,7 +425,7 @@ function CompromissoCard({
               type="button"
               onClick={onExcluir}
               aria-label="Excluir compromisso"
-              className="grid h-8 w-8 place-items-center rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 transition-ui cursor-pointer adobe-dark:border-rose-400/30 adobe-dark:bg-adobe-bg-2"
+              className="grid h-8 w-8 place-items-center rounded-lg cursor-pointer btn-danger-soft"
             >
               <IconTrash size={14} stroke={2.2} />
             </button>

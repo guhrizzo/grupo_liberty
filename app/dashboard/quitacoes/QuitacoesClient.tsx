@@ -356,7 +356,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                               type="button"
                               onClick={() => setRemovendoTerceiro(v)}
                               aria-label="Remover veículo de terceiro"
-                              className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              className="inline-flex items-center rounded-lg px-2.5 py-2 cursor-pointer btn-danger-soft"
                             >
                               <IconTrash size={14} stroke={2.5} />
                             </button>
@@ -440,7 +440,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                                   type="button"
                                   onClick={() => setExcluindo(q)}
                                   aria-label="Excluir quitação"
-                                  className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                  className="inline-flex items-center rounded-lg px-2.5 py-2 cursor-pointer btn-danger-soft"
                                 >
                                   <IconTrash size={14} stroke={2.5} />
                                 </button>
@@ -785,7 +785,7 @@ function AnexosSection({
                     onClick={() => setConfirmar(id)}
                     disabled={ocupado}
                     aria-label={`Remover ${label.toLowerCase()}`}
-                    className="inline-flex items-center rounded-lg border border-rose-200 bg-white px-2.5 py-2 text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                    className="inline-flex items-center rounded-lg px-2.5 py-2 cursor-pointer disabled:opacity-50 btn-danger-soft"
                   >
                     <IconTrash size={14} stroke={2.5} />
                   </button>

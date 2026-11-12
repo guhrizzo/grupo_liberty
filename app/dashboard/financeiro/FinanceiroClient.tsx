@@ -705,7 +705,7 @@ export default function FinanceiroClient({
                             setConfirmDelete(t)
                             setRemoverPagamentoVinculado(false)
                           }}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer adobe-dark:border-rose-500/30 adobe-dark:bg-adobe-bg-2 adobe-dark:text-rose-400 adobe-dark:hover:bg-rose-500/10"
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold cursor-pointer btn-danger-soft"
                         >
                           <IconTrash size={12} /> Remover
                         </button>

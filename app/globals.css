@@ -221,6 +221,32 @@ tr.destaque-item {
   transform: translateY(-3px);
 }
 
+/* Botão destrutivo discreto (excluir/remover): fundo suave, borda translúcida e
+   preenchimento vermelho no hover. Mesmo visual da variante `danger-soft` do Button. */
+.btn-danger-soft {
+  background-color: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+  transition: background-color 300ms cubic-bezier(0.16, 1, 0.3, 1), border-color 300ms cubic-bezier(0.16, 1, 0.3, 1), color 300ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-danger-soft:hover:not(:disabled) {
+  background-color: #e11d48;
+  border-color: #e11d48;
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(225, 29, 72, 0.45);
+}
+.adobe-dark .btn-danger-soft {
+  background-color: color-mix(in srgb, var(--color-adobe-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-adobe-danger) 35%, transparent);
+  color: var(--color-adobe-danger);
+}
+.adobe-dark .btn-danger-soft:hover:not(:disabled) {
+  background-color: var(--color-adobe-danger);
+  border-color: var(--color-adobe-danger);
+  color: #1a0a0a;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--color-adobe-danger) 55%, transparent);
+}
+
 @utility active-press {
   transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }

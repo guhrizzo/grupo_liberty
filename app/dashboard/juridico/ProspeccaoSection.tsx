@@ -792,10 +792,9 @@ export default function ProspeccaoSection({
         )}
         <Button
           size="sm"
-          variant="secondary"
+          variant="danger-soft"
           onClick={() => setConfirmDelete(p)}
           aria-label="Remover"
-          className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
         >
           <IconTrash size={12} />
         </Button>

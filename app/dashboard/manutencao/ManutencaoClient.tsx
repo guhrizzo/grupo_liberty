@@ -716,7 +716,7 @@ export default function ManutencaoClient({ veiculos, initialManutencoes }: Props
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(m)}
-                        className={`${ICON_ACTION_CLS} !text-rose-600 hover:!bg-rose-50 hover:!text-rose-700`}
+                        className={`${ICON_ACTION_CLS} btn-danger-soft`}
                         title="Remover manutenção"
                         aria-label="Remover manutenção"
                       >

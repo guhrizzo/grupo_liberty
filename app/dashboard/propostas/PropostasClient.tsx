@@ -646,7 +646,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
                         <button
                           disabled={loadingId === p.id}
                           onClick={() => handleStatusChange(p.id, 'recusado')}
-                          className="rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-ui cursor-pointer disabled:opacity-50"
+                          className="rounded-lg text-xs font-bold px-4 py-2 cursor-pointer disabled:opacity-50 btn-danger-soft"
                         >
                           {loadingId === p.id ? (
                             <span className="inline-flex items-center gap-1.5">
@@ -681,7 +681,7 @@ export default function PropostasClient({ propostas, manutencoes }: PropostasCli
                       <button
                         disabled={deletingId === p.id}
                         onClick={() => setConfirmDeleteId(p.id)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 text-xs font-bold px-4 py-2 transition-ui cursor-pointer disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-lg text-xs font-bold px-4 py-2 cursor-pointer disabled:opacity-50 btn-danger-soft"
                       >
                         <IconTrash size={13} stroke={2.5} />
                         {deletingId === p.id ? 'Excluindo...' : 'Excluir'}

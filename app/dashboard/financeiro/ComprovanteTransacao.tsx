@@ -172,7 +172,7 @@ export default function ComprovanteTransacao({
               <button
                 type="button"
                 onClick={() => setConfirmOpen(true)}
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 adobe-dark:border-rose-500/30 adobe-dark:hover:bg-rose-500/10"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold btn-danger-soft"
               >
                 <IconTrash size={14} stroke={2.2} /> Remover
               </button>

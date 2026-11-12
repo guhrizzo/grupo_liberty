@@ -989,10 +989,9 @@ export default function JuridicoClient({
                           </Button>
                           <Button
                             size="sm"
-                            variant="secondary"
+                            variant="danger-soft"
                             onClick={() => setConfirmDelete(p)}
                             leftIcon={<IconTrash size={12} />}
-                            className="!border-rose-200 !text-rose-600 hover:!bg-rose-50"
                           >
                             Remover
                           </Button>

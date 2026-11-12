@@ -121,7 +121,7 @@ export default function ModelosContratoSection({ initialModelos }: { initialMode
                 onClick={() => setExcluindo(m)}
                 aria-label={`Excluir ${m.nome}`}
                 title="Excluir"
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg cursor-pointer btn-danger-soft"
               >
                 <IconTrash size={14} stroke={2.4} />
               </button>

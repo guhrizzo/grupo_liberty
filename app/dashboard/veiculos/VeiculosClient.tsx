@@ -2555,7 +2555,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                             onClick={() => handleRemoverContratoExistente(c.id)}
                             disabled={removendoContratoId === c.id}
                             aria-label={`Remover ${c.fileName}`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 hover:bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold cursor-pointer disabled:opacity-50 btn-danger-soft"
                           >
                             {removendoContratoId === c.id
                               ? <IconLoader2 size={14} className="animate-spin" stroke={2.2} />
@@ -2831,7 +2831,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                             </button>
                             <button
                               onClick={() => setDeleteId(v.id)}
-                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                              className="rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer btn-danger-soft"
                             >
                               Remover
                             </button>
@@ -3000,7 +3000,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                               </button>
                               <button
                                 onClick={() => setDeleteId(v.id)}
-                                className="w-full rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 px-3 py-2 text-xs font-semibold transition-[background-color,color,border-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer sm:w-auto"
+                                className="w-full rounded-lg px-3 py-2 text-xs font-semibold duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer sm:w-auto btn-danger-soft"
                               >
                                 Remover
                               </button>

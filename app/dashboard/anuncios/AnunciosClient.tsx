@@ -307,7 +307,7 @@ export default function AnunciosClient({ anuncios }: { anuncios: Anuncio[] }) {
                     <>
                       <button
                         onClick={() => setRecusarAlvo(a)}
-                        className="rounded-lg border border-rose-200 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        className="rounded-lg px-4 py-2 text-xs font-bold cursor-pointer btn-danger-soft"
                       >
                         Recusar
                       </button>
@@ -330,7 +330,7 @@ export default function AnunciosClient({ anuncios }: { anuncios: Anuncio[] }) {
                       )}
                       <button
                         onClick={() => setExcluirAlvo(a)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold cursor-pointer btn-danger-soft"
                       >
                         <IconTrash size={13} /> Excluir
                       </button>
