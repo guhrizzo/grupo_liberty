@@ -33,6 +33,7 @@ import {
   criarFeedback,
   atualizarStatusFeedback,
   adicionarAtualizacaoFeedback,
+  deletarAtualizacaoFeedback,
   deletarFeedback,
 } from './actions'
 
@@ -163,6 +164,7 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
   const [loadingForm, setLoadingForm] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleteAtualizacao, setDeleteAtualizacao] = useState<{ id: string; em: string } | null>(null)
 
   const [filtroTipo, setFiltroTipo] = useState<'todos' | FeedbackTipo>('todos')
   const [filtroStatus, setFiltroStatus] = useState<'todos' | FeedbackStatus>('todos')
@@ -257,6 +259,19 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
     },
     [router, toast],
   )
+
+  const handleDeleteAtualizacao = useCallback(() => {
+    if (!deleteAtualizacao) return
+    startTransition(async () => {
+      const result = await deletarAtualizacaoFeedback(deleteAtualizacao.id, deleteAtualizacao.em)
+      if (result.error) toast.error(result.error)
+      else {
+        toast.success(result.success || 'Atualização removida.')
+        router.refresh()
+      }
+      setDeleteAtualizacao(null)
+    })
+  }, [deleteAtualizacao, router, toast])
 
   const handleDelete = useCallback(() => {
     if (!deleteId) return
@@ -452,6 +467,7 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
                     onStatus={handleStatus}
                     onAtualizacao={handleAtualizacao}
                     onRequestDelete={() => setDeleteId(it.id)}
+                    onRequestDeleteAtualizacao={(em) => setDeleteAtualizacao({ id: it.id, em })}
                   />
                 )
               })}
@@ -478,6 +494,17 @@ export default function FeedbackClient({ itens, isOwner }: FeedbackClientProps) 
         tone="danger"
         loading={isPending}
       />
+
+      <ConfirmDialog
+        open={!!deleteAtualizacao}
+        onClose={() => setDeleteAtualizacao(null)}
+        onConfirm={handleDeleteAtualizacao}
+        title="Remover atualização?"
+        description="O comentário (e as fotos dele) será apagado. Esta ação não pode ser desfeita."
+        confirmLabel="Remover"
+        tone="danger"
+        loading={isPending}
+      />
     </div>
   )
 }
@@ -494,6 +521,7 @@ function FeedbackCard({
   onStatus,
   onAtualizacao,
   onRequestDelete,
+  onRequestDeleteAtualizacao,
 }: {
   item: Feedback
   /** Mês em que foi aberto, quando está sendo mostrado num mês posterior. */
@@ -505,6 +533,7 @@ function FeedbackCard({
   onStatus: (id: string, status: FeedbackStatus) => void
   onAtualizacao: (id: string, texto: string, fotos: File[], onDone: () => void) => void
   onRequestDelete: () => void
+  onRequestDeleteAtualizacao: (em: string) => void
 }) {
   const [nota, setNota] = useState('')
   const [notaErro, setNotaErro] = useState<string | null>(null)
@@ -614,7 +643,22 @@ function FeedbackCard({
                         ))}
                       </div>
                     )}
-                    <p className="mt-0.5 text-[10px] font-medium text-neutral-400">{formatDateTime(a.em)}</p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <p className="text-[10px] font-medium text-neutral-400">{formatDateTime(a.em)}</p>
+                      {isOwner && (
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onRequestDeleteAtualizacao(a.em)}
+                          aria-label="Excluir atualização"
+                          title="Excluir atualização"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 hover:text-rose-600 cursor-pointer disabled:opacity-50"
+                        >
+                          <IconTrash size={11} stroke={2} />
+                          Excluir
+                        </button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>

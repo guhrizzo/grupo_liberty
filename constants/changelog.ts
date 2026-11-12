@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-excluir-atualizacao-feedback',
+    date: '2026-11-12',
+    title: 'Excluir atualização em Bugs & Melhorias',
+    tag: 'novo',
+    items: [
+      'Cada atualização (comentário) de um report agora tem o botão "Excluir", com confirmação. As fotos anexadas a ela também são apagadas.',
+    ],
+  },
+  {
     id: '2026-11-12-checklist-pos-compra',
     date: '2026-11-12',
     title: 'Checklist pós-compra do veículo',

@@ -212,6 +212,45 @@ export async function adicionarAtualizacaoFeedback(formData: FormData): Promise<
   }
 }
 
+/** Remove uma atualização (comentário) do report, identificada pela data em que foi registrada. */
+export async function deletarAtualizacaoFeedback(id: string, em: string): Promise<FeedbackResponse> {
+  const erro = await checarDono()
+  if (erro) return { error: erro }
+
+  if (!id || !em) return { error: 'Atualização inválida.' }
+
+  try {
+    const ref = adminDb.collection('feedback').doc(id)
+    const doc = await ref.get()
+    if (!doc.exists) return { error: 'Report não encontrado.' }
+
+    const dados = doc.data()!
+    const atualizacoes: FeedbackAtualizacao[] = Array.isArray(dados.atualizacoes) ? dados.atualizacoes : []
+    const alvo = atualizacoes.find((a) => a.em === em)
+    if (!alvo) return { error: 'Atualização não encontrada.' }
+
+    // Fotos da atualização: acha o caminho no Storage pela URL pública.
+    const urls = Array.isArray(alvo.fotos) ? alvo.fotos : []
+    const pathsAnteriores: string[] = Array.isArray(dados.atualizacoesFotosPaths) ? dados.atualizacoesFotosPaths : []
+    const pathsDaAtualizacao = pathsAnteriores.filter((p) => urls.some((u) => u.endsWith(`/${p}`)))
+
+    await ref.update({
+      atualizacoes: atualizacoes.filter((a) => a.em !== em),
+      atualizacoesFotosPaths: pathsAnteriores.filter((p) => !pathsDaAtualizacao.includes(p)),
+      atualizadoEm: new Date().toISOString(),
+    })
+    if (pathsDaAtualizacao.length > 0) {
+      const bucket = adminStorage.bucket()
+      await Promise.all(pathsDaAtualizacao.map((p) => bucket.file(p).delete().catch(() => {})))
+    }
+    revalidatePath('/dashboard/feedback')
+    return { success: 'Atualização removida.' }
+  } catch (err) {
+    console.error('[deletarAtualizacaoFeedback]', err)
+    return { error: 'Erro ao remover a atualização.' }
+  }
+}
+
 export async function deletarFeedback(id: string): Promise<FeedbackResponse> {
   const erro = await checarDono()
   if (erro) return { error: erro }
