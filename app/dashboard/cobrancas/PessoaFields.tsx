@@ -97,7 +97,7 @@ export function PessoaFields({
       {comNome && (
         <Input
           id={`${idPrefix}-nome`}
-          label="Nome completo"
+          label="Nome completo" placeholder="Nome completo"
           value={value.nome}
           onChange={(e) => onChange({ nome: e.target.value })}
           autoComplete="off"
@@ -153,7 +153,7 @@ export function PessoaFields({
       )}
       <Input
         id={`${idPrefix}-trabalho`}
-        label="Onde trabalha (opcional)"
+        label="Onde trabalha (opcional)" placeholder="Empresa ou local de trabalho"
         value={value.trabalho}
         onChange={(e) => onChange({ trabalho: e.target.value })}
         autoComplete="off"

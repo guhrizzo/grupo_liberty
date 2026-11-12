@@ -1067,6 +1067,7 @@ function GerenciarCategoriasModal({
                 {editandoId === cat.id ? (
                   <>
                     <Input
+                      placeholder="Nome da categoria"
                       value={editNome}
                       onChange={(e) => setEditNome(e.target.value)}
                       maxLength={60}

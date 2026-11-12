@@ -205,7 +205,7 @@ function SeguroModal({
           />
         )}
         <Textarea
-          label="Observação (opcional)"
+          label="Observação (opcional)" placeholder="Alguma observação sobre este registro"
           value={observacao}
           maxLength={SEGURO_OBS_MAX}
           onChange={(e) => setObservacao(e.target.value)}

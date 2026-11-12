@@ -717,7 +717,7 @@ function CompromissoModal({
           maxLength={AGENDA_LOCAL_MAX}
         />
         <Textarea
-          label="Descrição (opcional)"
+          label="Descrição (opcional)" placeholder="Detalhes do compromisso"
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
           rows={3}

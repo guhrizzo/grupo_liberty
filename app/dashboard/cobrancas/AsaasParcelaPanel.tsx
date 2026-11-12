@@ -183,6 +183,7 @@ export default function AsaasParcelaPanel({
             <label className="flex-1 text-[11px] text-neutral-600">
               % da reserva (sobre o valor bruto da parcela)
               <input
+                placeholder="Ex.: 10"
                 value={pct}
                 onChange={(e) => setPct(e.target.value.replace(/[^\d,]/g, ''))}
                 inputMode="decimal"

@@ -299,7 +299,7 @@ function RenomearModal({
   return (
     <Modal open onClose={onClose} title="Renomear modelo" size="sm">
       <form onSubmit={salvar} className="space-y-4">
-        <Input label="Nome do contrato" value={nome} maxLength={MODELO_NOME_MAX} onChange={(e) => setNome(e.target.value)} autoFocus />
+        <Input label="Nome do contrato" placeholder="Ex.: Prestação de serviço" value={nome} maxLength={MODELO_NOME_MAX} onChange={(e) => setNome(e.target.value)} autoFocus />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={isPending}>
             Cancelar

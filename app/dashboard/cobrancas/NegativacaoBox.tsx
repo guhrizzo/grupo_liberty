@@ -241,39 +241,39 @@ export default function NegativacaoBox({ paymentId, vencida, negativacao, podeNe
           <div className="grid grid-cols-2 gap-2">
             <label className={`${rotulo} col-span-2`}>
               Nome
-              <input className={campo} value={dados.nome} onChange={(e) => set('nome', e.target.value)} required />
+              <input className={campo} placeholder="Nome completo" value={dados.nome} onChange={(e) => set('nome', e.target.value)} required />
             </label>
             <label className={rotulo}>
               CPF/CNPJ
-              <input className={campo} value={dados.cpf} onChange={(e) => set('cpf', e.target.value)} required />
+              <input className={campo} placeholder="000.000.000-00 ou 00.000.000/0000-00" value={dados.cpf} onChange={(e) => set('cpf', e.target.value)} required />
             </label>
             <label className={rotulo}>
               Telefone (DDD)
-              <input className={campo} value={dados.telefone} onChange={(e) => set('telefone', e.target.value)} required />
+              <input className={campo} placeholder="(00) 00000-0000" value={dados.telefone} onChange={(e) => set('telefone', e.target.value)} required />
             </label>
             <label className={rotulo}>
               CEP
-              <input className={campo} value={dados.cep} onChange={(e) => set('cep', e.target.value)} required />
+              <input className={campo} placeholder="00000-000" value={dados.cep} onChange={(e) => set('cep', e.target.value)} required />
             </label>
             <label className={rotulo}>
               Número
-              <input className={campo} value={dados.numero} onChange={(e) => set('numero', e.target.value)} required />
+              <input className={campo} placeholder="Ex.: 123" value={dados.numero} onChange={(e) => set('numero', e.target.value)} required />
             </label>
             <label className={`${rotulo} col-span-2`}>
               Logradouro
-              <input className={campo} value={dados.logradouro} onChange={(e) => set('logradouro', e.target.value)} required />
+              <input className={campo} placeholder="Rua, avenida..." value={dados.logradouro} onChange={(e) => set('logradouro', e.target.value)} required />
             </label>
             <label className={rotulo}>
               Bairro
-              <input className={campo} value={dados.bairro} onChange={(e) => set('bairro', e.target.value)} required />
+              <input className={campo} placeholder="Bairro" value={dados.bairro} onChange={(e) => set('bairro', e.target.value)} required />
             </label>
             <label className={rotulo}>
               Complemento
-              <input className={campo} value={dados.complemento} onChange={(e) => set('complemento', e.target.value)} />
+              <input className={campo} placeholder="Apto, bloco... (opcional)" value={dados.complemento} onChange={(e) => set('complemento', e.target.value)} />
             </label>
             <label className={`${rotulo} col-span-2`}>
               Descrição do serviço
-              <input className={campo} value={dados.descricao} onChange={(e) => set('descricao', e.target.value)} />
+              <input className={campo} placeholder="Ex.: Mensalidade do contrato" value={dados.descricao} onChange={(e) => set('descricao', e.target.value)} />
             </label>
             <label className={`${rotulo} col-span-2`}>
               Contrato ou nota fiscal (com firma reconhecida em cartório)

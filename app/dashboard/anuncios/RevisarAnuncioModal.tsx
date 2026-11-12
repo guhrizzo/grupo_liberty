@@ -123,16 +123,16 @@ export default function RevisarAnuncioModal({
     >
       <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Input label="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-          <Input label="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
+          <Input label="Marca" placeholder="Ex.: Honda" value={marca} onChange={(e) => setMarca(e.target.value)} />
+          <Input label="Modelo" placeholder="Ex.: Civic" value={modelo} onChange={(e) => setModelo(e.target.value)} />
           <Input
-            label="Ano"
+            label="Ano" placeholder="AAAA"
             inputMode="numeric"
             maxLength={4}
             value={ano}
             onChange={(e) => setAno(e.target.value.replace(/\D/g, '').slice(0, 4))}
           />
-          <Input label="Cor" value={cor} onChange={(e) => setCor(e.target.value)} />
+          <Input label="Cor" placeholder="Ex.: Preto" value={cor} onChange={(e) => setCor(e.target.value)} />
           <Select
             label="Câmbio"
             options={[...CAMBIO_OPCOES]}
@@ -146,20 +146,20 @@ export default function RevisarAnuncioModal({
             onChange={(e) => setCombustivel(e.target.value)}
           />
           <Input
-            label="Quilometragem"
+            label="Quilometragem" placeholder="Ex.: 45000"
             inputMode="numeric"
             value={quilometragem}
             onChange={(e) => setQuilometragem(e.target.value.replace(/\D/g, '').slice(0, 7))}
           />
           <Input
-            label="Preço de venda (R$)"
+            label="Preço de venda (R$)" placeholder="R$ 0,00"
             mask="money"
             inputMode="decimal"
             value={preco}
             onChange={(e) => setPreco(e.target.value)}
           />
           <Input
-            label="Placa (opcional)"
+            label="Placa (opcional)" placeholder="AAA0A00"
             mask="plate"
             value={placa}
             onChange={(e) => setPlaca(e.target.value)}
@@ -174,7 +174,7 @@ export default function RevisarAnuncioModal({
         </div>
 
         <Textarea
-          label="Descrição (vai para o site)"
+          label="Descrição (vai para o site)" placeholder="Descreva o veículo para o anúncio"
           rows={4}
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}

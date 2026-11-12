@@ -334,7 +334,7 @@ function InteresseModal({
     <Modal open onClose={() => !salvando && onClose()} title={interesse ? 'Editar interesse' : 'Novo interesse'} size="lg">
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Nome do cliente" value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} />
+          <Input label="Nome do cliente" placeholder="Nome completo do cliente" value={clienteNome} onChange={(e) => setClienteNome(e.target.value)} />
           <Input
             label="Telefone"
             type="tel"
@@ -392,7 +392,7 @@ function InteresseModal({
           </Select>
         </div>
         <Textarea
-          label="Observação (opcional)"
+          label="Observação (opcional)" placeholder="Alguma observação sobre este registro"
           value={observacao}
           maxLength={INTERESSE_OBS_MAX}
           onChange={(e) => setObservacao(e.target.value)}

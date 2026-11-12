@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-placeholders-formularios',
+    date: '2026-11-12',
+    title: 'Exemplos de preenchimento nos formulários',
+    tag: 'melhoria',
+    items: [
+      'Os campos em branco de contratos, propostas, anúncios, cobranças, negativação, rede de apoio, jurídico e outras telas agora mostram um exemplo do que preencher (nome, CPF, placa, valores, datas e observações).',
+    ],
+  },
+  {
     id: '2026-11-12-quitacoes-data-compra',
     date: '2026-11-12',
     title: 'Data da compra do veículo nas Quitações',

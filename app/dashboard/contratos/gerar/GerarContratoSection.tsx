@@ -192,9 +192,9 @@ function GerarContratoModal({ veiculos, onClose }: { veiculos: VeiculoParaContra
               ]}
             />
           )}
-          <Input id="gc-nome" label="Nome completo" value={c.nome} onChange={(e) => setC({ ...c, nome: e.target.value })} autoComplete="off" required />
+          <Input id="gc-nome" label="Nome completo" placeholder="Nome completo" value={c.nome} onChange={(e) => setC({ ...c, nome: e.target.value })} autoComplete="off" required />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input id="gc-rg" label="RG" value={c.rg} onChange={(e) => setC({ ...c, rg: e.target.value })} autoComplete="off" required />
+            <Input id="gc-rg" label="RG" placeholder="00.000.000-0" value={c.rg} onChange={(e) => setC({ ...c, rg: e.target.value })} autoComplete="off" required />
             <Input id="gc-cpf" label="CPF" value={c.cpf} onChange={(e) => setC({ ...c, cpf: maskCPFCNPJ(e.target.value).slice(0, 14) })} inputMode="numeric" placeholder="000.000.000-00" autoComplete="off" required />
           </div>
           <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
@@ -210,11 +210,11 @@ function GerarContratoModal({ veiculos, onClose }: { veiculos: VeiculoParaContra
               options={[{ value: '', label: 'Selecione...' }, ...ESTADOS_CIVIS.map((e) => ({ value: e.value, label: e.label }))]}
               required
             />
-            <Input id="gc-profissao" label="Profissão" value={c.profissao} onChange={(e) => setC({ ...c, profissao: e.target.value })} autoComplete="off" required />
+            <Input id="gc-profissao" label="Profissão" placeholder="Ex.: Motorista" value={c.profissao} onChange={(e) => setC({ ...c, profissao: e.target.value })} autoComplete="off" required />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input id="gc-email" label="E-mail" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} autoComplete="off" required />
-            <Input id="gc-telefone" label="Telefone (opcional)" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
+            <Input id="gc-email" label="E-mail" placeholder="nome@exemplo.com" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} autoComplete="off" required />
+            <Input id="gc-telefone" label="Telefone (opcional)" placeholder="(00) 00000-0000" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
           </div>
           <Marcar id="gc-salvar" checked={salvarCliente} onChange={setSalvarCliente}>
             Salvar cliente para os próximos contratos
@@ -223,12 +223,12 @@ function GerarContratoModal({ veiculos, onClose }: { veiculos: VeiculoParaContra
 
         {casado && (
           <Bloco titulo="Cônjuge (assina o contrato)">
-            <Input id="gc-conj-nome" label="Nome completo" value={conj.nome} onChange={(e) => setConj({ ...conj, nome: e.target.value })} autoComplete="off" required />
+            <Input id="gc-conj-nome" label="Nome completo" placeholder="Nome completo" value={conj.nome} onChange={(e) => setConj({ ...conj, nome: e.target.value })} autoComplete="off" required />
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input id="gc-conj-rg" label="RG" value={conj.rg} onChange={(e) => setConj({ ...conj, rg: e.target.value })} autoComplete="off" />
-              <Input id="gc-conj-cpf" label="CPF" value={conj.cpf} onChange={(e) => setConj({ ...conj, cpf: maskCPFCNPJ(e.target.value).slice(0, 14) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-conj-rg" label="RG" placeholder="00.000.000-0" value={conj.rg} onChange={(e) => setConj({ ...conj, rg: e.target.value })} autoComplete="off" />
+              <Input id="gc-conj-cpf" label="CPF" placeholder="000.000.000-00" value={conj.cpf} onChange={(e) => setConj({ ...conj, cpf: maskCPFCNPJ(e.target.value).slice(0, 14) })} inputMode="numeric" autoComplete="off" required />
             </div>
-            <Input id="gc-conj-prof" label="Profissão" value={conj.profissao} onChange={(e) => setConj({ ...conj, profissao: e.target.value })} autoComplete="off" />
+            <Input id="gc-conj-prof" label="Profissão" placeholder="Ex.: Motorista" value={conj.profissao} onChange={(e) => setConj({ ...conj, profissao: e.target.value })} autoComplete="off" />
           </Bloco>
         )}
 
@@ -241,24 +241,24 @@ function GerarContratoModal({ veiculos, onClose }: { veiculos: VeiculoParaContra
             options={[{ value: '', label: 'Nenhum (digitar à mão)' }, ...veiculos.map((x) => ({ value: x.id, label: x.rotulo }))]}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Input id="gc-marca" label="Marca/modelo" value={v.marcaModelo} onChange={(e) => setV({ ...v, marcaModelo: e.target.value })} autoComplete="off" required />
-            <Input id="gc-ano" label="Ano" value={v.ano} onChange={(e) => setV({ ...v, ano: soDigitos(e.target.value, 4) })} inputMode="numeric" autoComplete="off" required />
-            <Input id="gc-fipe" label="FIPE (R$)" value={v.fipe} onChange={(e) => setV({ ...v, fipe: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
-            <Input id="gc-placa" label="Placa" value={v.placa} onChange={(e) => setV({ ...v, placa: maskPlate(e.target.value) })} autoComplete="off" required />
-            <Input id="gc-renavam" label="RENAVAM" value={v.renavam} onChange={(e) => setV({ ...v, renavam: maskRenavam(e.target.value) })} inputMode="numeric" autoComplete="off" required />
+            <Input id="gc-marca" label="Marca/modelo" placeholder="Ex.: Hyundai HB20" value={v.marcaModelo} onChange={(e) => setV({ ...v, marcaModelo: e.target.value })} autoComplete="off" required />
+            <Input id="gc-ano" label="Ano" placeholder="AAAA" value={v.ano} onChange={(e) => setV({ ...v, ano: soDigitos(e.target.value, 4) })} inputMode="numeric" autoComplete="off" required />
+            <Input id="gc-fipe" label="FIPE (R$)" placeholder="R$ 0,00" value={v.fipe} onChange={(e) => setV({ ...v, fipe: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
+            <Input id="gc-placa" label="Placa" placeholder="AAA0A00" value={v.placa} onChange={(e) => setV({ ...v, placa: maskPlate(e.target.value) })} autoComplete="off" required />
+            <Input id="gc-renavam" label="RENAVAM" placeholder="00000000000" value={v.renavam} onChange={(e) => setV({ ...v, renavam: maskRenavam(e.target.value) })} inputMode="numeric" autoComplete="off" required />
           </div>
         </Bloco>
 
         {tipo === 'prestacao-de-servico' ? (
           <Bloco titulo="Financiamento e proposta">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input id="gc-banco" label="Banco financiado" value={p.banco} onChange={(e) => setP({ ...p, banco: e.target.value })} autoComplete="off" required />
-              <Input id="gc-vparcela" label="Valor da parcela (R$)" value={p.valorParcela} onChange={(e) => setP({ ...p, valorParcela: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-qtd" label="Qtd. de parcelas" value={p.qtdParcelas} onChange={(e) => setP({ ...p, qtdParcelas: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-pagas" label="Parcelas pagas" value={p.parcelasPagas} onChange={(e) => setP({ ...p, parcelasPagas: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-atraso" label="Parcelas em atraso" value={p.parcelasAtraso} onChange={(e) => setP({ ...p, parcelasAtraso: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-prazo" label="Prazo (meses)" value={p.prazo} onChange={(e) => setP({ ...p, prazo: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-proposta" label="Valor da proposta (R$)" value={p.valorProposta} onChange={(e) => setP({ ...p, valorProposta: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-banco" label="Banco financiado" placeholder="Ex.: Omni, Bradesco" value={p.banco} onChange={(e) => setP({ ...p, banco: e.target.value })} autoComplete="off" required />
+              <Input id="gc-vparcela" label="Valor da parcela (R$)" placeholder="R$ 0,00" value={p.valorParcela} onChange={(e) => setP({ ...p, valorParcela: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-qtd" label="Qtd. de parcelas" placeholder="Ex.: 48" value={p.qtdParcelas} onChange={(e) => setP({ ...p, qtdParcelas: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-pagas" label="Parcelas pagas" placeholder="0" value={p.parcelasPagas} onChange={(e) => setP({ ...p, parcelasPagas: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-atraso" label="Parcelas em atraso" placeholder="0" value={p.parcelasAtraso} onChange={(e) => setP({ ...p, parcelasAtraso: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-prazo" label="Prazo (meses)" placeholder="Ex.: 12" value={p.prazo} onChange={(e) => setP({ ...p, prazo: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-proposta" label="Valor da proposta (R$)" placeholder="R$ 0,00" value={p.valorProposta} onChange={(e) => setP({ ...p, valorProposta: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
             </div>
             <div className="space-y-2">
               <Marcar id="gc-prestamista" checked={p.seguroPrestamista} onChange={(x) => setP({ ...p, seguroPrestamista: x })}>
@@ -272,9 +272,9 @@ function GerarContratoModal({ veiculos, onClose }: { veiculos: VeiculoParaContra
         ) : (
           <Bloco titulo="Locação">
             <div className="grid gap-3 sm:grid-cols-3">
-              <Input id="gc-lprazo" label="Prazo (meses)" value={l.prazo} onChange={(e) => setL({ ...l, prazo: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-semanal" label="Valor semanal (R$)" value={l.valorSemanal} onChange={(e) => setL({ ...l, valorSemanal: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
-              <Input id="gc-caucao" label="Caução (R$)" value={l.caucao} onChange={(e) => setL({ ...l, caucao: maskMoney(e.target.value) })} inputMode="numeric" hint="0 se não houver" autoComplete="off" required />
+              <Input id="gc-lprazo" label="Prazo (meses)" placeholder="Ex.: 12" value={l.prazo} onChange={(e) => setL({ ...l, prazo: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-semanal" label="Valor semanal (R$)" placeholder="R$ 0,00" value={l.valorSemanal} onChange={(e) => setL({ ...l, valorSemanal: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" required />
+              <Input id="gc-caucao" label="Caução (R$)" placeholder="R$ 0,00" value={l.caucao} onChange={(e) => setL({ ...l, caucao: maskMoney(e.target.value) })} inputMode="numeric" hint="0 se não houver" autoComplete="off" required />
             </div>
           </Bloco>
         )}

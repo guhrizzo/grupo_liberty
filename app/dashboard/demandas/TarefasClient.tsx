@@ -1024,6 +1024,7 @@ function ListaAfazeres({ inicial }: { inicial: Afazer[] }) {
               {editandoId === item.id ? (
                 <input
                   aria-label="Editar item"
+                  placeholder="Descreva o item"
                   value={editTexto}
                   onChange={(e) => setEditTexto(e.target.value)}
                   onBlur={concluirEdicao}

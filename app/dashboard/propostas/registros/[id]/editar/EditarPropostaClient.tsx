@@ -321,7 +321,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
           <h3 className="mb-4 text-sm font-bold text-neutral-950">Dados do cliente</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Nome completo"
+              label="Nome completo" placeholder="Nome completo"
               value={formData.nome}
               onChange={(e) => setField('nome', e.target.value)}
               error={formErrors.nome}
@@ -329,7 +329,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               required
             />
             <Input
-              label="CPF"
+              label="CPF" placeholder="000.000.000-00"
               value={formData.cpf}
               inputMode="numeric"
               onChange={(e) => setField('cpf', maskCPFCNPJ(e.target.value))}
@@ -337,7 +337,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               required
             />
             <Input
-              label="Telefone / WhatsApp"
+              label="Telefone / WhatsApp" placeholder="(00) 00000-0000"
               value={formData.telefone}
               inputMode="tel"
               onChange={(e) => setField('telefone', maskPhone(e.target.value))}
@@ -346,7 +346,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               required
             />
             <Input
-              label="E-mail"
+              label="E-mail" placeholder="nome@exemplo.com"
               type="email"
               value={formData.email}
               onChange={(e) => setField('email', e.target.value)}
@@ -362,7 +362,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               leftIcon={<IconCalendar size={14} />}
             />
             <Input
-              label="Número do Contrato"
+              label="Número do Contrato" placeholder="Número do contrato"
               value={formData.numero_contrato}
               readOnly
               disabled
@@ -377,7 +377,7 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
           <h3 className="mb-4 text-sm font-bold text-neutral-950">Veículo</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Marca"
+              label="Marca" placeholder="Ex.: Honda"
               value={formData.veiculo_marca}
               onChange={(e) => setField('veiculo_marca', e.target.value)}
               error={formErrors.veiculo_marca}
@@ -385,20 +385,20 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               required
             />
             <Input
-              label="Modelo"
+              label="Modelo" placeholder="Ex.: Civic"
               value={formData.veiculo_modelo}
               onChange={(e) => setField('veiculo_modelo', e.target.value)}
               error={formErrors.veiculo_modelo}
               required
             />
             <Input
-              label="Placa"
+              label="Placa" placeholder="AAA0A00"
               value={formData.veiculo_placa}
               onChange={(e) => setField('veiculo_placa', maskPlate(e.target.value))}
               leftIcon={<IconReceipt size={14} />}
             />
             <Input
-              label="Ano do Veículo"
+              label="Ano do Veículo" placeholder="AAAA"
               type="number"
               inputMode="numeric"
               value={formData.veiculo_ano}
@@ -472,21 +472,21 @@ export default function EditarPropostaClient({ proposta }: EditarPropostaClientP
               leftIcon={<IconCoin size={14} />}
             />
             <Input
-              label="Parcelas totais"
+              label="Parcelas totais" placeholder="Ex.: 48"
               type="number"
               inputMode="numeric"
               value={formData.parcelas_totais}
               onChange={(e) => setField('parcelas_totais', e.target.value)}
             />
             <Input
-              label="Parcelas pagas"
+              label="Parcelas pagas" placeholder="0"
               type="number"
               inputMode="numeric"
               value={formData.parcelas_pagas}
               onChange={(e) => setField('parcelas_pagas', e.target.value)}
             />
             <Input
-              label="Parcelas atrasadas"
+              label="Parcelas atrasadas" placeholder="0"
               type="number"
               inputMode="numeric"
               value={formData.parcelas_atrasadas}

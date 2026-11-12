@@ -239,6 +239,7 @@ export default function AnotacoesModal({
                     {emEdicao ? (
                       <div className="space-y-3">
                         <Textarea
+                          placeholder="Escreva a anotação"
                           value={editTexto}
                           onChange={(e) => setEditTexto(e.target.value)}
                           rows={3}

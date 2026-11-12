@@ -334,7 +334,7 @@ function ContatoModal({
     >
       <form onSubmit={salvar} className="space-y-4">
         <Input
-          label="Nome"
+          label="Nome" placeholder="Nome completo"
           value={form.nome}
           maxLength={REDE_NOME_MAX}
           onChange={(e) => set('nome', e.target.value)}
@@ -353,7 +353,7 @@ function ContatoModal({
         />
         <div className="grid gap-4 sm:grid-cols-[1fr_11rem]">
           <Input
-            label="Cidade"
+            label="Cidade" placeholder="Ex.: São Paulo"
             value={form.cidade}
             maxLength={REDE_CIDADE_MAX}
             onChange={(e) => set('cidade', e.target.value)}
@@ -371,7 +371,7 @@ function ContatoModal({
           />
         </div>
         <Input
-          label="Telefone / WhatsApp"
+          label="Telefone / WhatsApp" placeholder="(00) 00000-0000"
           mask="phone"
           inputMode="tel"
           value={form.telefone}
@@ -401,7 +401,7 @@ function ContatoModal({
           </label>
         </fieldset>
         <Textarea
-          label="Observações"
+          label="Observações" placeholder="Alguma observação"
           rows={3}
           maxLength={REDE_OBS_MAX}
           value={form.observacoes}

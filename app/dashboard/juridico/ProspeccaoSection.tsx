@@ -1370,14 +1370,14 @@ export default function ProspeccaoSection({
                 leftIcon={<span className="text-xs font-semibold">R$</span>}
               />
               <Input
-                label="Assunto"
+                label="Assunto" placeholder="Assunto da mensagem"
                 value={ofertaAssunto}
                 onChange={(e) => setOfertaAssunto(e.target.value)}
                 maxLength={200}
               />
             </div>
             <Textarea
-              label="Mensagem"
+              label="Mensagem" placeholder="Escreva a mensagem"
               value={ofertaMensagem}
               onChange={(e) => {
                 setOfertaMensagem(e.target.value)

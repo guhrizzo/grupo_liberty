@@ -1764,6 +1764,7 @@ export default function CobrancasClient({ cobrancas, excluidas, aba, veiculos, c
                     Motivo
                   </label>
                   <textarea
+                    placeholder="Por que está sendo encerrado?"
                     value={encerrarMotivo}
                     onChange={(e) => setEncerrarMotivo(e.target.value)}
                     rows={2}
@@ -3360,6 +3361,7 @@ function NovaCobrancaModal({
             <Input
               id="numeroParcelas"
               label={labelParcelas(tipo)}
+              placeholder="Ex.: 12"
               type="number"
               min="1"
               max="300"

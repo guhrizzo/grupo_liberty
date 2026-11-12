@@ -89,7 +89,7 @@ export function ModalPagamentoContaFixa({
     >
       <form onSubmit={confirmar} className="mt-4 space-y-5">
         <Input
-          label="Valor pago (R$)"
+          label="Valor pago (R$)" placeholder="R$ 0,00"
           value={valorPago}
           onChange={(e) => setValorPago(maskMoneyIntuitivo(e.target.value))}
           inputMode="decimal"

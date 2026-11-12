@@ -704,7 +704,7 @@ function QuitacaoModal({
           <Input label="Data da negociação" type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </div>
         <Textarea
-          label="Observação (opcional)"
+          label="Observação (opcional)" placeholder="Alguma observação sobre este registro"
           value={observacao}
           maxLength={QUITACAO_OBS_MAX}
           onChange={(e) => setObservacao(e.target.value)}
@@ -942,10 +942,10 @@ function TerceiroModal({ onClose, onDone }: { onClose: () => void; onDone: (id: 
           Carro que não é nosso, de um cliente que contratou o serviço. Fica nesta aba para negociar a quitação.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Marca" value={marca} onChange={(e) => setMarca(e.target.value)} />
-          <Input label="Modelo" value={modelo} onChange={(e) => setModelo(e.target.value)} />
-          <Input label="Ano" inputMode="numeric" maxLength={4} value={ano} onChange={(e) => setAno(e.target.value.replace(/\D/g, ''))} />
-          <Input label="Placa (opcional)" maxLength={8} value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
+          <Input label="Marca" placeholder="Ex.: Honda" value={marca} onChange={(e) => setMarca(e.target.value)} />
+          <Input label="Modelo" placeholder="Ex.: Civic" value={modelo} onChange={(e) => setModelo(e.target.value)} />
+          <Input label="Ano" placeholder="AAAA" inputMode="numeric" maxLength={4} value={ano} onChange={(e) => setAno(e.target.value.replace(/\D/g, ''))} />
+          <Input label="Placa (opcional)" placeholder="AAA0A00" maxLength={8} value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} />
         </div>
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={salvando}>
