@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-login-legivel',
+    date: '2026-11-12',
+    title: 'Tela de login mais legível',
+    tag: 'correcao',
+    items: [
+      'O título "Acessar Painel" e o rótulo "Senha" estavam em branco sobre o cartão branco e não apareciam; agora têm a cor correta.',
+      'A linha do "ou" abaixo do botão Entrar ficou fina e clara, em vez de preta, e o rótulo de senha segue o padrão do campo de e-mail.',
+    ],
+  },
+  {
     id: '2026-11-12-analytics-celulas',
     date: '2026-11-12',
     title: 'Números do Analytics em um painel só',

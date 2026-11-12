@@ -265,8 +265,8 @@ export default function LoginForm({
       >
         {!desktopMode && (
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Acessar Painel</h1>
-            <p className="text-xs text-text-md mt-1.5">Entre com suas credenciais corporativas.</p>
+            <h1 className="text-2xl font-black text-neutral-950 tracking-tight">Acessar Painel</h1>
+            <p className="text-xs text-neutral-500 mt-1.5">Entre com suas credenciais corporativas.</p>
           </div>
         )}
 
@@ -286,7 +286,7 @@ export default function LoginForm({
 
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-semibold text-text-hi">Senha</span>
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Senha</span>
             <button
               type="button"
               onClick={handleOpenResetModal}
@@ -310,7 +310,7 @@ export default function LoginForm({
                 onClick={() => setShowPassword((v) => !v)}
                 aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 aria-pressed={showPassword}
-                className="flex items-center px-2 text-text-lo hover:text-neon-soft cursor-pointer"
+                className="flex items-center px-2 text-neutral-400 hover:text-neutral-700 cursor-pointer"
               >
                 {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
               </button>
@@ -334,9 +334,9 @@ export default function LoginForm({
         {!isDesktopApp && (
           <>
             <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-neutral-800" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-text-lo">ou</span>
-              <div className="h-px flex-1 bg-neutral-800" />
+              <div className="h-px flex-1 bg-neutral-200" />
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">ou</span>
+              <div className="h-px flex-1 bg-neutral-200" />
             </div>
 
             <Button
@@ -362,8 +362,8 @@ export default function LoginForm({
       {desktopMode && (
         <div className="space-y-4">
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Acessar Painel</h1>
-            <p className="text-xs text-text-md mt-1.5">
+            <h1 className="text-2xl font-black text-neutral-950 tracking-tight">Acessar Painel</h1>
+            <p className="text-xs text-neutral-500 mt-1.5">
               Entre com sua conta pelo navegador — Google inclusive.
             </p>
           </div>
@@ -380,7 +380,7 @@ export default function LoginForm({
             Entrar com o navegador
           </Button>
           {browserLoginPending && (
-            <p className="text-center text-xs text-text-lo">
+            <p className="text-center text-xs text-neutral-500">
               Conclua o login no navegador que abriu e volte para o app.
             </p>
           )}
@@ -389,7 +389,7 @@ export default function LoginForm({
 
       {desktopMode ? (
         <details className="mt-5">
-          <summary className="cursor-pointer list-none text-xs font-semibold text-text-lo hover:text-text-hi">
+          <summary className="cursor-pointer list-none text-xs font-semibold text-neutral-500 hover:text-neutral-900">
             ou entrar com e-mail e senha
           </summary>
           <div className="mt-4">{emailPasswordForm}</div>
