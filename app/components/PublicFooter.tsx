@@ -7,7 +7,7 @@ import FooterLegalLinks from '@/app/components/FooterLegalLinks'
 export default function PublicFooter() {
   return (
     <footer className="border-t border-neutral-200 bg-white py-10 px-4 md:px-8 mt-auto">
-      <div className="mx-auto max-w-7xl grid gap-8 sm:grid-cols-3">
+      <div className="mx-auto max-w-7xl grid gap-8 sm:flex sm:justify-between">
         {/* Logo / Sobre */}
         <div>
           <div>
