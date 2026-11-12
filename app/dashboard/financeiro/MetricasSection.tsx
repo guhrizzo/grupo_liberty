@@ -13,7 +13,7 @@ import {
   type MetricasPeriodo,
 } from './metricas-types'
 import { salvarCoresMetricas } from './metricas'
-import { Button, Modal, useToast } from '@/app/components/ui'
+import { Button, Modal, SEGMENTED_WRAPPER, segmentedItemClass, useToast } from '@/app/components/ui'
 
 // Cores por variável CSS. Padrão validado (dataviz, light e dark): categóricos
 // 1 e 2 para faturamento e custos; vermelho para lucro negativo. O ADM supremo
@@ -73,18 +73,14 @@ export default function MetricasSection({ metricas, cores }: { metricas: Metrica
       <style>{CSS_CORES_PADRAO}</style>
       {/* Período */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-3 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
-        <div className="inline-flex gap-1 rounded-lg border border-neutral-200 p-1 adobe-dark:border-adobe-line">
+        <div className={SEGMENTED_WRAPPER}>
           {METRICAS_PERIODOS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => irParaPeriodo(p)}
               aria-pressed={periodo === p}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
-                periodo === p
-                  ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
-                  : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
-              }`}
+              className={segmentedItemClass(periodo === p)}
             >
               {p} meses
             </button>

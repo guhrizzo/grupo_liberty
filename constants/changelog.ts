@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-12-seletores-padronizados',
+    date: '2026-11-12',
+    title: 'Abas e filtros com o mesmo visual',
+    tag: 'melhoria',
+    items: [
+      'Os filtros de situação em Quitações, status em Interesses e Propostas, período em Métricas, "Blocos/Lista" e as abas de Cobranças, Jurídico e Financeiro agora usam o mesmo seletor em pílulas, sem quebrar de linha.',
+    ],
+  },
+  {
     id: '2026-11-12-placeholders-formularios',
     date: '2026-11-12',
     title: 'Exemplos de preenchimento nos formulários',

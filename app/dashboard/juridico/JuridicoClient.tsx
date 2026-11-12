@@ -30,7 +30,7 @@ import {
   StatusBadge,
   ConfirmDialog,
   Breadcrumb,
-  useToast,
+  useToast, SEGMENTED_WRAPPER, segmentedItemClass,
 } from '@/app/components/ui'
 import { useDebounce } from '@/utils/useDebounce'
 import { formatDate } from '@/utils/format'
@@ -719,7 +719,7 @@ export default function JuridicoClient({
       <div
         role="tablist"
         aria-label="Seções do Jurídico"
-        className="inline-flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2"
+        className={SEGMENTED_WRAPPER}
       >
         {(
           [
@@ -733,11 +733,7 @@ export default function JuridicoClient({
             href={href}
             role="tab"
             aria-selected={aba === valor}
-            className={`rounded-lg px-4 py-2 text-xs font-bold transition-colors ${
-              aba === valor
-                ? 'bg-neutral-950 text-white adobe-dark:bg-adobe-accent adobe-dark:text-[#0a1720]'
-                : 'text-neutral-600 hover:bg-neutral-100 adobe-dark:text-adobe-text-md adobe-dark:hover:bg-adobe-bg-3'
-            }`}
+            className={segmentedItemClass(aba === valor)}
           >
             {rotulo}
           </Link>

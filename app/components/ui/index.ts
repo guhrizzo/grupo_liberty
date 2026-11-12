@@ -6,6 +6,8 @@ export { Card } from './Card'
 
 export { ChipFilter } from './ChipFilter'
 export type { ChipFilterOption } from './ChipFilter'
+export { SegmentedControl, SEGMENTED_WRAPPER, segmentedItemClass } from './SegmentedControl'
+export type { SegmentedOption } from './SegmentedControl'
 
 export { ConfirmDialog } from './ConfirmDialog'
 export type { ConfirmDialogProps } from './ConfirmDialog'

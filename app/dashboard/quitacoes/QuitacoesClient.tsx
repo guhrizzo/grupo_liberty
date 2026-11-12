@@ -24,7 +24,7 @@ import {
   Input,
   Modal,
   Textarea,
-  useToast,
+  useToast, SegmentedControl,
 } from '@/app/components/ui'
 import { casaBusca } from '@/utils/busca'
 import { formatCurrency, formatDate } from '@/utils/format'
@@ -210,41 +210,15 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Input
-            aria-label="Buscar veículo"
-            placeholder="Buscar modelo, placa, cliente ou contrato"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            containerClassName="w-full sm:w-96"
-          />
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Situação">
-            {(
-              [
-                { id: '', label: `Todos (${contagem.todos})` },
-                { id: 'nao-quitado', label: `Não quitados (${contagem.naoQuitados})` },
-                { id: 'quitado', label: `Quitados (${contagem.quitados})` },
-              ] as const
-            ).map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                aria-pressed={situacao === o.id}
-                onClick={() => setSituacao(o.id)}
-                className={
-                  'whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold cursor-pointer ' +
-                  (situacao === o.id
-                    ? 'bg-neutral-950 text-white'
-                    : 'border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50')
-                }
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Quitações</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            Uma linha por veículo: situação, último valor negociado e os dados do cliente para ligar ao banco. Clique no
+            veículo para ver o histórico; na aba Veículos aparece só a última quitação.
+          </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="secondary" onClick={() => setLote(true)} disabled={naoQuitados.length === 0}>
             <IconListDetails size={16} stroke={2.5} />
             Atualizar valores da semana
@@ -253,6 +227,28 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
             <IconPlus size={16} stroke={2.5} />
             Veículo de terceiro
           </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Input
+            aria-label="Buscar veículo"
+            placeholder="Buscar modelo, placa, cliente ou contrato"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            containerClassName="w-full sm:w-80"
+          />
+          <SegmentedControl
+            ariaLabel="Situação"
+            value={situacao}
+            onChange={setSituacao}
+            options={[
+              { value: '', label: `Todos (${contagem.todos})` },
+              { value: 'nao-quitado', label: `Não quitados (${contagem.naoQuitados})` },
+              { value: 'quitado', label: `Quitados (${contagem.quitados})` },
+            ]}
+          />
         </div>
       </div>
 

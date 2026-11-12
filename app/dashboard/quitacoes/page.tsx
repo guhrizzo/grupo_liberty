@@ -34,14 +34,6 @@ export default async function QuitacoesPage({
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Quitações' }]} />
 
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-950">Quitações</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Uma linha por veículo: situação, último valor negociado e os dados do cliente para ligar ao banco. Clique no
-          veículo para ver o histórico; na aba Veículos aparece só a última quitação.
-        </p>
-      </div>
-
       <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} anexos={anexos} veiculoInicial={veiculo ?? ''} />
     </div>
   )

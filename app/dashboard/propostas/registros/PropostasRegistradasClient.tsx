@@ -29,7 +29,7 @@ import {
   type PropostaRegistrada,
 } from './actions'
 import type { VendedorOpcao } from '@/app/dashboard/metas/types'
-import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, Textarea, useToast } from '@/app/components/ui'
+import { Breadcrumb, Button, EmptyState, ConfirmDialog, Modal, Select, Textarea, useToast, SegmentedControl } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { MOTIVOS_RECUSA, MOTIVO_DETALHE_MAX, textoMotivoRecusa } from './motivos'
 
@@ -385,24 +385,15 @@ export default function PropostasRegistradasClient({
           />
         </div>
 
-        <div role="group" aria-label="Filtrar por status" className="inline-flex rounded-lg bg-neutral-100 p-1">
-          {[{ valor: '' as const, label: 'Todas' }, ...STATUS_PROPOSTA].map((o) => (
-            <button
-              key={o.valor || 'todas'}
-              type="button"
-              onClick={() => {
-                setStatusFiltro(o.valor)
-                setMotivoFiltro('')
-              }}
-              aria-pressed={statusFiltro === o.valor}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
-                statusFiltro === o.valor ? 'bg-white text-neutral-950 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          ariaLabel="Filtrar por status"
+          value={statusFiltro}
+          onChange={(v) => {
+            setStatusFiltro(v)
+            setMotivoFiltro('')
+          }}
+          options={[{ value: '' as const, label: 'Todas' }, ...STATUS_PROPOSTA.map((o) => ({ value: o.valor, label: o.label }))]}
+        />
 
         {statusFiltro === 'recusado' && (
           <select

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconBrandWhatsapp, IconHeartHandshake, IconPencil, IconPhone, IconPlus, IconSearch, IconTrash } from '@tabler/icons-react'
-import { Button, ConfirmDialog, EmptyState, Input, Modal, Select, Textarea, useToast } from '@/app/components/ui'
+import { Button, ConfirmDialog, EmptyState, Input, Modal, Select, Textarea, useToast, SegmentedControl } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { maskMoney, maskPhone, moneyFromNumber, onlyDigits, parseMoney } from '@/utils/masks'
 import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
@@ -119,21 +119,15 @@ export default function InteressesClient({ interesses, estoque }: Props) {
         </Button>
       </div>
 
-      <div role="group" aria-label="Filtrar por status" className="inline-flex max-w-full overflow-x-auto rounded-lg bg-neutral-100 p-1">
-        {(['ativo', 'atendido', 'cancelado', 'todos'] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setStatusFiltro(s)}
-            aria-pressed={statusFiltro === s}
-            className={`shrink-0 rounded-md px-3 py-1 text-xs font-semibold transition-all cursor-pointer ${
-              statusFiltro === s ? 'bg-white text-neutral-950 shadow-xs' : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            {s === 'todos' ? `Todos (${interesses.length})` : `${INTERESSE_STATUS_LABEL[s]}s (${contagem[s]})`}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        ariaLabel="Filtrar por status"
+        value={statusFiltro}
+        onChange={setStatusFiltro}
+        options={(['ativo', 'atendido', 'cancelado', 'todos'] as const).map((s) => ({
+          value: s,
+          label: s === 'todos' ? `Todos (${interesses.length})` : `${INTERESSE_STATUS_LABEL[s]}s (${contagem[s]})`,
+        }))}
+      />
 
       {filtrados.length === 0 ? (
         <EmptyState
