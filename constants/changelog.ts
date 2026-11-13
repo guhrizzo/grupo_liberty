@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-13-menu-por-setores',
+    date: '2026-11-13',
+    title: 'Menu lateral dividido por setores',
+    tag: 'melhoria',
+    items: [
+      'O menu agora tem títulos fixos separando os setores: Geral, Veículos, Vendas, Financeiro e Gestão. Em Veículos ficam Estoque de veículos, Quitações, Checklist pós-compra, Seguro, Contratos, Manutenção e Rastreamento.',
+      'Clique no título de um setor para recolher ou abrir as abas dele. O menu lembra o que você deixou fechado, e a página em que você está continua visível.',
+      'Em "Organizar menu" cada um continua escolhendo a ordem das abas, mas só dentro do próprio setor. A aba "Veículos" agora se chama "Estoque de veículos".',
+    ],
+  },
+  {
     id: '2026-11-13-aba-checklist-pos-compra',
     date: '2026-11-13',
     title: 'Aba própria para o checklist pós-compra',

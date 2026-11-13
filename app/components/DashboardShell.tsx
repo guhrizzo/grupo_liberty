@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { Fragment, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
@@ -35,6 +35,7 @@ import {
   IconMenu2,
 
   IconLogout,
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconWorld,
@@ -60,10 +61,52 @@ type NavItem = {
   /** Só o ADM supremo vê (ignora cargo). */
   somenteSupremo?: boolean
   permissionKey?: PermissionKey
+  /** Setor fixo do menu: o título aparece separando os grupos. */
+  setor: SetorId
+}
+
+/** Setores do menu, na ordem em que aparecem. O usuário só reordena dentro de cada setor. */
+const SETORES = [
+  { id: 'geral', label: 'Geral' },
+  { id: 'veiculos', label: 'Veículos' },
+  { id: 'vendas', label: 'Vendas' },
+  { id: 'financeiro', label: 'Financeiro' },
+  { id: 'gestao', label: 'Gestão' },
+] as const
+
+type SetorId = (typeof SETORES)[number]['id']
+
+const SETOR_DE: Record<string, SetorId> = {
+  '/dashboard': 'geral',
+  '/dashboard/demandas': 'geral',
+  '/dashboard/agenda': 'geral',
+  '/dashboard/consulta-fipe': 'geral',
+  '/dashboard/novidades': 'geral',
+  '/dashboard/feedback': 'geral',
+  '/dashboard/veiculos': 'veiculos',
+  '/dashboard/checklist-pos-compra': 'veiculos',
+  '/dashboard/quitacoes': 'veiculos',
+  '/dashboard/seguro': 'veiculos',
+  '/dashboard/manutencao': 'veiculos',
+  '/dashboard/rastreamento': 'veiculos',
+  '/dashboard/contratos': 'veiculos',
+  '/dashboard/propostas': 'vendas',
+  '/dashboard/interesses': 'vendas',
+  '/dashboard/anuncios': 'vendas',
+  '/dashboard/leads': 'vendas',
+  '/dashboard/metas': 'vendas',
+  '/dashboard/financeiro': 'financeiro',
+  '/dashboard/cobrancas': 'financeiro',
+  '/dashboard/negativacoes': 'financeiro',
+  '/dashboard/metricas-diarias': 'financeiro',
+  '/dashboard/juridico': 'gestao',
+  '/dashboard/rede-apoio': 'gestao',
+  '/dashboard/usuarios': 'gestao',
+  '/dashboard/analytics': 'gestao',
 }
 
 /** Ordem padrão do menu. Cada usuário pode reordenar em "Organizar menu". */
-const NAV_ITEMS: NavItem[] = [
+const NAV_BASE: Omit<NavItem, 'setor'>[] = [
   {
     href: '/dashboard',
     label: 'Visão Geral',
@@ -96,7 +139,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     href: '/dashboard/veiculos',
-    label: 'Veículos',
+    label: 'Estoque de veículos',
     icon: 'car',
     permissionKey: 'veiculos',
   },
@@ -222,6 +265,8 @@ const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+const NAV_ITEMS: NavItem[] = NAV_BASE.map((i) => ({ ...i, setor: SETOR_DE[i.href] ?? 'geral' }))
+
 /** Telas internas pesquisáveis no Ctrl+K; aparecem se o usuário vê a aba `pai`. */
 const ATALHOS_PALETA: { href: string; label: string; pai: string; busca?: string }[] = [
   { href: '/dashboard/propostas/nova', label: 'Nova proposta', pai: '/dashboard/propostas', busca: 'cadastrar criar' },
@@ -325,9 +370,11 @@ interface DashboardShellProps {
  * não está na lista (ex.: aba nova) vai para o fim, na ordem padrão.
  */
 function ordenarItens(itens: NavItem[], ordem: string[] | null): NavItem[] {
-  if (!ordem || ordem.length === 0) return itens
-  const pos = new Map(ordem.map((h, i) => [h, i]))
-  return [...itens].sort((a, b) => (pos.get(a.href) ?? Infinity) - (pos.get(b.href) ?? Infinity))
+  const pos = new Map((ordem ?? []).map((h, i) => [h, i]))
+  const setorIdx = (i: NavItem) => SETORES.findIndex((x) => x.id === i.setor)
+  return [...itens].sort(
+    (a, b) => setorIdx(a) - setorIdx(b) || (pos.get(a.href) ?? Infinity) - (pos.get(b.href) ?? Infinity),
+  )
 }
 
 export default function DashboardShell({
@@ -348,6 +395,8 @@ export default function DashboardShell({
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [fotoFalhou, setFotoFalhou] = useState(false)
   const [ordem, setOrdem] = useState<string[] | null>(ordemMenu)
+  /** Setores recolhidos pelo usuário (guardado só neste navegador). */
+  const [setoresFechados, setSetoresFechados] = useState<string[]>([])
   const [organizando, setOrganizando] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
   const toast = useToast()
@@ -361,6 +410,28 @@ export default function DashboardShell({
       setCollapsed(stored === 'true')
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem('dashboard_setores_fechados') ?? '[]')
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (Array.isArray(salvo)) setSetoresFechados(salvo.filter((x) => typeof x === 'string'))
+    } catch {
+      /* sem armazenamento: começa tudo aberto */
+    }
+  }, [])
+
+  function alternarSetor(id: string) {
+    setSetoresFechados((atual) => {
+      const novo = atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
+      try {
+        localStorage.setItem('dashboard_setores_fechados', JSON.stringify(novo))
+      } catch {
+        /* ignora */
+      }
+      return novo
+    })
+  }
 
   function toggleCollapse() {
     setCollapsed((prev) => {
@@ -530,8 +601,12 @@ export default function DashboardShell({
             </Link>
           </li>
 
-          {allowedItems.map((item) => {
+          {allowedItems.map((item, idx) => {
             const active = isActive(item.href)
+            const novoSetor = idx === 0 || allowedItems[idx - 1].setor !== item.setor
+            const fechado = setoresFechados.includes(item.setor)
+            // Setor recolhido esconde as abas, mas a página aberta continua visível.
+            const oculto = fechado && !active
             const count =
               item.href === '/dashboard/propostas'
                 ? propostasPendentesCount
@@ -542,7 +617,27 @@ export default function DashboardShell({
                     : 0
 
             return (
-              <li key={item.href}>
+              <Fragment key={item.href}>
+                {novoSetor && (
+                  <li className={collapsed ? 'md:mx-2 md:mt-2 md:border-t md:border-neutral-200 adobe-dark:md:border-[var(--color-adobe-line)]' : ''}>
+                    <button
+                      type="button"
+                      onClick={() => alternarSetor(item.setor)}
+                      aria-expanded={!fechado}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 pt-4 pb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 hover:text-neutral-700 transition-colors cursor-pointer adobe-dark:text-[var(--color-adobe-text-lo)] adobe-dark:hover:text-[var(--color-adobe-text-hi)] ${
+                        collapsed ? 'md:hidden' : ''
+                      }`}
+                    >
+                      {SETORES.find((x) => x.id === item.setor)?.label}
+                      <IconChevronDown
+                        size={12}
+                        stroke={3}
+                        className={`shrink-0 transition-transform duration-200 ${fechado ? '-rotate-90' : ''}`}
+                      />
+                    </button>
+                  </li>
+                )}
+              <li className={oculto ? (collapsed ? 'hidden md:block' : 'hidden') : undefined}>
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
@@ -584,6 +679,7 @@ export default function DashboardShell({
                   )}
                 </Link>
               </li>
+              </Fragment>
             )
           })}
         </ul>
@@ -753,7 +849,7 @@ function OrganizarMenuModal({
 
   function mover(i: number, delta: number) {
     const j = i + delta
-    if (j < 0 || j >= lista.length) return
+    if (j < 0 || j >= lista.length || lista[j].setor !== lista[i].setor) return
     setLista((atual) => {
       const nova = [...atual]
       ;[nova[i], nova[j]] = [nova[j], nova[i]]
@@ -784,12 +880,17 @@ function OrganizarMenuModal({
       open
       onClose={() => !salvando && onClose()}
       title="Organizar menu"
-      description="Use as setas para escolher a ordem dos itens no seu menu. Só muda para você."
+      description="Use as setas para escolher a ordem dos itens dentro de cada setor. Só muda para você."
     >
       <ol className="mt-4 max-h-[55vh] space-y-1 overflow-y-auto pr-1">
         {lista.map((item, i) => (
+          <Fragment key={item.href}>
+          {(i === 0 || lista[i - 1].setor !== item.setor) && (
+            <li className="px-1 pt-3 pb-1 text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-400 first:pt-0">
+              {SETORES.find((x) => x.id === item.setor)?.label}
+            </li>
+          )}
           <li
-            key={item.href}
             className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 adobe-dark:border-[var(--color-adobe-line-soft)] adobe-dark:bg-[var(--color-adobe-bg-3)]"
           >
             <span className="text-neutral-500 adobe-dark:text-[var(--color-adobe-text-lo)]">
@@ -801,7 +902,7 @@ function OrganizarMenuModal({
             <button
               type="button"
               onClick={() => mover(i, -1)}
-              disabled={i === 0}
+              disabled={i === 0 || lista[i - 1].setor !== item.setor}
               aria-label={`Subir ${item.label}`}
               className={BTN}
             >
@@ -810,13 +911,14 @@ function OrganizarMenuModal({
             <button
               type="button"
               onClick={() => mover(i, 1)}
-              disabled={i === lista.length - 1}
+              disabled={i === lista.length - 1 || lista[i + 1].setor !== item.setor}
               aria-label={`Descer ${item.label}`}
               className={BTN}
             >
               <IconArrowDown size={14} stroke={2.5} />
             </button>
           </li>
+          </Fragment>
         ))}
       </ol>
       <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
