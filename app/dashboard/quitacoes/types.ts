@@ -39,9 +39,9 @@ export const CHECKLIST_ITENS = [
   { id: 'rastreador', rotulo: 'Retirar rastreador', grupo: 'pos-compra' },
   { id: 'condutor', rotulo: 'Transferir principal condutor', grupo: 'pos-compra' },
   { id: 'seguro', rotulo: 'Remover seguro prestamista/mista', grupo: 'pos-compra' },
+  { id: 'feedback', rotulo: 'Feedback do cliente', grupo: 'etapas' },
   { id: 'anunciar', rotulo: 'Anunciar no grupo e no site', grupo: 'etapas' },
   { id: 'banco', rotulo: 'Negociar com o banco (após 6 meses em atraso)', grupo: 'etapas' },
-  { id: 'quitacao', rotulo: 'Quitação', grupo: 'etapas' },
 ] as const
 
 export type ChecklistId = (typeof CHECKLIST_ITENS)[number]['id']

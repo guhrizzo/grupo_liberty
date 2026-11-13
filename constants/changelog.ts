@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-13-checklist-feedback-cliente',
+    date: '2026-11-13',
+    title: 'Checklist pós-compra: feedback do cliente',
+    tag: 'melhoria',
+    items: [
+      'Novo item "Feedback do cliente" nas próximas etapas, antes de "Anunciar no grupo e no site".',
+      'O item "Quitação" saiu do checklist, pois a quitação já tem a aba e o marcador próprios em Quitações.',
+    ],
+  },
+  {
     id: '2026-11-13-metricas-diarias-geral',
     date: '2026-11-13',
     title: 'Métricas diárias no setor Geral',
