@@ -24,6 +24,13 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-13-metricas-diarias-geral',
+    date: '2026-11-13',
+    title: 'Métricas diárias no setor Geral',
+    tag: 'melhoria',
+    items: ['A aba Métricas diárias saiu do setor Financeiro e agora fica em Geral, no menu lateral.'],
+  },
+  {
     id: '2026-11-13-menu-por-setores',
     date: '2026-11-13',
     title: 'Menu lateral dividido por setores',

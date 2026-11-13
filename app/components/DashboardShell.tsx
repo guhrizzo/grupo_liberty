@@ -98,7 +98,7 @@ const SETOR_DE: Record<string, SetorId> = {
   '/dashboard/financeiro': 'financeiro',
   '/dashboard/cobrancas': 'financeiro',
   '/dashboard/negativacoes': 'financeiro',
-  '/dashboard/metricas-diarias': 'financeiro',
+  '/dashboard/metricas-diarias': 'geral',
   '/dashboard/juridico': 'gestao',
   '/dashboard/rede-apoio': 'gestao',
   '/dashboard/usuarios': 'gestao',
