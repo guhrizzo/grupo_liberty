@@ -392,6 +392,7 @@ export async function definirChecklistItem(
       { merge: true },
     )
   revalidatePath('/dashboard/quitacoes')
+  revalidatePath('/dashboard/checklist-pos-compra')
   revalidatePath('/dashboard/demandas')
   return { success: feito ? 'Item concluído.' : 'Item reaberto.' }
 }

@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-13-aba-checklist-pos-compra',
+    date: '2026-11-13',
+    title: 'Aba própria para o checklist pós-compra',
+    tag: 'novo',
+    items: [
+      'Nova aba "Checklist pós-compra" no menu, logo abaixo de Quitações. Mostra todos os veículos com quantos itens já foram feitos, e dá para marcar ou reabrir cada item ali mesmo.',
+      'Filtros Pendentes, Concluídos e Todos, e busca por modelo, placa ou cliente. Veículos já quitados com o banco não aparecem.',
+    ],
+  },
+  {
     id: '2026-11-12-excluir-tudo-leads',
     date: '2026-11-12',
     title: 'Botões de excluir mais claros',

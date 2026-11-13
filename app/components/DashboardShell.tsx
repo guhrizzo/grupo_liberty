@@ -107,6 +107,12 @@ const NAV_ITEMS: NavItem[] = [
     permissionKey: 'veiculos',
   },
   {
+    href: '/dashboard/checklist-pos-compra',
+    label: 'Checklist pós-compra',
+    icon: 'checklist',
+    permissionKey: 'veiculos',
+  },
+  {
     href: '/dashboard/seguro',
     label: 'Seguro',
     icon: 'shield',
