@@ -840,7 +840,7 @@ html:has(> body.adobe-dark) {
   background-color: rgba(16, 185, 129, 0.16);
 }
 .adobe-dark
-  :is(.text-emerald-950, .text-emerald-800, .text-emerald-700, .text-emerald-600):not(
+  :is(.text-emerald-950, .text-emerald-900, .text-emerald-800, .text-emerald-700, .text-emerald-600):not(
     [class*='adobe-dark:text-']
   ) {
   color: #6ee7b7;
