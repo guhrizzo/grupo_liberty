@@ -708,6 +708,12 @@ export default function ProspeccaoSection({
       const res = await deleteProspeccoes(ids)
       if (res.error) {
         toast.error(res.error)
+        // Parte foi removida antes do erro: recarrega para a lista bater.
+        if (res.removidos) {
+          setItens(await getProspeccoes())
+          setSelecionados(new Set())
+          router.refresh()
+        }
         return
       }
       const removidos = new Set(ids)

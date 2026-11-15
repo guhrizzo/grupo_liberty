@@ -11,6 +11,7 @@ import {
   grupoVinculado,
   lerMatriz,
   linhasParaGravar,
+  planoExclusao,
   trocarCampo,
 } from './prospeccao-importacao'
 import type { ProspeccaoInput } from './types'
@@ -307,5 +308,25 @@ describe('grupoRelacionados (filtro do selo)', () => {
   })
   it('lead do filtro excluído desliga o filtro (lista completa, não vazia)', () => {
     expect(grupoRelacionados('x', itens)).toBeNull()
+  })
+})
+
+describe('planoExclusao', () => {
+  it('cada lead apagado leva junto a remoção dele dos leads que ficam', () => {
+    const plano = planoExclusao(
+      ['a', 'b'],
+      [
+        ['c', 'a'], // c lista a
+        ['c', 'a'], // repetido (veio dos dois lados)
+        ['d', 'b'],
+        ['b', 'a'], // b também vai ser apagado: não precisa atualizar
+        ['x', 'b'], // x não existe mais
+      ],
+      new Set(['a', 'b', 'c', 'd']),
+    )
+    expect(plano).toEqual([
+      { id: 'a', desligar: ['c'] },
+      { id: 'b', desligar: ['d'] },
+    ])
   })
 })

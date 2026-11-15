@@ -357,3 +357,24 @@ export function grupoRelacionados(
   if (!id || !itens.some((x) => x.id === id)) return null
   return grupoVinculado(id, itens)
 }
+
+/**
+ * Para cada lead a apagar, de quais leads que ficam o id dele sai
+ * (`vinculados`). `ligacoes` são pares [alvo, apagado] vindos dos dois lados
+ * da ligação. Alvo que também será apagado ou que não existe mais é ignorado.
+ * Cada item vira um lote só (delete + updates), então apagar e desligar
+ * acontecem juntos ou não acontecem.
+ */
+export function planoExclusao(
+  apagar: string[],
+  ligacoes: [alvo: string, apagado: string][],
+  existentes: Set<string>,
+): { id: string; desligar: string[] }[] {
+  const apagados = new Set(apagar)
+  const porApagado = new Map<string, Set<string>>(apagar.map((id) => [id, new Set<string>()]))
+  for (const [alvo, apagado] of ligacoes) {
+    if (apagados.has(alvo) || !existentes.has(alvo)) continue
+    porApagado.get(apagado)?.add(alvo)
+  }
+  return apagar.map((id) => ({ id, desligar: [...porApagado.get(id)!] }))
+}

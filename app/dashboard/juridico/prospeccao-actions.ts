@@ -6,7 +6,12 @@ import { adminDb } from '@/utils/firebase/admin'
 import { assertAlgumaAba, isAdmSupremo } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { normalizarProspeccao } from './prospeccao-parse'
-import { agruparEmLotes, classificarLinhas, linhasParaGravar } from './prospeccao-importacao'
+import {
+  agruparEmLotes,
+  classificarLinhas,
+  linhasParaGravar,
+  planoExclusao,
+} from './prospeccao-importacao'
 import { emailValido } from './prospeccao-proposta'
 import {
   OBSERVACAO_MAX,
@@ -146,16 +151,6 @@ function resumoImportacao(importados: number, duplicados: number, pendentes: num
     .join(' ')
 }
 
-type OpLote = (b: FirebaseFirestore.WriteBatch) => void
-
-/** Executa operações em lotes (o Firestore aceita até 500 por batch). */
-async function emLotes(ops: OpLote[]) {
-  for (let i = 0; i < ops.length; i += 400) {
-    const batch = adminDb.batch()
-    ops.slice(i, i + 400).forEach((op) => op(batch))
-    await batch.commit()
-  }
-}
 
 /**
  * Importa linhas da planilha (arquivo ou colar). O servidor reclassifica tudo
@@ -296,49 +291,61 @@ export async function importarProspeccoes(linhas: LinhaImportacao[]): Promise<{
 }
 
 /**
- * Antes de apagar leads, tira os ids deles dos `vinculados` dos leads que
- * continuam (os que eles listam e os que os listam).
+ * Apaga leads tirando, no mesmo lote, os ids deles dos `vinculados` dos leads
+ * que ficam (os que eles listam e os que os listam). Cada lead apagado vai
+ * inteiro num lote: se um lote falha, nenhum lead dele perde as ligações sem
+ * ser apagado. Lança erro com `removidos` = quantos já foram apagados.
  */
-async function desvincular(ids: string[]) {
-  const apagados = new Set(ids)
+async function excluirComLigacoes(ids: string[]): Promise<number> {
   const col = adminDb.collection(COLLECTION)
-  const remover = new Map<string, Set<string>>()
-  const marcar = (alvo: string, apagado: string) => {
-    if (apagados.has(alvo)) return
-    const s = remover.get(alvo) ?? new Set<string>()
-    s.add(apagado)
-    remover.set(alvo, s)
-  }
+  const ligacoes: [string, string][] = []
   for (let i = 0; i < ids.length; i += 300) {
     const docs = await adminDb.getAll(...ids.slice(i, i + 300).map((id) => col.doc(id)))
     for (const d of docs) {
       const v = d.data()?.vinculados
       if (!Array.isArray(v)) continue
-      for (const alvo of v) if (typeof alvo === 'string') marcar(alvo, d.id)
+      for (const alvo of v) if (typeof alvo === 'string') ligacoes.push([alvo, d.id])
     }
   }
   // Ligação gravada só de um lado (dado inconsistente): procura quem aponta
   // para os apagados.
+  const apagados = new Set(ids)
   for (let i = 0; i < ids.length; i += 30) {
     const q = await col.where('vinculados', 'array-contains-any', ids.slice(i, i + 30)).get()
     for (const d of q.docs) {
-      for (const v of d.data().vinculados as string[]) if (apagados.has(v)) marcar(d.id, v)
+      for (const v of d.data().vinculados as string[]) if (apagados.has(v)) ligacoes.push([d.id, v])
     }
   }
-  if (remover.size === 0) return
-  const alvos = [...remover.keys()]
+  const alvos = [...new Set(ligacoes.map(([alvo]) => alvo))]
   const existentes = new Set<string>()
   for (let i = 0; i < alvos.length; i += 300) {
     const docs = await adminDb.getAll(...alvos.slice(i, i + 300).map((id) => col.doc(id)))
     for (const d of docs) if (d.exists) existentes.add(d.id)
   }
-  await emLotes(
-    alvos
-      .filter((id) => existentes.has(id))
-      .map<OpLote>((id) => (b) =>
-        b.update(col.doc(id), { vinculados: FieldValue.arrayRemove(...remover.get(id)!) }),
-      ),
-  )
+
+  const plano = planoExclusao(ids, ligacoes, existentes)
+  let removidos = 0
+  try {
+    for (const lote of agruparEmLotes(plano, (p) => 1 + p.desligar.length, 400)) {
+      const batch = adminDb.batch()
+      for (const { id, desligar } of lote) {
+        for (const alvo of desligar) {
+          batch.update(col.doc(alvo), { vinculados: FieldValue.arrayRemove(id) })
+        }
+        batch.delete(col.doc(id))
+      }
+      await batch.commit()
+      removidos += lote.length
+    }
+  } catch (error) {
+    throw Object.assign(new Error(erroMsg(error, 'erro inesperado')), { removidos })
+  }
+  return removidos
+}
+
+function removidosAteErro(error: unknown): number {
+  const n = (error as { removidos?: unknown })?.removidos
+  return typeof n === 'number' ? n : 0
 }
 
 /** Remove uma prospecção. */
@@ -350,11 +357,9 @@ export async function deleteProspeccao(id: string): Promise<{ success?: string; 
   }
   if (!id) return { error: 'ID inválido.' }
   try {
-    const ref = adminDb.collection(COLLECTION).doc(id)
-    const doc = await ref.get()
+    const doc = await adminDb.collection(COLLECTION).doc(id).get()
     if (!doc.exists) return { error: 'Registro não encontrado.' }
-    await desvincular([id])
-    await ref.delete()
+    await excluirComLigacoes([id])
     revalidar()
     return { success: 'Prospecção removida.' }
   } catch (error) {
@@ -374,19 +379,18 @@ export async function deleteProspeccoes(
   const unicos = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => typeof x === 'string' && x))]
   if (unicos.length === 0) return { error: 'Nenhum registro selecionado.' }
   try {
-    await desvincular(unicos)
-    // Firestore aceita até 500 operações por batch.
-    for (let i = 0; i < unicos.length; i += 400) {
-      const batch = adminDb.batch()
-      for (const id of unicos.slice(i, i + 400)) {
-        batch.delete(adminDb.collection(COLLECTION).doc(id))
-      }
-      await batch.commit()
-    }
+    const removidos = await excluirComLigacoes(unicos)
     revalidar()
-    return { success: `${unicos.length} registro(s) removido(s).`, removidos: unicos.length }
+    return { success: `${removidos} registro(s) removido(s).`, removidos }
   } catch (error) {
-    return { error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}` }
+    const removidos = removidosAteErro(error)
+    if (removidos) revalidar()
+    return {
+      error: `Erro ao remover: ${erroMsg(error, 'erro inesperado')}${
+        removidos ? ` ${removidos} registro(s) foram removidos antes do erro.` : ''
+      }`,
+      removidos,
+    }
   }
 }
 
