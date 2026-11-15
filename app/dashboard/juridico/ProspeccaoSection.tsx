@@ -49,6 +49,7 @@ import {
 } from './prospeccao-actions'
 import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import ImportarPlanilhaModal from './ImportarPlanilhaModal'
+import BarraRolagemHorizontal from './BarraRolagemHorizontal'
 import { grupoVinculado } from './prospeccao-importacao'
 import {
   CAMPO_PENDENTE_LABEL,
@@ -465,6 +466,8 @@ export default function ProspeccaoSection({
 
   // Tela cheia: a lista cobre o painel inteiro (menu lateral incluso).
   const [telaCheia, setTelaCheia] = useState(false)
+  // Caixa da tabela: a barra horizontal do rodapé fixo rola ela.
+  const [caixaTabela, setCaixaTabela] = useState<HTMLDivElement | null>(null)
   useEffect(() => {
     if (!telaCheia) return
     const overflowAnterior = document.body.style.overflow
@@ -1079,10 +1082,11 @@ export default function ProspeccaoSection({
         </div>
       ) : (
         <>
-        {/* Altura limitada à tela: a barra de rolagem horizontal fica sempre
-            visível no rodapé da caixa e o cabeçalho das colunas fica fixo. */}
+        {/* Altura limitada à tela: o cabeçalho das colunas fica fixo. A rolagem
+            horizontal fica no rodapé fixo (BarraRolagemHorizontal). */}
         <div
-          className={`hidden overflow-auto rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
+          ref={setCaixaTabela}
+          className={`hidden overflow-y-auto overflow-x-hidden rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
             telaCheia ? 'max-h-[calc(100dvh-14rem)]' : 'max-h-[calc(100dvh-8rem)]'
           }`}
         >
@@ -1212,6 +1216,12 @@ export default function ProspeccaoSection({
           ))}
         </div>
 
+        {/* Rodapé fixo no fundo da tela: barra de rolagem horizontal da
+            tabela + paginação. */}
+        <div className="sticky bottom-0 z-20 -mx-1 space-y-2 bg-neutral-50 px-1 pb-3 pt-2 empty:hidden adobe-dark:bg-[var(--color-adobe-bg-1)]">
+        <div className="hidden md:block empty:hidden">
+          <BarraRolagemHorizontal alvo={caixaTabela} />
+        </div>
         {totalPages > 1 && (
           <div className="flex flex-col items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xs sm:flex-row">
             <span className="text-xs text-neutral-500">
@@ -1237,6 +1247,7 @@ export default function ProspeccaoSection({
             </div>
           </div>
         )}
+        </div>
         </>
       )}
 
