@@ -50,6 +50,7 @@ import {
 import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import ImportarPlanilhaModal from './ImportarPlanilhaModal'
 import BarraRolagemHorizontal from './BarraRolagemHorizontal'
+import { useAlturaAteRodape } from './useAlturaAteRodape'
 import { grupoVinculado } from './prospeccao-importacao'
 import {
   CAMPO_PENDENTE_LABEL,
@@ -468,6 +469,10 @@ export default function ProspeccaoSection({
   const [telaCheia, setTelaCheia] = useState(false)
   // Caixa da tabela: a barra horizontal do rodapé fixo rola ela.
   const [caixaTabela, setCaixaTabela] = useState<HTMLDivElement | null>(null)
+  const [rodapeFixo, setRodapeFixo] = useState<HTMLDivElement | null>(null)
+  // A tabela cabe inteira na tela, até o rodapé fixo: o fim dela fica visível
+  // sem rolar a página.
+  const alturaTabela = useAlturaAteRodape(caixaTabela, rodapeFixo)
   useEffect(() => {
     if (!telaCheia) return
     const overflowAnterior = document.body.style.overflow
@@ -1082,10 +1087,12 @@ export default function ProspeccaoSection({
         </div>
       ) : (
         <>
-        {/* Altura limitada à tela: o cabeçalho das colunas fica fixo. A rolagem
-            horizontal fica no rodapé fixo (BarraRolagemHorizontal). */}
+        {/* Altura até o rodapé fixo: a tabela cabe na tela e o cabeçalho das
+            colunas fica fixo. A rolagem horizontal fica no rodapé
+            (BarraRolagemHorizontal). */}
         <div
           ref={setCaixaTabela}
+          style={alturaTabela ? { maxHeight: alturaTabela } : undefined}
           className={`hidden overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
             telaCheia ? 'max-h-[calc(100dvh-14rem)]' : 'max-h-[calc(100dvh-8rem)]'
           }`}
@@ -1218,7 +1225,9 @@ export default function ProspeccaoSection({
 
         {/* Rodapé fixo no fundo da tela: barra de rolagem horizontal da
             tabela + paginação. */}
-        <div className="sticky bottom-0 z-20 -mx-1 space-y-2 bg-neutral-50 px-1 pb-3 pt-2 empty:hidden adobe-dark:bg-[var(--color-adobe-bg-1)]">
+        <div
+          ref={setRodapeFixo}
+          className="sticky bottom-0 z-20 -mx-1 space-y-2 bg-neutral-50 px-1 pb-3 pt-2 empty:hidden adobe-dark:bg-[var(--color-adobe-bg-1)]">
         <div className="hidden md:block empty:hidden">
           <BarraRolagemHorizontal alvo={caixaTabela} />
         </div>
