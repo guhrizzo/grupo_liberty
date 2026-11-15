@@ -20,6 +20,8 @@ import {
   IconFilterOff,
   IconClipboardCheck,
   IconChevronDown,
+  IconLink,
+  IconX,
 } from '@tabler/icons-react'
 import {
   Button,
@@ -47,6 +49,7 @@ import {
 } from './prospeccao-actions'
 import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import ImportarPlanilhaModal from './ImportarPlanilhaModal'
+import { grupoVinculado } from './prospeccao-importacao'
 import {
   CAMPO_PENDENTE_LABEL,
   pendenciasParaProposta,
@@ -266,18 +269,37 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+/** Selo "🔗 N relacionados": clicar filtra a lista para o grupo de leads ligados. */
+function SeloRelacionados({ n, onClick }: { n: number; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Mostrar só os leads relacionados"
+      className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 hover:bg-amber-100"
+    >
+      <IconLink size={11} stroke={2.4} />
+      {n} relacionado{n === 1 ? '' : 's'}
+    </button>
+  )
+}
+
 function CartaoProspeccao({
   p,
   selecionado,
   onSelecionar,
   onVisita,
   acoes,
+  relacionados,
+  onRelacionados,
 }: {
   p: Prospeccao
   selecionado: boolean
   onSelecionar: () => void
   onVisita: () => void
   acoes: React.ReactNode
+  relacionados: number
+  onRelacionados: () => void
 }) {
   const ou = (v: string) => v || 'Não consta'
   const parcelas =
@@ -303,6 +325,11 @@ function CartaoProspeccao({
         />
         <div className="min-w-0 flex-1">
           <h3 className="break-words text-sm font-bold text-neutral-900">{p.nomeExecutado}</h3>
+          {relacionados > 0 && (
+            <div className="mt-1">
+              <SeloRelacionados n={relacionados} onClick={onRelacionados} />
+            </div>
+          )}
           <p className="mt-0.5 text-xs text-neutral-500">
             {p.cpfCnpj || 'CPF não consta'}
             {p.comarca ? ` · ${p.comarca}` : ''}
@@ -801,11 +828,35 @@ export default function ProspeccaoSection({
     })
   }, [itens, debouncedSearch])
 
+  // Leads ligados (importação de divergentes): tamanho do grupo de cada um e,
+  // quando o selo é clicado, o grupo que filtra a lista.
+  const relacionados = useMemo(() => {
+    const qtd = new Map<string, number>()
+    const ids = new Set(itens.map((p) => p.id))
+    for (const p of itens) {
+      if (qtd.has(p.id) || !p.vinculados.some((v) => ids.has(v) && v !== p.id)) continue
+      const grupo = grupoVinculado(p.id, itens)
+      for (const id of grupo) qtd.set(id, grupo.size - 1)
+    }
+    return qtd
+  }, [itens])
+  const [grupoDe, setGrupoDe] = useState<Prospeccao | null>(null)
+  const grupoIds = useMemo(() => (grupoDe ? grupoVinculado(grupoDe.id, itens) : null), [grupoDe, itens])
+
+  function verRelacionados(p: Prospeccao) {
+    setGrupoDe(p)
+    setPage(1)
+  }
+
   const filtrados = useMemo(
-    () => ordenar(aplicarFiltros(buscados, filtros), ordem),
-    [buscados, filtros, ordem],
+    () =>
+      ordenar(
+        aplicarFiltros(grupoIds ? buscados.filter((p) => grupoIds.has(p.id)) : buscados, filtros),
+        ordem,
+      ),
+    [buscados, grupoIds, filtros, ordem],
   )
-  const qtdFiltros = totalFiltrosAtivos(filtros) + (ordem ? 1 : 0)
+  const qtdFiltros = totalFiltrosAtivos(filtros) + (ordem ? 1 : 0) + (grupoDe ? 1 : 0)
 
   function aplicarFiltro(key: ColunaFiltro, sel: Set<string> | null) {
     setFiltros((prev) => {
@@ -825,6 +876,7 @@ export default function ProspeccaoSection({
   function limparFiltros() {
     setFiltros({})
     setOrdem(null)
+    setGrupoDe(null)
     setPage(1)
   }
 
@@ -948,6 +1000,27 @@ export default function ProspeccaoSection({
           </Button>
         )}
       </div>
+
+      {grupoDe && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <IconLink size={14} stroke={2.2} className="shrink-0" />
+          <span className="min-w-0 flex-1">
+            Mostrando leads relacionados a <strong>{grupoDe.nomeExecutado}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setGrupoDe(null)
+              setPage(1)
+            }}
+            aria-label="Voltar à lista completa"
+            title="Voltar à lista completa"
+            className="cursor-pointer rounded p-0.5 hover:bg-amber-100"
+          >
+            <IconX size={14} stroke={2.4} />
+          </button>
+        </div>
+      )}
 
       {totalFiltrosAtivos(filtros) > 0 && (
         <p className="text-xs text-neutral-500">
@@ -1094,6 +1167,11 @@ export default function ProspeccaoSection({
                             <div>{p.endereco}</div>
                             <LinksMapa endereco={p.endereco} />
                           </div>
+                        ) : key === 'nomeExecutado' && relacionados.get(p.id) ? (
+                          <span className="inline-flex items-center gap-2">
+                            {celula(p, key)}
+                            <SeloRelacionados n={relacionados.get(p.id)!} onClick={() => verRelacionados(p)} />
+                          </span>
                         ) : (
                           celula(p, key)
                         )}
@@ -1128,6 +1206,8 @@ export default function ProspeccaoSection({
               onSelecionar={() => alternar(p.id)}
               onVisita={() => setVisitasDe(p)}
               acoes={acoes(p, true)}
+              relacionados={relacionados.get(p.id) ?? 0}
+              onRelacionados={() => verRelacionados(p)}
             />
           ))}
         </div>
