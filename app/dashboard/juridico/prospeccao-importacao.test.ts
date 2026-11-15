@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { normalizarProspeccao, parseLinhasPlanilha, parseValor } from './prospeccao-parse'
 import {
+  agruparEmLotes,
   aplicarMapa,
   celulaParaTexto,
   classificarLinhas,
@@ -227,5 +228,21 @@ describe('grupoVinculado', () => {
       { id: 'd', vinculados: [] },
     ]
     expect(grupoVinculado('a', itens)).toEqual(new Set(['a', 'b', 'c']))
+  })
+})
+
+describe('agruparEmLotes', () => {
+  it('nunca separa as operações de uma linha entre lotes e respeita o limite', () => {
+    // custo = 1 set + N updates de ligação
+    const linhas = [3, 2, 2, 1]
+    expect(agruparEmLotes(linhas, (c) => c, 4)).toEqual([[3], [2, 2], [1]])
+  })
+  it('linha maior que o limite fica sozinha num lote', () => {
+    expect(agruparEmLotes([1, 9, 1], (c) => c, 4)).toEqual([[1], [9], [1]])
+  })
+  it('400 linhas de custo 1 + 1 divergente cabem em 2 lotes sem partir a linha', () => {
+    const linhas = [...Array(399).fill(1), 2]
+    const lotes = agruparEmLotes(linhas, (c) => c, 400)
+    expect(lotes.map((l) => l.length)).toEqual([399, 1])
   })
 })

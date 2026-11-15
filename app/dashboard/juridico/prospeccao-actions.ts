@@ -6,7 +6,7 @@ import { adminDb } from '@/utils/firebase/admin'
 import { assertAlgumaAba, isAdmSupremo } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
 import { normalizarProspeccao } from './prospeccao-parse'
-import { classificarLinhas, linhasParaGravar } from './prospeccao-importacao'
+import { agruparEmLotes, classificarLinhas, linhasParaGravar } from './prospeccao-importacao'
 import { emailValido } from './prospeccao-proposta'
 import {
   OBSERVACAO_MAX,
@@ -190,6 +190,8 @@ export async function importarProspeccoes(linhas: LinhaImportacao[]): Promise<{
     .filter((e) => e.dados.nomeExecutado)
   if (entradas.length === 0) return { error: 'Nenhuma linha com nome do executado.' }
 
+  let gravados = 0
+
   try {
     const snap = await adminDb.collection(COLLECTION).get()
     const existentes = snap.docs.map((d) => ({
@@ -214,15 +216,31 @@ export async function importarProspeccoes(linhas: LinhaImportacao[]): Promise<{
     const col = adminDb.collection(COLLECTION)
     const refs = new Map(gravar.map((i) => [i, col.doc()]))
     const vinculos = new Map<number, Set<string>>(gravar.map((i) => [i, new Set<string>()]))
-    const novosNosExistentes = new Map<string, Set<string>>()
+    // Leads cadastrados que cada linha liga (recebem o id novo de volta).
+    const ligaExistentes = new Map<number, string[]>(gravar.map((i) => [i, []]))
+
+    // Confere logo antes de gravar se os leads a ligar ainda existem: um
+    // update num doc apagado nesse meio-tempo derrubaria o lote inteiro.
+    const alvos = [
+      ...new Set(
+        gravar.flatMap((i) =>
+          classificadas[i].correspondencias.flatMap((c) => (c.ref.tipo === 'existente' ? [c.ref.id] : [])),
+        ),
+      ),
+    ]
+    const aindaExistem = new Set<string>()
+    for (let k = 0; k < alvos.length; k += 300) {
+      const docs = await adminDb.getAll(...alvos.slice(k, k + 300).map((id) => col.doc(id)))
+      for (const d of docs) if (d.exists) aindaExistem.add(d.id)
+    }
+
     for (const i of gravar) {
       const id = refs.get(i)!.id
       for (const c of classificadas[i].correspondencias) {
         if (c.ref.tipo === 'existente') {
+          if (!aindaExistem.has(c.ref.id)) continue
           vinculos.get(i)!.add(c.ref.id)
-          const s = novosNosExistentes.get(c.ref.id) ?? new Set<string>()
-          s.add(id)
-          novosNosExistentes.set(c.ref.id, s)
+          ligaExistentes.get(i)!.push(c.ref.id)
         } else {
           // Linha do próprio lote: liga só se ela também está sendo gravada.
           const outra = refs.get(c.ref.indice)
@@ -236,30 +254,44 @@ export async function importarProspeccoes(linhas: LinhaImportacao[]): Promise<{
     // Mantém a ordem da planilha na listagem (mais recente primeiro): cada
     // linha recebe um created_at 1ms menor que a anterior.
     const base = Date.now()
-    const ops: OpLote[] = gravar.map((i, n) => {
-      const ts = new Date(base - n).toISOString()
-      return (b) =>
-        b.set(refs.get(i)!, {
+    const ordem = new Map(gravar.map((i, n) => [i, n]))
+    // Cada linha vai inteira (o lead novo + as ligações de volta) num lote:
+    // se um lote falhar, as linhas dos anteriores já estão completas.
+    const lotes = agruparEmLotes(gravar, (i) => 1 + ligaExistentes.get(i)!.length, 400)
+    for (const lote of lotes) {
+      const batch = adminDb.batch()
+      for (const i of lote) {
+        const ts = new Date(base - ordem.get(i)!).toISOString()
+        const novoId = refs.get(i)!.id
+        batch.set(refs.get(i)!, {
           ...paraGravar(entradas[i].dados),
           vinculados: [...vinculos.get(i)!],
           created_by: user.uid,
           created_at: ts,
           updated_at: ts,
         })
-    })
-    for (const [id, novos] of novosNosExistentes) {
-      ops.push((b) => b.update(col.doc(id), { vinculados: FieldValue.arrayUnion(...novos) }))
+        for (const alvo of ligaExistentes.get(i)!) {
+          batch.update(col.doc(alvo), { vinculados: FieldValue.arrayUnion(novoId) })
+        }
+      }
+      await batch.commit()
+      gravados += lote.length
     }
-    await emLotes(ops)
     revalidar()
     return {
-      success: resumoImportacao(gravar.length, duplicados, pendentes),
-      importados: gravar.length,
+      success: resumoImportacao(gravados, duplicados, pendentes),
+      importados: gravados,
       duplicados,
       pendentes,
     }
   } catch (error) {
-    return { error: `Erro ao importar: ${erroMsg(error, 'erro inesperado')}` }
+    if (gravados > 0) revalidar()
+    return {
+      error: `Erro ao importar: ${erroMsg(error, 'erro inesperado')}${
+        gravados ? ` ${gravados} lead(s) foram gravados antes do erro.` : ''
+      }`,
+      importados: gravados,
+    }
   }
 }
 

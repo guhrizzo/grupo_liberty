@@ -172,9 +172,11 @@ export default function ImportarPlanilhaModal({
         setProgresso({ parte: p + 1, total })
         const res = await importarProspeccoes(linhas.slice(p * PARTE, (p + 1) * PARTE))
         if (res.error) {
+          // O servidor informa quantos gravou desta parte antes do erro.
+          importados += res.importados ?? 0
           toast.error(
             total > 1
-              ? `Parte ${p + 1} de ${total}: ${res.error} ${importados} lead(s) já tinham entrado.`
+              ? `Parte ${p + 1} de ${total}: ${res.error} No total, ${importados} lead(s) entraram.`
               : res.error,
           )
           await onImportado()

@@ -275,3 +275,26 @@ export function grupoVinculado(
   }
   return grupo
 }
+
+/**
+ * Agrupa itens em lotes cujo custo somado não passa do limite, sem nunca
+ * separar um item entre lotes (cada lote do Firestore é tudo-ou-nada: assim
+ * uma linha e suas ligações entram ou falham juntas).
+ */
+export function agruparEmLotes<T>(itens: T[], custo: (t: T) => number, limite: number): T[][] {
+  const lotes: T[][] = []
+  let atual: T[] = []
+  let soma = 0
+  for (const item of itens) {
+    const c = custo(item)
+    if (atual.length > 0 && soma + c > limite) {
+      lotes.push(atual)
+      atual = []
+      soma = 0
+    }
+    atual.push(item)
+    soma += c
+  }
+  if (atual.length > 0) lotes.push(atual)
+  return lotes
+}
