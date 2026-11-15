@@ -31,17 +31,22 @@ describe('celulaParaTexto', () => {
   })
 })
 
-describe('normalizarProspeccao — CPF/CNPJ sem zeros à esquerda', () => {
+describe('importação da planilha — CPF/CNPJ sem zeros à esquerda', () => {
+  const cpf = (v: string) => aplicarMapa([['A', v]], ['nomeExecutado', 'cpfCnpj']).registros[0].cpfCnpj
   it('CPF com 10 dígitos volta a 11', () => {
-    expect(normalizarProspeccao({ nomeExecutado: 'A', cpfCnpj: '1234567890' }).cpfCnpj).toBe('01234567890')
+    expect(cpf('1234567890')).toBe('01234567890')
   })
   it('CNPJ com 13 dígitos volta a 14', () => {
-    expect(normalizarProspeccao({ nomeExecutado: 'A', cpfCnpj: '1234567890123' }).cpfCnpj).toBe(
-      '01234567890123',
-    )
+    expect(cpf('1234567890123')).toBe('01234567890123')
   })
   it('CPF com máscara fica como veio', () => {
-    expect(normalizarProspeccao({ nomeExecutado: 'A', cpfCnpj: '123.456.789-01' }).cpfCnpj).toBe('123.456.789-01')
+    expect(cpf('123.456.789-01')).toBe('123.456.789-01')
+  })
+})
+
+describe('cadastro manual — CPF fica como foi digitado', () => {
+  it('não completa CPF com dígito faltando', () => {
+    expect(normalizarProspeccao({ nomeExecutado: 'A', cpfCnpj: '1234567890' }).cpfCnpj).toBe('1234567890')
   })
 })
 

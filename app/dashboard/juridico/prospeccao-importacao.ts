@@ -106,6 +106,19 @@ export function trocarCampo(mapa: MapaColunas, coluna: number, campo: Campo | nu
 }
 
 /**
+ * CPF/CNPJ salvo como número no Excel perde os zeros à esquerda. Só mexe em
+ * valor só de dígitos: 9–10 dígitos volta a CPF (11), 12–13 a CNPJ (14).
+ * Vale só na importação da planilha: no cadastro manual um dígito a menos é
+ * erro de digitação e não pode ser "completado".
+ */
+function completarZerosDocumento(doc: string): string {
+  if (!/^\d+$/.test(doc)) return doc
+  if (doc.length === 9 || doc.length === 10) return doc.padStart(11, '0')
+  if (doc.length === 12 || doc.length === 13) return doc.padStart(14, '0')
+  return doc
+}
+
+/**
  * Matriz + mapa → registros normalizados. Linhas sem nome do executado são
  * ignoradas. `origem[i]` é a linha da matriz do registro i (estável quando o
  * usuário troca colunas — usada para manter as confirmações da prévia).
@@ -123,6 +136,7 @@ export function aplicarMapa(
       if (campo) raw[campo] = linha[j] ?? ''
     })
     const reg = normalizarProspeccao(raw)
+    reg.cpfCnpj = completarZerosDocumento(reg.cpfCnpj)
     if (reg.nomeExecutado) {
       registros.push(reg)
       origem.push(l)
