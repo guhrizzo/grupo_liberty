@@ -1,10 +1,12 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { FieldValue } from 'firebase-admin/firestore'
 import { adminDb } from '@/utils/firebase/admin'
 import { assertAlgumaAba, isAdmSupremo } from '@/utils/permissions'
 import { encrypt, decrypt } from '@/utils/crypto'
-import { chavesDuplicidade, normalizarProspeccao } from './prospeccao-parse'
+import { normalizarProspeccao } from './prospeccao-parse'
+import { classificarLinhas, linhasParaGravar } from './prospeccao-importacao'
 import { emailValido } from './prospeccao-proposta'
 import {
   OBSERVACAO_MAX,
@@ -14,7 +16,13 @@ import {
   resultadoValido,
 } from './prospeccao-visita'
 import { sendProspeccaoOfertaEmail } from '@/utils/email/send-prospeccao-oferta-email'
-import type { Prospeccao, ProspeccaoInput, ProspeccaoResponse, VisitaLead } from './types'
+import type {
+  LinhaImportacao,
+  Prospeccao,
+  ProspeccaoInput,
+  ProspeccaoResponse,
+  VisitaLead,
+} from './types'
 
 // Prospecção de clientes do jurídico. CPF/CNPJ é gravado criptografado,
 // como o CPF dos processos (ver actions.ts).
@@ -128,10 +136,40 @@ export async function salvarProspeccao(
   }
 }
 
-/** Importa várias linhas coladas da planilha de uma vez. */
-export async function importarProspeccoes(
-  linhas: Partial<Record<keyof ProspeccaoInput, unknown>>[],
-): Promise<{ success?: string; error?: string; importados?: number }> {
+function resumoImportacao(importados: number, duplicados: number, pendentes: number): string {
+  return [
+    importados ? `${importados} importado(s).` : 'Nenhum lead importado.',
+    duplicados ? `${duplicados} já cadastrado(s) ignorado(s).` : '',
+    pendentes ? `${pendentes} divergente(s) sem confirmação não importado(s).` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+type OpLote = (b: FirebaseFirestore.WriteBatch) => void
+
+/** Executa operações em lotes (o Firestore aceita até 500 por batch). */
+async function emLotes(ops: OpLote[]) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const batch = adminDb.batch()
+    ops.slice(i, i + 400).forEach((op) => op(batch))
+    await batch.commit()
+  }
+}
+
+/**
+ * Importa linhas da planilha (arquivo ou colar). O servidor reclassifica tudo
+ * contra o cadastro (não confia na prévia): duplicados são ignorados;
+ * divergentes só entram com `confirmado` e entram ligados (nos dois sentidos)
+ * aos leads com que batem.
+ */
+export async function importarProspeccoes(linhas: LinhaImportacao[]): Promise<{
+  success?: string
+  error?: string
+  importados?: number
+  duplicados?: number
+  pendentes?: number
+}> {
   let user
   try {
     user = await assertAcesso()
@@ -144,58 +182,131 @@ export async function importarProspeccoes(
     return { error: `Importe no máximo ${IMPORT_MAX} linhas por vez.` }
   }
 
-  const validos = linhas.map(normalizarProspeccao).filter((d) => d.nomeExecutado)
-  if (validos.length === 0) return { error: 'Nenhuma linha com nome do executado.' }
+  const entradas = linhas
+    .map((l) => ({
+      dados: normalizarProspeccao(l && typeof l.dados === 'object' && l.dados ? l.dados : {}),
+      confirmado: l?.confirmado === true,
+    }))
+    .filter((e) => e.dados.nomeExecutado)
+  if (entradas.length === 0) return { error: 'Nenhuma linha com nome do executado.' }
 
   try {
-    // Não duplica leads: ignora linhas que já existem no cadastro ou que se
-    // repetem dentro da própria planilha.
-    const existentes = await adminDb.collection(COLLECTION).get()
-    const vistas = new Set<string>()
-    for (const d of existentes.docs) {
-      const reg = normalizarProspeccao({ ...d.data(), cpfCnpj: decryptOrRaw(d.data().cpfCnpj) })
-      chavesDuplicidade(reg).forEach((k) => vistas.add(k))
+    const snap = await adminDb.collection(COLLECTION).get()
+    const existentes = snap.docs.map((d) => ({
+      id: d.id,
+      dados: normalizarProspeccao({ ...d.data(), cpfCnpj: decryptOrRaw(d.data().cpfCnpj) }),
+    }))
+    const classificadas = classificarLinhas(
+      entradas.map((e) => e.dados),
+      existentes,
+    )
+    const confirmados = new Set(entradas.flatMap((e, i) => (e.confirmado ? [i] : [])))
+    const gravar = linhasParaGravar(classificadas, confirmados)
+    const duplicados = classificadas.filter((l) => l.classe === 'duplicado').length
+    const pendentes = classificadas.filter(
+      (l) => l.classe === 'divergente' && !confirmados.has(l.indice),
+    ).length
+
+    if (gravar.length === 0) {
+      return { error: resumoImportacao(0, duplicados, pendentes), duplicados, pendentes }
     }
-    const novos = validos.filter((dados) => {
-      const chaves = chavesDuplicidade(dados)
-      if (chaves.some((k) => vistas.has(k))) return false
-      chaves.forEach((k) => vistas.add(k))
-      return true
-    })
-    const duplicados = validos.length - novos.length
-    if (novos.length === 0) {
-      return {
-        error:
-          validos.length === 1
-            ? 'Esse lead já está cadastrado.'
-            : `Todos os ${validos.length} leads já estão cadastrados.`,
+
+    const col = adminDb.collection(COLLECTION)
+    const refs = new Map(gravar.map((i) => [i, col.doc()]))
+    const vinculos = new Map<number, Set<string>>(gravar.map((i) => [i, new Set<string>()]))
+    const novosNosExistentes = new Map<string, Set<string>>()
+    for (const i of gravar) {
+      const id = refs.get(i)!.id
+      for (const c of classificadas[i].correspondencias) {
+        if (c.ref.tipo === 'existente') {
+          vinculos.get(i)!.add(c.ref.id)
+          const s = novosNosExistentes.get(c.ref.id) ?? new Set<string>()
+          s.add(id)
+          novosNosExistentes.set(c.ref.id, s)
+        } else {
+          // Linha do próprio lote: liga só se ela também está sendo gravada.
+          const outra = refs.get(c.ref.indice)
+          if (!outra) continue
+          vinculos.get(i)!.add(outra.id)
+          vinculos.get(c.ref.indice)!.add(id)
+        }
       }
     }
 
-    const batch = adminDb.batch()
     // Mantém a ordem da planilha na listagem (mais recente primeiro): cada
     // linha recebe um created_at 1ms menor que a anterior.
     const base = Date.now()
-    novos.forEach((dados, i) => {
-      const ts = new Date(base - i).toISOString()
-      batch.set(adminDb.collection(COLLECTION).doc(), {
-        ...paraGravar(dados),
-        created_by: user.uid,
-        created_at: ts,
-        updated_at: ts,
-      })
+    const ops: OpLote[] = gravar.map((i, n) => {
+      const ts = new Date(base - n).toISOString()
+      return (b) =>
+        b.set(refs.get(i)!, {
+          ...paraGravar(entradas[i].dados),
+          vinculados: [...vinculos.get(i)!],
+          created_by: user.uid,
+          created_at: ts,
+          updated_at: ts,
+        })
     })
-    await batch.commit()
+    for (const [id, novos] of novosNosExistentes) {
+      ops.push((b) => b.update(col.doc(id), { vinculados: FieldValue.arrayUnion(...novos) }))
+    }
+    await emLotes(ops)
     revalidar()
     return {
-      success:
-        `${novos.length} registro(s) importado(s).` +
-        (duplicados ? ` ${duplicados} já cadastrado(s) foram ignorados.` : ''),
-      importados: novos.length,
+      success: resumoImportacao(gravar.length, duplicados, pendentes),
+      importados: gravar.length,
+      duplicados,
+      pendentes,
     }
   } catch (error) {
     return { error: `Erro ao importar: ${erroMsg(error, 'erro inesperado')}` }
   }
+}
+
+/**
+ * Antes de apagar leads, tira os ids deles dos `vinculados` dos leads que
+ * continuam (os que eles listam e os que os listam).
+ */
+async function desvincular(ids: string[]) {
+  const apagados = new Set(ids)
+  const col = adminDb.collection(COLLECTION)
+  const remover = new Map<string, Set<string>>()
+  const marcar = (alvo: string, apagado: string) => {
+    if (apagados.has(alvo)) return
+    const s = remover.get(alvo) ?? new Set<string>()
+    s.add(apagado)
+    remover.set(alvo, s)
+  }
+  for (let i = 0; i < ids.length; i += 300) {
+    const docs = await adminDb.getAll(...ids.slice(i, i + 300).map((id) => col.doc(id)))
+    for (const d of docs) {
+      const v = d.data()?.vinculados
+      if (!Array.isArray(v)) continue
+      for (const alvo of v) if (typeof alvo === 'string') marcar(alvo, d.id)
+    }
+  }
+  // Ligação gravada só de um lado (dado inconsistente): procura quem aponta
+  // para os apagados.
+  for (let i = 0; i < ids.length; i += 30) {
+    const q = await col.where('vinculados', 'array-contains-any', ids.slice(i, i + 30)).get()
+    for (const d of q.docs) {
+      for (const v of d.data().vinculados as string[]) if (apagados.has(v)) marcar(d.id, v)
+    }
+  }
+  if (remover.size === 0) return
+  const alvos = [...remover.keys()]
+  const existentes = new Set<string>()
+  for (let i = 0; i < alvos.length; i += 300) {
+    const docs = await adminDb.getAll(...alvos.slice(i, i + 300).map((id) => col.doc(id)))
+    for (const d of docs) if (d.exists) existentes.add(d.id)
+  }
+  await emLotes(
+    alvos
+      .filter((id) => existentes.has(id))
+      .map<OpLote>((id) => (b) =>
+        b.update(col.doc(id), { vinculados: FieldValue.arrayRemove(...remover.get(id)!) }),
+      ),
+  )
 }
 
 /** Remove uma prospecção. */
@@ -210,6 +321,7 @@ export async function deleteProspeccao(id: string): Promise<{ success?: string; 
     const ref = adminDb.collection(COLLECTION).doc(id)
     const doc = await ref.get()
     if (!doc.exists) return { error: 'Registro não encontrado.' }
+    await desvincular([id])
     await ref.delete()
     revalidar()
     return { success: 'Prospecção removida.' }
@@ -230,6 +342,7 @@ export async function deleteProspeccoes(
   const unicos = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => typeof x === 'string' && x))]
   if (unicos.length === 0) return { error: 'Nenhum registro selecionado.' }
   try {
+    await desvincular(unicos)
     // Firestore aceita até 500 operações por batch.
     for (let i = 0; i < unicos.length; i += 400) {
       const batch = adminDb.batch()

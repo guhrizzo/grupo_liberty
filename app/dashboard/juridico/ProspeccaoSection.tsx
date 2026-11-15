@@ -533,7 +533,7 @@ export default function ProspeccaoSection({
     if (submitting || previa.length === 0) return
     setSubmitting(true)
     try {
-      const res = await importarProspeccoes(previa)
+      const res = await importarProspeccoes(previa.map((dados) => ({ dados, confirmado: false })))
       if (res.error) {
         toast.error(res.error)
         return
