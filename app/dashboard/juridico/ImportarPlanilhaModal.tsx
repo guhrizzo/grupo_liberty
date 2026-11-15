@@ -2,11 +2,11 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { IconAlertTriangle, IconFileSpreadsheet, IconLink } from '@tabler/icons-react'
-import { Button, Modal, SegmentedControl, Textarea, useToast } from '@/app/components/ui'
+import { Button, Modal, SegmentedControl, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone } from '@/utils/masks'
 import { importarProspeccoes } from './prospeccao-actions'
-import { PROSPECCAO_COLUNAS, lerTsv } from './prospeccao-parse'
+import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import {
   CAMPOS_COMPARADOS,
   aplicarMapa,
@@ -64,25 +64,30 @@ export default function ImportarPlanilhaModal({
   const toast = useToast()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const [fonte, setFonte] = useState<'arquivo' | 'colar'>('arquivo')
-  const [arquivo, setArquivo] = useState<{ nome: string; abas: AbaPlanilha[] } | null>(null)
+  const [arquivo, setArquivo] = useState<{
+    nome: string
+    abas: AbaPlanilha[]
+  } | null>(null)
   const [abaIdx, setAbaIdx] = useState(0)
   const [lendo, setLendo] = useState(false)
-  const [texto, setTexto] = useState('')
   const [vista, setVista] = useState<Vista>('novos')
-  const [progresso, setProgresso] = useState<{ parte: number; total: number } | null>(null)
+  const [progresso, setProgresso] = useState<{
+    parte: number
+    total: number
+  } | null>(null)
 
   // Ajustes valem só para a leitura em que foram feitos: trocar de arquivo,
   // aba ou texto volta ao mapa detectado e zera as confirmações.
-  const [ajusteMapa, setAjusteMapa] = useState<{ base: LeituraMatriz; mapa: MapaColunas } | null>(null)
-  const [ajusteConf, setAjusteConf] = useState<{ base: LinhaClassificada[]; marcados: Set<number> } | null>(
-    null,
-  )
+  const [ajusteMapa, setAjusteMapa] = useState<{
+    base: LeituraMatriz
+    mapa: MapaColunas
+  } | null>(null)
+  const [ajusteConf, setAjusteConf] = useState<{
+    base: LinhaClassificada[]
+    marcados: Set<number>
+  } | null>(null)
 
-  const linhasBrutas = useMemo(() => {
-    if (fonte === 'arquivo') return arquivo?.abas[abaIdx]?.linhas ?? []
-    return lerTsv(texto)
-  }, [fonte, arquivo, abaIdx, texto])
+  const linhasBrutas = useMemo(() => arquivo?.abas[abaIdx]?.linhas ?? [], [arquivo, abaIdx])
 
   const leitura = useMemo(() => lerMatriz(linhasBrutas), [linhasBrutas])
   const mapa = ajusteMapa?.base === leitura ? ajusteMapa.mapa : leitura.mapa
@@ -107,10 +112,8 @@ export default function ImportarPlanilhaModal({
   const importando = progresso !== null
 
   function limpar() {
-    setFonte('arquivo')
     setArquivo(null)
     setAbaIdx(0)
-    setTexto('')
     setVista('novos')
     setAjusteMapa(null)
     setAjusteConf(null)
@@ -130,7 +133,6 @@ export default function ImportarPlanilhaModal({
       const abas = await lerArquivoPlanilha(file)
       setArquivo({ nome: file.name, abas })
       setAbaIdx(0)
-      setFonte('arquivo')
       setVista('novos')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível ler o arquivo.')
@@ -140,7 +142,10 @@ export default function ImportarPlanilhaModal({
   }
 
   function mudarCampo(coluna: number, valor: string) {
-    setAjusteMapa({ base: leitura, mapa: trocarCampo(mapa, coluna, valor ? (valor as Campo) : null) })
+    setAjusteMapa({
+      base: leitura,
+      mapa: trocarCampo(mapa, coluna, valor ? (valor as Campo) : null),
+    })
   }
 
   function marcar(indices: number[], ligado: boolean) {
@@ -180,7 +185,8 @@ export default function ImportarPlanilhaModal({
         pendServidor += res.pendentes ?? 0
       }
       const dup = duplicados.length + dupServidor
-      const pend = divergentes.length - divergentes.filter((l) => marcados.has(l.indice)).length + pendServidor
+      const pend =
+        divergentes.length - divergentes.filter((l) => marcados.has(l.indice)).length + pendServidor
       toast.success(
         [
           `${importados} lead(s) importado(s).`,
@@ -215,8 +221,14 @@ export default function ImportarPlanilhaModal({
 
   const opcoesVista = [
     { value: 'novos' as const, label: `Novos (${novos.length})` },
-    { value: 'divergentes' as const, label: `Divergentes (${divergentes.length})` },
-    { value: 'duplicados' as const, label: `Duplicados (${duplicados.length})` },
+    {
+      value: 'divergentes' as const,
+      label: `Divergentes (${divergentes.length})`,
+    },
+    {
+      value: 'duplicados' as const,
+      label: `Duplicados (${duplicados.length})`,
+    },
   ]
 
   return (
@@ -224,89 +236,58 @@ export default function ImportarPlanilhaModal({
       open={open}
       onClose={fechar}
       title="Importar planilha"
-      description="Carregue o arquivo do Excel (.xlsx, .xls ou .xml) ou cole as linhas copiadas. Confira as colunas e a prévia antes de importar."
+      description="Carregue o arquivo do Excel (.xlsx, .xls ou .xml). Confira as colunas e a prévia antes de importar."
       size="lg"
       className="max-h-[92vh] overflow-y-auto sm:max-w-6xl"
     >
       <div className="space-y-4 pt-2">
         {/* ── Entrada ─────────────────────────────────────────── */}
-        <div className="grid gap-3 md:grid-cols-2">
-          <div
-            className={`rounded-lg border p-3 ${
-              fonte === 'arquivo' ? 'border-liberty-deep/40 bg-liberty-deep/[0.03]' : 'border-neutral-200'
-            }`}
-          >
-            <p className="mb-2 text-xs font-semibold text-neutral-700">Arquivo do Excel</p>
-            <input
-              ref={inputRef}
-              type="file"
-              accept={EXTENSOES_PLANILHA}
-              className="hidden"
-              onChange={(e) => escolherArquivo(e.target.files?.[0])}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => inputRef.current?.click()}
-                disabled={lendo || importando}
-                leftIcon={<IconFileSpreadsheet size={16} stroke={2.2} />}
-              >
-                {lendo ? 'Lendo...' : arquivo ? 'Trocar arquivo' : 'Escolher arquivo'}
-              </Button>
-              {arquivo && (
-                <button
-                  type="button"
-                  onClick={() => setFonte('arquivo')}
-                  className="truncate text-xs text-neutral-600 underline-offset-2 hover:underline"
-                  title={arquivo.nome}
-                >
-                  {arquivo.nome}
-                </button>
-              )}
-            </div>
-            {arquivo && arquivo.abas.length > 1 && fonte === 'arquivo' && (
-              <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
-                Aba:
-                <select
-                  value={abaIdx}
-                  onChange={(e) => setAbaIdx(Number(e.target.value))}
-                  className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
-                >
-                  {arquivo.abas.map((a, i) => (
-                    <option key={a.nome + i} value={i}>
-                      {a.nome}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        <div className="rounded-lg border border-neutral-200 p-3">
+          <p className="mb-2 text-xs font-semibold text-neutral-700">Arquivo do Excel</p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={EXTENSOES_PLANILHA}
+            className="hidden"
+            onChange={(e) => escolherArquivo(e.target.files?.[0])}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => inputRef.current?.click()}
+              disabled={lendo || importando}
+              leftIcon={<IconFileSpreadsheet size={16} stroke={2.2} />}
+            >
+              {lendo ? 'Lendo...' : arquivo ? 'Trocar arquivo' : 'Escolher arquivo'}
+            </Button>
+            {arquivo && (
+              <span className="truncate text-xs text-neutral-600" title={arquivo.nome}>
+                {arquivo.nome}
+              </span>
             )}
           </div>
-          <div
-            className={`rounded-lg border p-3 ${
-              fonte === 'colar' ? 'border-liberty-deep/40 bg-liberty-deep/[0.03]' : 'border-neutral-200'
-            }`}
-          >
-            <p className="mb-2 text-xs font-semibold text-neutral-700">Ou cole da planilha</p>
-            <Textarea
-              value={texto}
-              onChange={(e) => {
-                setTexto(e.target.value)
-                setFonte('colar')
-              }}
-              onFocus={() => texto.trim() && setFonte('colar')}
-              rows={3}
-              placeholder="Cole aqui (Ctrl+V) as linhas copiadas, de preferência com o cabeçalho"
-              className="font-mono text-xs"
-            />
-          </div>
+          {arquivo && arquivo.abas.length > 1 && (
+            <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600">
+              Aba:
+              <select
+                value={abaIdx}
+                onChange={(e) => setAbaIdx(Number(e.target.value))}
+                className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs"
+              >
+                {arquivo.abas.map((a, i) => (
+                  <option key={a.nome + i} value={i}>
+                    {a.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
 
         {!temDados ? (
           <p className="text-xs text-neutral-500">
-            {fonte === 'arquivo' && arquivo
-              ? 'Nenhuma linha com dados nesta aba.'
-              : 'Aguardando o arquivo ou o conteúdo colado.'}
+            {arquivo ? 'Nenhuma linha com dados nesta aba.' : 'Aguardando o arquivo da planilha.'}
           </p>
         ) : (
           <>
@@ -324,7 +305,8 @@ export default function ImportarPlanilhaModal({
               {!temNome && (
                 <p className="flex items-center gap-1.5 rounded-md bg-rose-50 px-2.5 py-1.5 text-xs text-rose-700">
                   <IconAlertTriangle size={14} stroke={2.2} />
-                  Nenhuma coluna está marcada como &quot;Nome do Executado&quot;. O nome é obrigatório para importar.
+                  Nenhuma coluna está marcada como &quot;Nome do Executado&quot;. O nome é obrigatório para
+                  importar.
                 </p>
               )}
               <div className="max-h-72 overflow-auto rounded-lg border border-neutral-200">
@@ -334,7 +316,7 @@ export default function ImportarPlanilhaModal({
                       {mapa.map((campo, j) => (
                         <th
                           key={j}
-                          className={`min-w-[140px] border-b border-r border-neutral-200 px-2 py-1.5 align-top font-normal last:border-r-0 ${
+                          className={`min-w-35 border-b border-r border-neutral-200 px-2 py-1.5 align-top font-normal last:border-r-0 ${
                             campo ? '' : 'bg-amber-50'
                           }`}
                         >
@@ -371,7 +353,7 @@ export default function ImportarPlanilhaModal({
                         {linha.map((c, j) => (
                           <td
                             key={j}
-                            className={`max-w-[220px] truncate border-r border-neutral-100 px-2 py-1 last:border-r-0 ${
+                            className={`max-w-55 truncate border-r border-neutral-100 px-2 py-1 last:border-r-0 ${
                               mapa[j] ? 'text-neutral-800' : 'bg-amber-50/50 text-neutral-400'
                             }`}
                             title={c}
@@ -397,8 +379,8 @@ export default function ImportarPlanilhaModal({
               <p className="text-xs text-neutral-600">
                 <strong className="text-emerald-700">{novos.length} novo(s)</strong> ·{' '}
                 <strong className="text-amber-700">{divergentes.length} divergente(s)</strong> (precisam de
-                confirmação) · <strong className="text-neutral-700">{duplicados.length} duplicado(s)</strong> (não
-                serão importados)
+                confirmação) · <strong className="text-neutral-700">{duplicados.length} duplicado(s)</strong>{' '}
+                (não serão importados)
                 {ignoradas > 0 && <> · {ignoradas} linha(s) sem nome ignorada(s)</>}
               </p>
               <SegmentedControl
@@ -434,7 +416,7 @@ export default function ImportarPlanilhaModal({
                       Os marcados entram como lead novo, ligado ao lead parecido (aparece o selo{' '}
                       <IconLink size={11} className="inline" /> relacionados na lista).
                     </p>
-                    <div className="max-h-[28rem] space-y-2 overflow-auto pr-1">
+                    <div className="max-h-112 space-y-2 overflow-auto pr-1">
                       {divergentes.map((l) => (
                         <CartaoDivergente
                           key={l.indice}
@@ -548,7 +530,7 @@ function TabelaRegistros({ linhas }: { linhas: LinhaClassificada[] }) {
                 return (
                   <td
                     key={key}
-                    className={`px-2 py-1 ${key === 'endereco' ? 'min-w-[220px]' : 'whitespace-nowrap'} ${
+                    className={`px-2 py-1 ${key === 'endereco' ? 'min-w-55' : 'whitespace-nowrap'} ${
                       v === '—' ? 'text-neutral-300' : 'text-neutral-800'
                     }`}
                   >
