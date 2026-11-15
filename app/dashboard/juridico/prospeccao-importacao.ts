@@ -3,7 +3,12 @@
 // Lógica pura: usada pelo modal (prévia) e pelo servidor (reclassifica antes
 // de gravar — fonte da verdade).
 
-import { ORDEM_POSICIONAL, mapaCabecalho, normalizarProspeccao } from './prospeccao-parse'
+import {
+  ORDEM_POSICIONAL,
+  chavesDuplicidade,
+  mapaCabecalho,
+  normalizarProspeccao,
+} from './prospeccao-parse'
 import type { ProspeccaoInput } from './types'
 
 export type Campo = keyof ProspeccaoInput
@@ -117,4 +122,156 @@ export function aplicarMapa(
     else ignoradas++
   }
   return { registros, ignoradas }
+}
+
+// ─── Classificação: novo / duplicado / divergente ──────────────────────────
+
+/** Campos importantes para a prospecção (telefones são comparados à parte). */
+export const CAMPOS_COMPARADOS: Campo[] = [
+  'nomeExecutado',
+  'cpfCnpj',
+  'placa',
+  'numeroProcesso',
+  'comarca',
+  'endereco',
+  'veiculo',
+  'anoModelo',
+  'banco',
+  'valorEntrada',
+  'valorFinanciado',
+  'valorParcela',
+]
+
+export type CampoDivergente = Campo | 'telefones'
+export type Classe = 'novo' | 'duplicado' | 'divergente'
+export type Ref = { tipo: 'existente'; id: string } | { tipo: 'linha'; indice: number }
+
+export interface Correspondencia {
+  ref: Ref
+  divergencias: CampoDivergente[]
+}
+
+export interface LinhaClassificada {
+  indice: number
+  registro: ProspeccaoInput
+  classe: Classe
+  correspondencias: Correspondencia[]
+}
+
+/** Sem acento, minúsculas, só letras e números. */
+function normalizarComparacao(v: unknown): string {
+  return String(v ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function telefones(d: ProspeccaoInput): string[] {
+  return [d.telefone1, d.telefone2, d.telefone3].map((t) => t.replace(/\D/g, '')).filter(Boolean)
+}
+
+/**
+ * Campos em que a linha nova traz algo diferente do lead atual. Só conta o que
+ * a planilha tem: vazio na planilha nunca diverge; preenchido na planilha e
+ * vazio no cadastro diverge.
+ */
+export function divergencias(novo: ProspeccaoInput, atual: ProspeccaoInput): CampoDivergente[] {
+  const out: CampoDivergente[] = []
+  for (const campo of CAMPOS_COMPARADOS) {
+    const n = novo[campo]
+    const a = atual[campo]
+    if (typeof n === 'number' || n === null) {
+      if (n !== null && n !== a) out.push(campo)
+      continue
+    }
+    const nn = normalizarComparacao(n)
+    if (nn && nn !== normalizarComparacao(a)) out.push(campo)
+  }
+  const telNovos = telefones(novo)
+  const telAtuais = new Set(telefones(atual))
+  if (telNovos.length > 0 && !telNovos.some((t) => telAtuais.has(t))) out.push('telefones')
+  return out
+}
+
+/**
+ * Classifica cada linha contra os leads existentes e as linhas anteriores do
+ * próprio arquivo (exceto as duplicadas). Correspondência = alguma chave de
+ * chavesDuplicidade em comum. Duplicado se alguma correspondência não tem
+ * divergência; divergente se todas têm.
+ */
+export function classificarLinhas(
+  registros: ProspeccaoInput[],
+  existentes: { id: string; dados: ProspeccaoInput }[],
+): LinhaClassificada[] {
+  const indice = new Map<string, { ref: Ref; dados: ProspeccaoInput }[]>()
+  const indexar = (ref: Ref, dados: ProspeccaoInput) => {
+    for (const k of chavesDuplicidade(dados)) {
+      const lista = indice.get(k)
+      if (lista) lista.push({ ref, dados })
+      else indice.set(k, [{ ref, dados }])
+    }
+  }
+  for (const e of existentes) indexar({ tipo: 'existente', id: e.id }, e.dados)
+
+  const chaveRef = (r: Ref) => (r.tipo === 'existente' ? `e:${r.id}` : `l:${r.indice}`)
+
+  return registros.map((registro, i) => {
+    const vistos = new Set<string>()
+    const correspondencias: Correspondencia[] = []
+    for (const k of chavesDuplicidade(registro)) {
+      for (const c of indice.get(k) ?? []) {
+        const id = chaveRef(c.ref)
+        if (vistos.has(id)) continue
+        vistos.add(id)
+        correspondencias.push({ ref: c.ref, divergencias: divergencias(registro, c.dados) })
+      }
+    }
+    const classe: Classe =
+      correspondencias.length === 0
+        ? 'novo'
+        : correspondencias.some((c) => c.divergencias.length === 0)
+          ? 'duplicado'
+          : 'divergente'
+    if (classe !== 'duplicado') indexar({ tipo: 'linha', indice: i }, registro)
+    return { indice: i, registro, classe, correspondencias }
+  })
+}
+
+/** Índices que podem ser gravados: novos + divergentes confirmados. */
+export function linhasParaGravar(classificadas: LinhaClassificada[], confirmados: Set<number>): number[] {
+  return classificadas
+    .filter((l) => l.classe === 'novo' || (l.classe === 'divergente' && confirmados.has(l.indice)))
+    .map((l) => l.indice)
+}
+
+/** O lead e todos os ligados a ele, direta ou indiretamente, nos dois sentidos. */
+export function grupoVinculado(
+  id: string,
+  itens: { id: string; vinculados: string[] }[],
+): Set<string> {
+  const existe = new Set(itens.map((x) => x.id))
+  const vizinhos = new Map<string, Set<string>>()
+  const ligar = (a: string, b: string) => {
+    if (!vizinhos.has(a)) vizinhos.set(a, new Set())
+    vizinhos.get(a)!.add(b)
+  }
+  for (const x of itens) {
+    for (const v of x.vinculados) {
+      if (!existe.has(v) || v === x.id) continue
+      ligar(x.id, v)
+      ligar(v, x.id)
+    }
+  }
+  const grupo = new Set<string>([id])
+  const fila = [id]
+  while (fila.length) {
+    for (const v of vizinhos.get(fila.shift()!) ?? []) {
+      if (!grupo.has(v)) {
+        grupo.add(v)
+        fila.push(v)
+      }
+    }
+  }
+  return grupo
 }
