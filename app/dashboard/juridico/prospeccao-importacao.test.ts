@@ -7,6 +7,7 @@ import {
   celulaParaTexto,
   classificarLinhas,
   divergencias,
+  grupoRelacionados,
   grupoVinculado,
   lerMatriz,
   linhasParaGravar,
@@ -290,5 +291,21 @@ describe('celulasNotacaoCientifica', () => {
   })
   it('ignora colunas que não são CPF/telefone', () => {
     expect(celulasNotacaoCientifica([['1E+5']], ['endereco'])).toEqual([])
+  })
+})
+
+describe('grupoRelacionados (filtro do selo)', () => {
+  const itens = [
+    { id: 'a', vinculados: ['b'] },
+    { id: 'b', vinculados: ['a'] },
+  ]
+  it('sem filtro ativo devolve null', () => {
+    expect(grupoRelacionados(null, itens)).toBeNull()
+  })
+  it('devolve o grupo do lead filtrado', () => {
+    expect(grupoRelacionados('a', itens)).toEqual(new Set(['a', 'b']))
+  })
+  it('lead do filtro excluído desliga o filtro (lista completa, não vazia)', () => {
+    expect(grupoRelacionados('x', itens)).toBeNull()
   })
 })

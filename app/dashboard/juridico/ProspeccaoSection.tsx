@@ -51,7 +51,7 @@ import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import ImportarPlanilhaModal from './ImportarPlanilhaModal'
 import BarraRolagemHorizontal from './BarraRolagemHorizontal'
 import { useAlturaAteRodape } from './useAlturaAteRodape'
-import { grupoVinculado } from './prospeccao-importacao'
+import { grupoRelacionados, grupoVinculado } from './prospeccao-importacao'
 import {
   CAMPO_PENDENTE_LABEL,
   pendenciasParaProposta,
@@ -848,8 +848,13 @@ export default function ProspeccaoSection({
     }
     return qtd
   }, [itens])
-  const [grupoDe, setGrupoDe] = useState<Prospeccao | null>(null)
-  const grupoIds = useMemo(() => (grupoDe ? grupoVinculado(grupoDe.id, itens) : null), [grupoDe, itens])
+  const [grupoDeEscolhido, setGrupoDe] = useState<Prospeccao | null>(null)
+  // Lead do filtro excluído: o filtro se desliga e a lista volta inteira.
+  const grupoIds = useMemo(
+    () => grupoRelacionados(grupoDeEscolhido?.id ?? null, itens),
+    [grupoDeEscolhido, itens],
+  )
+  const grupoDe = grupoIds ? grupoDeEscolhido : null
 
   function verRelacionados(p: Prospeccao) {
     setGrupoDe(p)

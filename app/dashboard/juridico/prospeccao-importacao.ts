@@ -344,3 +344,16 @@ export function agruparEmLotes<T>(itens: T[], custo: (t: T) => number, limite: n
   if (atual.length > 0) lotes.push(atual)
   return lotes
 }
+
+/**
+ * Ids que o filtro "relacionados" mostra, ou null sem filtro. Se o lead do
+ * filtro não existe mais (foi excluído), o filtro se desliga — senão a lista
+ * ficaria vazia.
+ */
+export function grupoRelacionados(
+  id: string | null,
+  itens: { id: string; vinculados: string[] }[],
+): Set<string> | null {
+  if (!id || !itens.some((x) => x.id === id)) return null
+  return grupoVinculado(id, itens)
+}
