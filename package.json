@@ -32,7 +32,8 @@
     "server-only": "^0.0.1",
     "sharp": "^0.34.5",
     "tabler": "^1.0.0",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -33,7 +33,7 @@ export const PROSPECCAO_COLUNAS: { key: keyof ProspeccaoInput; label: string }[]
  * colunas originais, então fica por último: planilhas antigas (sem placa)
  * continuam alinhando. Com cabeçalho, as colunas são casadas pelo nome.
  */
-const ORDEM_POSICIONAL: (keyof ProspeccaoInput)[] = [
+export const ORDEM_POSICIONAL: (keyof ProspeccaoInput)[] = [
   ...PROSPECCAO_COLUNAS.map((c) => c.key).filter((k) => k !== 'placa'),
   'placa',
 ]
@@ -73,6 +73,17 @@ export function parseInteiro(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * CPF/CNPJ salvo como número no Excel perde os zeros à esquerda. Só mexe em
+ * valor só de dígitos: 9–10 dígitos volta a CPF (11), 12–13 a CNPJ (14).
+ */
+function completarZerosDocumento(doc: string): string {
+  if (!/^\d+$/.test(doc)) return doc
+  if (doc.length === 9 || doc.length === 10) return doc.padStart(11, '0')
+  if (doc.length === 12 || doc.length === 13) return doc.padStart(14, '0')
+  return doc
+}
+
 /** Saneia um registro vindo do form ou da importação. */
 export function normalizarProspeccao(raw: Partial<Record<keyof ProspeccaoInput, unknown>>): ProspeccaoInput {
   const out = {} as Record<keyof ProspeccaoInput, unknown>
@@ -84,6 +95,7 @@ export function normalizarProspeccao(raw: Partial<Record<keyof ProspeccaoInput, 
   }
   const r = out as unknown as ProspeccaoInput
   r.email = r.email.toLowerCase()
+  r.cpfCnpj = completarZerosDocumento(r.cpfCnpj)
   r.placa = maskPlate(r.placa)
   return r
 }
@@ -209,7 +221,7 @@ function chaveDoCabecalho(celula: string): keyof ProspeccaoInput | null {
 }
 
 /** Se a linha for o cabeçalho, devolve índice da célula → coluna. */
-function mapaCabecalho(celulas: string[]): Map<number, keyof ProspeccaoInput> | null {
+export function mapaCabecalho(celulas: string[]): Map<number, keyof ProspeccaoInput> | null {
   const mapa = new Map<number, keyof ProspeccaoInput>()
   const usadas = new Set<keyof ProspeccaoInput>()
   celulas.forEach((c, i) => {
