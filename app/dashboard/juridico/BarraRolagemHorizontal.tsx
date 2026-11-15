@@ -15,12 +15,13 @@ export default function BarraRolagemHorizontal({ alvo }: { alvo: HTMLElement | n
     barraRef.current = el
     setTemBarra(!!el)
   }, [])
-  const [larguras, setLarguras] = useState({ conteudo: 0, visivel: 0 })
+  // Quanto a tabela rola na horizontal (largura do conteúdo − área visível).
+  const [faixa, setFaixa] = useState(0)
 
   // Mede a tabela e repassa a rolagem horizontal do trackpad/Shift+roda.
   useEffect(() => {
     if (!alvo) return
-    const medir = () => setLarguras({ conteudo: alvo.scrollWidth, visivel: alvo.clientWidth })
+    const medir = () => setFaixa(Math.max(0, alvo.scrollWidth - alvo.clientWidth))
     medir()
     const ro = new ResizeObserver(medir)
     ro.observe(alvo)
@@ -46,12 +47,32 @@ export default function BarraRolagemHorizontal({ alvo }: { alvo: HTMLElement | n
   useEffect(() => {
     const barra = barraRef.current
     if (!alvo || !barra || !temBarra) return
+    // Cada posição que um lado aplica no outro volta como evento de scroll um
+    // quadro depois. Sem ignorar esse "eco", ele chegava com a posição antiga
+    // no meio do arrasto e puxava a barra para trás (os pulos).
+    let ecoTabela: number | null = null
+    let ecoBarra: number | null = null
+    const ehEco = (atual: number, eco: number | null) => eco !== null && Math.abs(atual - eco) < 1
+
+    ecoBarra = alvo.scrollLeft
     barra.scrollLeft = alvo.scrollLeft
     const daTabela = () => {
-      if (barra.scrollLeft !== alvo.scrollLeft) barra.scrollLeft = alvo.scrollLeft
+      if (ehEco(alvo.scrollLeft, ecoTabela)) {
+        ecoTabela = null
+        return
+      }
+      ecoTabela = null
+      ecoBarra = alvo.scrollLeft
+      barra.scrollLeft = alvo.scrollLeft
     }
     const daBarra = () => {
-      if (alvo.scrollLeft !== barra.scrollLeft) alvo.scrollLeft = barra.scrollLeft
+      if (ehEco(barra.scrollLeft, ecoBarra)) {
+        ecoBarra = null
+        return
+      }
+      ecoBarra = null
+      ecoTabela = barra.scrollLeft
+      alvo.scrollLeft = barra.scrollLeft
     }
     alvo.addEventListener('scroll', daTabela, { passive: true })
     barra.addEventListener('scroll', daBarra, { passive: true })
@@ -61,17 +82,17 @@ export default function BarraRolagemHorizontal({ alvo }: { alvo: HTMLElement | n
     }
   }, [alvo, temBarra])
 
-  if (!alvo || larguras.conteudo <= larguras.visivel + 1) return null
+  if (!alvo || faixa <= 1) return null
 
-  // Mesma borda da caixa da tabela: as larguras internas batem e a barra anda
-  // 1:1 com as colunas.
+  // O miolo é a largura da própria barra + a faixa da tabela: as duas rolam
+  // exatamente a mesma distância (a barra vertical da tabela não desalinha).
   return (
     <div
       ref={refBarra}
       aria-hidden
       className="overflow-x-auto overflow-y-hidden overscroll-contain rounded-lg border border-neutral-200 bg-white"
     >
-      <div style={{ width: larguras.conteudo, height: 1 }} />
+      <div style={{ width: `calc(100% + ${faixa}px)`, height: 1 }} />
     </div>
   )
 }
