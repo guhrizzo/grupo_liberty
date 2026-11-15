@@ -13,6 +13,7 @@ import {
   celulasNotacaoCientifica,
   classificarLinhas,
   lerMatriz,
+  ligacoesNaGravacao,
   trocarCampo,
   type Campo,
   type CampoDivergente,
@@ -121,6 +122,7 @@ export default function ImportarPlanilhaModal({
   const aGravar = classificadas.filter(
     (l) => l.classe === 'novo' || (l.classe === 'divergente' && marcados.has(l.indice)),
   )
+  const gravadas = new Set(aGravar.map((l) => l.indice))
   const temNome = mapa.includes('nomeExecutado')
   const temDados = leitura.matriz.length > 0
   const importando = progresso !== null
@@ -469,6 +471,7 @@ export default function ImportarPlanilhaModal({
                           marcado={marcados.has(l.indice)}
                           onMarcar={(v) => marcar([l.indice], v)}
                           correspondente={correspondente}
+                          gravadas={gravadas}
                         />
                       ))}
                     </div>
@@ -598,14 +601,20 @@ function CartaoDivergente({
   marcado,
   onMarcar,
   correspondente,
+  gravadas,
 }: {
   linha: LinhaClassificada
   marcado: boolean
   onMarcar: (v: boolean) => void
   correspondente: (ref: Ref) => { titulo: string; dados: ProspeccaoInput } | null
+  /** Índices das linhas que serão gravadas (novos + divergentes marcados). */
+  gravadas: Set<number>
 }) {
   const valor = (p: ProspeccaoInput, c: CampoDivergente) => (c === 'telefones' ? fmtTelefones(p) : fmt(p, c))
   const rotulo = (c: CampoDivergente) => (c === 'telefones' ? 'Telefones' : ROTULO[c])
+  // Ligação com linha desta planilha que não será gravada não acontece.
+  const { ligadas, semLigacao } = ligacoesNaGravacao(linha, gravadas)
+  const naoLiga = new Set(semLigacao)
 
   return (
     <div
@@ -621,7 +630,11 @@ function CartaoDivergente({
         <span className="text-xs">
           <strong className="text-neutral-900">{linha.registro.nomeExecutado}</strong>{' '}
           <span className="text-neutral-500">· linha {linha.indice + 1} da planilha</span>
-          <span className="block text-neutral-600">Incluir como lead novo, ligado ao(s) parecido(s)</span>
+          <span className="block text-neutral-600">
+            {ligadas.length > 0
+              ? 'Incluir como lead novo, ligado ao(s) parecido(s)'
+              : 'Incluir como lead novo, sem ligação (o parecido é uma linha desta planilha que não está marcada)'}
+          </span>
         </span>
       </label>
       <div className="mt-2 space-y-2">
@@ -634,7 +647,15 @@ function CartaoDivergente({
             (f) => valor(atual.dados, f) !== '—' || valor(linha.registro, f) !== '—',
           )
           return (
-            <div key={k} className="overflow-x-auto rounded-md border border-neutral-200">
+            <div
+              key={k}
+              className={`overflow-x-auto rounded-md border border-neutral-200 ${naoLiga.has(c) ? 'opacity-60' : ''}`}
+            >
+              {naoLiga.has(c) && (
+                <p className="border-b border-neutral-200 bg-neutral-50 px-2 py-1 text-[11px] text-neutral-600">
+                  Não será ligado: marque esta outra linha para que os dois entrem ligados.
+                </p>
+              )}
               <table className="w-full border-collapse text-left text-[11px]">
                 <thead className="bg-neutral-50">
                   <tr>

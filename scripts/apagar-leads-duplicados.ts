@@ -22,21 +22,24 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chavesDuplicidade } from '../app/dashboard/juridico/prospeccao-parse'
 import { normalizarProspeccao } from '../app/dashboard/juridico/prospeccao-parse'
-import { grupoVinculado } from '../app/dashboard/juridico/prospeccao-importacao'
-import { decrypt } from '../utils/crypto'
+import { gruposVinculados } from '../app/dashboard/juridico/prospeccao-importacao'
 
 config({ path: '.env.local' })
 
 const COLLECTION = 'juridico_prospeccao'
 const APPLY = process.argv.slice(2).includes('--apply')
 
-function decryptOrRaw(value: string | null | undefined): string {
-  if (!value) return ''
-  if (!value.includes(':')) return value
-  return decrypt(value) || value
-}
-
 async function main() {
+  // Import dinâmico, depois do config(): utils/crypto deriva a chave de
+  // FIREBASE_PRIVATE_KEY ao carregar. Com import estático ele carregava antes
+  // do .env.local e usava a chave errada — nenhum CPF descriptografava e a
+  // duplicidade por CPF nunca era detectada.
+  const { decrypt } = await import('../utils/crypto')
+  const decryptOrRaw = (value: string | null | undefined): string => {
+    if (!value) return ''
+    if (!value.includes(':')) return value
+    return decrypt(value) || value
+  }
   const { adminDb } = await import('./firebase-admin')
   const snap = await adminDb.collection(COLLECTION).get()
   const docs = snap.docs
@@ -68,12 +71,11 @@ async function main() {
       ? d.data().vinculados.filter((v: unknown): v is string => typeof v === 'string')
       : [],
   }))
+  // Todos os grupos calculados de uma vez (linear), não um por lead.
+  const gruposLigados = gruposVinculados(itensVinc)
   const comLigacao = new Set<number>()
-  const idx = new Map(docs.map((d, i) => [d.id, i]))
-  itensVinc.forEach((x, i) => {
-    if (comLigacao.has(i)) return
-    const grupo = grupoVinculado(x.id, itensVinc)
-    if (grupo.size > 1) for (const id of grupo) comLigacao.add(idx.get(id)!)
+  docs.forEach((d, i) => {
+    if (gruposLigados.has(d.id)) comLigacao.add(i)
   })
 
   const nVisitas = (i: number) => (Array.isArray(docs[i].data().visitas) ? docs[i].data().visitas.length : 0)

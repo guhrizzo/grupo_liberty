@@ -51,7 +51,7 @@ import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import ImportarPlanilhaModal from './ImportarPlanilhaModal'
 import BarraRolagemHorizontal from './BarraRolagemHorizontal'
 import { useAlturaAteRodape } from './useAlturaAteRodape'
-import { grupoRelacionados, grupoVinculado } from './prospeccao-importacao'
+import { grupoRelacionados, gruposVinculados } from './prospeccao-importacao'
 import {
   CAMPO_PENDENTE_LABEL,
   pendenciasParaProposta,
@@ -846,12 +846,7 @@ export default function ProspeccaoSection({
   // quando o selo é clicado, o grupo que filtra a lista.
   const relacionados = useMemo(() => {
     const qtd = new Map<string, number>()
-    const ids = new Set(itens.map((p) => p.id))
-    for (const p of itens) {
-      if (qtd.has(p.id) || !p.vinculados.some((v) => ids.has(v) && v !== p.id)) continue
-      const grupo = grupoVinculado(p.id, itens)
-      for (const id of grupo) qtd.set(id, grupo.size - 1)
-    }
+    for (const [id, grupo] of gruposVinculados(itens)) qtd.set(id, grupo.size - 1)
     return qtd
   }, [itens])
   const [grupoDeEscolhido, setGrupoDe] = useState<Prospeccao | null>(null)

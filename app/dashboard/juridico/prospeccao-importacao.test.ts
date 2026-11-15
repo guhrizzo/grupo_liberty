@@ -9,6 +9,8 @@ import {
   divergencias,
   grupoRelacionados,
   grupoVinculado,
+  gruposVinculados,
+  ligacoesNaGravacao,
   lerMatriz,
   linhasParaGravar,
   planoExclusao,
@@ -328,5 +330,52 @@ describe('planoExclusao', () => {
       { id: 'a', desligar: ['c'] },
       { id: 'b', desligar: ['d'] },
     ])
+  })
+})
+
+describe('ligacoesNaGravacao (prévia mostra só a ligação que vai existir)', () => {
+  const r = classificarLinhas(
+    [
+      lead({ cpfCnpj: '12345678901', placa: 'XYZ9A87' }), // 0: divergente do cadastrado e1
+      lead({ cpfCnpj: '12345678901', placa: 'QWE4R56' }), // 1: divergente de e1 e da linha 0
+    ],
+    [{ id: 'e1', dados: base }],
+  )
+  it('linha 0 não marcada: a linha 1 liga só ao cadastrado', () => {
+    const { ligadas, semLigacao } = ligacoesNaGravacao(r[1], new Set([1]))
+    expect(ligadas.map((c) => c.ref)).toEqual([{ tipo: 'existente', id: 'e1' }])
+    expect(semLigacao.map((c) => c.ref)).toEqual([{ tipo: 'linha', indice: 0 }])
+  })
+  it('linha 0 marcada: a linha 1 liga às duas', () => {
+    const { ligadas, semLigacao } = ligacoesNaGravacao(r[1], new Set([0, 1]))
+    expect(ligadas).toHaveLength(2)
+    expect(semLigacao).toEqual([])
+  })
+})
+
+describe('gruposVinculados (todos os grupos de uma vez)', () => {
+  it('monta os grupos conectados e ignora ids órfãos', () => {
+    const g = gruposVinculados([
+      { id: 'a', vinculados: ['b', 'x'] },
+      { id: 'b', vinculados: [] },
+      { id: 'c', vinculados: ['b'] },
+      { id: 'd', vinculados: [] },
+      { id: 'e', vinculados: ['f'] },
+      { id: 'f', vinculados: ['e'] },
+    ])
+    expect(g.get('a')).toEqual(new Set(['a', 'b', 'c']))
+    expect(g.get('c')).toBe(g.get('a'))
+    expect(g.get('e')).toEqual(new Set(['e', 'f']))
+    expect(g.has('d')).toBe(false)
+  })
+  it('aguenta milhares de leads rápido', () => {
+    const itens = Array.from({ length: 20000 }, (_, i) => ({
+      id: `l${i}`,
+      vinculados: i % 2 ? [`l${i - 1}`] : [],
+    }))
+    const t = performance.now()
+    const g = gruposVinculados(itens)
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(g.size).toBe(20000)
   })
 })

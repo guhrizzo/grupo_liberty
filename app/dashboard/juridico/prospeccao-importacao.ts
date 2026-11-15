@@ -378,3 +378,60 @@ export function planoExclusao(
   }
   return apagar.map((id) => ({ id, desligar: [...porApagado.get(id)!] }))
 }
+
+/**
+ * Separa as correspondências de uma linha entre as que viram ligação ao
+ * gravar e as que não: ligação com outra linha da planilha só existe se essa
+ * linha também for gravada (`gravadas` = índices de novos + divergentes
+ * marcados). O servidor faz a mesma coisa.
+ */
+export function ligacoesNaGravacao(
+  linha: LinhaClassificada,
+  gravadas: Set<number>,
+): { ligadas: Correspondencia[]; semLigacao: Correspondencia[] } {
+  const ligadas: Correspondencia[] = []
+  const semLigacao: Correspondencia[] = []
+  for (const c of linha.correspondencias) {
+    if (c.ref.tipo === 'linha' && !gravadas.has(c.ref.indice)) semLigacao.push(c)
+    else ligadas.push(c)
+  }
+  return { ligadas, semLigacao }
+}
+
+/**
+ * Todos os grupos de leads ligados de uma vez (cada lead com ligação → o Set
+ * do seu grupo, compartilhado pelos membros). Linear no número de leads e
+ * ligações; leads sem ligação ficam de fora.
+ */
+export function gruposVinculados(itens: { id: string; vinculados: string[] }[]): Map<string, Set<string>> {
+  const existe = new Set(itens.map((x) => x.id))
+  const vizinhos = new Map<string, string[]>()
+  const ligar = (a: string, b: string) => {
+    const l = vizinhos.get(a)
+    if (l) l.push(b)
+    else vizinhos.set(a, [b])
+  }
+  for (const x of itens) {
+    for (const v of x.vinculados) {
+      if (!existe.has(v) || v === x.id) continue
+      ligar(x.id, v)
+      ligar(v, x.id)
+    }
+  }
+  const grupos = new Map<string, Set<string>>()
+  for (const inicio of vizinhos.keys()) {
+    if (grupos.has(inicio)) continue
+    const grupo = new Set<string>([inicio])
+    const fila = [inicio]
+    for (let k = 0; k < fila.length; k++) {
+      for (const v of vizinhos.get(fila[k]) ?? []) {
+        if (!grupo.has(v)) {
+          grupo.add(v)
+          fila.push(v)
+        }
+      }
+    }
+    for (const id of grupo) grupos.set(id, grupo)
+  }
+  return grupos
+}
