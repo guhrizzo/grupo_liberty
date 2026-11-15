@@ -1086,7 +1086,7 @@ export default function ProspeccaoSection({
             horizontal fica no rodapé fixo (BarraRolagemHorizontal). */}
         <div
           ref={setCaixaTabela}
-          className={`hidden overflow-y-auto overflow-x-hidden rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
+          className={`hidden overflow-y-auto overflow-x-hidden overscroll-contain rounded-xl border border-neutral-200 bg-white shadow-xs md:block ${
             telaCheia ? 'max-h-[calc(100dvh-14rem)]' : 'max-h-[calc(100dvh-8rem)]'
           }`}
         >

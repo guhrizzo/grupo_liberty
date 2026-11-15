@@ -26,9 +26,13 @@ export default function BarraRolagemHorizontal({ alvo }: { alvo: HTMLElement | n
     ro.observe(alvo)
     if (alvo.firstElementChild) ro.observe(alvo.firstElementChild)
     const onWheel = (e: WheelEvent) => {
-      const dx = e.deltaX || (e.shiftKey ? e.deltaY : 0)
-      if (!dx) return
-      alvo.scrollLeft += dx
+      // Só gesto predominantemente horizontal (ou Shift+roda). O vertical
+      // segue para a rolagem da própria tabela — o trackpad manda um pouco
+      // de deltaX junto, e capturá-lo travava a rolagem vertical.
+      const dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX
+      if (!dx || (!e.shiftKey && Math.abs(e.deltaX) <= Math.abs(e.deltaY))) return
+      const max = alvo.scrollWidth - alvo.clientWidth
+      alvo.scrollLeft = Math.max(0, Math.min(max, alvo.scrollLeft + dx))
       e.preventDefault()
     }
     alvo.addEventListener('wheel', onWheel, { passive: false })
@@ -65,7 +69,7 @@ export default function BarraRolagemHorizontal({ alvo }: { alvo: HTMLElement | n
     <div
       ref={refBarra}
       aria-hidden
-      className="overflow-x-auto overflow-y-hidden rounded-lg border border-neutral-200 bg-white"
+      className="overflow-x-auto overflow-y-hidden overscroll-contain rounded-lg border border-neutral-200 bg-white"
     >
       <div style={{ width: larguras.conteudo, height: 1 }} />
     </div>
