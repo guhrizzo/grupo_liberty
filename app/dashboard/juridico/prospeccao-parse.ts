@@ -64,10 +64,11 @@ export function parseValor(v: unknown): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null
 }
 
-/** "60 parcelas" → 60. */
+/** "60 parcelas" → 60. Número quebrado fica só com a parte inteira ("12,5" → 12). */
 export function parseInteiro(v: unknown): number | null {
-  if (typeof v === 'number') return Number.isInteger(v) && v >= 0 ? v : null
-  const d = limparTexto(v).replace(/\D/g, '')
+  if (typeof v === 'number') return Number.isFinite(v) && v >= 0 ? Math.trunc(v) : null
+  // Primeiro grupo de dígitos: a vírgula/ponto decimal encerra o número.
+  const d = limparTexto(v).match(/\d+/)?.[0]
   if (!d) return null
   const n = Number(d.slice(0, 6))
   return Number.isFinite(n) ? n : null

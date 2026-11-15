@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { normalizarProspeccao, parseLinhasPlanilha, parseValor } from './prospeccao-parse'
+import { normalizarProspeccao, parseInteiro, parseLinhasPlanilha, parseValor } from './prospeccao-parse'
 import {
   agruparEmLotes,
   aplicarMapa,
+  celulasNotacaoCientifica,
   celulaParaTexto,
   classificarLinhas,
   divergencias,
@@ -244,5 +245,45 @@ describe('agruparEmLotes', () => {
     const linhas = [...Array(399).fill(1), 2]
     const lotes = agruparEmLotes(linhas, (c) => c, 400)
     expect(lotes.map((l) => l.length)).toEqual([399, 1])
+  })
+})
+
+describe('parseInteiro — número quebrado', () => {
+  it('pega só a parte inteira de texto com decimal', () => {
+    expect(parseInteiro('12,5')).toBe(12)
+    expect(parseInteiro('12.5')).toBe(12)
+  })
+  it('pega só a parte inteira de número com decimal', () => {
+    expect(parseInteiro(12.5)).toBe(12)
+  })
+  it('continua lendo "60 parcelas"', () => {
+    expect(parseInteiro('60 parcelas')).toBe(60)
+  })
+})
+
+describe('aplicarMapa — linha de origem', () => {
+  it('informa a linha da matriz de cada registro, pulando as sem nome', () => {
+    const r = aplicarMapa([['João'], [''], ['Maria']], ['nomeExecutado'])
+    expect(r.origem).toEqual([0, 2])
+  })
+})
+
+describe('celulasNotacaoCientifica', () => {
+  it('acha CPF e telefone em notação científica', () => {
+    const r = celulasNotacaoCientifica(
+      [
+        ['João', '1,23457E+10', '11999990000'],
+        ['Maria', '12345678901', '1.19E+10'],
+        ['José', '12345678901', '11999990000'],
+      ],
+      ['nomeExecutado', 'cpfCnpj', 'telefone1'],
+    )
+    expect(r).toEqual([
+      { linha: 0, coluna: 1, campo: 'cpfCnpj', valor: '1,23457E+10' },
+      { linha: 1, coluna: 2, campo: 'telefone1', valor: '1.19E+10' },
+    ])
+  })
+  it('ignora colunas que não são CPF/telefone', () => {
+    expect(celulasNotacaoCientifica([['1E+5']], ['endereco'])).toEqual([])
   })
 })

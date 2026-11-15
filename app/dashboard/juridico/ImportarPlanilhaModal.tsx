@@ -10,6 +10,7 @@ import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
 import {
   CAMPOS_COMPARADOS,
   aplicarMapa,
+  celulasNotacaoCientifica,
   classificarLinhas,
   lerMatriz,
   trocarCampo,
@@ -82,16 +83,26 @@ export default function ImportarPlanilhaModal({
     base: LeituraMatriz
     mapa: MapaColunas
   } | null>(null)
+  // Confirmações guardadas pela linha da planilha (não pelo índice do
+  // registro): trocar uma coluna não desmarca o que já foi confirmado.
   const [ajusteConf, setAjusteConf] = useState<{
-    base: LinhaClassificada[]
-    marcados: Set<number>
+    base: LeituraMatriz
+    linhas: Set<number>
   } | null>(null)
 
   const linhasBrutas = useMemo(() => arquivo?.abas[abaIdx]?.linhas ?? [], [arquivo, abaIdx])
 
   const leitura = useMemo(() => lerMatriz(linhasBrutas), [linhasBrutas])
   const mapa = ajusteMapa?.base === leitura ? ajusteMapa.mapa : leitura.mapa
-  const { registros, ignoradas } = useMemo(() => aplicarMapa(leitura.matriz, mapa), [leitura, mapa])
+  const { registros, origem, ignoradas } = useMemo(
+    () => aplicarMapa(leitura.matriz, mapa),
+    [leitura, mapa],
+  )
+  const suspeitas = useMemo(() => celulasNotacaoCientifica(leitura.matriz, mapa), [leitura, mapa])
+  const celulaSuspeita = useMemo(
+    () => new Set(suspeitas.map((s) => `${s.linha}:${s.coluna}`)),
+    [suspeitas],
+  )
 
   const existentesDados = useMemo(() => existentes.map((p) => ({ id: p.id, dados: p })), [existentes])
   const porId = useMemo(() => new Map(existentes.map((p) => [p.id, p])), [existentes])
@@ -99,7 +110,10 @@ export default function ImportarPlanilhaModal({
     () => classificarLinhas(registros, existentesDados),
     [registros, existentesDados],
   )
-  const marcados = ajusteConf?.base === classificadas ? ajusteConf.marcados : new Set<number>()
+  const linhasMarcadas = ajusteConf?.base === leitura ? ajusteConf.linhas : null
+  const marcados = new Set(
+    linhasMarcadas ? classificadas.filter((l) => linhasMarcadas.has(origem[l.indice])).map((l) => l.indice) : [],
+  )
 
   const novos = classificadas.filter((l) => l.classe === 'novo')
   const divergentes = classificadas.filter((l) => l.classe === 'divergente')
@@ -149,12 +163,12 @@ export default function ImportarPlanilhaModal({
   }
 
   function marcar(indices: number[], ligado: boolean) {
-    const next = new Set(marcados)
+    const next = new Set(linhasMarcadas ?? [])
     for (const i of indices) {
-      if (ligado) next.add(i)
-      else next.delete(i)
+      if (ligado) next.add(origem[i])
+      else next.delete(origem[i])
     }
-    setAjusteConf({ base: classificadas, marcados: next })
+    setAjusteConf({ base: leitura, linhas: next })
   }
 
   async function importar() {
@@ -311,6 +325,31 @@ export default function ImportarPlanilhaModal({
                   importar.
                 </p>
               )}
+              {suspeitas.length > 0 && (
+                <div className="rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-xs text-rose-800">
+                  <p className="flex items-center gap-1.5 font-semibold">
+                    <IconAlertTriangle size={14} stroke={2.2} />
+                    {suspeitas.length} CPF/telefone(s) vieram em notação científica (ex.: 1,23E+10) — os
+                    números originais se perderam.
+                  </p>
+                  <p className="mt-1">
+                    No Excel, formate a coluna como <strong>Texto</strong>, redigite os números e carregue o
+                    arquivo de novo. Se importar assim, esses campos entram errados.
+                  </p>
+                  <ul className="mt-1 list-disc pl-5">
+                    {suspeitas.slice(0, 5).map((s) => {
+                      const nomeCol = mapa.indexOf('nomeExecutado')
+                      const nome = nomeCol >= 0 ? leitura.matriz[s.linha][nomeCol] : ''
+                      return (
+                        <li key={`${s.linha}:${s.coluna}`}>
+                          {nome || `Linha ${s.linha + 1}`} — {ROTULO[s.campo]}: <strong>{s.valor}</strong>
+                        </li>
+                      )
+                    })}
+                    {suspeitas.length > 5 && <li>e mais {suspeitas.length - 5}.</li>}
+                  </ul>
+                </div>
+              )}
               <div className="max-h-72 overflow-auto rounded-lg border border-neutral-200">
                 <table className="w-full border-collapse text-left text-[11px]">
                   <thead className="sticky top-0 z-10 bg-neutral-50">
@@ -356,7 +395,11 @@ export default function ImportarPlanilhaModal({
                           <td
                             key={j}
                             className={`max-w-55 truncate border-r border-neutral-100 px-2 py-1 last:border-r-0 ${
-                              mapa[j] ? 'text-neutral-800' : 'bg-amber-50/50 text-neutral-400'
+                              celulaSuspeita.has(`${i}:${j}`)
+                                ? 'bg-rose-100 font-semibold text-rose-800'
+                                : mapa[j]
+                                  ? 'text-neutral-800'
+                                  : 'bg-amber-50/50 text-neutral-400'
                             }`}
                             title={c}
                           >

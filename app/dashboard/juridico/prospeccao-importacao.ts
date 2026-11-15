@@ -105,23 +105,55 @@ export function trocarCampo(mapa: MapaColunas, coluna: number, campo: Campo | nu
   return mapa.map((c, j) => (j === coluna ? campo : campo !== null && c === campo ? null : c))
 }
 
-/** Matriz + mapa → registros normalizados. Linhas sem nome do executado são ignoradas. */
+/**
+ * Matriz + mapa → registros normalizados. Linhas sem nome do executado são
+ * ignoradas. `origem[i]` é a linha da matriz do registro i (estável quando o
+ * usuário troca colunas — usada para manter as confirmações da prévia).
+ */
 export function aplicarMapa(
   matriz: string[][],
   mapa: MapaColunas,
-): { registros: ProspeccaoInput[]; ignoradas: number } {
+): { registros: ProspeccaoInput[]; origem: number[]; ignoradas: number } {
   const registros: ProspeccaoInput[] = []
+  const origem: number[] = []
   let ignoradas = 0
-  for (const linha of matriz) {
+  matriz.forEach((linha, l) => {
     const raw: Partial<Record<Campo, unknown>> = {}
     mapa.forEach((campo, j) => {
       if (campo) raw[campo] = linha[j] ?? ''
     })
     const reg = normalizarProspeccao(raw)
-    if (reg.nomeExecutado) registros.push(reg)
-    else ignoradas++
-  }
-  return { registros, ignoradas }
+    if (reg.nomeExecutado) {
+      registros.push(reg)
+      origem.push(l)
+    } else ignoradas++
+  })
+  return { registros, origem, ignoradas }
+}
+
+const CAMPOS_NUMERICOS_TEXTO: Campo[] = ['cpfCnpj', 'telefone1', 'telefone2', 'telefone3']
+
+export interface CelulaSuspeita {
+  linha: number
+  coluna: number
+  campo: Campo
+  valor: string
+}
+
+/**
+ * CPF/CNPJ ou telefone que o Excel guardou em notação científica
+ * ("1,23457E+10"): os dígitos originais se perderam e não dá para recuperar.
+ */
+export function celulasNotacaoCientifica(matriz: string[][], mapa: MapaColunas): CelulaSuspeita[] {
+  const out: CelulaSuspeita[] = []
+  matriz.forEach((linha, l) => {
+    mapa.forEach((campo, j) => {
+      if (!campo || !CAMPOS_NUMERICOS_TEXTO.includes(campo)) return
+      const valor = String(linha[j] ?? '').trim()
+      if (/^\d+([.,]\d+)?e\+?\d+$/i.test(valor)) out.push({ linha: l, coluna: j, campo, valor })
+    })
+  })
+  return out
 }
 
 // ─── Classificação: novo / duplicado / divergente ──────────────────────────
