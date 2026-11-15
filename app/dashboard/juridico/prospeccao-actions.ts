@@ -54,6 +54,9 @@ function serializar(id: string, data: FirebaseFirestore.DocumentData): Prospecca
     visitas: normalizarVisitas(data.visitas),
     ultimoEmailEm: data.ultimoEmailEm ?? null,
     ultimoEmailValor: typeof data.ultimoEmailValor === 'number' ? data.ultimoEmailValor : null,
+    vinculados: Array.isArray(data.vinculados)
+      ? data.vinculados.filter((x: unknown): x is string => typeof x === 'string' && !!x)
+      : [],
     created_at: data.created_at ?? '',
     updated_at: data.updated_at ?? data.created_at ?? '',
   }
@@ -115,6 +118,7 @@ export async function salvarProspeccao(
         visitas: [],
         ultimoEmailEm: null,
         ultimoEmailValor: null,
+        vinculados: [],
         created_at: now,
         updated_at: now,
       },

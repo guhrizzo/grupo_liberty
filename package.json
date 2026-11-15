@@ -10,7 +10,9 @@
     "set-admin": "tsx scripts/set-admin.ts",
     "fotos:webp": "tsx scripts/converter-fotos-webp.ts",
     "encargos:antigas": "tsx scripts/encargos-cobrancas-antigas.ts",
-    "propostas:recalcular": "tsx scripts/recalcular-propostas.ts"
+    "leads:duplicados": "tsx scripts/apagar-leads-duplicados.ts",
+    "propostas:recalcular": "tsx scripts/recalcular-propostas.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.5.1",
@@ -43,7 +45,8 @@
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
     "tsx": "^4.23.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "jose": "4.15.9"

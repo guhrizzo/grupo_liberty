@@ -163,8 +163,20 @@ export interface Prospeccao extends ProspeccaoInput {
   /** Último e-mail de oferta enviado pela aba (data ISO e valor ofertado). */
   ultimoEmailEm: string | null
   ultimoEmailValor: number | null
+  /**
+   * Ids de leads ligados a este (mesmo cliente com outro veículo, ou dado
+   * divergente confirmado na importação). A ligação vale nos dois sentidos.
+   */
+  vinculados: string[]
   created_at: string
   updated_at: string
+}
+
+/** Uma linha enviada à importação de planilha. */
+export interface LinhaImportacao {
+  dados: Partial<Record<keyof ProspeccaoInput, unknown>>
+  /** Usuário confirmou a inclusão de uma linha divergente. */
+  confirmado: boolean
 }
 
 export type ProspeccaoResponse = {
