@@ -40,13 +40,13 @@ import { formatCurrency, formatDate } from '@/utils/format'
 import { maskCPFCNPJ, maskMoney, maskPhone, maskPlate, moneyFromNumber, parseMoney } from '@/utils/masks'
 import {
   salvarProspeccao,
-  importarProspeccoes,
   getProspeccoes,
   deleteProspeccao,
   deleteProspeccoes,
   enviarOfertaEmail,
 } from './prospeccao-actions'
-import { PROSPECCAO_COLUNAS, parseLinhasPlanilha } from './prospeccao-parse'
+import { PROSPECCAO_COLUNAS } from './prospeccao-parse'
+import ImportarPlanilhaModal from './ImportarPlanilhaModal'
 import {
   CAMPO_PENDENTE_LABEL,
   pendenciasParaProposta,
@@ -484,9 +484,6 @@ export default function ProspeccaoSection({
   })
 
   const [importOpen, setImportOpen] = useState(false)
-  const [importTexto, setImportTexto] = useState('')
-  const leitura = useMemo(() => parseLinhasPlanilha(importTexto), [importTexto])
-  const previa = leitura.registros
 
   function abrirNovo() {
     setEditing(null)
@@ -529,26 +526,10 @@ export default function ProspeccaoSection({
     }
   }
 
-  async function handleImport() {
-    if (submitting || previa.length === 0) return
-    setSubmitting(true)
-    try {
-      const res = await importarProspeccoes(previa.map((dados) => ({ dados, confirmado: false })))
-      if (res.error) {
-        toast.error(res.error)
-        return
-      }
-      toast.success(res.success || 'Importado.')
-      setImportOpen(false)
-      setImportTexto('')
-      setPage(1)
-      setItens(await getProspeccoes())
-      router.refresh()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro inesperado.')
-    } finally {
-      setSubmitting(false)
-    }
+  async function aposImportar() {
+    setPage(1)
+    setItens(await getProspeccoes())
+    router.refresh()
   }
 
   async function handleDelete(p: Prospeccao) {
@@ -912,7 +893,7 @@ export default function ProspeccaoSection({
             leftIcon={<IconTableImport size={16} stroke={2.2} />}
             className="order-2 sm:order-none"
           >
-            Colar da planilha
+            Importar planilha
           </Button>
           <Button
             variant="liberty"
@@ -1255,89 +1236,12 @@ export default function ProspeccaoSection({
         </form>
       </Modal>
 
-      <Modal
+      <ImportarPlanilhaModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        title="Colar da planilha"
-        description="Copie as linhas na planilha e cole abaixo. Copie junto a linha do cabeçalho: assim as colunas são reconhecidas pelo nome, mesmo fora de ordem."
-        size="lg"
-        className="max-h-[90vh] overflow-y-auto sm:max-w-5xl"
-      >
-        <div className="space-y-3 pt-2">
-          <Textarea
-            value={importTexto}
-            onChange={(e) => setImportTexto(e.target.value)}
-            rows={6}
-            placeholder="Cole aqui (Ctrl+V) as linhas copiadas da planilha"
-            className="font-mono text-xs"
-          />
-          <p className="text-xs text-neutral-500">
-            {!importTexto.trim()
-              ? 'Aguardando conteúdo colado.'
-              : previa.length === 0
-                ? 'Nenhuma linha reconhecida. Copie as células direto da planilha (colunas separadas por TAB).'
-                : `${previa.length} registro(s) reconhecido(s) · colunas ${
-                    leitura.porCabecalho
-                      ? 'identificadas pelo cabeçalho'
-                      : 'pela posição (sem cabeçalho: precisam estar na mesma ordem da tabela)'
-                  }${leitura.ignoradas > 0 ? ` · ${leitura.ignoradas} linha(s) sem nome ignorada(s)` : ''}. Confira a prévia:`}
-          </p>
-          {previa.length > 0 && (
-            <div className="max-h-72 overflow-auto rounded-lg border border-neutral-200">
-              <table className="w-full border-collapse text-left text-[11px]">
-                <thead className="sticky top-0 bg-neutral-50">
-                  <tr>
-                    {PROSPECCAO_COLUNAS.map(({ key, label }) => (
-                      <th
-                        key={key}
-                        className="whitespace-nowrap border-b border-neutral-200 px-2 py-1.5 font-semibold text-neutral-700"
-                      >
-                        {label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {previa.slice(0, 20).map((p, i) => (
-                    <tr key={i}>
-                      {PROSPECCAO_COLUNAS.map(({ key }) => {
-                        const vazio = p[key] === null || p[key] === ''
-                        return (
-                          <td
-                            key={key}
-                            className={`px-2 py-1 ${key === 'endereco' ? 'min-w-[220px]' : 'whitespace-nowrap'} ${
-                              vazio ? 'text-neutral-300' : 'text-neutral-800'
-                            }`}
-                          >
-                            {celula(p, key)}
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {previa.length > 20 && (
-                <p className="border-t border-neutral-200 px-2 py-1.5 text-[11px] text-neutral-500">
-                  + {previa.length - 20} registro(s) não mostrados na prévia.
-                </p>
-              )}
-            </div>
-          )}
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setImportOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="liberty"
-              onClick={handleImport}
-              disabled={submitting || previa.length === 0}
-            >
-              {submitting ? 'Importando...' : `Importar ${previa.length || ''}`.trim()}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        existentes={itens}
+        onImportado={aposImportar}
+      />
 
       <Modal
         open={!!emailDe}
