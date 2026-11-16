@@ -24,6 +24,13 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-metricas-diarias-vendas',
+    date: '2026-11-16',
+    title: 'Métricas diárias no setor Vendas',
+    tag: 'melhoria',
+    items: ['A aba Métricas diárias saiu do setor Geral e agora fica em Vendas, no menu lateral.'],
+  },
+  {
     id: '2026-11-16-locacao-opcao-aquisicao',
     date: '2026-11-16',
     title: 'Novo modelo: locação de veículo com opção de aquisição',
