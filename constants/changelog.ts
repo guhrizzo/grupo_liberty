@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-promessa-compra-parcelada',
+    date: '2026-11-16',
+    title: 'Novo modelo: promessa de compra parcelada',
+    tag: 'novo',
+    items: [
+      'Em Contratos > Gerar contrato, novo modelo "Promessa de compra de veículo financiado (parcelada)", com o preço pago em parcelas mensais.',
+      'Você informa a quantidade de parcelas, o valor de cada uma e os vencimentos; o texto da cláusula 6 se ajusta sozinho.',
+      'Intermediador, testemunhas, cidade e data da assinatura são campos do formulário (já vêm preenchidos com os dados usuais e podem ser editados).',
+      'A prévia em folhas A4 e o PDF seguem o mesmo layout do modelo enviado.',
+    ],
+  },
+  {
     id: '2026-11-16-contrato-promessa-compra-financiado',
     date: '2026-11-16',
     title: 'Novo contrato: promessa de compra de veículo financiado',

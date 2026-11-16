@@ -55,7 +55,7 @@ function ate999(n: number): string {
   return partes.join(' e ')
 }
 
-function inteiroPorExtenso(n: number): string {
+export function inteiroPorExtenso(n: number): string {
   if (n === 0) return 'zero'
   const milhoes = Math.floor(n / 1_000_000)
   const milhares = Math.floor((n % 1_000_000) / 1000)

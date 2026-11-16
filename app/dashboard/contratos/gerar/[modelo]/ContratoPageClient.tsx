@@ -14,11 +14,13 @@ import { montarContratoGerado } from '../montar'
 import {
   FORMAS_PAGAMENTO,
   TIPOS_CONTRATO_GERADO,
-  TIPO_PROMESSA,
+  TIPO_PROMESSA_PARCELADA,
   compraVazia,
   conjugeVazio,
   contratanteVazio,
+  ehPromessa,
   locacaoVazia,
+  numeroDe,
   prestacaoVazia,
   validarGerarContrato,
   veiculoContratoVazio,
@@ -49,15 +51,28 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const [v, setV] = useState(veiculoContratoVazio)
   const [p, setP] = useState(prestacaoVazia)
   const [l, setL] = useState(locacaoVazia)
-  const [k, setK] = useState(compraVazia)
+  const [k, setK] = useState(() => compraVazia(tipo === TIPO_PROMESSA_PARCELADA))
   const [salvarCliente, setSalvarCliente] = useState(false)
   const [clientes, setClientes] = useState<ClienteContrato[]>([])
   const [aba, setAba] = useState<Aba>('dados')
 
   const info = useMemo(() => TIPOS_CONTRATO_GERADO.find((t) => t.value === tipo)!, [tipo])
-  const promessa = tipo === TIPO_PROMESSA
+  const promessa = ehPromessa(tipo)
+  const parcelado = tipo === TIPO_PROMESSA_PARCELADA
   const casado = precisaConjuge(c.estadoCivil) && !promessa
   const vincendas = Math.max(0, (Number(p.qtdParcelas) || 0) - (Number(p.parcelasPagas) || 0))
+
+  // Data de assinatura padrão = hoje, no fuso do navegador. Fica para depois da
+  // montagem: o servidor pode estar em outro fuso e o dia divergiria na hidratação.
+  useEffect(() => {
+    if (!parcelado) return
+    const id = window.setTimeout(() => {
+      const d = new Date()
+      const hoje = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      setK((a) => (a.dataAssinatura ? a : { ...a, dataAssinatura: hoje }))
+    }, 0)
+    return () => window.clearTimeout(id)
+  }, [parcelado])
 
   useEffect(() => {
     let vivo = true
@@ -82,6 +97,23 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   )
   const contrato = useMemo(() => montarContratoGerado(input), [input])
   const pendencia = useMemo(() => validarGerarContrato(input), [input])
+
+  const mudarIntermediador = (campo: keyof typeof k.intermediador, valor: string) =>
+    setK((a) => ({ ...a, intermediador: { ...a.intermediador, [campo]: valor } }))
+  const mudarTestemunha = (idx: number, campo: 'nome' | 'cpf', valor: string) =>
+    setK((a) => ({ ...a, testemunhas: a.testemunhas.map((t, n) => (n === idx ? { ...t, [campo]: valor } : t)) }))
+  const mudarVencimento = (idx: number, valor: string) =>
+    setK((a) => {
+      const v2 = [...a.vencimentos]
+      while (v2.length <= idx) v2.push('')
+      v2[idx] = valor
+      return { ...a, vencimentos: v2 }
+    })
+  const qtdPagamentos = Math.min(60, Math.max(0, Number(k.pagamentos) || 0))
+  const somaParcelas = qtdPagamentos * (numeroDe(k.valorPagamento) || 0)
+  const totalContrato = numeroDe(k.valorTotal) || 0
+  const somaDiverge = parcelado && somaParcelas > 0 && totalContrato > 0 && Math.abs(somaParcelas - totalContrato) > 0.01
+  const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   function escolherCliente(id: string) {
     const cli = clientes.find((x) => x.id === id)
@@ -257,7 +289,9 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
               <Input id="gc-endereco" label="Endereço" value={c.endereco} onChange={(e) => setC({ ...c, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade/UF" autoComplete="off" />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input id="gc-telefone" label={promessa ? 'Telefone' : 'Telefone (opcional)'} placeholder="(00) 00000-0000" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
+              {!parcelado && (
+                <Input id="gc-telefone" label={promessa ? 'Telefone' : 'Telefone (opcional)'} placeholder="(00) 00000-0000" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
+              )}
               <Input id="gc-email" label="E-mail" placeholder="nome@exemplo.com" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} autoComplete="off" />
             </div>
             <Marcar id="gc-salvar" checked={salvarCliente} onChange={setSalvarCliente}>
@@ -329,8 +363,65 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
                   <Input id="gc-prazoq" label="Prazo para quitar (meses)" placeholder="12" value={k.prazoQuitacao} onChange={(e) => setK({ ...k, prazoQuitacao: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" />
                   <Input id="gc-vtotal" label="Valor total do contrato (R$)" placeholder="R$ 0,00" value={k.valorTotal} onChange={(e) => setK({ ...k, valorTotal: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" />
                 </div>
-                <Select id="gc-forma" label="Forma de pagamento" value={k.formaPagamento} onChange={(e) => setK({ ...k, formaPagamento: e.target.value })} options={FORMAS_PAGAMENTO.map((f) => ({ value: f.value, label: f.label }))} />
+                {!parcelado && (
+                  <Select id="gc-forma" label="Forma de pagamento" value={k.formaPagamento} onChange={(e) => setK({ ...k, formaPagamento: e.target.value })} options={FORMAS_PAGAMENTO.map((f) => ({ value: f.value, label: f.label }))} />
+                )}
               </Bloco>
+
+              {parcelado && (
+                <>
+                  <Bloco titulo="Pagamento parcelado">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input id="gc-npag" label="Quantidade de parcelas" placeholder="2" value={k.pagamentos} onChange={(e) => setK({ ...k, pagamentos: soDigitos(e.target.value, 2) })} inputMode="numeric" hint="De 1 a 60" autoComplete="off" />
+                      <Input id="gc-vpag" label="Valor de cada parcela (R$)" placeholder="R$ 0,00" value={k.valorPagamento} onChange={(e) => setK({ ...k, valorPagamento: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" />
+                    </div>
+                    {qtdPagamentos > 0 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {Array.from({ length: qtdPagamentos }, (_, idx) => (
+                          <Input key={idx} id={`gc-venc-${idx}`} label={`Vencimento da parcela ${idx + 1}`} type="date" value={k.vencimentos[idx] ?? ''} onChange={(e) => mudarVencimento(idx, e.target.value)} />
+                        ))}
+                      </div>
+                    )}
+                    {somaDiverge && (
+                      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        {qtdPagamentos} parcelas de {reais(numeroDe(k.valorPagamento))} somam {reais(somaParcelas)}, diferente do valor total do contrato ({reais(totalContrato)}). Confira antes de gerar.
+                      </p>
+                    )}
+                  </Bloco>
+
+                  <Bloco titulo="Intermediador">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input id="gc-i-razao" label="Razão social" value={k.intermediador.razaoSocial} onChange={(e) => mudarIntermediador('razaoSocial', e.target.value)} autoComplete="off" />
+                      <Input id="gc-i-cnpj" label="CNPJ" placeholder="00.000.000/0000-00" value={maskCPFCNPJ(k.intermediador.cnpj)} onChange={(e) => mudarIntermediador('cnpj', soDigitos(e.target.value, 14))} inputMode="numeric" autoComplete="off" />
+                    </div>
+                    <Input id="gc-i-endereco" label="Endereço da sede" value={k.intermediador.endereco} onChange={(e) => mudarIntermediador('endereco', e.target.value)} autoComplete="off" />
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Sócio administrador</p>
+                    <Input id="gc-i-nome" label="Nome completo" value={k.intermediador.nome} onChange={(e) => mudarIntermediador('nome', e.target.value)} autoComplete="off" />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input id="gc-i-nac" label="Nacionalidade" value={k.intermediador.nacionalidade} onChange={(e) => mudarIntermediador('nacionalidade', e.target.value)} autoComplete="off" />
+                      <Input id="gc-i-civil" label="Estado civil" value={k.intermediador.estadoCivil} onChange={(e) => mudarIntermediador('estadoCivil', e.target.value)} autoComplete="off" />
+                      <Input id="gc-i-cpf" label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.intermediador.cpf)} onChange={(e) => mudarIntermediador('cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
+                      <Input id="gc-i-email" label="E-mail" type="email" value={k.intermediador.email} onChange={(e) => mudarIntermediador('email', e.target.value)} autoComplete="off" />
+                    </div>
+                  </Bloco>
+
+                  <Bloco titulo="Testemunhas">
+                    {[0, 1].map((idx) => (
+                      <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+                        <Input id={`gc-t${idx}-nome`} label={`Testemunha ${idx + 1} — nome`} value={k.testemunhas[idx]?.nome ?? ''} onChange={(e) => mudarTestemunha(idx, 'nome', e.target.value)} autoComplete="off" />
+                        <Input id={`gc-t${idx}-cpf`} label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.testemunhas[idx]?.cpf ?? '')} onChange={(e) => mudarTestemunha(idx, 'cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
+                      </div>
+                    ))}
+                  </Bloco>
+
+                  <Bloco titulo="Local e data da assinatura">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input id="gc-cidade" label="Cidade/UF" placeholder="Jaú/SP" value={k.cidade} onChange={(e) => setK({ ...k, cidade: e.target.value })} autoComplete="off" />
+                      <Input id="gc-data" label="Data" type="date" value={k.dataAssinatura} onChange={(e) => setK({ ...k, dataAssinatura: e.target.value })} />
+                    </div>
+                  </Bloco>
+                </>
+              )}
             </>
           )}
 

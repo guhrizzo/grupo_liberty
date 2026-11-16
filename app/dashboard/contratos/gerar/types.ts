@@ -7,8 +7,17 @@ import { onlyDigits } from '@/utils/masks'
 
 /** Modelo com página própria (/dashboard/contratos/promessa-compra), fora do modal. */
 export const TIPO_PROMESSA = 'promessa-compra-financiado' as const
+/** Mesma promessa de compra, com o pagamento em parcelas e intermediador/testemunhas preenchíveis. */
+export const TIPO_PROMESSA_PARCELADA = 'promessa-compra-parcelada' as const
 
-export type TipoContratoGerado = 'prestacao-de-servico' | 'locacao-de-veiculo' | 'promessa-compra-financiado'
+export type TipoContratoGerado =
+  | 'prestacao-de-servico'
+  | 'locacao-de-veiculo'
+  | 'promessa-compra-financiado'
+  | 'promessa-compra-parcelada'
+
+/** As duas variantes da promessa de compra usam o mesmo formulário base. */
+export const ehPromessa = (t: TipoContratoGerado) => t === 'promessa-compra-financiado' || t === 'promessa-compra-parcelada'
 
 export const TIPOS_CONTRATO_GERADO: {
   value: TipoContratoGerado
@@ -31,8 +40,14 @@ export const TIPOS_CONTRATO_GERADO: {
   },
   {
     value: 'promessa-compra-financiado',
-    label: 'Promessa de compra de veículo financiado',
+    label: 'Promessa de compra de veículo financiado (à vista)',
     descricao: 'Promessa de compra de veículo financiado com assunção das parcelas pelo comprador, prazo para quitação e prévia do contrato em folhas A4.',
+    categoriaSlug: 'venda-de-veiculo-financiado',
+  },
+  {
+    value: 'promessa-compra-parcelada',
+    label: 'Promessa de compra de veículo financiado (parcelada)',
+    descricao: 'Mesma promessa de compra, com o preço pago em parcelas mensais. Intermediador, testemunhas, cidade e data são preenchíveis.',
     categoriaSlug: 'venda-de-veiculo-financiado',
   },
 ]
@@ -99,6 +114,41 @@ export const FORMAS_PAGAMENTO = [
  * Dados próprios da promessa de compra. Banco, parcelas e valor da parcela
  * vêm de `prestacao` (mesmos campos do contrato de prestação de serviço).
  */
+export interface IntermediadorInput {
+  razaoSocial: string
+  cnpj: string
+  endereco: string
+  /** Sócio administrador que assina pelo intermediador. */
+  nome: string
+  nacionalidade: string
+  estadoCivil: string
+  cpf: string
+  email: string
+}
+
+export interface TestemunhaInput {
+  nome: string
+  /** CPF só com dígitos. */
+  cpf: string
+}
+
+/** Valores de partida da promessa parcelada (editáveis no formulário). */
+export const INTERMEDIADOR_PADRAO: IntermediadorInput = {
+  razaoSocial: '55.116.497 OTAVIO MORETTO',
+  cnpj: '55116497000108',
+  endereco: 'Av. Doutor Quinzinho, 995, Sala 4, Jardim Jorge Atalla, Jaú/SP',
+  nome: 'OTÁVIO MORETTO',
+  nacionalidade: 'brasileiro',
+  estadoCivil: 'casado',
+  cpf: '52052536817',
+  email: 'otaviomoretto01@gmail.com',
+}
+
+export const TESTEMUNHAS_PADRAO: TestemunhaInput[] = [
+  { nome: 'ÁLESIS SILVA QUIO', cpf: '54234245852' },
+  { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '54440899803' },
+]
+
 export interface CompraInput {
   marca: string
   modelo: string
@@ -114,6 +164,18 @@ export interface CompraInput {
   prazoQuitacao: string
   valorTotal: string
   formaPagamento: string
+  // ── Só na promessa parcelada ──
+  intermediador: IntermediadorInput
+  testemunhas: TestemunhaInput[]
+  /** Quantidade de parcelas do pagamento do preço. */
+  pagamentos: string
+  valorPagamento: string
+  /** Vencimentos (AAAA-MM-DD), um por parcela. */
+  vencimentos: string[]
+  /** "Cidade/UF" do local de assinatura. */
+  cidade: string
+  /** Data de assinatura (AAAA-MM-DD). */
+  dataAssinatura: string
 }
 
 export interface GerarContratoInput {
@@ -139,21 +201,30 @@ export const prestacaoVazia = (): PrestacaoInput => ({
   prazo: '', valorProposta: '', seguroPrestamista: false, limpaNome: false,
 })
 export const locacaoVazia = (): LocacaoInput => ({ prazo: '', valorSemanal: '', caucao: '' })
-export const compraVazia = (): CompraInput => ({
-  marca: '', modelo: '', cor: '', chassi: '', categoria: '', conservacao: '',
+export const compraVazia = (parcelado = false): CompraInput => ({
+  marca: '', modelo: '', cor: '', chassi: '',
+  categoria: parcelado ? 'PARTICULAR' : '',
+  conservacao: parcelado ? 'USADO' : '',
   tipoFinanciamento: '', valorFinanciado: '', saldoDevedor: '',
   prazoQuitacao: '12', valorTotal: '', formaPagamento: 'pix',
+  intermediador: parcelado
+    ? { ...INTERMEDIADOR_PADRAO }
+    : { razaoSocial: '', cnpj: '', endereco: '', nome: '', nacionalidade: '', estadoCivil: '', cpf: '', email: '' },
+  testemunhas: parcelado ? TESTEMUNHAS_PADRAO.map((t) => ({ ...t })) : [{ nome: '', cpf: '' }, { nome: '', cpf: '' }],
+  pagamentos: '2', valorPagamento: '', vencimentos: ['', ''],
+  cidade: parcelado ? 'Jaú/SP' : '',
+  dataAssinatura: '',
 })
 
 /** Formulário da promessa de compra ainda sem nada preenchido. */
-export const inputPromessaVazio = (): GerarContratoInput => ({
-  tipo: TIPO_PROMESSA,
+export const inputPromessaVazio = (tipo: TipoContratoGerado = TIPO_PROMESSA): GerarContratoInput => ({
+  tipo,
   contratante: contratanteVazio(),
   conjuge: conjugeVazio(),
   veiculo: veiculoContratoVazio(),
   prestacao: prestacaoVazia(),
   locacao: locacaoVazia(),
-  compra: compraVazia(),
+  compra: compraVazia(tipo === TIPO_PROMESSA_PARCELADA),
   salvarCliente: false,
 })
 
@@ -207,8 +278,46 @@ function inteiroDe(raw: string): number {
   return /^\d+$/.test(s) ? Number(s) : NaN
 }
 
+/** "AAAA-MM-DD" que existe no calendário. */
+export function dataIsoValida(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  if (!m) return false
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3])
+}
+
+/** Parte própria da promessa parcelada: intermediador, testemunhas, parcelas, local e data. */
+function validarParcelada(i: GerarContratoInput): string | null {
+  const k = i.compra
+  const m = k.intermediador
+  if (!m.razaoSocial.trim()) return 'Informe a razão social do intermediador.'
+  if (onlyDigits(m.cnpj).length !== 14) return 'Informe o CNPJ do intermediador (14 dígitos).'
+  if (!m.endereco.trim()) return 'Informe o endereço do intermediador.'
+  if (!m.nome.trim()) return 'Informe o nome do sócio administrador.'
+  if (!m.nacionalidade.trim()) return 'Informe a nacionalidade do sócio administrador.'
+  if (!m.estadoCivil.trim()) return 'Informe o estado civil do sócio administrador.'
+  if (onlyDigits(m.cpf).length !== 11) return 'Informe o CPF do sócio administrador (11 dígitos).'
+  if (!/^\S+@\S+\.\S+$/.test(m.email.trim())) return 'Informe o e-mail do intermediador.'
+
+  const qtd = inteiroDe(k.pagamentos)
+  if (!(qtd >= 1 && qtd <= 60)) return 'Informe a quantidade de parcelas do pagamento (de 1 a 60).'
+  if (!(numeroDe(k.valorPagamento) > 0)) return 'Informe o valor de cada parcela do pagamento.'
+  for (let n = 0; n < qtd; n++) {
+    if (!dataIsoValida(k.vencimentos[n] ?? '')) return `Informe o vencimento da parcela ${n + 1}.`
+  }
+  for (let n = 0; n < 2; n++) {
+    const t = k.testemunhas[n]
+    if (!t?.nome.trim()) return `Informe o nome da testemunha ${n + 1}.`
+    if (onlyDigits(t.cpf).length !== 11) return `Informe o CPF da testemunha ${n + 1} (11 dígitos).`
+  }
+  if (!k.cidade.trim()) return 'Informe a cidade/UF da assinatura.'
+  if (!dataIsoValida(k.dataAssinatura)) return 'Informe a data da assinatura.'
+  return null
+}
+
 /** Promessa de compra: sem RG, sem FIPE e sem cônjuge. */
 function validarCompra(i: GerarContratoInput): string | null {
+  const parcelado = i.tipo === TIPO_PROMESSA_PARCELADA
   const c = i.contratante
   if (!c.nome.trim()) return 'Informe o nome completo.'
   if (!c.nacionalidade.trim()) return 'Informe a nacionalidade.'
@@ -216,7 +325,7 @@ function validarCompra(i: GerarContratoInput): string | null {
   if (!c.profissao.trim()) return 'Informe a profissão.'
   if (!validarCPF(onlyDigits(c.cpf))) return 'CPF inválido.'
   if (!c.endereco.trim()) return 'Informe o endereço.'
-  if (onlyDigits(c.telefone).length < 10) return 'Informe o telefone com DDD.'
+  if (!parcelado && onlyDigits(c.telefone).length < 10) return 'Informe o telefone com DDD.'
   if (!c.email.trim() || !/^\S+@\S+\.\S+$/.test(c.email.trim())) return 'Informe um e-mail válido.'
 
   const k = i.compra
@@ -246,13 +355,14 @@ function validarCompra(i: GerarContratoInput): string | null {
   if (!(numeroDe(k.saldoDevedor) > 0)) return 'Informe o saldo devedor aproximado.'
   if (!(inteiroDe(k.prazoQuitacao) > 0)) return 'Informe o prazo para quitação (em meses).'
   if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor total do contrato.'
+  if (parcelado) return validarParcelada(i)
   if (!FORMAS_PAGAMENTO.some((f) => f.value === k.formaPagamento)) return 'Informe a forma de pagamento.'
   return null
 }
 
 /** Retorna a mensagem do primeiro problema do formulário, ou null. */
 export function validarGerarContrato(i: GerarContratoInput): string | null {
-  if (i.tipo === 'promessa-compra-financiado') return validarCompra(i)
+  if (ehPromessa(i.tipo)) return validarCompra(i)
   const c = i.contratante
   if (!c.nome.trim()) return 'Informe o nome completo.'
   if (!c.rg.trim()) return 'Informe o RG.'

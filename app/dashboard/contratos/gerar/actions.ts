@@ -21,6 +21,8 @@ import {
   type ContratanteInput,
   type GerarContratoInput,
   type GerarContratoResponse,
+  type IntermediadorInput,
+  type TestemunhaInput,
 } from './types'
 
 const COLECAO_CLIENTES = 'clientes_contrato'
@@ -53,6 +55,31 @@ function normalizarConjuge(raw: unknown): ConjugeInput {
     cpf: onlyDigits(txt(r.cpf, 20)).slice(0, 11),
     profissao: txt(r.profissao, 80),
   }
+}
+
+/** "AAAA-MM-DD" ou vazio. */
+function dataIso(v: unknown): string {
+  const t = txt(v, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : ''
+}
+
+function normalizarIntermediador(raw: unknown): IntermediadorInput {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    razaoSocial: txt(r.razaoSocial, 120),
+    cnpj: onlyDigits(txt(r.cnpj, 20)).slice(0, 14),
+    endereco: txt(r.endereco, 250),
+    nome: txt(r.nome, 120),
+    nacionalidade: txt(r.nacionalidade, 40),
+    estadoCivil: txt(r.estadoCivil, 30),
+    cpf: onlyDigits(txt(r.cpf, 20)).slice(0, 11),
+    email: txt(r.email, 120).toLowerCase(),
+  }
+}
+
+function normalizarTestemunha(raw: unknown): TestemunhaInput {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return { nome: txt(r.nome, 120), cpf: onlyDigits(txt(r.cpf, 20)).slice(0, 11) }
 }
 
 function normalizarInput(raw: unknown): GerarContratoInput {
@@ -103,6 +130,13 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       prazoQuitacao: txt(k.prazoQuitacao, 4),
       valorTotal: txt(k.valorTotal, 20),
       formaPagamento: txt(k.formaPagamento, 20),
+      intermediador: normalizarIntermediador(k.intermediador),
+      testemunhas: [0, 1].map((n) => normalizarTestemunha(Array.isArray(k.testemunhas) ? k.testemunhas[n] : null)),
+      pagamentos: txt(k.pagamentos, 2),
+      valorPagamento: txt(k.valorPagamento, 20),
+      vencimentos: (Array.isArray(k.vencimentos) ? k.vencimentos.slice(0, 60) : []).map((d) => dataIso(d)),
+      cidade: txt(k.cidade, 60),
+      dataAssinatura: dataIso(k.dataAssinatura),
     },
     salvarCliente: r.salvarCliente === true,
   }
@@ -142,7 +176,13 @@ function nomeArquivo(tipo: string, cliente: string): string {
     .replace(/\s+/g, '_')
     .slice(0, 50)
   const nomeTipo =
-    tipo === 'locacao-de-veiculo' ? 'locacao' : tipo === 'promessa-compra-financiado' ? 'promessa_compra' : 'prestacao_servico'
+    tipo === 'locacao-de-veiculo'
+      ? 'locacao'
+      : tipo === 'promessa-compra-financiado'
+        ? 'promessa_compra'
+        : tipo === 'promessa-compra-parcelada'
+          ? 'promessa_compra_parcelada'
+          : 'prestacao_servico'
   return `contrato_${nomeTipo}_${base || 'cliente'}.pdf`
 }
 

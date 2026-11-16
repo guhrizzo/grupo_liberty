@@ -7,23 +7,34 @@
 import { ESTADOS_CIVIS, labelEstadoCivil } from '@/utils/cobrancas/pessoa'
 import { maskCPFCNPJ, maskPhone, onlyDigits } from '@/utils/masks'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
-import { dataPorExtenso, dinheiro, meses } from './texto'
-import { FORMAS_PAGAMENTO, numeroDe, type GerarContratoInput } from './types'
+import { dataPorExtenso, dinheiro, inteiroPorExtenso, meses } from './texto'
+import {
+  FORMAS_PAGAMENTO,
+  INTERMEDIADOR_PADRAO,
+  TESTEMUNHAS_PADRAO,
+  TIPO_PROMESSA_PARCELADA,
+  numeroDe,
+  type GerarContratoInput,
+} from './types'
 
-/** Intermediador e testemunhas: fixos em todos os contratos deste modelo. */
+/**
+ * Intermediador e testemunhas da promessa à vista: fixos. Na parcelada os mesmos
+ * dados são só o valor inicial do formulário (INTERMEDIADOR_PADRAO).
+ */
 export const INTERMEDIADOR = {
-  empresa: '55.116.497 OTAVIO MORETTO',
-  cnpj: '55.116.497/0001-08',
-  endereco: 'Av. Doutor Quinzinho, 995, Sala 4, Jardim Jorge Atalla, Jaú/SP',
-  socio: 'OTÁVIO MORETTO',
-  cpf: '520.525.368-17',
-  email: 'otaviomoretto01@gmail.com',
+  empresa: INTERMEDIADOR_PADRAO.razaoSocial,
+  cnpj: maskCPFCNPJ(INTERMEDIADOR_PADRAO.cnpj),
+  endereco: INTERMEDIADOR_PADRAO.endereco,
+  socio: INTERMEDIADOR_PADRAO.nome,
+  cpf: maskCPFCNPJ(INTERMEDIADOR_PADRAO.cpf),
+  email: INTERMEDIADOR_PADRAO.email,
 }
 
-export const TESTEMUNHAS = [
-  { nome: 'ÁLESIS SILVA QUIO', cpf: '542.342.458-52', papel: 'TESTEMUNHA I' },
-  { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '544.408.998-03', papel: 'TESTEMUNHA II' },
-]
+export const TESTEMUNHAS = TESTEMUNHAS_PADRAO.map((t, idx) => ({
+  nome: t.nome,
+  cpf: maskCPFCNPJ(t.cpf),
+  papel: idx === 0 ? 'TESTEMUNHA I' : 'TESTEMUNHA II',
+}))
 
 export const LOCAL_ASSINATURA = 'Jaú/SP'
 
@@ -42,7 +53,23 @@ const ou = (valor: string, rotulo: string) => valor.trim() || lacuna(rotulo)
 const moeda = (raw: string, rotulo: string) => (numeroDe(raw) >= 0 ? brl(raw) : lacuna(rotulo))
 const contagem = (raw: string, rotulo: string) => (/^\d+$/.test(raw.trim()) ? String(Number(raw)) : lacuna(rotulo))
 
+/** "um" → "uma", "dois" → "duas" (parcelas), inclusive ao fim de "vinte e um". */
+const feminino = (extenso: string) => extenso.replace(/\bum$/, 'uma').replace(/\bdois$/, 'duas')
+
+/** "2026-11-16" → "16/11/2026" (vazio se inválida). */
+function dataCurta(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
+}
+
+/** "2026-11-16" → "16 de novembro de 2026" (lacuna se inválida). */
+function dataLonga(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m ? dataPorExtenso(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : lacuna('data')
+}
+
 export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): ContratoBlocos {
+  const parcelado = i.tipo === TIPO_PROMESSA_PARCELADA
   const c = i.contratante
   const v = i.veiculo
   const k = i.compra
@@ -58,18 +85,8 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
   const prazoQuitacao = /^[1-9]\d*$/.test(k.prazoQuitacao.trim()) ? meses(k.prazoQuitacao) : lacuna('prazo em meses')
   const valorTotal = numeroDe(k.valorTotal) > 0 ? dinheiro(k.valorTotal) : lacuna('valor total')
 
-  const blocos: BlocoContrato[] = [
-    { tipo: 'titulo', texto: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES' },
-    {
-      tipo: 'p',
-      texto: `**COMPRADOR: ${nomeComprador}**, ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpfComprador}**, com endereço na ${ou(c.endereco, 'endereço completo')}, com **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
-    },
-    {
-      tipo: 'p',
-      texto: `**INTERMEDIADOR: ${INTERMEDIADOR.empresa},** pessoa jurídica de direito privado, inscrita no **CNPJ sob nº ${INTERMEDIADOR.cnpj},** com sede na ${INTERMEDIADOR.endereco}, neste ato representada por seu sócio administrador **${INTERMEDIADOR.socio},** brasileiro, casado, empresário, portador do **CPF nº ${INTERMEDIADOR.cpf},** e com endereço eletrônico **${INTERMEDIADOR.email}**.`,
-    },
-    { tipo: 'p', texto: 'As partes acima entendem como justas as seguintes cláusulas e condições do presente contrato.' },
-
+  // Trechos iguais nas duas variantes: objeto (cláusula 1), cláusulas 2 a 5, 7.1 a 7.3.1 e 8 a 11.
+  const objeto: BlocoContrato[] = [
     { tipo: 'secao', texto: '1. OBJETO' },
     {
       tipo: 'p',
@@ -119,7 +136,9 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       texto:
         '**1.4.** O **COMPRADOR** declara ter ciência de que o presente contrato decorre de operação de intermediação previamente estabelecida entre o **INTERMEDIADOR** e o legítimo proprietário do veículo (VENDEDOR), conforme contrato de prestação de serviços e procuração pública, cujas condições principais foram informadas previamente ao COMPRADOR.',
     },
+  ]
 
+  const clausulas2a5: BlocoContrato[] = [
     { tipo: 'secao', texto: '2. RESPONSABILIDADES E OBRIGAÇÕES DAS PARTES' },
     { tipo: 'p', texto: '**2.1.** São obrigações do **INTERMEDIADOR**:' },
     {
@@ -234,7 +253,23 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       texto:
         '**5.3.** A rescisão deste contrato antes da efetiva transferência da titularidade somente poderá ocorrer nas hipóteses previstas na cláusula específica de rescisão, mediante formalização por escrito e observância das penalidades estipuladas.',
     },
+  ]
 
+  // Só na promessa à vista.
+  const topoAvista: BlocoContrato[] = [
+    { tipo: 'titulo', texto: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES' },
+    {
+      tipo: 'p',
+      texto: `**COMPRADOR: ${nomeComprador}**, ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpfComprador}**, com endereço na ${ou(c.endereco, 'endereço completo')}, com **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
+    },
+    {
+      tipo: 'p',
+      texto: `**INTERMEDIADOR: ${INTERMEDIADOR.empresa},** pessoa jurídica de direito privado, inscrita no **CNPJ sob nº ${INTERMEDIADOR.cnpj},** com sede na ${INTERMEDIADOR.endereco}, neste ato representada por seu sócio administrador **${INTERMEDIADOR.socio},** brasileiro, casado, empresário, portador do **CPF nº ${INTERMEDIADOR.cpf},** e com endereço eletrônico **${INTERMEDIADOR.email}**.`,
+    },
+    { tipo: 'p', texto: 'As partes acima entendem como justas as seguintes cláusulas e condições do presente contrato.' },
+  ]
+
+  const pagamentoAvista: BlocoContrato[] = [
     { tipo: 'secao', texto: '6. PAGAMENTO' },
     {
       tipo: 'p',
@@ -254,7 +289,48 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       texto:
         '**6.4.** O valor referido nesta cláusula abrange o direito de posse e futura propriedade do veículo, bem como a intermediação e cessão de direitos realizadas pelo **INTERMEDIADOR**, sendo considerado quitado após a efetivação do pagamento integral.',
     },
+  ]
 
+  const suspensaoAvista: BlocoContrato[] = [
+    { tipo: 'secao', texto: '7.4. DA SUSPENSÃO POR IMPOSSIBILIDADE SUPERVENIENTE:' },
+    {
+      tipo: 'p',
+      rotulo: '7.4.1.',
+      texto:
+        'Na ocorrência de qualquer evento que impossibilite temporária ou permanentemente a continuidade do contrato por fato alheio à vontade das partes — incluindo, mas não se limitando a, busca e apreensão, bloqueio judicial, furto, roubo ou sinistro com perda total —, o contrato não será automaticamente rescindido, mas terá sua eficácia e seus pagamentos suspensos pelo prazo de até 180 (cento e oitenta) dias.',
+    },
+    {
+      tipo: 'p',
+      rotulo: '7.4.2.',
+      texto:
+        'Durante o período de suspensão, o(a) **INTERMEDIADOR**(A) se compromete a adotar, às suas expensas, as medidas cabíveis para solucionar o impedimento.',
+    },
+    {
+      tipo: 'p',
+      rotulo: '7.4.3.',
+      texto: 'Se o impedimento for solucionado dentro do prazo de suspensão, o contrato será reativado e voltará a vigorar em seus termos originais.',
+    },
+    {
+      tipo: 'p',
+      rotulo: '7.4.4.',
+      texto:
+        'Se, ao final do prazo de suspensão, o impedimento não tiver sido solucionado, o contrato será considerado definitivamente rescindido. Nesta hipótese, o(a) **INTERMEDIADOR(A)** restituirá ao(à) **CESSIONÁRIO(A)** os valores por este pagos, com a devida correção monetária, operando-se a mútua e plena quitação, nada mais sendo devido a título de multas ou indenizações.',
+    },
+  ]
+
+  const fechoAvista: BlocoContrato[] = [
+    { tipo: 'p', texto: `${LOCAL_ASSINATURA}, ${dataPorExtenso(hoje)}.` },
+    {
+      tipo: 'assinaturas',
+      itens: [
+        { nome: nomeComprador, documento: `CPF nº ${cpfComprador}`, papel: 'COMPRADOR(A)' },
+        { nome: INTERMEDIADOR.socio, documento: `CPF nº ${INTERMEDIADOR.cpf}`, papel: 'INTERMEDIADOR' },
+        ...TESTEMUNHAS.map((t) => ({ nome: t.nome, documento: `CPF n° ${t.cpf}`, papel: t.papel })),
+      ],
+    },
+  ]
+
+  const rescisao: BlocoContrato[] = [
     { tipo: 'secao', texto: '7. RESCISÃO CONTRATUAL' },
     {
       tipo: 'p',
@@ -290,31 +366,9 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       texto:
         '**7.3.1.** Na hipótese de rescisão imotivada, a parte que a requerer deverá pagar à outra multa compensatória de 20% (vinte por cento) do valor atualizado do saldo devedor do financiamento, além de ressarcir eventuais despesas já incorridas pela parte inocente em razão da execução do contrato.',
     },
-    { tipo: 'secao', texto: '7.4. DA SUSPENSÃO POR IMPOSSIBILIDADE SUPERVENIENTE:' },
-    {
-      tipo: 'p',
-      rotulo: '7.4.1.',
-      texto:
-        'Na ocorrência de qualquer evento que impossibilite temporária ou permanentemente a continuidade do contrato por fato alheio à vontade das partes — incluindo, mas não se limitando a, busca e apreensão, bloqueio judicial, furto, roubo ou sinistro com perda total —, o contrato não será automaticamente rescindido, mas terá sua eficácia e seus pagamentos suspensos pelo prazo de até 180 (cento e oitenta) dias.',
-    },
-    {
-      tipo: 'p',
-      rotulo: '7.4.2.',
-      texto:
-        'Durante o período de suspensão, o(a) **INTERMEDIADOR**(A) se compromete a adotar, às suas expensas, as medidas cabíveis para solucionar o impedimento.',
-    },
-    {
-      tipo: 'p',
-      rotulo: '7.4.3.',
-      texto: 'Se o impedimento for solucionado dentro do prazo de suspensão, o contrato será reativado e voltará a vigorar em seus termos originais.',
-    },
-    {
-      tipo: 'p',
-      rotulo: '7.4.4.',
-      texto:
-        'Se, ao final do prazo de suspensão, o impedimento não tiver sido solucionado, o contrato será considerado definitivamente rescindido. Nesta hipótese, o(a) **INTERMEDIADOR(A)** restituirá ao(à) **CESSIONÁRIO(A)** os valores por este pagos, com a devida correção monetária, operando-se a mútua e plena quitação, nada mais sendo devido a título de multas ou indenizações.',
-    },
+  ]
 
+  const clausulas8a11: BlocoContrato[] = [
     { tipo: 'secao', texto: '8. COMPARTILHAMENTO E TRATAMENTO DE DADOS' },
     {
       tipo: 'p',
@@ -384,16 +438,129 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       texto:
         '**11.1.** Para dirimir quaisquer dúvidas ou controvérsias oriundas deste contrato, as partes elegem o Foro da Comarca de Jaú/SP, com renúncia expressa a qualquer outro, por mais privilegiado que seja.',
     },
-    { tipo: 'p', texto: `${LOCAL_ASSINATURA}, ${dataPorExtenso(hoje)}.` },
+  ]
+
+  const parcelas = parcelado ? pecasParceladas(i, valorTotal) : null
+
+  const blocos: BlocoContrato[] = [
+    ...(parcelas ? parcelas.topo : topoAvista),
+    ...objeto,
+    ...clausulas2a5,
+    ...(parcelas ? parcelas.pagamento : pagamentoAvista),
+    ...rescisao,
+    ...(parcelas ? parcelas.rescisaoFinal : suspensaoAvista),
+    ...clausulas8a11,
+    ...(parcelas ? parcelas.fecho : fechoAvista),
+  ]
+
+  return { titulo: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES', blocos }
+}
+
+/** Trechos que mudam na promessa parcelada: abertura, cláusula 6, fim da cláusula 7 e assinaturas. */
+function pecasParceladas(i: GerarContratoInput, valorTotal: string) {
+  const c = i.contratante
+  const k = i.compra
+  const m = k.intermediador
+  const nomeComprador = c.nome.trim() ? c.nome.trim().toUpperCase() : lacuna('NOME COMPLETO')
+  const cpfComprador = onlyDigits(c.cpf) ? maskCPFCNPJ(c.cpf) : lacuna('CPF')
+  const estadoCivil = ESTADOS_CIVIS.some((e) => e.value === c.estadoCivil) ? labelEstadoCivil(c.estadoCivil).toLowerCase() : lacuna('estado civil')
+  const cpfIntermediador = onlyDigits(m.cpf) ? maskCPFCNPJ(m.cpf) : lacuna('CPF do sócio')
+  const cnpjIntermediador = onlyDigits(m.cnpj) ? maskCPFCNPJ(m.cnpj) : lacuna('CNPJ')
+  const nomeSocio = m.nome.trim() ? m.nome.trim().toUpperCase() : lacuna('nome do sócio')
+
+  const topo: BlocoContrato[] = [
+    { tipo: 'titulo', texto: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES' },
     {
-      tipo: 'assinaturas',
+      tipo: 'p',
+      texto: `**COMPRADOR: ${nomeComprador}**, ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpfComprador}**, com endereço na ${ou(c.endereco, 'endereço completo')}, e com endereço eletrônico ${ou(c.email, 'e-mail')}.`,
+    },
+    {
+      tipo: 'p',
+      texto: `**INTERMEDIADOR: ${ou(m.razaoSocial, 'RAZÃO SOCIAL').toUpperCase()}**, pessoa jurídica de direito privado, inscrita no **CNPJ sob nº ${cnpjIntermediador}**, com sede no ${ou(m.endereco, 'endereço completo')}, neste ato representada por seu sócio administrador **${nomeSocio}**, ${ou(m.nacionalidade, 'nacionalidade')}, ${ou(m.estadoCivil, 'estado civil')}, empresário, portador do **CPF nº ${cpfIntermediador}**, e com endereço eletrônico ${ou(m.email, 'e-mail')}.`,
+    },
+    { tipo: 'p', texto: 'As partes acima entendem como justas as seguintes cláusulas e condições do presente contrato.' },
+  ]
+
+  // Cláusula 6: pagamento em parcelas mensais.
+  const n = /^[1-9]\d*$/.test(k.pagamentos.trim()) ? Number(k.pagamentos) : null
+  const datas =
+    n === null
+      ? [lacuna('vencimentos')]
+      : Array.from({ length: n }, (_, idx) => dataCurta(k.vencimentos[idx] ?? '') || lacuna(`vencimento ${idx + 1}`))
+  const vencimentos =
+    datas.length === 1
+      ? `com vencimento em ${datas[0]}`
+      : datas.length === 2
+        ? `com o primeiro vencimento em ${datas[0]} e ${datas[1]}`
+        : `com vencimentos em ${datas.slice(0, -1).join(', ')} e ${datas[datas.length - 1]}`
+  const quantidade = n === null ? lacuna('quantidade de parcelas') : `${String(n).padStart(2, '0')} (${feminino(inteiroPorExtenso(n))})`
+  const valorParcela = numeroDe(k.valorPagamento) > 0 ? dinheiro(k.valorPagamento) : lacuna('valor da parcela')
+  const forma = n === 1 ? 'parcela' : 'parcelas mensais, fixas e sucessivas,'
+
+  const pagamento: BlocoContrato[] = [
+    { tipo: 'secao', texto: '6. PAGAMENTO' },
+    {
+      tipo: 'p',
+      texto: `**6.1.** Pelo presente contrato, o COMPRADOR se compromete a pagar ao INTERMEDIADOR o valor total de **${valorTotal}**, a título de preço pela aquisição do veículo.`,
+    },
+    { tipo: 'p', texto: '**6.2.** O pagamento do valor descrito no item 6.1 será realizado da seguinte forma:' },
+    {
+      tipo: 'p',
+      texto: `**a)** Em ${quantidade} ${forma} no valor de **${valorParcela}** cada, ${vencimentos};`,
+    },
+    {
+      tipo: 'p',
+      texto:
+        '**6.3.** O valor referido nesta cláusula abrange o direito de posse e futura propriedade do veículo, bem como a intermediação e cessão de direitos realizados pelo INTERMEDIADOR, e será considerado quitado com a efetivação dos pagamentos previstos.',
+    },
+  ]
+
+  // Fim da cláusula 7: rescisão automática (7.4) e efeitos da rescisão (7.5).
+  const rescisaoFinal: BlocoContrato[] = [
+    {
+      tipo: 'p',
+      texto: '**7.4.** Este contrato poderá ser considerado rescindido automaticamente, sem penalidade para nenhuma das partes, nas seguintes situações:',
+    },
+    {
+      tipo: 'alineas',
       itens: [
-        { nome: nomeComprador, documento: `CPF nº ${cpfComprador}`, papel: 'COMPRADOR(A)' },
-        { nome: INTERMEDIADOR.socio, documento: `CPF nº ${INTERMEDIADOR.cpf}`, papel: 'INTERMEDIADOR' },
-        ...TESTEMUNHAS.map((t) => ({ nome: t.nome, documento: `CPF n° ${t.cpf}`, papel: t.papel })),
+        'Morte ou incapacidade civil superveniente do COMPRADOR ou do INTERMEDIADOR;',
+        'Bloqueio judicial, alienação forçada, furto, roubo, sinistro com perda total ou qualquer evento que torne impossível a regularização e transferência do veículo;',
+        'Desaparecimento do veículo ou da documentação essencial à operação;',
+        'Ocorrência de caso fortuito ou força maior que torne inviável o cumprimento das obrigações por ambas as partes.',
+      ],
+    },
+    { tipo: 'p', texto: '**7.5.** Em qualquer hipótese de rescisão:' },
+    {
+      tipo: 'alineas',
+      itens: [
+        'O COMPRADOR deverá restituir o veículo ao INTERMEDIADOR, nas mesmas condições em que o recebeu, exceto desgaste natural pelo uso regular;',
+        'As partes deverão assinar Termo de Rescisão Contratual, se solicitado por qualquer delas, para formalização da extinção da relação jurídica;',
+        'Permanecerão em vigor, mesmo após a rescisão, as cláusulas relativas à responsabilidade civil, penalidades, confidencialidade, tratamento de dados e foro.',
       ],
     },
   ]
 
-  return { titulo: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES', blocos }
+  const testemunhas = [0, 1].map((idx) => {
+    const t = k.testemunhas[idx]
+    return {
+      nome: t?.nome.trim() ? t.nome.trim().toUpperCase() : lacuna(`NOME DA TESTEMUNHA ${idx === 0 ? 'I' : 'II'}`),
+      documento: `CPF n° ${t && onlyDigits(t.cpf) ? maskCPFCNPJ(t.cpf) : lacuna('CPF')}`,
+      papel: idx === 0 ? 'TESTEMUNHA I' : 'TESTEMUNHA II',
+    }
+  })
+
+  const fecho: BlocoContrato[] = [
+    { tipo: 'p', texto: `${ou(k.cidade, 'CIDADE/UF')}, ${dataLonga(k.dataAssinatura)}.` },
+    {
+      tipo: 'assinaturas',
+      itens: [
+        { nome: nomeComprador, documento: `CPF nº ${cpfComprador}`, papel: 'COMPRADOR(A)' },
+        { nome: nomeSocio, documento: `CPF nº ${cpfIntermediador}`, papel: 'INTERMEDIADOR' },
+        ...testemunhas,
+      ],
+    },
+  ]
+
+  return { topo, pagamento, rescisaoFinal, fecho }
 }

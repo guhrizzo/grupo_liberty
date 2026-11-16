@@ -11,6 +11,8 @@ import { montarPromessa } from './texto-promessa'
 import {
   compraVazia,
   conjugeVazio,
+  INTERMEDIADOR_PADRAO,
+  TESTEMUNHAS_PADRAO,
   inputPromessaVazio,
   contratanteVazio,
   locacaoVazia,
@@ -258,5 +260,102 @@ describe('prestação de serviço e locação no mesmo layout', () => {
       )
       expect(buf.subarray(0, 4).toString()).toBe('%PDF')
     }
+  })
+})
+
+describe('promessa de compra parcelada', () => {
+  const hoje = new Date(2026, 10, 16)
+  const parcelada = (): GerarContratoInput => {
+    const base = entrada()
+    return {
+      ...base,
+      tipo: 'promessa-compra-parcelada',
+      contratante: { ...base.contratante, telefone: '' },
+      compra: {
+        ...base.compra,
+        categoria: 'PARTICULAR',
+        conservacao: 'USADO',
+        intermediador: { ...INTERMEDIADOR_PADRAO },
+        testemunhas: TESTEMUNHAS_PADRAO.map((t) => ({ ...t })),
+        pagamentos: '2',
+        valorPagamento: 'R$ 4.250,00',
+        vencimentos: ['2026-12-10', '2027-01-10'],
+        cidade: 'Jaú/SP',
+        dataAssinatura: '2026-11-16',
+      },
+    }
+  }
+  const texto = (i: GerarContratoInput) => montarContratoGerado(i, hoje).blocos.map(textoDe).join('\n')
+  const erro = (alterar: (i: GerarContratoInput) => void) => {
+    const i = parcelada()
+    alterar(i)
+    return validarGerarContrato(i)
+  }
+
+  it('valida completo (sem telefone nem forma de pagamento) e exige os campos próprios', () => {
+    expect(validarGerarContrato(parcelada())).toBeNull()
+    expect(erro((i) => (i.compra.vencimentos[1] = ''))).toBe('Informe o vencimento da parcela 2.')
+    expect(erro((i) => (i.compra.testemunhas[1].cpf = '123'))).toBe('Informe o CPF da testemunha 2 (11 dígitos).')
+    expect(erro((i) => (i.compra.intermediador.cnpj = '123'))).toBe('Informe o CNPJ do intermediador (14 dígitos).')
+    expect(erro((i) => (i.compra.cidade = ''))).toBe('Informe a cidade/UF da assinatura.')
+    expect(erro((i) => (i.compra.dataAssinatura = '2026-02-31'))).toBe('Informe a data da assinatura.')
+    expect(erro((i) => (i.compra.pagamentos = '0'))).toBe('Informe a quantidade de parcelas do pagamento (de 1 a 60).')
+  })
+
+  it('traz a cláusula 6 parcelada e a rescisão automática (7.4 e 7.5)', () => {
+    const t = texto(parcelada())
+    expect(t).toContain('**6.2.** O pagamento do valor descrito no item 6.1 será realizado da seguinte forma:')
+    expect(t).toContain('**a)** Em 02 (duas) parcelas mensais, fixas e sucessivas, no valor de **R$')
+    expect(t).toMatch(/4\.250,00 \(quatro mil duzentos e cinquenta reais\)\*\* cada/)
+    expect(t).toContain('com o primeiro vencimento em 10/12/2026 e 10/01/2027;')
+    expect(t).toContain('**7.4.** Este contrato poderá ser considerado rescindido automaticamente')
+    expect(t).toContain('**7.5.** Em qualquer hipótese de rescisão:')
+    expect(t).not.toContain('SUSPENSÃO POR IMPOSSIBILIDADE')
+    expect(t).not.toContain('forma de pagamento')
+  })
+
+  it('usa os dados do intermediador, das testemunhas, a cidade e a data informados', () => {
+    const t = texto(parcelada())
+    expect(t).toContain('**INTERMEDIADOR: 55.116.497 OTAVIO MORETTO**')
+    expect(t).toContain('CNPJ sob nº 55.116.497/0001-08')
+    expect(t).toContain('CPF nº 520.525.368-17')
+    expect(t).toContain('Jaú/SP, 16 de novembro de 2026.')
+    expect(t).toContain('ÁLESIS SILVA QUIO CPF n° 542.342.458-52 TESTEMUNHA I')
+    expect(t).not.toContain('(14) 99999-8888') // este modelo não tem telefone do comprador
+    expect(t).not.toMatch(/\[[^\]]+\]/)
+  })
+
+  it('ajusta o texto à quantidade de parcelas', () => {
+    const tres = parcelada()
+    tres.compra.pagamentos = '3'
+    tres.compra.vencimentos = ['2026-12-10', '2027-01-10', '2027-02-10']
+    expect(texto(tres)).toContain('03 (três) parcelas mensais')
+    expect(texto(tres)).toContain('com vencimentos em 10/12/2026, 10/01/2027 e 10/02/2027;')
+    const uma = parcelada()
+    uma.compra.pagamentos = '1'
+    expect(texto(uma)).toContain('Em 01 (uma) parcela no valor de')
+    expect(texto(uma)).toContain('com vencimento em 10/12/2026;')
+    const vinteUma = parcelada()
+    vinteUma.compra.pagamentos = '21'
+    expect(texto(vinteUma)).toContain('21 (vinte e uma) parcelas')
+  })
+
+  it('formulário vazio mostra lacunas e o PDF é gerado', async () => {
+    const vazio = inputPromessaVazio('promessa-compra-parcelada')
+    const t = texto(vazio)
+    expect(t).toContain('[NOME COMPLETO]')
+    expect(t).toContain('[vencimento 1]')
+    expect(t).toContain('[data]')
+    expect(t).not.toMatch(/NaN|undefined/)
+    const buf = await renderToBuffer(
+      createElement(ContratoBlocosDocument, { contrato: montarContratoGerado(parcelada(), hoje), nomeCliente: 'Maria' }) as never,
+    )
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF')
+  })
+
+  it('a promessa à vista continua com o pagamento à vista', () => {
+    const t = montarContratoGerado(entrada(), hoje).blocos.map(textoDe).join('\n')
+    expect(t).toContain('será realizado à vista, em parcela única')
+    expect(t).toContain('DA SUSPENSÃO POR IMPOSSIBILIDADE SUPERVENIENTE')
   })
 })

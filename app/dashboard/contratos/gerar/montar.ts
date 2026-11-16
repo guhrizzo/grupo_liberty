@@ -5,8 +5,8 @@
 import type { ContratoBlocos } from './blocos'
 import { blocosDoContrato, montarContrato } from './texto'
 import { montarPromessa } from './texto-promessa'
-import type { GerarContratoInput } from './types'
+import { ehPromessa, type GerarContratoInput } from './types'
 
 export function montarContratoGerado(i: GerarContratoInput, hoje: Date = new Date()): ContratoBlocos {
-  return i.tipo === 'promessa-compra-financiado' ? montarPromessa(i, hoje) : blocosDoContrato(montarContrato(i, hoje))
+  return ehPromessa(i.tipo) ? montarPromessa(i, hoje) : blocosDoContrato(montarContrato(i, hoje))
 }
