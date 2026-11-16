@@ -509,9 +509,9 @@ export default function DashboardShell({
   const roleLabel = role ? ROLE_LABEL[role] ?? role : 'Sem perfil'
 
   const SidebarContent = (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Brand Header */}
-      <div className="px-4 py-5 border-b border-neutral-200 flex items-center justify-between min-h-[73px] adobe-dark:border-[var(--color-adobe-line)]">
+      <div className="shrink-0 px-4 py-5 border-b border-neutral-200 flex items-center justify-between min-h-[73px] adobe-dark:border-[var(--color-adobe-line)]">
         {collapsed ? (
           <>
             {/* Mobile (exibe o logo completo se o drawer estiver aberto) */}
@@ -584,7 +584,7 @@ export default function DashboardShell({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Navegação principal">
+      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-label="Navegação principal">
         <ul className="space-y-1">
           {/* Ver site */}
           <li className="pb-1 mb-1 border-b border-neutral-100 adobe-dark:border-[var(--color-adobe-line-soft)]">
@@ -686,7 +686,7 @@ export default function DashboardShell({
       </nav>
 
       {/* User */}
-      <div className={`border-t border-neutral-200 p-4 adobe-dark:border-[var(--color-adobe-line)] ${collapsed ? 'md:p-2.5' : ''}`}>
+      <div className={`shrink-0 border-t border-neutral-200 p-4 adobe-dark:border-[var(--color-adobe-line)] ${collapsed ? 'md:p-2.5' : ''}`}>
         <div className={`flex items-center gap-3 mb-3 ${collapsed ? 'md:justify-center md:mb-2' : ''}`}>
           <div
             className="relative h-10 w-10 rounded-full bg-liberty/10 text-liberty-deep flex items-center justify-center font-bold text-sm shrink-0 adobe-dark:bg-[var(--color-adobe-accent)]/15 adobe-dark:text-[var(--color-adobe-accent-soft)]"
@@ -777,10 +777,14 @@ export default function DashboardShell({
       </button>
 
       {/* Sidebar (mobile = drawer; desktop = coluna fixa) */}
+      <div
+        aria-hidden="true"
+        className={`hidden shrink-0 transition-[width] duration-200 ease-in-out md:block ${collapsed ? 'md:w-[70px]' : 'md:w-64'}`}
+      />
       <aside
         id="dashboard-sidebar"
         ref={drawerRef}
-        className={`fixed md:sticky z-40 inset-y-0 md:top-0 md:bottom-auto md:self-start md:h-screen left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 adobe-dark:bg-[var(--color-adobe-bg-0)] adobe-dark:border-[var(--color-adobe-line)] ${
+        className={`fixed z-40 inset-y-0 h-dvh left-0 bg-white border-r border-neutral-200 flex flex-col transform transition-[width,transform] duration-200 ease-in-out md:translate-x-0 adobe-dark:bg-[var(--color-adobe-bg-0)] adobe-dark:border-[var(--color-adobe-line)] ${
           open ? 'translate-x-0' : '-translate-x-full'
         } ${collapsed ? 'w-64 md:w-[70px]' : 'w-64 md:w-64'}`}
         aria-label="Menu lateral"

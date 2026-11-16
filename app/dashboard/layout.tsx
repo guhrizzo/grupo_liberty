@@ -90,7 +90,7 @@ export default async function DashboardLayout({
   const pendencias = await getPendencias({ uid: user.uid, email: user.email ?? null, name: displayName, role, permissions })
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
+    <div className="h-dvh overflow-hidden bg-neutral-50 flex adobe-dark:bg-[var(--color-adobe-bg-1)] transition-colors">
       <DashboardShell
         email={user.email ?? ''}
         role={role}
@@ -103,7 +103,7 @@ export default async function DashboardLayout({
         permissions={permissions}
         ordemMenu={ordemMenu}
       />
-      <main className="flex-1 min-w-0 px-4 py-8 md:px-8 md:pl-8">
+      <main className="h-full min-h-0 flex-1 min-w-0 overflow-y-auto overscroll-contain px-4 py-8 md:px-8 md:pl-8">
         <div className="mx-auto max-w-7xl">
           <SinoPendencias pendencias={pendencias} />
           <Suspense fallback={null}>
