@@ -14,14 +14,17 @@ import { montarContratoGerado } from '../montar'
 import {
   FORMAS_PAGAMENTO,
   TIPOS_CONTRATO_GERADO,
+  TIPO_PRESTACAO_CASAL,
   TIPO_PROMESSA_PARCELADA,
   compraVazia,
+  ehPrestacao,
   contratanteVazio,
   numeroDe,
   prestacaoVazia,
   validarGerarContrato,
   veiculoContratoVazio,
   type ClienteContrato,
+  type ContratanteInput,
   type GerarContratoInput,
   type TipoContratoGerado,
   type VeiculoParaContrato,
@@ -42,6 +45,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [c, setC] = useState(contratanteVazio)
+  const [w, setW] = useState(contratanteVazio)
   const [v, setV] = useState(veiculoContratoVazio)
   const [p, setP] = useState(prestacaoVazia)
   const [k, setK] = useState(() => compraVazia(tipo === TIPO_PROMESSA_PARCELADA))
@@ -51,6 +55,8 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
 
   const info = useMemo(() => TIPOS_CONTRATO_GERADO.find((t) => t.value === tipo)!, [tipo])
   const parcelado = tipo === TIPO_PROMESSA_PARCELADA
+  const prestacao = ehPrestacao(tipo)
+  const casal = tipo === TIPO_PRESTACAO_CASAL
   const vincendas = Math.max(0, (Number(p.qtdParcelas) || 0) - (Number(p.parcelasPagas) || 0))
 
   // Data de assinatura padrão = hoje, no fuso do navegador. Fica para depois da
@@ -74,8 +80,8 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   }, [])
 
   const input = useMemo<GerarContratoInput>(
-    () => ({ tipo, contratante: c, veiculo: v, prestacao: p, compra: k, salvarCliente }),
-    [tipo, c, v, p, k, salvarCliente],
+    () => ({ tipo, contratante: c, vendedor2: w, veiculo: v, prestacao: p, compra: k, salvarCliente }),
+    [tipo, c, w, v, p, k, salvarCliente],
   )
   const contrato = useMemo(() => montarContratoGerado(input), [input])
   const pendencia = useMemo(() => validarGerarContrato(input), [input])
@@ -96,17 +102,6 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const totalContrato = numeroDe(k.valorTotal) || 0
   const somaDiverge = parcelado && somaParcelas > 0 && totalContrato > 0 && Math.abs(somaParcelas - totalContrato) > 0.01
 
-  function escolherCliente(id: string) {
-    const cli = clientes.find((x) => x.id === id)
-    if (!cli) return
-    setC({
-      ...cli.contratante,
-      nacionalidade: cli.contratante.nacionalidade || 'brasileiro(a)',
-      cpf: maskCPFCNPJ(cli.contratante.cpf),
-      telefone: maskPhone(cli.contratante.telefone),
-    })
-  }
-
   function escolherVeiculo(id: string) {
     const x = veiculos.find((q) => q.id === id)
     if (!x) {
@@ -121,20 +116,6 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
       valorParcela: x.valorParcela ? moneyFromNumber(x.valorParcela) : a.valorParcela,
       parcelasAtraso: x.parcelasAtraso != null ? String(x.parcelasAtraso) : a.parcelasAtraso,
     }))
-  }
-
-  async function buscarCep() {
-    const d = soDigitos(c.cep, 8)
-    if (d.length !== 8 || c.endereco.trim()) return
-    try {
-      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`)
-      const j = (await r.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
-      if (j.erro) return
-      const end = [j.logradouro, j.bairro, [j.localidade, j.uf].filter(Boolean).join('/')].filter(Boolean).join(', ')
-      setC((a) => (a.endereco.trim() ? a : { ...a, endereco: end }))
-    } catch {
-      // sem internet/CEP: o usuário digita o endereço.
-    }
   }
 
   function gerar() {
@@ -217,48 +198,25 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
           }}
           className="space-y-4"
         >
-          <Bloco titulo="Comprador">
-            {clientes.length > 0 && (
-              <Select
-                id="gc-cliente-salvo"
-                label="Cliente salvo (preenche os dados)"
-                value=""
-                onChange={(e) => escolherCliente(e.target.value)}
-                options={[
-                  { value: '', label: 'Selecione...' },
-                  ...clientes.map((x) => ({ value: x.id, label: `${x.contratante.nome} — ${maskCPFCNPJ(x.contratante.cpf)}` })),
-                ]}
-              />
-            )}
-            <Input id="gc-nome" label="Nome completo" placeholder="Nome completo" value={c.nome} onChange={(e) => setC({ ...c, nome: e.target.value })} autoComplete="off" />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input id="gc-nacionalidade" label="Nacionalidade" placeholder="brasileiro(a)" value={c.nacionalidade} onChange={(e) => setC({ ...c, nacionalidade: e.target.value })} autoComplete="off" />
-              <Select
-                id="gc-estado-civil"
-                label="Estado civil"
-                value={c.estadoCivil}
-                onChange={(e) => setC({ ...c, estadoCivil: e.target.value })}
-                options={[{ value: '', label: 'Selecione...' }, ...ESTADOS_CIVIS.map((e) => ({ value: e.value, label: e.label }))]}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Input id="gc-profissao" label="Profissão" placeholder="Ex.: Motorista" value={c.profissao} onChange={(e) => setC({ ...c, profissao: e.target.value })} autoComplete="off" />
-              <Input id="gc-cpf" label="CPF" value={c.cpf} onChange={(e) => setC({ ...c, cpf: maskCPFCNPJ(e.target.value).slice(0, 14) })} inputMode="numeric" placeholder="000.000.000-00" autoComplete="off" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
-              <Input id="gc-cep" label="CEP" value={c.cep} onChange={(e) => setC({ ...c, cep: maskCep(e.target.value) })} onBlur={buscarCep} inputMode="numeric" placeholder="00000-000" hint="Preenche o endereço" autoComplete="off" />
-              <Input id="gc-endereco" label="Endereço" value={c.endereco} onChange={(e) => setC({ ...c, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade/UF" autoComplete="off" />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {!parcelado && (
-                <Input id="gc-telefone" label="Telefone" placeholder="(00) 00000-0000" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
-              )}
-              <Input id="gc-email" label="E-mail" placeholder="nome@exemplo.com" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} autoComplete="off" />
-            </div>
+          <Bloco titulo={casal ? 'Vendedor I' : prestacao ? 'Vendedor' : 'Comprador'}>
+            <PessoaCampos
+              prefixo="gc"
+              c={c}
+              setC={setC}
+              clientes={clientes}
+              comRg={casal}
+              comTelefone={!parcelado}
+            />
             <Marcar id="gc-salvar" checked={salvarCliente} onChange={setSalvarCliente}>
               Salvar cliente para os próximos contratos
             </Marcar>
           </Bloco>
+
+          {casal && (
+            <Bloco titulo="Vendedor II">
+              <PessoaCampos prefixo="gc2" c={w} setC={setW} clientes={clientes} comRg comTelefone />
+            </Bloco>
+          )}
 
           <Bloco titulo="Veículo">
             <Select
@@ -295,6 +253,22 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
             <p className="text-xs text-neutral-500">Parcelas vincendas (calculadas): {vincendas}</p>
           </Bloco>
 
+          {prestacao && (
+            <Bloco titulo="Pagamento ao vendedor e cláusulas opcionais">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input id="gc-vtotal" label="Valor pago ao vendedor (R$)" placeholder="R$ 0,00" value={k.valorTotal} onChange={(e) => setK({ ...k, valorTotal: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" />
+                <Input id="gc-dpag" label="Pagamento à vista até" type="date" value={k.dataPagamento} onChange={(e) => setK({ ...k, dataPagamento: e.target.value })} />
+              </div>
+              <Marcar id="gc-limpa" checked={k.limpaNome} onChange={(x) => setK({ ...k, limpaNome: x })}>
+                Incluir o serviço “Limpa Nome” (cláusula 1.6)
+              </Marcar>
+              <Marcar id="gc-seguro" checked={k.seguroPrestamista} onChange={(x) => setK({ ...k, seguroPrestamista: x })}>
+                Incluir as cláusulas do seguro prestamista (5.3 a 5.3.3)
+              </Marcar>
+            </Bloco>
+          )}
+
+          {!prestacao && (
           <Bloco titulo="Quitação e pagamento">
             <div className="grid gap-3 sm:grid-cols-2">
               <Input id="gc-prazoq" label="Prazo para quitar (meses)" placeholder="12" value={k.prazoQuitacao} onChange={(e) => setK({ ...k, prazoQuitacao: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" />
@@ -304,6 +278,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
               <Select id="gc-forma" label="Forma de pagamento" value={k.formaPagamento} onChange={(e) => setK({ ...k, formaPagamento: e.target.value })} options={FORMAS_PAGAMENTO.map((f) => ({ value: f.value, label: f.label }))} />
             )}
           </Bloco>
+          )}
 
           {parcelado && (
             <>
@@ -362,5 +337,94 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
         </form>
       </div>
     </div>
+  )
+}
+
+/** Dados pessoais de quem assina (comprador ou vendedor), com CEP que preenche o endereço. */
+function PessoaCampos({
+  prefixo,
+  c,
+  setC,
+  clientes,
+  comRg = false,
+  comTelefone = true,
+}: {
+  prefixo: string
+  c: ContratanteInput
+  setC: React.Dispatch<React.SetStateAction<ContratanteInput>>
+  clientes: ClienteContrato[]
+  comRg?: boolean
+  comTelefone?: boolean
+}) {
+  const id = (n: string) => `${prefixo}-${n}`
+
+  function escolherCliente(clienteId: string) {
+    const cli = clientes.find((x) => x.id === clienteId)
+    if (!cli) return
+    setC({
+      ...cli.contratante,
+      nacionalidade: cli.contratante.nacionalidade || 'brasileiro(a)',
+      cpf: maskCPFCNPJ(cli.contratante.cpf),
+      telefone: maskPhone(cli.contratante.telefone),
+    })
+  }
+
+  async function buscarCep() {
+    const d = soDigitos(c.cep, 8)
+    if (d.length !== 8 || c.endereco.trim()) return
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${d}/json/`)
+      const j = (await r.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
+      if (j.erro) return
+      const end = [j.logradouro, j.bairro, [j.localidade, j.uf].filter(Boolean).join('/')].filter(Boolean).join(', ')
+      setC((a) => (a.endereco.trim() ? a : { ...a, endereco: end }))
+    } catch {
+      // sem internet/CEP: o usuário digita o endereço.
+    }
+  }
+
+  return (
+    <>
+      {clientes.length > 0 && (
+        <Select
+          id={id('cliente-salvo')}
+          label="Cliente salvo (preenche os dados)"
+          value=""
+          onChange={(e) => escolherCliente(e.target.value)}
+          options={[
+            { value: '', label: 'Selecione...' },
+            ...clientes.map((x) => ({ value: x.id, label: `${x.contratante.nome} — ${maskCPFCNPJ(x.contratante.cpf)}` })),
+          ]}
+        />
+      )}
+      <Input id={id('nome')} label="Nome completo" placeholder="Nome completo" value={c.nome} onChange={(e) => setC({ ...c, nome: e.target.value })} autoComplete="off" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input id={id('nacionalidade')} label="Nacionalidade" placeholder="brasileiro(a)" value={c.nacionalidade} onChange={(e) => setC({ ...c, nacionalidade: e.target.value })} autoComplete="off" />
+        <Select
+          id={id('estado-civil')}
+          label="Estado civil"
+          value={c.estadoCivil}
+          onChange={(e) => setC({ ...c, estadoCivil: e.target.value })}
+          options={[{ value: '', label: 'Selecione...' }, ...ESTADOS_CIVIS.map((e) => ({ value: e.value, label: e.label }))]}
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input id={id('profissao')} label="Profissão" placeholder="Ex.: Motorista" value={c.profissao} onChange={(e) => setC({ ...c, profissao: e.target.value })} autoComplete="off" />
+        <Input id={id('cpf')} label="CPF" value={c.cpf} onChange={(e) => setC({ ...c, cpf: maskCPFCNPJ(e.target.value).slice(0, 14) })} inputMode="numeric" placeholder="000.000.000-00" autoComplete="off" />
+      </div>
+      {comRg && (
+        <Input id={id('rg')} label="RG" placeholder="00.000.000-0" value={c.rg} onChange={(e) => setC({ ...c, rg: e.target.value.slice(0, 30) })} autoComplete="off" />
+      )}
+      <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
+        <Input id={id('cep')} label="CEP" value={c.cep} onChange={(e) => setC({ ...c, cep: maskCep(e.target.value) })} onBlur={buscarCep} inputMode="numeric" placeholder="00000-000" hint="Preenche o endereço" autoComplete="off" />
+        <Input id={id('endereco')} label="Endereço" value={c.endereco} onChange={(e) => setC({ ...c, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade/UF" autoComplete="off" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {comTelefone && (
+          <Input id={id('telefone')} label="Telefone" placeholder="(00) 00000-0000" value={c.telefone} onChange={(e) => setC({ ...c, telefone: maskPhone(e.target.value) })} inputMode="tel" autoComplete="off" />
+        )}
+        <Input id={id('email')} label="E-mail" placeholder="nome@exemplo.com" type="email" value={c.email} onChange={(e) => setC({ ...c, email: e.target.value })} autoComplete="off" />
+      </div>
+    </>
   )
 }

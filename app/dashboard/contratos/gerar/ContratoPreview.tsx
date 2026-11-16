@@ -1,6 +1,7 @@
 'use client'
 
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
 
 // Prévia do contrato em folhas A4, atualizada a cada tecla. Usa as mesmas
@@ -249,8 +250,19 @@ export default function ContratoPreview({ contrato }: { contrato: ContratoBlocos
                   padding: `${MARGEM_V}pt ${MARGEM_H}pt`,
                   transform: `scale(${escala})`,
                   transformOrigin: 'top left',
+                  position: 'relative',
+                  isolation: 'isolate',
                 }}
               >
+                {/* Marca d'água (mesma posição e tamanho do PDF: 380 pt de largura, centralizada). */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={LOGO_LIBERTY.src}
+                  alt=""
+                  aria-hidden
+                  draggable={false}
+                  style={{ position: 'absolute', zIndex: -1, left: '50%', top: '50%', width: '380pt', transform: 'translate(-50%, -50%)', opacity: 0.07, pointerEvents: 'none' }}
+                />
                 {pagina.map((u, i) => (
                   <UnidadeView key={i} u={u} />
                 ))}

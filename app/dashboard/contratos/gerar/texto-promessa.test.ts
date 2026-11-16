@@ -7,6 +7,7 @@ import ContratoBlocosDocument from './ContratoBlocosDocument'
 import ContratoPreview from './ContratoPreview'
 import type { BlocoContrato } from './blocos'
 import { montarContratoGerado } from './montar'
+import { montarPrestacao } from './texto-prestacao'
 import { montarPromessa } from './texto-promessa'
 import {
   compraVazia,
@@ -34,6 +35,7 @@ function entrada(): GerarContratoInput {
       telefone: '14999998888',
       email: 'maria@exemplo.com',
     },
+    vendedor2: contratanteVazio(),
     veiculo: { ...veiculoContratoVazio(), ano: '2020', placa: 'abc1d23', renavam: '12345678901' },
     prestacao: {
       ...prestacaoVazia(),
@@ -148,6 +150,7 @@ describe('prévia com o formulário vazio', () => {
   const vazio = (): GerarContratoInput => ({
     tipo: 'promessa-compra-financiado',
     contratante: contratanteVazio(),
+    vendedor2: contratanteVazio(),
     veiculo: veiculoContratoVazio(),
     prestacao: prestacaoVazia(),
     compra: { ...compraVazia(), formaPagamento: '' },
@@ -282,5 +285,67 @@ describe('promessa de compra parcelada', () => {
     const t = montarContratoGerado(entrada(), hoje).blocos.map(textoDe).join('\n')
     expect(t).toContain('será realizado à vista, em parcela única')
     expect(t).toContain('DA SUSPENSÃO POR IMPOSSIBILIDADE SUPERVENIENTE')
+  })
+})
+
+describe('prestação de serviços de intermediação', () => {
+  const prestacao = (casal = false): GerarContratoInput => {
+    const base = entrada()
+    base.tipo = casal ? 'prestacao-servico-casal' : 'prestacao-servico'
+    base.contratante.rg = '123456789'
+    base.compra.dataPagamento = '2026-12-05'
+    if (casal) {
+      base.vendedor2 = { ...base.contratante, nome: 'João Souza', cpf: '11144477735', rg: '987654321' }
+    }
+    return base
+  }
+  const hoje = new Date(2026, 10, 16)
+  const t = (i: GerarContratoInput) => montarContratoGerado(i, hoje).blocos.map(textoDe).join(' ')
+
+  it('um vendedor: sem vendedor II e sem RG', () => {
+    const i = prestacao()
+    expect(validarGerarContrato(i)).toBeNull()
+    const x = t(i)
+    expect(x).toContain('VENDEDOR: MARIA DA SILVA')
+    expect(x).not.toContain('VENDEDOR II')
+    expect(x).not.toContain('RG nº')
+    expect(x).toContain('LIBERTY CAR VEICULOS LTDA')
+    expect(x).toContain('pagamento à vista até o dia 05/12/2026')
+    expect(x).toContain('ALEX RODRIGO LEVORATO PARRELLA')
+    expect(x).not.toMatch(/NaN|undefined/)
+  })
+
+  it('casal: dois vendedores com RG e duas assinaturas', () => {
+    const i = prestacao(true)
+    expect(validarGerarContrato(i)).toBeNull()
+    const x = t(i)
+    expect(x).toContain('VENDEDOR I: MARIA DA SILVA')
+    expect(x).toContain('VENDEDOR II: JOÃO SOUZA')
+    expect(x).toContain('RG nº 987654321')
+    const ass = montarPrestacao(i, hoje).blocos.find((b) => b.tipo === 'assinaturas')
+    expect(ass?.tipo === 'assinaturas' && ass.itens.map((a) => a.papel)).toEqual(['VENDEDOR I', 'VENDEDOR II', 'INTERMEDIADOR', 'TESTEMUNHA I', 'TESTEMUNHA II'])
+  })
+
+  it('cláusulas opcionais saem quando desmarcadas', () => {
+    const i = prestacao()
+    i.compra.limpaNome = false
+    i.compra.seguroPrestamista = false
+    const x = t(i)
+    expect(x).not.toContain('Limpa Nome')
+    expect(x).not.toContain('seguro prestamista')
+    expect(t(prestacao())).toContain('Limpa Nome')
+  })
+
+  it('validação e formulário vazio', async () => {
+    const i = prestacao(true)
+    i.vendedor2.rg = ''
+    expect(validarGerarContrato(i)).toBe('Informe o RG do vendedor II.')
+    const j = prestacao()
+    j.compra.dataPagamento = ''
+    expect(validarGerarContrato(j)).toBe('Informe a data limite do pagamento.')
+    const vazio = inputPromessaVazio('prestacao-servico-casal')
+    expect(t(vazio)).toContain('[NOME COMPLETO]')
+    const buf = await renderToBuffer(createElement(ContratoBlocosDocument, { contrato: montarContratoGerado(prestacao(true), hoje), nomeCliente: 'Maria' }) as never)
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF')
   })
 })

@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-prestacao-servico-intermediacao',
+    date: '2026-11-16',
+    title: 'Novos modelos: prestação de serviços de intermediação',
+    tag: 'novo',
+    items: [
+      'Dois modelos em Contratos > Gerar contrato: prestação de serviços de intermediação com um vendedor e com dois vendedores (casal).',
+      'Você preenche vendedor(es), veículo, financiamento, valor e data do pagamento; a prévia em folhas A4 mostra o contrato na hora.',
+      'As cláusulas do “Limpa Nome” (1.6) e do seguro prestamista (5.3) podem ser incluídas ou retiradas.',
+      'Todos os contratos gerados ganharam o logo da Liberty Car como marca d'água no fundo de cada página.',
+    ],
+  },
+  {
     id: '2026-11-16-remove-modelos-prestacao-locacao',
     date: '2026-11-16',
     title: 'Gerar contrato: modelos de prestação de serviço e locação removidos',

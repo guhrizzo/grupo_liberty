@@ -1,6 +1,6 @@
 'use server'
 
-// Gerar contrato preenchido (promessa de compra): valida o
+// Gerar contrato preenchido (promessa de compra, prestação de serviços): valida o
 // formulário, monta o PDF, opcionalmente guarda o cliente (`clientes_contrato`)
 // e anexa o PDF aos contratos do veículo (`veiculo_contratos`).
 
@@ -80,6 +80,7 @@ function normalizarInput(raw: unknown): GerarContratoInput {
   return {
     tipo: TIPOS_CONTRATO_GERADO.find((t) => t.value === r.tipo)?.value ?? TIPO_PROMESSA,
     contratante: normalizarContratante(r.contratante),
+    vendedor2: normalizarContratante(r.vendedor2),
     veiculo: {
       veiculoId: /^[A-Za-z0-9_-]{1,100}$/.test(txt(v.veiculoId, 100)) ? txt(v.veiculoId, 100) : '',
       ano: txt(v.ano, 10),
@@ -113,6 +114,9 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       vencimentos: (Array.isArray(k.vencimentos) ? k.vencimentos.slice(0, 60) : []).map((d) => dataIso(d)),
       cidade: txt(k.cidade, 60),
       dataAssinatura: dataIso(k.dataAssinatura),
+      dataPagamento: dataIso(k.dataPagamento),
+      limpaNome: k.limpaNome !== false,
+      seguroPrestamista: k.seguroPrestamista !== false,
     },
     salvarCliente: r.salvarCliente === true,
   }
@@ -150,7 +154,14 @@ function nomeArquivo(tipo: string, cliente: string): string {
     .trim()
     .replace(/\s+/g, '_')
     .slice(0, 50)
-  const nomeTipo = tipo === 'promessa-compra-parcelada' ? 'promessa_compra_parcelada' : 'promessa_compra'
+  const nomeTipo =
+    tipo === 'promessa-compra-parcelada'
+      ? 'promessa_compra_parcelada'
+      : tipo === 'prestacao-servico-casal'
+        ? 'prestacao_servico_casal'
+        : tipo === 'prestacao-servico'
+          ? 'prestacao_servico'
+          : 'promessa_compra'
   return `contrato_${nomeTipo}_${base || 'cliente'}.pdf`
 }
 

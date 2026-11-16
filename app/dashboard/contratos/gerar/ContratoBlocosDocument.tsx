@@ -1,4 +1,6 @@
-import { Document, Font, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import fs from 'node:fs'
+import path from 'node:path'
+import { Document, Font, Image, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
 
 // Layout do modelo em PDF: Times, texto justificado, sem cabeçalho, tabelas
@@ -6,11 +8,27 @@ import type { BlocoContrato, ContratoBlocos } from './blocos'
 // O modelo não separa palavras no fim da linha.
 Font.registerHyphenationCallback((palavra) => [palavra])
 
+// Marca d'água: logo da Liberty Car, centralizada no fundo de cada página (app/public/).
+const MARCA_DAGUA = (() => {
+  for (const base of [path.join(process.cwd(), 'app', 'public'), path.join(process.cwd(), 'public')]) {
+    try {
+      const f = path.join(base, 'logo-liberty-car-blue.png')
+      if (fs.existsSync(f)) return `data:image/png;base64,${fs.readFileSync(f).toString('base64')}`
+    } catch {
+      // sem o arquivo, o contrato sai sem marca d'água.
+    }
+  }
+  return ''
+})()
+const MARCA_LARGURA = 380
+const MARCA_ALTURA = (MARCA_LARGURA * 448) / 1014
+
 const REGULAR = 'Times-Roman'
 const NEGRITO = 'Times-Bold'
 
 const styles = StyleSheet.create({
   page: { paddingTop: 64, paddingBottom: 64, paddingHorizontal: 80, fontSize: 11.5, fontFamily: REGULAR, color: '#000', lineHeight: 1.35 },
+  marcaDagua: { position: 'absolute', left: (595 - MARCA_LARGURA) / 2, top: (842 - MARCA_ALTURA) / 2, width: MARCA_LARGURA, height: MARCA_ALTURA, opacity: 0.07 },
   titulo: { fontFamily: NEGRITO, fontSize: 14, textAlign: 'center', marginBottom: 20 },
   secao: { fontFamily: NEGRITO, marginTop: 16, marginBottom: 8 },
   p: { textAlign: 'justify', marginBottom: 9 },
@@ -120,6 +138,7 @@ export default function ContratoBlocosDocument({ contrato, nomeCliente }: { cont
   return (
     <Document title={`${contrato.titulo} - ${nomeCliente}`} subject={contrato.titulo}>
       <Page size="A4" style={styles.page} wrap>
+        {MARCA_DAGUA && <Image alt="" src={MARCA_DAGUA} style={styles.marcaDagua} fixed />}
         {contrato.blocos.map((b, idx) => (
           <Bloco
             key={idx}

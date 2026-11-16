@@ -10,7 +10,18 @@ export const TIPO_PROMESSA = 'promessa-compra-financiado' as const
 /** Mesma promessa de compra, com o pagamento em parcelas e intermediador/testemunhas preenchíveis. */
 export const TIPO_PROMESSA_PARCELADA = 'promessa-compra-parcelada' as const
 
-export type TipoContratoGerado = 'promessa-compra-financiado' | 'promessa-compra-parcelada'
+/** Prestação de serviços de intermediação, com um vendedor. */
+export const TIPO_PRESTACAO = 'prestacao-servico' as const
+/** Mesmo contrato, com dois vendedores (casal). */
+export const TIPO_PRESTACAO_CASAL = 'prestacao-servico-casal' as const
+
+export type TipoContratoGerado =
+  | 'promessa-compra-financiado'
+  | 'promessa-compra-parcelada'
+  | 'prestacao-servico'
+  | 'prestacao-servico-casal'
+
+export const ehPrestacao = (t: TipoContratoGerado) => t === TIPO_PRESTACAO || t === TIPO_PRESTACAO_CASAL
 
 export const TIPOS_CONTRATO_GERADO: {
   value: TipoContratoGerado
@@ -30,6 +41,18 @@ export const TIPOS_CONTRATO_GERADO: {
     label: 'Promessa de compra de veículo financiado (parcelada)',
     descricao: 'Mesma promessa de compra, com o preço pago em parcelas mensais. Intermediador, testemunhas, cidade e data são preenchíveis.',
     categoriaSlug: 'venda-de-veiculo-financiado',
+  },
+  {
+    value: 'prestacao-servico',
+    label: 'Prestação de serviços de intermediação',
+    descricao: 'Intermediação da venda de veículo financiado, com cessão dos direitos de posse pelo vendedor. Um vendedor.',
+    categoriaSlug: 'prestacao-de-servico',
+  },
+  {
+    value: 'prestacao-servico-casal',
+    label: 'Prestação de serviços de intermediação (casal)',
+    descricao: 'Mesmo contrato de intermediação, com dois vendedores (casal), cada um com CPF e RG.',
+    categoriaSlug: 'prestacao-de-servico',
   },
 ]
 
@@ -137,11 +160,20 @@ export interface CompraInput {
   cidade: string
   /** Data de assinatura (AAAA-MM-DD). */
   dataAssinatura: string
+  // ── Só na prestação de serviços ──
+  /** Data limite do pagamento ao vendedor (AAAA-MM-DD). */
+  dataPagamento: string
+  /** Inclui a cláusula 1.6 (Limpa Nome). */
+  limpaNome: boolean
+  /** Inclui as cláusulas 5.3 a 5.3.3 (seguro prestamista). */
+  seguroPrestamista: boolean
 }
 
 export interface GerarContratoInput {
   tipo: TipoContratoGerado
   contratante: ContratanteInput
+  /** Segundo vendedor (só em `prestacao-servico-casal`). */
+  vendedor2: ContratanteInput
   veiculo: VeiculoContratoInput
   prestacao: PrestacaoInput
   compra: CompraInput
@@ -170,12 +202,14 @@ export const compraVazia = (parcelado = false): CompraInput => ({
   pagamentos: '2', valorPagamento: '', vencimentos: ['', ''],
   cidade: parcelado ? 'Jaú/SP' : '',
   dataAssinatura: '',
+  dataPagamento: '', limpaNome: true, seguroPrestamista: true,
 })
 
-/** Formulário da promessa de compra ainda sem nada preenchido. */
+/** Formulário do modelo escolhido ainda sem nada preenchido. */
 export const inputPromessaVazio = (tipo: TipoContratoGerado = TIPO_PROMESSA): GerarContratoInput => ({
   tipo,
   contratante: contratanteVazio(),
+  vendedor2: contratanteVazio(),
   veiculo: veiculoContratoVazio(),
   prestacao: prestacaoVazia(),
   compra: compraVazia(tipo === TIPO_PROMESSA_PARCELADA),
@@ -311,7 +345,61 @@ function validarCompra(i: GerarContratoInput): string | null {
   return null
 }
 
+/** Dados pessoais de um vendedor da prestação de serviços (RG só no contrato do casal). */
+function validarVendedor(c: ContratanteInput, rotulo: string, exigeRg: boolean): string | null {
+  if (!c.nome.trim()) return `Informe o nome completo${rotulo}.`
+  if (!c.nacionalidade.trim()) return `Informe a nacionalidade${rotulo}.`
+  if (!ESTADOS_CIVIS.some((e) => e.value === c.estadoCivil)) return `Informe o estado civil${rotulo}.`
+  if (!c.profissao.trim()) return `Informe a profissão${rotulo}.`
+  if (!validarCPF(onlyDigits(c.cpf))) return `CPF inválido${rotulo}.`
+  if (exigeRg && !c.rg.trim()) return `Informe o RG${rotulo}.`
+  if (!c.endereco.trim()) return `Informe o endereço${rotulo}.`
+  if (onlyDigits(c.telefone).length < 10) return `Informe o telefone com DDD${rotulo}.`
+  if (!/^\S+@\S+\.\S+$/.test(c.email.trim())) return `Informe um e-mail válido${rotulo}.`
+  return null
+}
+
+/** Prestação de serviços de intermediação (um vendedor ou casal). */
+function validarPrestacao(i: GerarContratoInput): string | null {
+  const casal = i.tipo === TIPO_PRESTACAO_CASAL
+  const erro1 = validarVendedor(i.contratante, casal ? ' do vendedor I' : '', casal)
+  if (erro1) return erro1
+  if (casal) {
+    const erro2 = validarVendedor(i.vendedor2, ' do vendedor II', true)
+    if (erro2) return erro2
+    if (onlyDigits(i.vendedor2.cpf) === onlyDigits(i.contratante.cpf)) return 'Os dois vendedores têm o mesmo CPF.'
+  }
+
+  const k = i.compra
+  const v = i.veiculo
+  const p = i.prestacao
+  if (!k.marca.trim()) return 'Informe a marca do veículo.'
+  if (!k.modelo.trim()) return 'Informe o modelo do veículo.'
+  if (!v.ano.trim()) return 'Informe o ano do veículo.'
+  if (!k.cor.trim()) return 'Informe a cor do veículo.'
+  if (!v.placa.trim()) return 'Informe a placa.'
+  if (!k.chassi.trim()) return 'Informe o chassi.'
+  if (!v.renavam.trim()) return 'Informe o RENAVAM.'
+  if (!k.categoria.trim()) return 'Informe a categoria do veículo.'
+  if (!k.conservacao.trim()) return 'Informe o estado de conservação.'
+  if (!p.banco.trim()) return 'Informe a instituição financeira.'
+  if (!k.tipoFinanciamento.trim()) return 'Informe o tipo de financiamento.'
+  if (!(numeroDe(k.valorFinanciado) > 0)) return 'Informe o valor total financiado.'
+  const qtd = inteiroDe(p.qtdParcelas)
+  const pagas = inteiroDe(p.parcelasPagas)
+  const atraso = inteiroDe(p.parcelasAtraso)
+  if (!(qtd > 0)) return 'Informe a quantidade de parcelas.'
+  if (!(numeroDe(p.valorParcela) > 0)) return 'Informe o valor da parcela.'
+  if (!(pagas >= 0)) return 'Informe as parcelas pagas (0 se nenhuma).'
+  if (pagas > qtd) return 'Parcelas pagas maior que o total de parcelas.'
+  if (!(atraso >= 0)) return 'Informe as parcelas em atraso (0 se nenhuma).'
+  if (!(numeroDe(k.saldoDevedor) > 0)) return 'Informe o saldo devedor aproximado.'
+  if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor pago ao vendedor.'
+  if (!dataIsoValida(k.dataPagamento)) return 'Informe a data limite do pagamento.'
+  return null
+}
+
 /** Retorna a mensagem do primeiro problema do formulário, ou null. */
 export function validarGerarContrato(i: GerarContratoInput): string | null {
-  return validarCompra(i)
+  return ehPrestacao(i.tipo) ? validarPrestacao(i) : validarCompra(i)
 }
