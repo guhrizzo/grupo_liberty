@@ -148,7 +148,7 @@ export async function getPendencias(user: UsuarioPendencias): Promise<Pendencia[
   // ── Checklist pós-compra (Quitações) ──
   // Só veículos com data da compra na ficha e ainda não quitados. Os 3 itens da
   // pós-compra aparecem desde a compra; "negociar com o banco" entra quando
-  // passam 6 meses da compra.
+  // passam 6 meses do início do atraso do contrato.
   if (temAcessoPagina(user.role, user.permissions, 'veiculos')) {
     try {
       const snap = await adminDb.collection('quitacao_fichas').get()
@@ -160,11 +160,15 @@ export async function getPendencias(user: UsuarioPendencias): Promise<Pendencia[
         fichas.map(async (doc) => {
           const d = doc.data()
           const feito = (d.checklist ?? {}) as Record<string, unknown>
-          const dataBanco = somarMeses(d.dataCompra as string, CHECKLIST_MESES_BANCO)
+          // Os 6 meses contam do início do atraso do contrato; sem essa data, o item não entra.
+          const dataBanco =
+            typeof d.dataInicioAtraso === 'string' && d.dataInicioAtraso !== ''
+              ? somarMeses(d.dataInicioAtraso, CHECKLIST_MESES_BANCO)
+              : ''
           const faltando = CHECKLIST_ITENS.filter((i) => {
             if (feito[i.id]) return false
             if (i.grupo === 'pos-compra') return true
-            return i.id === 'banco' && dataBanco <= hoje
+            return i.id === 'banco' && dataBanco !== '' && dataBanco <= hoje
           })
           if (faltando.length === 0) return
           const [proprio, terceiro] = await Promise.all([

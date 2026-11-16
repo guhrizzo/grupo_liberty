@@ -26,18 +26,20 @@ export function ChecklistSection({
   checklist,
   historico,
   dataCompra,
+  dataInicioAtraso,
 }: {
   veiculoId: string
   checklist: ChecklistFicha
   historico: ChecklistReabertura[]
   dataCompra: string
+  dataInicioAtraso: string
 }) {
   const router = useRouter()
   const toast = useToast()
   const [salvando, setSalvando] = useState<ChecklistId | null>(null)
   const [reabrindo, setReabrindo] = useState<ChecklistId | null>(null)
   const [motivo, setMotivo] = useState('')
-  const dataBanco = dataCompra ? somarMeses(dataCompra, CHECKLIST_MESES_BANCO) : ''
+  const dataBanco = dataInicioAtraso ? somarMeses(dataInicioAtraso, CHECKLIST_MESES_BANCO) : ''
   const feitos = CHECKLIST_ITENS.filter((i) => checklist[i.id]).length
 
   async function alternar(item: ChecklistId, feito: boolean, motivoReabertura = '') {
@@ -72,6 +74,11 @@ export function ChecklistSection({
       {!dataCompra && (
         <p className="mb-2 text-xs text-neutral-500">
           Preencha a data da compra nos dados do cliente para esses itens aparecerem em Demandas.
+        </p>
+      )}
+      {!dataInicioAtraso && (
+        <p className="mb-2 text-xs text-neutral-500">
+          Preencha a data do início do atraso nos dados do cliente para &quot;Negociar com o banco&quot; aparecer em Demandas.
         </p>
       )}
       <div className="grid gap-4 sm:grid-cols-2">

@@ -369,6 +369,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                               ['Banco', ficha.banco],
                               ['Nº do contrato', ficha.numeroContrato],
                               ['Data da compra', ficha.dataCompra ? formatDate(ficha.dataCompra) : ''],
+                              ['Início do atraso', ficha.dataInicioAtraso ? formatDate(ficha.dataInicioAtraso) : ''],
                               ['Vencimento da parcela', ficha.vencimentoParcela ? formatDate(ficha.vencimentoParcela) : ''],
                               ['Valor da parcela', ficha.valorParcela > 0 ? formatCurrency(ficha.valorParcela) : ''],
                             ] as const
@@ -394,6 +395,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                       checklist={ficha?.checklist ?? {}}
                       historico={ficha?.checklistHistorico ?? []}
                       dataCompra={ficha?.dataCompra ?? ''}
+                      dataInicioAtraso={ficha?.dataInicioAtraso ?? ''}
                     />
 
                     <AnexosSection veiculoId={v.id} anexos={anexos[v.id] ?? {}} />
@@ -843,6 +845,7 @@ function FichaModal({
     return v ? moneyFromNumber(v) : ''
   })
   const [dataCompra, setDataCompra] = useState(ficha?.dataCompra ?? '')
+  const [dataInicioAtraso, setDataInicioAtraso] = useState(ficha?.dataInicioAtraso ?? '')
   const [salvando, setSalvando] = useState(false)
   const idade = calcularIdade(dataNascimento)
 
@@ -862,6 +865,7 @@ function FichaModal({
         vencimentoParcela: vencimento,
         valorParcela: parseMoney(parcela),
         dataCompra,
+        dataInicioAtraso,
       })
       if (res.error) return void toast.error(res.error, 'Não foi possível salvar')
       toast.success(res.success || 'Dados salvos.')
@@ -892,6 +896,7 @@ function FichaModal({
             onChange={(e) => setDataNascimento(e.target.value)}
           />
           <Input label="Data da compra" type="date" value={dataCompra} onChange={(e) => setDataCompra(e.target.value)} />
+          <Input label="Início do atraso do contrato" type="date" value={dataInicioAtraso} onChange={(e) => setDataInicioAtraso(e.target.value)} />
           <div className="sm:col-span-2">
             <Input label="Endereço" value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número, bairro, cidade" />
           </div>

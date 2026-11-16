@@ -46,7 +46,7 @@ export const CHECKLIST_ITENS = [
 
 export type ChecklistId = (typeof CHECKLIST_ITENS)[number]['id']
 
-/** Meses depois da compra para liberar a negociação com o banco. */
+/** Meses depois do início do atraso do contrato para liberar a negociação com o banco. */
 export const CHECKLIST_MESES_BANCO = 6
 
 export interface ChecklistFeito {
@@ -96,6 +96,8 @@ export interface FichaQuitacao {
   valorParcela: number
   /** Data da compra do veículo (YYYY-MM-DD). */
   dataCompra: string
+  /** Data em que o contrato entrou em atraso (YYYY-MM-DD). Base dos 6 meses para negociar com o banco. */
+  dataInicioAtraso: string
   /** O que já foi feito do checklist pós-compra. */
   checklist: ChecklistFicha
   /** Itens desmarcados e por quê (mais antigo primeiro). */

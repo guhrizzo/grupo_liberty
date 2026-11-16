@@ -262,6 +262,7 @@ function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQui
     vencimentoParcela: d.vencimentoParcela ?? '',
     valorParcela: Number(d.valorParcela) || 0,
     dataCompra: d.dataCompra ?? '',
+    dataInicioAtraso: d.dataInicioAtraso ?? '',
     checklist: checklistSerialize(d.checklist),
     checklistHistorico: historicoSerialize(d.checklistHistorico),
   }
@@ -323,7 +324,9 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
   const dataNascimento = texto(input.dataNascimento)
   const vencimentoParcela = texto(input.vencimentoParcela)
   const dataCompra = texto(input.dataCompra)
+  const dataInicioAtraso = texto(input.dataInicioAtraso)
   if (
+    !DATA_OPCIONAL_RE.test(dataInicioAtraso) ||
     !DATA_OPCIONAL_RE.test(dataNascimento) ||
     !DATA_OPCIONAL_RE.test(vencimentoParcela) ||
     !DATA_OPCIONAL_RE.test(dataCompra)
@@ -346,6 +349,7 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
         dataNascimento,
         vencimentoParcela,
         dataCompra,
+        dataInicioAtraso,
         valorParcela: Math.round(valorParcela * 100) / 100,
         atualizadoEm: new Date().toISOString(),
         atualizadoPorUid: acesso.user.uid,

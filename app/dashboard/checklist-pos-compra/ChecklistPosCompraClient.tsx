@@ -140,6 +140,7 @@ export default function ChecklistPosCompraClient({ veiculos, fichas }: Props) {
                       checklist={ficha?.checklist ?? {}}
                       historico={ficha?.checklistHistorico ?? []}
                       dataCompra={ficha?.dataCompra ?? ''}
+                      dataInicioAtraso={ficha?.dataInicioAtraso ?? ''}
                     />
                   </div>
                 )}

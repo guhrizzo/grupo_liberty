@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-negociar-banco-inicio-atraso',
+    date: '2026-11-16',
+    title: 'Negociar com o banco conta do início do atraso',
+    tag: 'correcao',
+    items: [
+      'Novo campo "Início do atraso do contrato" nos dados do cliente (aba Quitações).',
+      'Os 6 meses para negociar com o banco agora contam dessa data, e não mais da data da compra.',
+      'O item só aparece em Demandas depois que a data do início do atraso for preenchida.',
+    ],
+  },
+  {
     id: '2026-11-16-metricas-diarias-vendas',
     date: '2026-11-16',
     title: 'Métricas diárias no setor Vendas',
