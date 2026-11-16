@@ -7,6 +7,7 @@ import ContratoBlocosDocument from './ContratoBlocosDocument'
 import ContratoPreview from './ContratoPreview'
 import type { BlocoContrato } from './blocos'
 import { montarContratoGerado } from './montar'
+import { montarLocacao } from './texto-locacao'
 import { montarPrestacao } from './texto-prestacao'
 import { montarPromessa } from './texto-promessa'
 import {
@@ -346,6 +347,90 @@ describe('prestação de serviços de intermediação', () => {
     const vazio = inputPromessaVazio('prestacao-servico-casal')
     expect(t(vazio)).toContain('[NOME COMPLETO]')
     const buf = await renderToBuffer(createElement(ContratoBlocosDocument, { contrato: montarContratoGerado(prestacao(true), hoje), nomeCliente: 'Maria' }) as never)
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF')
+  })
+})
+
+describe('recuperação de valores', () => {
+  const hoje = new Date(2026, 10, 16)
+  const recuperacao = (): GerarContratoInput => {
+    const base = entrada()
+    base.tipo = 'recuperacao-valores'
+    base.contratante.rg = '123456789'
+    base.compra.numeroContrato = '998877'
+    base.compra.conta = { titular: 'Maria da Silva', documento: '52998224725', banco: 'Nubank', agencia: '0001', conta: '12345-6', tipoConta: 'Corrente', chavePix: '' }
+    return base
+  }
+  const t = (i: GerarContratoInput) => montarContratoGerado(i, hoje).blocos.map(textoDe).join(' ')
+
+  it('monta o contrato sem as sobras do PDF', () => {
+    const i = recuperacao()
+    expect(validarGerarContrato(i)).toBeNull()
+    const x = t(i)
+    expect(x).toContain('**CONTRATANTE: MARIA DA SILVA')
+    expect(x).toContain('RG nº 123456789')
+    expect(x).toContain('**50% (cinquenta por cento)**')
+    expect(x).toContain('libertycred01@gmail.com')
+    expect(x).toContain('**7.1.** Para dirimir')
+    expect(x).not.toContain('Qualquer Para')
+    expect(x).not.toContain('LIBERTY CAR VEICULOS')
+    expect(x).not.toMatch(/NaN|undefined/)
+    const ass = montarContratoGerado(i, hoje).blocos.find((b) => b.tipo === 'assinaturas')
+    expect(ass?.tipo === 'assinaturas' && ass.itens.map((a) => a.papel)).toEqual(['CONTRATANTE', 'CONTRATADA', 'TESTEMUNHA I', 'TESTEMUNHA II'])
+  })
+
+  it('valida conta e contrato, e gera o PDF', async () => {
+    const i = recuperacao()
+    i.compra.conta.agencia = ''
+    expect(validarGerarContrato(i)).toBe('Informe a agência.')
+    i.compra.conta.agencia = '0001'
+    i.compra.numeroContrato = ''
+    expect(validarGerarContrato(i)).toBe('Informe o nº do contrato de financiamento.')
+    const buf = await renderToBuffer(createElement(ContratoBlocosDocument, { contrato: montarContratoGerado(recuperacao(), hoje), nomeCliente: 'Maria' }) as never)
+    expect(buf.subarray(0, 4).toString()).toBe('%PDF')
+  })
+})
+
+describe('locação de veículo com opção de aquisição', () => {
+  const hoje = new Date(2026, 10, 16)
+  const locacao = (): GerarContratoInput => {
+    const base = entrada()
+    base.tipo = 'locacao-opcao-aquisicao'
+    base.compra.locacao = { aluguel: 'R$ 700,00', diaVencimento: '15', primeiroPagamento: '2026-11-16', entrada: 'R$ 1.300,00', parcelas: '36', franquia: 'R$ 1.000,00' }
+    base.compra.testemunhas = [
+      { nome: 'Álesis Silva Quio', cpf: '54234245852' },
+      { nome: 'Gustavo Fernandes Rizzo', cpf: '51272225828' },
+    ]
+    return base
+  }
+  const t = (i: GerarContratoInput) => montarContratoGerado(i, hoje).blocos.map(textoDe).join(' ').replace(/ /g, ' ')
+
+  it('monta o contrato com total calculado e uma só franquia', () => {
+    const i = locacao()
+    expect(validarGerarContrato(i)).toBeNull()
+    const x = t(i)
+    expect(x).toContain('LOCATÁRIO: MARIA DA SILVA')
+    expect(x).toContain('TODO DIA 15 cada MÊS')
+    expect(x).toContain('26.500,00')
+    expect(x).toContain('quitadas as 36 parcelas mensais')
+    expect(x).toContain('R$ 1.000,00 (MIL REAIS)')
+    expect(x).not.toContain('900,00')
+    expect(x).not.toMatch(/ moto |[Mm]otocicleta|LOCATÓRIO|NaN|undefined/)
+    const ass = montarContratoGerado(i, hoje).blocos.find((b) => b.tipo === 'assinaturas')
+    expect(ass?.tipo === 'assinaturas' && ass.itens.map((a) => a.papel)).toEqual(['LOCADORA', 'LOCATÁRIO', 'TESTEMUNHA I', 'TESTEMUNHA II'])
+  })
+
+  it('valida condições, testemunhas e gera o PDF', async () => {
+    const i = locacao()
+    i.compra.locacao.franquia = ''
+    expect(validarGerarContrato(i)).toBe('Informe o valor da franquia do seguro.')
+    i.compra.locacao.franquia = 'R$ 1.000,00'
+    i.compra.locacao.diaVencimento = '32'
+    expect(validarGerarContrato(i)).toBe('Informe o dia do vencimento (de 1 a 31).')
+    i.compra.locacao.diaVencimento = '15'
+    i.compra.testemunhas[1].nome = ''
+    expect(validarGerarContrato(i)).toBe('Informe o nome da testemunha 2.')
+    const buf = await renderToBuffer(createElement(ContratoBlocosDocument, { contrato: montarLocacao(locacao(), hoje), nomeCliente: 'Maria' }) as never)
     expect(buf.subarray(0, 4).toString()).toBe('%PDF')
   })
 })

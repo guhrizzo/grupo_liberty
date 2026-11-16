@@ -24,6 +24,26 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-locacao-opcao-aquisicao',
+    date: '2026-11-16',
+    title: 'Novo modelo: locação de veículo com opção de aquisição',
+    tag: 'novo',
+    items: [
+      'Novo modelo em Contratos > Gerar contrato: aluguel mensal com entrada e parcelas, e opção de aquisição ao fim.',
+      'Você preenche locatário, veículo, aluguel, dia do vencimento, entrada, parcelas, franquia do seguro e testemunhas; o valor total é calculado.',
+    ],
+  },
+  {
+    id: '2026-11-16-recuperacao-valores',
+    date: '2026-11-16',
+    title: 'Novo modelo: análise, cancelamento e recuperação de valores',
+    tag: 'novo',
+    items: [
+      'Novo modelo em Contratos > Gerar contrato, com honorários de 50% só sobre os valores efetivamente recuperados.',
+      'Você preenche o contratante, o veículo, a alienação fiduciária e a conta para recebimento; a prévia em A4 mostra o contrato na hora.',
+    ],
+  },
+  {
     id: '2026-11-16-prestacao-servico-intermediacao',
     date: '2026-11-16',
     title: 'Novos modelos: prestação de serviços de intermediação',

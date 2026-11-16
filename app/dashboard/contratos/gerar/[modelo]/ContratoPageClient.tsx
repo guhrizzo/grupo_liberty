@@ -14,7 +14,10 @@ import { montarContratoGerado } from '../montar'
 import {
   FORMAS_PAGAMENTO,
   TIPOS_CONTRATO_GERADO,
+  TIPO_LOCACAO,
   TIPO_PRESTACAO_CASAL,
+  TIPO_RECUPERACAO,
+  TESTEMUNHAS_PADRAO,
   TIPO_PROMESSA_PARCELADA,
   compraVazia,
   ehPrestacao,
@@ -48,7 +51,11 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const [w, setW] = useState(contratanteVazio)
   const [v, setV] = useState(veiculoContratoVazio)
   const [p, setP] = useState(prestacaoVazia)
-  const [k, setK] = useState(() => compraVazia(tipo === TIPO_PROMESSA_PARCELADA))
+  const [k, setK] = useState(() => {
+    const base = compraVazia(tipo === TIPO_PROMESSA_PARCELADA)
+    // Locação: a testemunha I é fixa por padrão; a II varia de contrato para contrato.
+    return tipo === TIPO_LOCACAO ? { ...base, testemunhas: [{ ...TESTEMUNHAS_PADRAO[0] }, { nome: '', cpf: '' }] } : base
+  })
   const [salvarCliente, setSalvarCliente] = useState(false)
   const [clientes, setClientes] = useState<ClienteContrato[]>([])
   const [aba, setAba] = useState<Aba>('dados')
@@ -57,6 +64,8 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const parcelado = tipo === TIPO_PROMESSA_PARCELADA
   const prestacao = ehPrestacao(tipo)
   const casal = tipo === TIPO_PRESTACAO_CASAL
+  const recuperacao = tipo === TIPO_RECUPERACAO
+  const locacao = tipo === TIPO_LOCACAO
   const vincendas = Math.max(0, (Number(p.qtdParcelas) || 0) - (Number(p.parcelasPagas) || 0))
 
   // Data de assinatura padrão = hoje, no fuso do navegador. Fica para depois da
@@ -88,6 +97,10 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
 
   const mudarIntermediador = (campo: keyof typeof k.intermediador, valor: string) =>
     setK((a) => ({ ...a, intermediador: { ...a.intermediador, [campo]: valor } }))
+  const mudarLocacao = (campo: keyof typeof k.locacao, valor: string) =>
+    setK((a) => ({ ...a, locacao: { ...a.locacao, [campo]: valor } }))
+  const mudarConta = (campo: keyof typeof k.conta, valor: string) =>
+    setK((a) => ({ ...a, conta: { ...a.conta, [campo]: valor } }))
   const mudarTestemunha = (idx: number, campo: 'nome' | 'cpf', valor: string) =>
     setK((a) => ({ ...a, testemunhas: a.testemunhas.map((t, n) => (n === idx ? { ...t, [campo]: valor } : t)) }))
   const mudarVencimento = (idx: number, valor: string) =>
@@ -198,13 +211,13 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
           }}
           className="space-y-4"
         >
-          <Bloco titulo={casal ? 'Vendedor I' : prestacao ? 'Vendedor' : 'Comprador'}>
+          <Bloco titulo={casal ? 'Vendedor I' : prestacao ? 'Vendedor' : recuperacao ? 'Contratante' : locacao ? 'Locatário' : 'Comprador'}>
             <PessoaCampos
               prefixo="gc"
               c={c}
               setC={setC}
               clientes={clientes}
-              comRg={casal}
+              comRg={casal || recuperacao}
               comTelefone={!parcelado}
             />
             <Marcar id="gc-salvar" checked={salvarCliente} onChange={setSalvarCliente}>
@@ -234,11 +247,66 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
               <Input id="gc-placa" label="Placa" placeholder="AAA0A00" value={v.placa} onChange={(e) => setV({ ...v, placa: maskPlate(e.target.value) })} autoComplete="off" />
               <Input id="gc-chassi" label="Chassi" placeholder="17 caracteres" value={k.chassi} onChange={(e) => setK({ ...k, chassi: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17) })} autoComplete="off" />
               <Input id="gc-renavam" label="RENAVAM" placeholder="00000000000" value={v.renavam} onChange={(e) => setV({ ...v, renavam: maskRenavam(e.target.value) })} inputMode="numeric" autoComplete="off" />
-              <Input id="gc-categoria" label="Categoria" placeholder="Ex.: Particular" value={k.categoria} onChange={(e) => setK({ ...k, categoria: e.target.value })} autoComplete="off" />
+              {!locacao && (
+                <Input id="gc-categoria" label="Categoria" placeholder="Ex.: Particular" value={k.categoria} onChange={(e) => setK({ ...k, categoria: e.target.value })} autoComplete="off" />
+              )}
             </div>
-            <Input id="gc-conservacao" label="Estado de conservação" placeholder="Ex.: Bom estado, sem avarias" value={k.conservacao} onChange={(e) => setK({ ...k, conservacao: e.target.value })} autoComplete="off" />
+            {!locacao && (
+              <Input id="gc-conservacao" label="Estado de conservação" placeholder="Ex.: Bom estado, sem avarias" value={k.conservacao} onChange={(e) => setK({ ...k, conservacao: e.target.value })} autoComplete="off" />
+            )}
           </Bloco>
 
+          {locacao && (
+            <>
+              <Bloco titulo="Condições da locação">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input id="gc-l-aluguel" label="Aluguel mensal (R$)" placeholder="R$ 0,00" value={k.locacao.aluguel} onChange={(e) => mudarLocacao('aluguel', maskMoney(e.target.value))} inputMode="numeric" autoComplete="off" />
+                  <Input id="gc-l-dia" label="Dia do vencimento" placeholder="Ex.: 15" value={k.locacao.diaVencimento} onChange={(e) => mudarLocacao('diaVencimento', soDigitos(e.target.value, 2))} inputMode="numeric" hint="De 1 a 31" autoComplete="off" />
+                  <Input id="gc-l-entrada" label="Entrada na assinatura (R$)" placeholder="R$ 0,00" value={k.locacao.entrada} onChange={(e) => mudarLocacao('entrada', maskMoney(e.target.value))} inputMode="numeric" autoComplete="off" />
+                  <Input id="gc-l-primeiro" label="Primeiro pagamento" type="date" value={k.locacao.primeiroPagamento} onChange={(e) => mudarLocacao('primeiroPagamento', e.target.value)} />
+                  <Input id="gc-l-parcelas" label="Parcelas até a opção de compra" placeholder="36" value={k.locacao.parcelas} onChange={(e) => mudarLocacao('parcelas', soDigitos(e.target.value, 3))} inputMode="numeric" autoComplete="off" />
+                  <Input id="gc-l-franquia" label="Franquia do seguro (R$)" placeholder="R$ 0,00" value={k.locacao.franquia} onChange={(e) => mudarLocacao('franquia', maskMoney(e.target.value))} inputMode="numeric" autoComplete="off" />
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Valor total do contrato (calculado): {reais((numeroDe(k.locacao.entrada) || 0) + (Number(k.locacao.parcelas) || 0) * (numeroDe(k.locacao.aluguel) || 0))}
+                </p>
+              </Bloco>
+
+              <Bloco titulo="Testemunhas">
+                {[0, 1].map((idx) => (
+                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+                    <Input id={`gc-lt${idx}-nome`} label={`Testemunha ${idx + 1} — nome`} value={k.testemunhas[idx]?.nome ?? ''} onChange={(e) => mudarTestemunha(idx, 'nome', e.target.value)} autoComplete="off" />
+                    <Input id={`gc-lt${idx}-cpf`} label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.testemunhas[idx]?.cpf ?? '')} onChange={(e) => mudarTestemunha(idx, 'cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
+                  </div>
+                ))}
+              </Bloco>
+            </>
+          )}
+
+          {recuperacao && (
+            <>
+              <Bloco titulo="Alienação fiduciária">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input id="gc-banco" label="Instituição financeira" placeholder="Ex.: Omni, Bradesco" value={p.banco} onChange={(e) => setP({ ...p, banco: e.target.value })} autoComplete="off" />
+                  <Input id="gc-ncontrato" label="Nº do contrato" placeholder="Número do financiamento" value={k.numeroContrato} onChange={(e) => setK({ ...k, numeroContrato: e.target.value })} autoComplete="off" />
+                </div>
+              </Bloco>
+
+              <Bloco titulo="Conta para recebimento">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Input id="gc-c-titular" label="Titular da conta" value={k.conta.titular} onChange={(e) => mudarConta('titular', e.target.value)} autoComplete="off" />
+                  <Input id="gc-c-doc" label="CPF/CNPJ do titular" placeholder="000.000.000-00" value={maskCPFCNPJ(k.conta.documento)} onChange={(e) => mudarConta('documento', soDigitos(e.target.value, 14))} inputMode="numeric" autoComplete="off" />
+                  <Input id="gc-c-banco" label="Banco" value={k.conta.banco} onChange={(e) => mudarConta('banco', e.target.value)} autoComplete="off" />
+                  <Input id="gc-c-agencia" label="Agência" value={k.conta.agencia} onChange={(e) => mudarConta('agencia', e.target.value)} autoComplete="off" />
+                  <Input id="gc-c-conta" label="Conta" value={k.conta.conta} onChange={(e) => mudarConta('conta', e.target.value)} autoComplete="off" />
+                  <Input id="gc-c-tipo" label="Tipo da conta" placeholder="Ex.: Corrente, Poupança" value={k.conta.tipoConta} onChange={(e) => mudarConta('tipoConta', e.target.value)} autoComplete="off" />
+                </div>
+                <Input id="gc-c-pix" label="Chave PIX (opcional)" value={k.conta.chavePix} onChange={(e) => mudarConta('chavePix', e.target.value)} autoComplete="off" />
+              </Bloco>
+            </>
+          )}
+
+          {!recuperacao && !locacao && (
           <Bloco titulo="Financiamento do veículo">
             <div className="grid gap-3 sm:grid-cols-2">
               <Input id="gc-banco" label="Instituição financeira" placeholder="Ex.: Omni, Bradesco" value={p.banco} onChange={(e) => setP({ ...p, banco: e.target.value })} autoComplete="off" />
@@ -252,6 +320,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
             </div>
             <p className="text-xs text-neutral-500">Parcelas vincendas (calculadas): {vincendas}</p>
           </Bloco>
+          )}
 
           {prestacao && (
             <Bloco titulo="Pagamento ao vendedor e cláusulas opcionais">
@@ -268,7 +337,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
             </Bloco>
           )}
 
-          {!prestacao && (
+          {!prestacao && !recuperacao && !locacao && (
           <Bloco titulo="Quitação e pagamento">
             <div className="grid gap-3 sm:grid-cols-2">
               <Input id="gc-prazoq" label="Prazo para quitar (meses)" placeholder="12" value={k.prazoQuitacao} onChange={(e) => setK({ ...k, prazoQuitacao: soDigitos(e.target.value, 3) })} inputMode="numeric" autoComplete="off" />

@@ -17,6 +17,8 @@ import {
   TIPO_PROMESSA,
   validarGerarContrato,
   type ClienteContrato,
+  type ContaInput,
+  type LocacaoInput,
   type ContratanteInput,
   type GerarContratoInput,
   type GerarContratoResponse,
@@ -63,6 +65,31 @@ function normalizarIntermediador(raw: unknown): IntermediadorInput {
     estadoCivil: txt(r.estadoCivil, 30),
     cpf: onlyDigits(txt(r.cpf, 20)).slice(0, 11),
     email: txt(r.email, 120).toLowerCase(),
+  }
+}
+
+function normalizarConta(raw: unknown): ContaInput {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    titular: txt(r.titular, 120),
+    documento: onlyDigits(txt(r.documento, 20)).slice(0, 14),
+    banco: txt(r.banco, 60),
+    agencia: txt(r.agencia, 20),
+    conta: txt(r.conta, 30),
+    tipoConta: txt(r.tipoConta, 30),
+    chavePix: txt(r.chavePix, 120),
+  }
+}
+
+function normalizarLocacao(raw: unknown): LocacaoInput {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  return {
+    aluguel: txt(r.aluguel, 20),
+    diaVencimento: txt(r.diaVencimento, 2),
+    primeiroPagamento: dataIso(r.primeiroPagamento),
+    entrada: txt(r.entrada, 20),
+    parcelas: txt(r.parcelas, 3),
+    franquia: txt(r.franquia, 20),
   }
 }
 
@@ -117,6 +144,9 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       dataPagamento: dataIso(k.dataPagamento),
       limpaNome: k.limpaNome !== false,
       seguroPrestamista: k.seguroPrestamista !== false,
+      numeroContrato: txt(k.numeroContrato, 40),
+      conta: normalizarConta(k.conta),
+      locacao: normalizarLocacao(k.locacao),
     },
     salvarCliente: r.salvarCliente === true,
   }
@@ -155,7 +185,11 @@ function nomeArquivo(tipo: string, cliente: string): string {
     .replace(/\s+/g, '_')
     .slice(0, 50)
   const nomeTipo =
-    tipo === 'promessa-compra-parcelada'
+    tipo === 'locacao-opcao-aquisicao'
+      ? 'locacao_opcao_aquisicao'
+      : tipo === 'recuperacao-valores'
+      ? 'recuperacao_valores'
+      : tipo === 'promessa-compra-parcelada'
       ? 'promessa_compra_parcelada'
       : tipo === 'prestacao-servico-casal'
         ? 'prestacao_servico_casal'

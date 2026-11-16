@@ -21,7 +21,7 @@ const TESTEMUNHAS = [
   { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '262.988.758-83', papel: 'TESTEMUNHA II' },
 ]
 
-const ou = (valor: string, rotulo: string) => valor.trim() || lacuna(rotulo)
+export const ou = (valor: string, rotulo: string) => valor.trim() || lacuna(rotulo)
 const moeda = (raw: string) => brl(numeroDe(raw))
 const contagem = (raw: string) => String(Number(raw))
 
@@ -31,7 +31,7 @@ function dataCurta(iso: string): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : lacuna('data limite do pagamento')
 }
 
-function cpfFormatado(raw: string): string {
+export function cpfFormatado(raw: string): string {
   const d = onlyDigits(raw)
   return d.length === 11 ? d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4') : d ? d : lacuna('CPF')
 }

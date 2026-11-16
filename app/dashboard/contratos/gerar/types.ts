@@ -15,12 +15,22 @@ export const TIPO_PRESTACAO = 'prestacao-servico' as const
 /** Mesmo contrato, com dois vendedores (casal). */
 export const TIPO_PRESTACAO_CASAL = 'prestacao-servico-casal' as const
 
+/** Análise, cancelamento e recuperação de valores de financiamento (honorários de 50%). */
+export const TIPO_RECUPERACAO = 'recuperacao-valores' as const
+
+/** Locação de veículo com opção de aquisição ao fim das parcelas. */
+export const TIPO_LOCACAO = 'locacao-opcao-aquisicao' as const
+
 export type TipoContratoGerado =
+  | 'locacao-opcao-aquisicao'
+  | 'recuperacao-valores'
   | 'promessa-compra-financiado'
   | 'promessa-compra-parcelada'
   | 'prestacao-servico'
   | 'prestacao-servico-casal'
 
+export const ehLocacao = (t: TipoContratoGerado) => t === TIPO_LOCACAO
+export const ehRecuperacao = (t: TipoContratoGerado) => t === TIPO_RECUPERACAO
 export const ehPrestacao = (t: TipoContratoGerado) => t === TIPO_PRESTACAO || t === TIPO_PRESTACAO_CASAL
 
 export const TIPOS_CONTRATO_GERADO: {
@@ -53,6 +63,18 @@ export const TIPOS_CONTRATO_GERADO: {
     label: 'Prestação de serviços de intermediação (casal)',
     descricao: 'Mesmo contrato de intermediação, com dois vendedores (casal), cada um com CPF e RG.',
     categoriaSlug: 'prestacao-de-servico',
+  },
+  {
+    value: 'recuperacao-valores',
+    label: 'Análise, cancelamento e recuperação de valores',
+    descricao: 'Análise do financiamento para cancelar e recuperar seguros e tarifas, com honorários de 50% só sobre o que for devolvido.',
+    categoriaSlug: 'prestacao-de-servico',
+  },
+  {
+    value: 'locacao-opcao-aquisicao',
+    label: 'Locação de veículo com opção de aquisição',
+    descricao: 'Aluguel mensal com entrada e parcelas; cumpridas todas, o locatário pode adquirir o veículo. Inclui manutenção, vistorias, sinistros e multas.',
+    categoriaSlug: 'locacao-com-venda-de-veiculo',
   },
 ]
 
@@ -93,6 +115,34 @@ export const FORMAS_PAGAMENTO = [
   { value: 'transferencia', label: 'Transferência bancária' },
   { value: 'dinheiro', label: 'Dinheiro' },
 ] as const
+
+/** Condições financeiras da locação com opção de aquisição. */
+export interface LocacaoInput {
+  /** Valor de cada aluguel mensal. */
+  aluguel: string
+  /** Dia do mês do vencimento (1 a 31). */
+  diaVencimento: string
+  /** Data do primeiro pagamento (AAAA-MM-DD). */
+  primeiroPagamento: string
+  /** Entrada paga na assinatura. */
+  entrada: string
+  /** Quantidade de parcelas mensais até a opção de aquisição. */
+  parcelas: string
+  /** Franquia do seguro em caso de sinistro. */
+  franquia: string
+}
+
+/** Conta que recebe a restituição (anexo da recuperação de valores). */
+export interface ContaInput {
+  titular: string
+  /** CPF ou CNPJ do titular. */
+  documento: string
+  banco: string
+  agencia: string
+  conta: string
+  tipoConta: string
+  chavePix: string
+}
 
 export interface IntermediadorInput {
   razaoSocial: string
@@ -167,6 +217,12 @@ export interface CompraInput {
   limpaNome: boolean
   /** Inclui as cláusulas 5.3 a 5.3.3 (seguro prestamista). */
   seguroPrestamista: boolean
+  // ── Só na recuperação de valores ──
+  /** Nº do contrato de financiamento (alienação fiduciária). */
+  numeroContrato: string
+  conta: ContaInput
+  // ── Só na locação com opção de aquisição ──
+  locacao: LocacaoInput
 }
 
 export interface GerarContratoInput {
@@ -203,6 +259,9 @@ export const compraVazia = (parcelado = false): CompraInput => ({
   cidade: parcelado ? 'Jaú/SP' : '',
   dataAssinatura: '',
   dataPagamento: '', limpaNome: true, seguroPrestamista: true,
+  numeroContrato: '',
+  conta: { titular: '', documento: '', banco: '', agencia: '', conta: '', tipoConta: '', chavePix: '' },
+  locacao: { aluguel: '', diaVencimento: '', primeiroPagamento: '', entrada: '', parcelas: '36', franquia: '' },
 })
 
 /** Formulário do modelo escolhido ainda sem nada preenchido. */
@@ -399,7 +458,66 @@ function validarPrestacao(i: GerarContratoInput): string | null {
   return null
 }
 
+/** Locação com opção de aquisição: locatário, veículo, condições e testemunhas. */
+function validarLocacao(i: GerarContratoInput): string | null {
+  const erroC = validarVendedor(i.contratante, '', false)
+  if (erroC) return erroC
+  const k = i.compra
+  const v = i.veiculo
+  if (!k.marca.trim()) return 'Informe a marca do veículo.'
+  if (!k.modelo.trim()) return 'Informe o modelo do veículo.'
+  if (!v.ano.trim()) return 'Informe o ano do veículo.'
+  if (!k.cor.trim()) return 'Informe a cor do veículo.'
+  if (!v.placa.trim()) return 'Informe a placa.'
+  if (!k.chassi.trim()) return 'Informe o chassi.'
+  if (!v.renavam.trim()) return 'Informe o RENAVAM.'
+  const l = k.locacao
+  if (!(numeroDe(l.aluguel) > 0)) return 'Informe o valor do aluguel mensal.'
+  const dia = inteiroDe(l.diaVencimento)
+  if (!(dia >= 1 && dia <= 31)) return 'Informe o dia do vencimento (de 1 a 31).'
+  if (!dataIsoValida(l.primeiroPagamento)) return 'Informe a data do primeiro pagamento.'
+  if (!(numeroDe(l.entrada) >= 0)) return 'Informe o valor da entrada (0 se não houver).'
+  if (!(inteiroDe(l.parcelas) > 0)) return 'Informe a quantidade de parcelas.'
+  if (!(numeroDe(l.franquia) > 0)) return 'Informe o valor da franquia do seguro.'
+  for (let n = 0; n < 2; n++) {
+    const t = k.testemunhas[n]
+    if (!t?.nome.trim()) return `Informe o nome da testemunha ${n + 1}.`
+    if (onlyDigits(t.cpf).length !== 11) return `Informe o CPF da testemunha ${n + 1} (11 dígitos).`
+  }
+  return null
+}
+
+/** Recuperação de valores: contratante com RG, dados do veículo, alienação e conta. */
+function validarRecuperacao(i: GerarContratoInput): string | null {
+  const erroC = validarVendedor(i.contratante, '', true)
+  if (erroC) return erroC
+  const k = i.compra
+  const v = i.veiculo
+  if (!k.marca.trim()) return 'Informe a marca do veículo.'
+  if (!k.modelo.trim()) return 'Informe o modelo do veículo.'
+  if (!v.ano.trim()) return 'Informe o ano do veículo.'
+  if (!k.cor.trim()) return 'Informe a cor do veículo.'
+  if (!v.placa.trim()) return 'Informe a placa.'
+  if (!k.chassi.trim()) return 'Informe o chassi.'
+  if (!v.renavam.trim()) return 'Informe o RENAVAM.'
+  if (!k.categoria.trim()) return 'Informe a categoria do veículo.'
+  if (!k.conservacao.trim()) return 'Informe o estado de conservação.'
+  if (!i.prestacao.banco.trim()) return 'Informe a instituição da alienação fiduciária.'
+  if (!k.numeroContrato.trim()) return 'Informe o nº do contrato de financiamento.'
+  const c = k.conta
+  if (!c.titular.trim()) return 'Informe o titular da conta.'
+  const doc = onlyDigits(c.documento).length
+  if (doc !== 11 && doc !== 14) return 'Informe o CPF ou CNPJ do titular da conta.'
+  if (!c.banco.trim()) return 'Informe o banco da conta.'
+  if (!c.agencia.trim()) return 'Informe a agência.'
+  if (!c.conta.trim()) return 'Informe o número da conta.'
+  if (!c.tipoConta.trim()) return 'Informe o tipo da conta.'
+  return null
+}
+
 /** Retorna a mensagem do primeiro problema do formulário, ou null. */
 export function validarGerarContrato(i: GerarContratoInput): string | null {
+  if (ehLocacao(i.tipo)) return validarLocacao(i)
+  if (ehRecuperacao(i.tipo)) return validarRecuperacao(i)
   return ehPrestacao(i.tipo) ? validarPrestacao(i) : validarCompra(i)
 }
