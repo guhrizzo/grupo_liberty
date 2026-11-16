@@ -3,10 +3,10 @@ import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
 import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import { toPublicVeiculo, vendidoVisivel } from '@/app/dashboard/veiculos/public'
-import PublicVehiclesList from './PublicVehiclesList'
-import PublicSoldVehiclesList from './PublicSoldVehiclesList'
-import PublicHeader from './components/PublicHeader'
-import { Button } from './components/ui'
+import PublicVehiclesList from '@/app/PublicVehiclesList'
+import PublicSoldVehiclesList from '@/app/PublicSoldVehiclesList'
+import PublicHeader from '@/app/components/PublicHeader'
+import { Button } from '@/app/components/ui'
 
 export const metadata = {
   title: 'Liberty Car | Encontre seu Veículo Ideal',
