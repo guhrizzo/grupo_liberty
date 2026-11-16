@@ -24,6 +24,20 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-contrato-promessa-compra-financiado',
+    date: '2026-11-16',
+    title: 'Novo contrato: promessa de compra de veículo financiado',
+    tag: 'novo',
+    items: [
+      'Em Contratos, o botão "Gerar contrato" agora abre uma página para escolher o modelo (prestação de serviço, locação ou promessa de compra).',
+      'A seção "Modelos de contrato" (arquivos em branco para baixar) saiu da aba Contratos.',
+      'A promessa de compra tem uma página com duas abas: "Preencher dados" e "Contrato", que mostra a prévia em folhas A4 com os campos vazios destacados.',
+      'Os campos ainda vazios aparecem destacados na prévia, e o botão "Gerar PDF" libera quando tudo estiver preenchido.',
+      'As parcelas vincendas são calculadas e o valor total sai também por extenso.',
+      'Se escolher um veículo do estoque, o contrato é guardado nele, na categoria "Venda de veículo financiado".',
+    ],
+  },
+  {
     id: '2026-11-16-importar-varias-abas',
     date: '2026-11-16',
     title: 'Importar planilha com várias abas',

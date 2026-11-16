@@ -4,10 +4,7 @@ import ContratosClient from './ContratosClient'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import { listarTodosContratosVeiculoAction } from '@/app/veiculos/[id]/actions'
 import { listarCategoriasContrato } from './categorias.actions'
-import { listarModelosContrato } from './modelos/actions'
-import ModelosContratoSection from './modelos/ModelosContratoSection'
-import GerarContratoSection, { type VeiculoParaContrato } from './gerar/GerarContratoSection'
-import { parcelasAtrasoAtual } from '@/utils/veiculos/parcelas-atraso'
+import GerarContratoSection from './gerar/GerarContratoSection'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,28 +30,11 @@ export default async function ContratosPage() {
     preco: v.preco,
   }))
 
-  const veiculosGerar: VeiculoParaContrato[] = veiculosList.map((v) => ({
-    id: v.id,
-    rotulo: `${v.marca ?? ''} ${v.modelo ?? ''} ${v.ano ?? ''}${v.placa ? ` — ${v.placa}` : ''}`.trim(),
-    marcaModelo: `${v.marca ?? ''} ${v.modelo ?? ''}`.trim(),
-    ano: v.ano ? String(v.ano) : '',
-    placa: v.placa ?? '',
-    fipe: v.tabelaFipe ?? null,
-    renavam: v.renavam ?? '',
-    banco: v.banco ?? '',
-    valorParcela: v.valorParcela ?? null,
-    parcelasAtraso: parcelasAtrasoAtual({
-      base: v.parcelasAtraso,
-      informadoEm: v.parcelasAtrasoEm,
-      parcelasRestantes: v.parcelasRestantes,
-    }),
-  }))
 
   // Lista todos os contratos anexados aos veículos (coleção `veiculo_contratos`).
   // A página /dashboard/contratos agora é apenas visualização — geração desativada.
   const veiculoContratos = await listarTodosContratosVeiculoAction()
   const categorias = await listarCategoriasContrato()
-  const modelos = await listarModelosContrato()
   const veiculoMarcas = new Map(veiculosList.map((v) => [v.id, v]))
   const contratos = veiculoContratos.map((c) => {
     const v = veiculoMarcas.get(c.veiculoId)
@@ -100,12 +80,7 @@ export default async function ContratosPage() {
       userRole={session.role}
       categorias={categorias}
       podeGerenciarCategorias={hasPageAccess(session, 'contratos')}
-      secaoModelos={
-        <>
-          <GerarContratoSection veiculos={veiculosGerar} />
-          <ModelosContratoSection initialModelos={modelos} />
-        </>
-      }
+      secaoModelos={<GerarContratoSection />}
     />
   )
 }

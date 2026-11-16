@@ -1,6 +1,6 @@
 'use server'
 
-// Gerar contrato preenchido (prestação de serviço / locação): valida o
+// Gerar contrato preenchido (prestação, locação, promessa de compra): valida o
 // formulário, monta o PDF, opcionalmente guarda o cliente (`clientes_contrato`)
 // e anexa o PDF aos contratos do veículo (`veiculo_contratos`).
 
@@ -11,8 +11,8 @@ import { adminDb, adminStorage } from '@/utils/firebase/admin'
 import { assertPodeGerarContratos } from '@/utils/permissions'
 import { onlyDigits } from '@/utils/masks'
 import { precisaConjuge } from '@/utils/cobrancas/pessoa'
-import ContratoGeradoDocument from './ContratoGeradoDocument'
-import { montarContrato } from './texto'
+import ContratoBlocosDocument from './ContratoBlocosDocument'
+import { montarContratoGerado } from './montar'
 import {
   TIPOS_CONTRATO_GERADO,
   validarGerarContrato,
@@ -33,6 +33,7 @@ function normalizarContratante(raw: unknown): ContratanteInput {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   return {
     nome: txt(r.nome, 120),
+    nacionalidade: txt(r.nacionalidade, 40),
     rg: txt(r.rg, 30),
     cpf: onlyDigits(txt(r.cpf, 20)).slice(0, 11),
     cep: txt(r.cep, 12),
@@ -60,8 +61,9 @@ function normalizarInput(raw: unknown): GerarContratoInput {
   const v = obj('veiculo')
   const p = obj('prestacao')
   const l = obj('locacao')
+  const k = obj('compra')
   return {
-    tipo: r.tipo === 'locacao-de-veiculo' ? 'locacao-de-veiculo' : 'prestacao-de-servico',
+    tipo: TIPOS_CONTRATO_GERADO.find((t) => t.value === r.tipo)?.value ?? 'prestacao-de-servico',
     contratante: normalizarContratante(r.contratante),
     conjuge: normalizarConjuge(r.conjuge),
     veiculo: {
@@ -87,6 +89,20 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       prazo: txt(l.prazo, 4),
       valorSemanal: txt(l.valorSemanal, 20),
       caucao: txt(l.caucao, 20),
+    },
+    compra: {
+      marca: txt(k.marca, 60),
+      modelo: txt(k.modelo, 80),
+      cor: txt(k.cor, 30),
+      chassi: txt(k.chassi, 25),
+      categoria: txt(k.categoria, 40),
+      conservacao: txt(k.conservacao, 120),
+      tipoFinanciamento: txt(k.tipoFinanciamento, 60),
+      valorFinanciado: txt(k.valorFinanciado, 20),
+      saldoDevedor: txt(k.saldoDevedor, 20),
+      prazoQuitacao: txt(k.prazoQuitacao, 4),
+      valorTotal: txt(k.valorTotal, 20),
+      formaPagamento: txt(k.formaPagamento, 20),
     },
     salvarCliente: r.salvarCliente === true,
   }
@@ -125,7 +141,14 @@ function nomeArquivo(tipo: string, cliente: string): string {
     .trim()
     .replace(/\s+/g, '_')
     .slice(0, 50)
-  return `contrato_${tipo === 'locacao-de-veiculo' ? 'locacao' : 'prestacao_servico'}_${base || 'cliente'}.pdf`
+  const nomeTipo =
+    tipo === 'locacao-de-veiculo' ? 'locacao' : tipo === 'promessa-compra-financiado' ? 'promessa_compra' : 'prestacao_servico'
+  return `contrato_${nomeTipo}_${base || 'cliente'}.pdf`
+}
+
+async function renderizarPdf(input: GerarContratoInput, agora: Date): Promise<Buffer> {
+  const contrato = montarContratoGerado(input, agora)
+  return renderToBuffer(createElement(ContratoBlocosDocument, { contrato, nomeCliente: input.contratante.nome }) as never)
 }
 
 export async function gerarContratoAction(raw: unknown): Promise<GerarContratoResponse> {
@@ -146,10 +169,7 @@ export async function gerarContratoAction(raw: unknown): Promise<GerarContratoRe
 
   let buffer: Buffer
   try {
-    const texto = montarContrato(input, agora)
-    buffer = await renderToBuffer(
-      createElement(ContratoGeradoDocument, { texto, nomeCliente: input.contratante.nome }) as never,
-    )
+    buffer = await renderizarPdf(input, agora)
   } catch (err) {
     console.error('[gerarContratoAction] pdf', err)
     return { error: 'Erro ao gerar o PDF do contrato.' }
@@ -158,7 +178,8 @@ export async function gerarContratoAction(raw: unknown): Promise<GerarContratoRe
 
   if (input.salvarCliente) {
     try {
-      const casado = precisaConjuge(input.contratante.estadoCivil)
+      // A promessa de compra não tem cônjuge: não guarda dados dele.
+      const casado = input.tipo !== 'promessa-compra-financiado' && precisaConjuge(input.contratante.estadoCivil)
       await adminDb
         .collection(COLECAO_CLIENTES)
         .doc(input.contratante.cpf)

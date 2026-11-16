@@ -1,9 +1,14 @@
-// Texto dos contratos gerados. RASCUNHO: as cláusulas (principalmente seguro
-// prestamista e limpa nome) precisam de revisão jurídica antes do uso real.
-// Dados da contratada ficam todos em CONTRATADA — conferir razão social/CNPJ.
+// Texto dos contratos de prestação de serviço e de locação. RASCUNHO: as
+// cláusulas (principalmente seguro prestamista e limpa nome) precisam de
+// revisão jurídica antes do uso real. Dados da contratada ficam todos em
+// CONTRATADA — conferir razão social/CNPJ.
+//
+// Campo ainda não preenchido vira "[rótulo]": a prévia do contrato destaca
+// essas lacunas, e o PDF só sai com o formulário completo (validado antes).
 
-import { labelEstadoCivil, precisaConjuge } from '@/utils/cobrancas/pessoa'
-import { maskCPFCNPJ } from '@/utils/masks'
+import { ESTADOS_CIVIS, labelEstadoCivil, precisaConjuge } from '@/utils/cobrancas/pessoa'
+import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
+import type { BlocoContrato, ContratoBlocos } from './blocos'
 import { numeroDe, type GerarContratoInput } from './types'
 
 export const CONTRATADA = {
@@ -18,9 +23,15 @@ export interface ClausulaTexto {
   itens: string[]
 }
 
+export interface AssinaturaTexto {
+  nome: string
+  documento: string
+  papel: string
+}
+
 export interface ContratoTexto {
   titulo: string
-  assinantes: string[]
+  assinaturas: AssinaturaTexto[]
   introducao: string
   clausulas: ClausulaTexto[]
   local: string
@@ -77,15 +88,25 @@ export function brl(valor: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
 }
 
-function dinheiro(raw: string): string {
+/** Lacuna a preencher: aparece como "[rótulo]" no texto. */
+export const lacuna = (rotulo: string) => `[${rotulo}]`
+const ou = (valor: string, rotulo: string) => valor.trim() || lacuna(rotulo)
+
+/** "R$ 1.234,56 (mil duzentos e trinta e quatro reais e cinquenta e seis centavos)". */
+export function dinheiro(raw: string, rotulo = 'valor'): string {
   const v = numeroDe(raw)
-  return `${brl(v)} (${reaisPorExtenso(v)})`
+  return v >= 0 ? `${brl(v)} (${reaisPorExtenso(v)})` : lacuna(rotulo)
 }
 
-function meses(raw: string): string {
+/** "12 (doze) meses". */
+export function meses(raw: string, rotulo = 'prazo em meses'): string {
+  if (!/^[1-9]\d*$/.test(raw.trim())) return lacuna(rotulo)
   const n = Number(raw)
   return `${n} (${inteiroPorExtenso(n)}) ${n === 1 ? 'mês' : 'meses'}`
 }
+
+const inteiro = (raw: string): number | null => (/^\d+$/.test(raw.trim()) ? Number(raw) : null)
+const contagem = (n: number | null, rotulo: string) => (n === null ? lacuna(rotulo) : `${n} (${inteiroPorExtenso(n)})`)
 
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
 
@@ -93,20 +114,28 @@ export function dataPorExtenso(d: Date): string {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
 }
 
+const cpfOuLacuna = (raw: string) => (onlyDigits(raw) ? maskCPFCNPJ(raw) : lacuna('CPF'))
+const nomeOuLacuna = (raw: string) => (raw.trim() ? raw.trim().toUpperCase() : lacuna('NOME COMPLETO'))
+
 function qualificacao(i: GerarContratoInput): string {
   const c = i.contratante
   const cep = c.cep.trim() ? `, CEP ${c.cep.trim()}` : ''
-  let t = `${c.nome.trim().toUpperCase()}, ${labelEstadoCivil(c.estadoCivil).toLowerCase()}, ${c.profissao.trim()}, portador(a) do RG nº ${c.rg.trim()} e inscrito(a) no CPF sob o nº ${maskCPFCNPJ(c.cpf)}, e-mail ${c.email.trim()}, residente e domiciliado(a) em ${c.endereco.trim()}${cep}`
+  const estadoCivil = ESTADOS_CIVIS.some((e) => e.value === c.estadoCivil)
+    ? labelEstadoCivil(c.estadoCivil).toLowerCase()
+    : lacuna('estado civil')
+  let t = `**${nomeOuLacuna(c.nome)}**, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador(a) do RG nº ${ou(c.rg, 'RG')} e inscrito(a) no CPF sob o nº ${cpfOuLacuna(c.cpf)}, e-mail ${ou(c.email, 'e-mail')}, residente e domiciliado(a) em ${ou(c.endereco, 'endereço')}${cep}`
   if (precisaConjuge(c.estadoCivil)) {
     const j = i.conjuge
-    t += `, neste ato com a anuência de seu(sua) cônjuge ${j.nome.trim().toUpperCase()}, ${j.profissao.trim() || 'profissão não informada'}, portador(a) do RG nº ${j.rg.trim() || '—'} e do CPF nº ${maskCPFCNPJ(j.cpf)}, que também assina este instrumento`
+    t += `, neste ato com a anuência de seu(sua) cônjuge ${nomeOuLacuna(j.nome)}, ${j.profissao.trim() || 'profissão não informada'}, portador(a) do RG nº ${j.rg.trim() || '—'} e do CPF nº ${cpfOuLacuna(j.cpf)}, que também assina este instrumento`
   }
   return t
 }
 
 function veiculoTexto(i: GerarContratoInput): string {
   const v = i.veiculo
-  return `${v.marcaModelo.trim()}, ano ${v.ano.trim()}, placa ${v.placa.trim().toUpperCase()}, RENAVAM ${v.renavam.trim()}, avaliado pela Tabela FIPE em ${brl(numeroDe(v.fipe))}`
+  const fipe = numeroDe(v.fipe)
+  const placa = v.placa.trim() ? v.placa.trim().toUpperCase() : lacuna('placa')
+  return `${ou(v.marcaModelo, 'marca/modelo')}, ano ${ou(v.ano, 'ano')}, placa ${placa}, RENAVAM ${ou(v.renavam, 'RENAVAM')}, avaliado pela Tabela FIPE em ${fipe >= 0 ? brl(fipe) : lacuna('valor da FIPE')}`
 }
 
 const ORDINAL = ['PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÉTIMA', 'OITAVA', 'NONA', 'DÉCIMA']
@@ -118,31 +147,33 @@ function numerar(base: ClausulaTexto[]): ClausulaTexto[] {
 
 function prestacao(i: GerarContratoInput, hoje: Date): ContratoTexto {
   const p = i.prestacao
-  const qtd = Number(p.qtdParcelas)
-  const pagas = Number(p.parcelasPagas)
-  const atraso = Number(p.parcelasAtraso)
-  const restantes = Math.max(0, qtd - pagas)
+  const qtd = inteiro(p.qtdParcelas)
+  const pagas = inteiro(p.parcelasPagas)
+  const atraso = inteiro(p.parcelasAtraso)
+  const restantes = qtd !== null && pagas !== null ? Math.max(0, qtd - pagas) : null
   const clausulas: ClausulaTexto[] = [
     {
       titulo: 'DO OBJETO',
       itens: [
-        `O presente contrato tem por objeto a prestação, pela CONTRATADA, de serviços de intermediação, gestão e regularização do financiamento do veículo ${veiculoTexto(i)}, de propriedade/posse do CONTRATANTE, financiado junto ao ${p.banco.trim()}.`,
+        `O presente contrato tem por objeto a prestação, pela CONTRATADA, de serviços de intermediação, gestão e regularização do financiamento do veículo ${veiculoTexto(i)}, de propriedade/posse do CONTRATANTE, financiado junto ao ${ou(p.banco, 'banco')}.`,
       ],
     },
     {
       titulo: 'DA SITUAÇÃO DO FINANCIAMENTO',
       itens: [
-        `O financiamento foi contratado em ${qtd} (${inteiroPorExtenso(qtd)}) parcelas de ${dinheiro(p.valorParcela)}, das quais ${pagas} (${inteiroPorExtenso(pagas)}) foram pagas, restando ${restantes} (${inteiroPorExtenso(restantes)}) a vencer.`,
-        atraso > 0
-          ? `Na data de assinatura constam ${atraso} (${inteiroPorExtenso(atraso)}) parcela(s) em atraso, declaradas pelo CONTRATANTE, que reconhece sua responsabilidade pelos encargos decorrentes do atraso até a execução dos serviços.`
-          : 'O CONTRATANTE declara que não há parcelas em atraso na data de assinatura.',
+        `O financiamento foi contratado em ${contagem(qtd, 'qtd. de parcelas')} parcelas de ${dinheiro(p.valorParcela, 'valor da parcela')}, das quais ${contagem(pagas, 'parcelas pagas')} foram pagas, restando ${contagem(restantes, 'parcelas a vencer')} a vencer.`,
+        atraso === null
+          ? `Na data de assinatura constam ${lacuna('parcelas em atraso')} parcela(s) em atraso.`
+          : atraso > 0
+            ? `Na data de assinatura constam ${contagem(atraso, 'parcelas em atraso')} parcela(s) em atraso, declaradas pelo CONTRATANTE, que reconhece sua responsabilidade pelos encargos decorrentes do atraso até a execução dos serviços.`
+            : 'O CONTRATANTE declara que não há parcelas em atraso na data de assinatura.',
       ],
     },
     {
       titulo: 'DO PRAZO E DO VALOR',
       itens: [
         `O prazo de vigência deste contrato é de ${meses(p.prazo)}, contados da data de assinatura.`,
-        `Pelos serviços, as partes ajustam o valor de ${dinheiro(p.valorProposta)}, conforme proposta aceita pelo CONTRATANTE, a ser pago na forma combinada entre as partes.`,
+        `Pelos serviços, as partes ajustam o valor de ${dinheiro(p.valorProposta, 'valor da proposta')}, conforme proposta aceita pelo CONTRATANTE, a ser pago na forma combinada entre as partes.`,
       ],
     },
     {
@@ -191,6 +222,7 @@ function prestacao(i: GerarContratoInput, hoje: Date): ContratoTexto {
 
 function locacao(i: GerarContratoInput, hoje: Date): ContratoTexto {
   const l = i.locacao
+  const caucaoVazia = !l.caucao.trim()
   const caucao = numeroDe(l.caucao)
   const clausulas: ClausulaTexto[] = [
     {
@@ -204,15 +236,15 @@ function locacao(i: GerarContratoInput, hoje: Date): ContratoTexto {
     {
       titulo: 'DO VALOR E DO PAGAMENTO',
       itens: [
-        `O LOCATÁRIO pagará o aluguel semanal de ${dinheiro(l.valorSemanal)}, em dia e forma ajustados com a LOCADORA.`,
+        `O LOCATÁRIO pagará o aluguel semanal de ${dinheiro(l.valorSemanal, 'valor semanal')}, em dia e forma ajustados com a LOCADORA.`,
         'O atraso no pagamento sujeita o LOCATÁRIO a multa e juros na forma da lei, e autoriza a LOCADORA a retomar o veículo após notificação.',
       ],
     },
     {
       titulo: 'DA CAUÇÃO',
       itens: [
-        caucao > 0
-          ? `A título de caução, o LOCATÁRIO entrega à LOCADORA ${dinheiro(l.caucao)}, a ser devolvida ao fim da locação, descontados eventuais débitos, multas, avarias ou valores em aberto.`
+        caucaoVazia || caucao > 0
+          ? `A título de caução, o LOCATÁRIO entrega à LOCADORA ${caucaoVazia ? lacuna('valor da caução') : dinheiro(l.caucao)}, a ser devolvida ao fim da locação, descontados eventuais débitos, multas, avarias ou valores em aberto.`
           : 'As partes dispensam a caução nesta locação.',
       ],
     },
@@ -243,17 +275,39 @@ function montar(titulo: string, i: GerarContratoInput, clausulas: ClausulaTexto[
   const loc = i.tipo === 'locacao-de-veiculo'
   const papelContratada = loc ? 'CONTRATADA (LOCADORA)' : 'CONTRATADA'
   const papelContratante = loc ? 'CONTRATANTE (LOCATÁRIO)' : 'CONTRATANTE'
-  const assinantes = [`${CONTRATADA.nome} — ${papelContratada}`, `${i.contratante.nome.trim().toUpperCase()} — ${papelContratante}`]
-  if (precisaConjuge(i.contratante.estadoCivil)) assinantes.push(`${i.conjuge.nome.trim().toUpperCase()} — CÔNJUGE`)
+  const assinaturas: AssinaturaTexto[] = [
+    { nome: CONTRATADA.nome, documento: CONTRATADA.documento, papel: papelContratada },
+    { nome: nomeOuLacuna(i.contratante.nome), documento: `CPF nº ${cpfOuLacuna(i.contratante.cpf)}`, papel: papelContratante },
+  ]
+  if (precisaConjuge(i.contratante.estadoCivil)) {
+    assinaturas.push({ nome: nomeOuLacuna(i.conjuge.nome), documento: `CPF nº ${cpfOuLacuna(i.conjuge.cpf)}`, papel: 'CÔNJUGE' })
+  }
   return {
     titulo,
-    assinantes,
-    introducao: `Pelo presente instrumento particular de ${objeto}, de um lado ${CONTRATADA.nome}, ${CONTRATADA.documento}, com sede em ${CONTRATADA.endereco}, doravante denominada ${papelContratada}, e de outro lado ${qualificacao(i)}, doravante denominado(a) ${papelContratante}, têm entre si justo e contratado o seguinte:`,
+    assinaturas,
+    introducao: `Pelo presente instrumento particular de ${objeto}, de um lado **${CONTRATADA.nome}**, ${CONTRATADA.documento}, com sede em ${CONTRATADA.endereco}, doravante denominada **${papelContratada}**, e de outro lado ${qualificacao(i)}, doravante denominado(a) **${papelContratante}**, têm entre si justo e contratado o seguinte:`,
     clausulas,
     local: `${CONTRATADA.foro.split('/')[0]}, ${dataPorExtenso(hoje)}.`,
   }
 }
 
 export function montarContrato(i: GerarContratoInput, hoje: Date = new Date()): ContratoTexto {
-  return i.tipo === 'prestacao-de-servico' ? prestacao(i, hoje) : locacao(i, hoje)
+  return i.tipo === 'locacao-de-veiculo' ? locacao(i, hoje) : prestacao(i, hoje)
+}
+
+/** Texto do contrato → blocos que a prévia e o PDF desenham (mesmo layout do modelo em PDF). */
+export function blocosDoContrato(t: ContratoTexto): ContratoBlocos {
+  const blocos: BlocoContrato[] = [
+    { tipo: 'titulo', texto: t.titulo },
+    { tipo: 'p', texto: t.introducao },
+  ]
+  for (const c of t.clausulas) {
+    blocos.push({ tipo: 'secao', texto: c.titulo })
+    c.itens.forEach((item, idx) =>
+      blocos.push({ tipo: 'p', texto: c.itens.length > 1 ? `**§ ${idx + 1}º** ${item}` : item }),
+    )
+  }
+  blocos.push({ tipo: 'p', texto: t.local })
+  blocos.push({ tipo: 'assinaturas', itens: t.assinaturas })
+  return { titulo: t.titulo, blocos }
 }
