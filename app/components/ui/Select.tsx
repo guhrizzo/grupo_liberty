@@ -33,6 +33,9 @@ export interface SelectProps
 /**
  * Converte children (<option value="...">label</option>) em uma lista de objetos SelectOption.
  */
+/** Altura máxima da lista de opções (px) — equivale a `max-h-60`. */
+const DROPDOWN_MAX = 240
+
 function parseChildrenToOptions(children?: ReactNode): SelectOption[] {
   if (!children) return []
   const opts: SelectOption[] = []
@@ -99,7 +102,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   const dropdownRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   // O dropdown vai num portal com posição fixa para não ser cortado por modais com rolagem.
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  // Abre para baixo; sem espaço embaixo (select no fim da página), abre para cima.
+  const [pos, setPos] = useState<{
+    top?: number
+    bottom?: number
+    left: number
+    width: number
+    maxHeight: number
+  } | null>(null)
   const hiddenSelectRef = useRef<HTMLSelectElement | null>(null)
 
   // Sincroniza valor controlado quando mudar externamente
@@ -125,7 +135,28 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     }
     const reposicionar = () => {
       const r = triggerRef.current?.getBoundingClientRect()
-      if (r) setPos({ top: r.bottom + 6, left: r.left, width: r.width })
+      if (!r) return
+      const folga = 6 // distância do botão
+      const borda = 12 // distância da borda da janela
+      const abaixo = window.innerHeight - r.bottom - folga - borda
+      const acima = r.top - folga - borda
+      // Altura estimada da lista (cada opção ~34px + padding), limitada ao máximo.
+      const estimada = Math.min(DROPDOWN_MAX, options.length * 34 + 10)
+      if (estimada > abaixo && acima > abaixo) {
+        setPos({
+          bottom: window.innerHeight - r.top + folga,
+          left: r.left,
+          width: r.width,
+          maxHeight: Math.min(DROPDOWN_MAX, acima),
+        })
+      } else {
+        setPos({
+          top: r.bottom + folga,
+          left: r.left,
+          width: r.width,
+          maxHeight: Math.min(DROPDOWN_MAX, Math.max(abaixo, 96)),
+        })
+      }
     }
     reposicionar()
 
@@ -145,7 +176,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, options.length])
 
   // Trata a escolha de uma opção
   const handleSelectOption = (optValue: string) => {
@@ -255,7 +286,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {isOpen && pos && createPortal(
           <div
             ref={dropdownRef}
-            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
+            style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
             className={cn(
               'z-[100] max-h-60 overflow-y-auto rounded-xl border p-1 shadow-xl',
               'animate-zoom-in-95 backdrop-blur-md',
