@@ -209,8 +209,10 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
         </div>
       </div>
 
-      {/* Fixo no topo ao rolar; as margens negativas compensam o padding do <main>. */}
-      <div className="sticky top-0 z-20 -mx-4 bg-slate-50/90 px-4 py-2 backdrop-blur md:-mx-8 md:px-8 adobe-dark:bg-[var(--color-adobe-bg-0)]/90">
+      {/* Fixo no topo ao rolar. O <main> do dashboard tem 2rem de padding no topo e a rolagem
+          acontece dentro dele: `-top-8` anula esse padding e a faixa cola no topo, sem deixar a folha
+          aparecer acima. As margens negativas compensam o padding lateral. */}
+      <div className="sticky -top-8 z-20 -mx-4 bg-slate-50/90 px-4 py-2 backdrop-blur md:-mx-8 md:px-8 adobe-dark:bg-[var(--color-adobe-bg-0)]/90">
         <SegmentedControl options={ABAS} value={aba} onChange={setAba} ariaLabel="Seção do contrato" />
       </div>
 

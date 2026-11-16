@@ -47,7 +47,9 @@ function Lacunas({ texto }: { texto: string }) {
     <>
       {texto.split(/(\[[^\]]*\])/g).map((parte, idx) =>
         /^\[[^\]]*\]$/.test(parte) ? (
-          <mark key={idx} className="rounded-sm bg-amber-200 px-0.5 font-normal text-amber-950">
+          // Cores fixas (inline): o tema escuro repinta as classes `text-amber-*` para um
+          // amarelo claro, que sumia sobre este fundo. A folha é sempre branca.
+          <mark key={idx} className="rounded-sm px-0.5 font-medium" style={{ backgroundColor: '#fde68a', color: '#451a03' }}>
             {parte}
           </mark>
         ) : (
