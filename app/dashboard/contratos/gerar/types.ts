@@ -1,23 +1,16 @@
 // Tipos e regras do gerador de contratos preenchidos. Ficam aqui (não em
 // actions.ts) porque arquivos 'use server' só podem exportar funções async.
 
-import { ESTADOS_CIVIS, precisaConjuge } from '@/utils/cobrancas/pessoa'
+import { ESTADOS_CIVIS } from '@/utils/cobrancas/pessoa'
 import { validarCPF } from '@/utils/validadorCpf'
 import { onlyDigits } from '@/utils/masks'
 
-/** Modelo com página própria (/dashboard/contratos/promessa-compra), fora do modal. */
+/** Promessa de compra com o preço pago à vista. */
 export const TIPO_PROMESSA = 'promessa-compra-financiado' as const
 /** Mesma promessa de compra, com o pagamento em parcelas e intermediador/testemunhas preenchíveis. */
 export const TIPO_PROMESSA_PARCELADA = 'promessa-compra-parcelada' as const
 
-export type TipoContratoGerado =
-  | 'prestacao-de-servico'
-  | 'locacao-de-veiculo'
-  | 'promessa-compra-financiado'
-  | 'promessa-compra-parcelada'
-
-/** As duas variantes da promessa de compra usam o mesmo formulário base. */
-export const ehPromessa = (t: TipoContratoGerado) => t === 'promessa-compra-financiado' || t === 'promessa-compra-parcelada'
+export type TipoContratoGerado = 'promessa-compra-financiado' | 'promessa-compra-parcelada'
 
 export const TIPOS_CONTRATO_GERADO: {
   value: TipoContratoGerado
@@ -26,18 +19,6 @@ export const TIPOS_CONTRATO_GERADO: {
   /** Slug da categoria de contrato (CATEGORIAS_CONTRATO_FIXAS) usada ao guardar no veículo. */
   categoriaSlug: string
 }[] = [
-  {
-    value: 'prestacao-de-servico',
-    label: 'Prestação de serviço',
-    descricao: 'Serviços de intermediação e regularização do financiamento de um veículo financiado, com seguro prestamista e limpa nome opcionais.',
-    categoriaSlug: 'prestacao-de-servico',
-  },
-  {
-    value: 'locacao-de-veiculo',
-    label: 'Locação de veículo',
-    descricao: 'Locação do veículo ao locatário, com prazo, valor semanal e caução.',
-    categoriaSlug: 'locacao-de-veiculo',
-  },
   {
     value: 'promessa-compra-financiado',
     label: 'Promessa de compra de veículo financiado (à vista)',
@@ -67,41 +48,21 @@ export interface ContratanteInput {
   telefone: string
 }
 
-export interface ConjugeInput {
-  nome: string
-  rg: string
-  cpf: string
-  profissao: string
-}
-
 export interface VeiculoContratoInput {
   /** Veículo do estoque (opcional). Se informado, o PDF é guardado nos contratos dele. */
   veiculoId: string
-  marcaModelo: string
   ano: string
-  fipe: string
   placa: string
   renavam: string
 }
 
+/** Dados do financiamento do veículo (tabela da cláusula 1.3). */
 export interface PrestacaoInput {
   banco: string
   qtdParcelas: string
   parcelasPagas: string
   parcelasAtraso: string
   valorParcela: string
-  /** Prazo em meses. */
-  prazo: string
-  valorProposta: string
-  seguroPrestamista: boolean
-  limpaNome: boolean
-}
-
-export interface LocacaoInput {
-  /** Prazo em meses. */
-  prazo: string
-  valorSemanal: string
-  caucao: string
 }
 
 export const FORMAS_PAGAMENTO = [
@@ -110,10 +71,6 @@ export const FORMAS_PAGAMENTO = [
   { value: 'dinheiro', label: 'Dinheiro' },
 ] as const
 
-/**
- * Dados próprios da promessa de compra. Banco, parcelas e valor da parcela
- * vêm de `prestacao` (mesmos campos do contrato de prestação de serviço).
- */
 export interface IntermediadorInput {
   razaoSocial: string
   cnpj: string
@@ -149,6 +106,10 @@ export const TESTEMUNHAS_PADRAO: TestemunhaInput[] = [
   { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '54440899803' },
 ]
 
+/**
+ * Dados próprios da promessa de compra. Instituição financeira, parcelas e valor
+ * da parcela do financiamento vêm de `prestacao`.
+ */
 export interface CompraInput {
   marca: string
   modelo: string
@@ -181,10 +142,8 @@ export interface CompraInput {
 export interface GerarContratoInput {
   tipo: TipoContratoGerado
   contratante: ContratanteInput
-  conjuge: ConjugeInput
   veiculo: VeiculoContratoInput
   prestacao: PrestacaoInput
-  locacao: LocacaoInput
   compra: CompraInput
   salvarCliente: boolean
 }
@@ -192,15 +151,12 @@ export interface GerarContratoInput {
 export const contratanteVazio = (): ContratanteInput => ({
   nome: '', nacionalidade: 'brasileiro(a)', rg: '', cpf: '', cep: '', endereco: '', estadoCivil: '', profissao: '', email: '', telefone: '',
 })
-export const conjugeVazio = (): ConjugeInput => ({ nome: '', rg: '', cpf: '', profissao: '' })
 export const veiculoContratoVazio = (): VeiculoContratoInput => ({
-  veiculoId: '', marcaModelo: '', ano: '', fipe: '', placa: '', renavam: '',
+  veiculoId: '', ano: '', placa: '', renavam: '',
 })
 export const prestacaoVazia = (): PrestacaoInput => ({
   banco: '', qtdParcelas: '', parcelasPagas: '', parcelasAtraso: '', valorParcela: '',
-  prazo: '', valorProposta: '', seguroPrestamista: false, limpaNome: false,
 })
-export const locacaoVazia = (): LocacaoInput => ({ prazo: '', valorSemanal: '', caucao: '' })
 export const compraVazia = (parcelado = false): CompraInput => ({
   marca: '', modelo: '', cor: '', chassi: '',
   categoria: parcelado ? 'PARTICULAR' : '',
@@ -220,10 +176,8 @@ export const compraVazia = (parcelado = false): CompraInput => ({
 export const inputPromessaVazio = (tipo: TipoContratoGerado = TIPO_PROMESSA): GerarContratoInput => ({
   tipo,
   contratante: contratanteVazio(),
-  conjuge: conjugeVazio(),
   veiculo: veiculoContratoVazio(),
   prestacao: prestacaoVazia(),
-  locacao: locacaoVazia(),
   compra: compraVazia(tipo === TIPO_PROMESSA_PARCELADA),
   salvarCliente: false,
 })
@@ -234,10 +188,8 @@ export interface VeiculoParaContrato {
   rotulo: string
   marca: string
   modelo: string
-  marcaModelo: string
   ano: string
   placa: string
-  fipe: number | null
   renavam: string
   banco: string
   valorParcela: number | null
@@ -249,7 +201,6 @@ export interface ClienteContrato {
   /** CPF só com dígitos. */
   id: string
   contratante: ContratanteInput
-  conjuge: ConjugeInput | null
   atualizadoEm: string
 }
 
@@ -315,7 +266,7 @@ function validarParcelada(i: GerarContratoInput): string | null {
   return null
 }
 
-/** Promessa de compra: sem RG, sem FIPE e sem cônjuge. */
+/** Promessa de compra (as duas variantes). */
 function validarCompra(i: GerarContratoInput): string | null {
   const parcelado = i.tipo === TIPO_PROMESSA_PARCELADA
   const c = i.contratante
@@ -362,44 +313,5 @@ function validarCompra(i: GerarContratoInput): string | null {
 
 /** Retorna a mensagem do primeiro problema do formulário, ou null. */
 export function validarGerarContrato(i: GerarContratoInput): string | null {
-  if (ehPromessa(i.tipo)) return validarCompra(i)
-  const c = i.contratante
-  if (!c.nome.trim()) return 'Informe o nome completo.'
-  if (!c.rg.trim()) return 'Informe o RG.'
-  if (!validarCPF(onlyDigits(c.cpf))) return 'CPF inválido.'
-  if (!c.endereco.trim()) return 'Informe o endereço.'
-  if (!ESTADOS_CIVIS.some((e) => e.value === c.estadoCivil)) return 'Informe o estado civil.'
-  if (!c.profissao.trim()) return 'Informe a profissão.'
-  if (!c.email.trim() || !/^\S+@\S+\.\S+$/.test(c.email.trim())) return 'Informe um e-mail válido.'
-  if (precisaConjuge(c.estadoCivil)) {
-    if (!i.conjuge.nome.trim()) return 'Informe o nome do cônjuge.'
-    if (!validarCPF(onlyDigits(i.conjuge.cpf))) return 'CPF do cônjuge inválido.'
-  }
-  const v = i.veiculo
-  if (!v.marcaModelo.trim()) return 'Informe marca/modelo do veículo.'
-  if (!v.ano.trim()) return 'Informe o ano do veículo.'
-  if (!v.placa.trim()) return 'Informe a placa.'
-  if (!v.renavam.trim()) return 'Informe o RENAVAM.'
-  if (!(numeroDe(v.fipe) > 0)) return 'Informe o valor da FIPE.'
-
-  if (i.tipo === 'prestacao-de-servico') {
-    const p = i.prestacao
-    if (!p.banco.trim()) return 'Informe o banco financiado.'
-    const qtd = inteiroDe(p.qtdParcelas)
-    const pagas = inteiroDe(p.parcelasPagas)
-    const atraso = inteiroDe(p.parcelasAtraso)
-    if (!(qtd > 0)) return 'Informe a quantidade de parcelas.'
-    if (!(pagas >= 0)) return 'Informe as parcelas pagas (0 se nenhuma).'
-    if (pagas > qtd) return 'Parcelas pagas maior que o total de parcelas.'
-    if (!(atraso >= 0)) return 'Informe as parcelas em atraso (0 se nenhuma).'
-    if (!(numeroDe(p.valorParcela) > 0)) return 'Informe o valor da parcela.'
-    if (!(inteiroDe(p.prazo) > 0)) return 'Informe o prazo (em meses).'
-    if (!(numeroDe(p.valorProposta) > 0)) return 'Informe o valor da proposta.'
-  } else {
-    const l = i.locacao
-    if (!(inteiroDe(l.prazo) > 0)) return 'Informe o prazo (em meses).'
-    if (!(numeroDe(l.valorSemanal) > 0)) return 'Informe o valor semanal.'
-    if (!(numeroDe(l.caucao) >= 0)) return 'Informe a caução (0 se não houver).'
-  }
-  return null
+  return validarCompra(i)
 }

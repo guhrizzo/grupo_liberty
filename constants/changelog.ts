@@ -24,6 +24,16 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-remove-modelos-prestacao-locacao',
+    date: '2026-11-16',
+    title: 'Gerar contrato: modelos de prestação de serviço e locação removidos',
+    tag: 'melhoria',
+    items: [
+      'A página de modelos agora mostra só as promessas de compra de veículo financiado (à vista e parcelada).',
+      'Os contratos de prestação de serviço e de locação já anexados aos veículos continuam disponíveis em Contratos.',
+    ],
+  },
+  {
     id: '2026-11-16-promessa-compra-parcelada',
     date: '2026-11-16',
     title: 'Novo modelo: promessa de compra parcelada',

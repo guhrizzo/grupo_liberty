@@ -10,12 +10,10 @@ import { montarContratoGerado } from './montar'
 import { montarPromessa } from './texto-promessa'
 import {
   compraVazia,
-  conjugeVazio,
   INTERMEDIADOR_PADRAO,
   TESTEMUNHAS_PADRAO,
   inputPromessaVazio,
   contratanteVazio,
-  locacaoVazia,
   prestacaoVazia,
   validarGerarContrato,
   veiculoContratoVazio,
@@ -36,7 +34,6 @@ function entrada(): GerarContratoInput {
       telefone: '14999998888',
       email: 'maria@exemplo.com',
     },
-    conjuge: conjugeVazio(),
     veiculo: { ...veiculoContratoVazio(), ano: '2020', placa: 'abc1d23', renavam: '12345678901' },
     prestacao: {
       ...prestacaoVazia(),
@@ -46,7 +43,6 @@ function entrada(): GerarContratoInput {
       parcelasAtraso: '1',
       valorParcela: 'R$ 1.200,50',
     },
-    locacao: locacaoVazia(),
     compra: {
       ...compraVazia(),
       marca: 'Hyundai',
@@ -152,10 +148,8 @@ describe('prévia com o formulário vazio', () => {
   const vazio = (): GerarContratoInput => ({
     tipo: 'promessa-compra-financiado',
     contratante: contratanteVazio(),
-    conjuge: conjugeVazio(),
     veiculo: veiculoContratoVazio(),
     prestacao: prestacaoVazia(),
-    locacao: locacaoVazia(),
     compra: { ...compraVazia(), formaPagamento: '' },
     salvarCliente: false,
   })
@@ -191,75 +185,6 @@ describe('prévia com o formulário vazio', () => {
 describe('formulário vazio da promessa', () => {
   it('monta o contrato sem erro', () => {
     expect(() => montarPromessa(inputPromessaVazio())).not.toThrow()
-  })
-})
-
-describe('prestação de serviço e locação no mesmo layout', () => {
-  const servico = (tipo: GerarContratoInput['tipo']): GerarContratoInput => {
-    const base = entrada()
-    return {
-      ...base,
-      tipo,
-      contratante: { ...base.contratante, rg: '12.345.678-9', estadoCivil: 'solteiro' },
-      veiculo: { ...base.veiculo, marcaModelo: 'Hyundai HB20', fipe: 'R$ 50.000,00' },
-      prestacao: { ...base.prestacao, prazo: '12', valorProposta: 'R$ 5.000,00' },
-      locacao: { prazo: '12', valorSemanal: 'R$ 700,00', caucao: 'R$ 1.000,00' },
-    }
-  }
-  const hoje = new Date(2026, 10, 16)
-  const textoTodo = (i: GerarContratoInput) =>
-    montarContratoGerado(i, hoje).blocos.map(textoDe).join('\n')
-
-  it('validam com o formulário preenchido', () => {
-    expect(validarGerarContrato(servico('prestacao-de-servico'))).toBeNull()
-    expect(validarGerarContrato(servico('locacao-de-veiculo'))).toBeNull()
-  })
-
-  it('prestação: preenche valores, sem lacunas e com título, cláusulas e assinaturas', () => {
-    const i = servico('prestacao-de-servico')
-    const contrato = montarContratoGerado(i, hoje)
-    const tudo = textoTodo(i)
-    expect(contrato.blocos[0]).toEqual({ tipo: 'titulo', texto: 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS' })
-    expect(tudo).toContain('CLÁUSULA PRIMEIRA — DO OBJETO')
-    expect(tudo).toMatch(/R\$\s5\.000,00 \(cinco mil reais\)/)
-    expect(tudo).toContain('48 (quarenta e oito) parcelas')
-    expect(tudo).toContain('restando 28 (vinte e oito) a vencer')
-    expect(tudo).toContain('Jaú, 16 de novembro de 2026.')
-    expect(tudo).not.toMatch(/\[[^\]]+\]/)
-    const ass = contrato.blocos.find((b) => b.tipo === 'assinaturas')
-    expect(ass?.tipo === 'assinaturas' && ass.itens.map((a) => a.papel)).toEqual(['CONTRATADA', 'CONTRATANTE'])
-  })
-
-  it('locação: preenche aluguel e caução, e cônjuge também assina', () => {
-    const i = servico('locacao-de-veiculo')
-    i.contratante.estadoCivil = 'casado'
-    i.conjuge = { nome: 'João da Silva', rg: '', cpf: '11144477735', profissao: '' }
-    const contrato = montarContratoGerado(i, hoje)
-    const tudo = contrato.blocos.map(textoDe).join('\n')
-    expect(tudo).toMatch(/R\$\s700,00 \(setecentos reais\)/)
-    expect(tudo).toMatch(/caução, o LOCATÁRIO entrega à LOCADORA R\$\s1\.000,00/)
-    const ass = contrato.blocos.find((b) => b.tipo === 'assinaturas')
-    expect(ass?.tipo === 'assinaturas' && ass.itens.map((a) => a.papel)).toContain('CÔNJUGE')
-  })
-
-  it('formulário vazio mostra lacunas (sem NaN) nos dois modelos', () => {
-    for (const tipo of ['prestacao-de-servico', 'locacao-de-veiculo'] as const) {
-      const vazio = { ...inputPromessaVazio(), tipo }
-      const tudo = textoTodo(vazio)
-      expect(tudo).toContain('[NOME COMPLETO]')
-      expect(tudo).toContain('[CPF]')
-      expect(tudo).not.toMatch(/NaN|undefined/)
-    }
-  })
-
-  it('geram o PDF no layout novo (sem o cabeçalho antigo)', async () => {
-    for (const tipo of ['prestacao-de-servico', 'locacao-de-veiculo'] as const) {
-      const contrato = montarContratoGerado(servico(tipo), hoje)
-      const buf = await renderToBuffer(
-        createElement(ContratoBlocosDocument, { contrato, nomeCliente: 'Maria' }) as never,
-      )
-      expect(buf.subarray(0, 4).toString()).toBe('%PDF')
-    }
   })
 })
 
