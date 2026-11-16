@@ -138,7 +138,8 @@ export default function ContratoBlocosDocument({ contrato, nomeCliente }: { cont
   return (
     <Document title={`${contrato.titulo} - ${nomeCliente}`} subject={contrato.titulo}>
       <Page size="A4" style={styles.page} wrap>
-        {MARCA_DAGUA && <Image alt="" src={MARCA_DAGUA} style={styles.marcaDagua} fixed />}
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- <Image> do react-pdf não tem alt */}
+        {MARCA_DAGUA && <Image src={MARCA_DAGUA} style={styles.marcaDagua} fixed />}
         {contrato.blocos.map((b, idx) => (
           <Bloco
             key={idx}

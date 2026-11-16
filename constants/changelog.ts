@@ -32,7 +32,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Dois modelos em Contratos > Gerar contrato: prestação de serviços de intermediação com um vendedor e com dois vendedores (casal).',
       'Você preenche vendedor(es), veículo, financiamento, valor e data do pagamento; a prévia em folhas A4 mostra o contrato na hora.',
       'As cláusulas do “Limpa Nome” (1.6) e do seguro prestamista (5.3) podem ser incluídas ou retiradas.',
-      'Todos os contratos gerados ganharam o logo da Liberty Car como marca d'água no fundo de cada página.',
+      'Todos os contratos gerados ganharam o logo da Liberty Car como marca d’água no fundo de cada página.',
     ],
   },
   {
