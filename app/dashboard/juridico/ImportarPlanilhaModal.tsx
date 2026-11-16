@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react'
 import { IconAlertTriangle, IconFileSpreadsheet, IconLink, IconUpload } from '@tabler/icons-react'
-import { Button, Modal, SegmentedControl, useToast } from '@/app/components/ui'
+import { Button, Modal, Select, SegmentedControl, useToast } from '@/app/components/ui'
 import { formatCurrency } from '@/utils/format'
 import { maskCPFCNPJ, maskPhone } from '@/utils/masks'
 import { importarProspeccoes } from './prospeccao-actions'
@@ -526,14 +526,14 @@ export default function ImportarPlanilhaModal({
                           >
                             {leitura.cabecalho?.[j] || `Coluna ${j + 1}`}
                           </div>
-                          <select
+                          <Select
                             value={campo ?? ''}
                             onChange={(e) => mudarCampo(j, e.target.value)}
                             aria-label={`Campo da coluna ${leitura.cabecalho?.[j] || j + 1}`}
-                            className={`w-full rounded-md border px-1.5 py-1 text-[11px] ${
+                            className={`px-1.5 py-1 text-[11px] ${
                               campo
-                                ? 'border-neutral-300 bg-white text-neutral-800'
-                                : 'border-amber-300 bg-amber-50 text-amber-800'
+                                ? ''
+                                : 'border-amber-300'
                             }`}
                           >
                             <option value="">Ignorar coluna</option>
@@ -542,7 +542,7 @@ export default function ImportarPlanilhaModal({
                                 {label}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </th>
                       ))}
                     </tr>

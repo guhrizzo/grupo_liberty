@@ -17,6 +17,7 @@ import { cn } from '@/utils/cn'
 export interface SelectOption {
   value: string
   label: string
+  disabled?: boolean
 }
 
 export interface SelectProps
@@ -42,7 +43,7 @@ function parseChildrenToOptions(children?: ReactNode): SelectOption[] {
 
   React.Children.forEach(children, (child) => {
     if (
-      React.isValidElement<{ value?: unknown; children?: ReactNode }>(child) &&
+      React.isValidElement<{ value?: unknown; children?: ReactNode; disabled?: boolean }>(child) &&
       child.type === 'option'
     ) {
       const value = String(child.props.value ?? '')
@@ -50,7 +51,7 @@ function parseChildrenToOptions(children?: ReactNode): SelectOption[] {
         typeof child.props.children === 'string'
           ? child.props.children
           : String(child.props.children ?? value)
-      opts.push({ value, label })
+      opts.push({ value, label, disabled: child.props.disabled })
     }
   })
 
@@ -232,7 +233,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           {...rest}
         >
           {options.map((o) => (
-            <option key={o.value} value={o.value}>
+            <option key={o.value} value={o.value} disabled={o.disabled}>
               {o.label}
             </option>
           ))}
@@ -241,6 +242,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {/* Gatilho Visível Estilizado */}
         <button
           ref={triggerRef}
+          aria-label={rest['aria-label'] ?? label}
           type="button"
           disabled={disabled}
           onClick={() => setIsOpen((prev) => !prev)}
@@ -304,9 +306,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
                 <button
                   key={opt.value}
                   type="button"
+                  disabled={opt.disabled}
                   onClick={() => handleSelectOption(opt.value)}
                   className={cn(
-                    'w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-lg text-left transition-ui-fast cursor-pointer',
+                    'w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-bold rounded-lg text-left transition-ui-fast cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed',
                     // tema claro
                     isSelected
                       ? 'bg-liberty/10 text-liberty-deep font-extrabold'

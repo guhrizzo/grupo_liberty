@@ -2602,13 +2602,15 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                             placeholder="Descrição (opcional)"
                             className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
                           />
-                          <select
+                          <Select
                             value={c.categoriaId}
                             onChange={(e) =>
                               setNovoContratoCategoria(index, e.target.value)
                             }
                             disabled={categoriasContrato.length === 0}
-                            className={`mt-2 w-full rounded-lg border bg-white px-3 py-1.5 text-xs outline-none focus:border-neutral-400 disabled:opacity-50 ${
+                            aria-label="Tipo de contrato"
+                            containerClassName="mt-2"
+                            className={`px-3 py-1.5 text-xs ${
                               c.categoriaId ? 'border-neutral-200' : 'border-amber-300'
                             }`}
                           >
@@ -2622,7 +2624,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                                 {cat.nome}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                           <label
                             className={`mt-2 flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors cursor-pointer ${
                               c.enviarJuridico

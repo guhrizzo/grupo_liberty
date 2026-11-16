@@ -766,11 +766,13 @@ export default function ContratosClient({
                               Sem categoria
                             </span>
                           )}
-                          <select
+                          <Select
                             value={c.categoriaId ?? ''}
                             disabled={savingCategoriaId === c.id}
                             onChange={(e) => handleDefinirCategoria(c, e.target.value)}
-                            className="w-full max-w-[11rem] rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs outline-none focus:border-neutral-400 disabled:opacity-50"
+                            aria-label="Definir tipo de contrato"
+                            containerClassName="max-w-[11rem]"
+                            className="px-2 py-1 text-xs"
                           >
                             <option value="" disabled>
                               Definir tipo…
@@ -780,7 +782,7 @@ export default function ContratosClient({
                                 {cat.nome}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </div>
                       </TD>
                       <TD className="text-xs text-neutral-600 whitespace-nowrap">

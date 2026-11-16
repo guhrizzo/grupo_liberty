@@ -396,18 +396,19 @@ export default function PropostasRegistradasClient({
         />
 
         {statusFiltro === 'recusado' && (
-          <select
+          <Select
             value={motivoFiltro}
             onChange={(e) => setMotivoFiltro(e.target.value)}
             aria-label="Filtrar por motivo da recusa"
-            className="min-w-0 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-neutral-950 focus:outline-none cursor-pointer"
+            containerClassName="w-auto min-w-0"
+            className="py-2"
           >
             <option value="">Todos os motivos</option>
             {MOTIVOS_RECUSA.map((m) => (
               <option key={m.valor} value={m.valor}>{m.label}</option>
             ))}
             <option value="nao_informado">Não informado</option>
-          </select>
+          </Select>
         )}
 
         {selectedMonth && (

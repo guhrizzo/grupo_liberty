@@ -460,19 +460,21 @@ export default function FinanceiroClient({
           <label className="sr-only" htmlFor="seletor-mes">
             Mês de referência
           </label>
-          <select
+          <Select
             id="seletor-mes"
             value={mes}
             disabled={navegando}
             onChange={(e) => irParaMes(e.target.value)}
-            className="cursor-pointer rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 disabled:opacity-50 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2 adobe-dark:text-adobe-text-hi adobe-dark:hover:bg-adobe-bg-3"
+            aria-label="Mês de referência"
+            containerClassName="w-auto"
+            className="py-1.5 font-bold"
           >
             {mesesDisponiveis.map((m) => (
               <option key={m} value={m}>
                 {rotuloMes(m)}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {ehMesCorrente ? (
