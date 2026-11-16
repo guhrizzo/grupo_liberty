@@ -24,6 +24,19 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-16-importar-varias-abas',
+    date: '2026-11-16',
+    title: 'Importar planilha com várias abas',
+    tag: 'melhoria',
+    items: [
+      'Ao importar um arquivo do Excel com mais de uma aba, todas as abas vêm marcadas e entram de uma vez.',
+      'Dá para desmarcar as abas que não devem ser importadas; abas vazias ou sem coluna de nome vêm desmarcadas.',
+      'As colunas são conferidas aba por aba, e a prévia mostra de qual aba e linha vem cada lead.',
+      'Leads repetidos entre abas aparecem como duplicados ou divergentes.',
+      'A janela de importação ficou mais compacta e ganhou uma área para arrastar e soltar o arquivo.',
+    ],
+  },
+  {
     id: '2026-11-13-checklist-feedback-cliente',
     date: '2026-11-13',
     title: 'Checklist pós-compra: feedback do cliente',
