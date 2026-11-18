@@ -30,6 +30,7 @@ import {
   IconShieldCheck,
   IconHeartHandshake,
   IconReportAnalytics,
+  IconClockHour4,
   IconRoute,
   IconUserX,
   IconMenu2,
@@ -55,7 +56,7 @@ import { useDashboardTheme } from './DashboardThemeProvider'
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route' | 'negativacao'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route' | 'negativacao' | 'clock'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
@@ -83,6 +84,8 @@ const SETOR_DE: Record<string, SetorId> = {
   '/dashboard/consulta-fipe': 'geral',
   '/dashboard/novidades': 'geral',
   '/dashboard/feedback': 'geral',
+  '/dashboard/ponto/bater': 'geral',
+  '/dashboard/ponto': 'gestao',
   '/dashboard/veiculos': 'veiculos',
   '/dashboard/checklist-pos-compra': 'veiculos',
   '/dashboard/quitacoes': 'veiculos',
@@ -124,6 +127,18 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     label: 'Agenda',
     icon: 'calendar',
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
+  },
+  {
+    href: '/dashboard/ponto/bater',
+    label: 'Bater ponto',
+    icon: 'clock',
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
+  },
+  {
+    href: '/dashboard/ponto',
+    label: 'Folha de ponto',
+    icon: 'clock',
+    permissionKey: 'ponto',
   },
   {
     href: '/dashboard/consulta-fipe',
@@ -326,6 +341,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconRoute className={cls} stroke={2} />
     case 'cash':
       return <IconCashBanknote className={cls} stroke={2} />
+    case 'clock':
+      return <IconClockHour4 className={cls} stroke={2} />
     case 'report':
       return <IconReportAnalytics className={cls} stroke={2} />
     case 'negativacao':
@@ -465,7 +482,12 @@ export default function DashboardShell({
   ]
 
   const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === '/dashboard' : pathname?.startsWith(href)
+    href === '/dashboard'
+      ? pathname === '/dashboard'
+      : href === '/dashboard/ponto'
+        ? // "Bater ponto" (/ponto/bater) é outro item do menu; só a folha e o QR contam aqui.
+          pathname === href || !!pathname?.startsWith('/dashboard/ponto/qr')
+        : pathname?.startsWith(href)
 
   // Fechar drawer com ESC e travar scroll quando aberto (mobile).
   useEffect(() => {

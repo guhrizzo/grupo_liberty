@@ -28,6 +28,7 @@ export type PermissionKey =
   | 'metricas_diarias'
   | 'interesses'
   | 'rastreamento'
+  | 'ponto'
 
 export type UserPermissions = Partial<Record<PermissionKey, boolean>>
 
@@ -49,6 +50,8 @@ export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   interesses: ['admin', 'vendedor', 'vendedor_externo'],
   // Só admin por padrão; o admin libera a outros cargos pela tela de Usuários.
   rastreamento: ['admin'],
+  // Folha de ponto e QR: exclusivo do ADM supremo (ver ABAS_SOMENTE_ADM_SUPREMO).
+  ponto: ['admin'],
 }
 
 export function temAcessoPagina(
@@ -92,7 +95,7 @@ export function ehCeo(email: string | null | undefined): boolean {
  * liberam. (A Visão Geral, `/dashboard`, também é exclusiva — ver
  * app/dashboard/page.tsx; não é uma `PermissionKey`.)
  */
-export const ABAS_SOMENTE_ADM_SUPREMO: readonly PermissionKey[] = ['usuarios']
+export const ABAS_SOMENTE_ADM_SUPREMO: readonly PermissionKey[] = ['usuarios', 'ponto']
 
 /** `temAcessoPagina` + as abas exclusivas do ADM supremo (precisa do e-mail). */
 export function temAcessoAba(

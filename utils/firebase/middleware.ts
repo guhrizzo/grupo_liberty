@@ -29,6 +29,10 @@ export async function updateSession(request: NextRequest) {
   if (!authenticated) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    // Quem escaneou o QR do ponto volta para a batida depois de entrar.
+    if (pathname.startsWith('/dashboard/ponto/bater')) {
+      url.search = `?redirect=${encodeURIComponent(pathname + request.nextUrl.search)}`;
+    }
     // Remove o cookie inválido/expirado se houver
     const response = NextResponse.redirect(url);
     if (sessionCookie) {

@@ -24,6 +24,18 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-18-registro-de-ponto',
+    date: '2026-11-18',
+    title: 'Registro de ponto por QR code',
+    tag: 'novo',
+    items: [
+      'Nova aba "Bater ponto": escaneie o QR code da empresa e registre entrada, saída para o almoço, volta e saída.',
+      'O QR muda a cada 30 segundos e o horário vale o do servidor, então não dá para bater ponto de casa.',
+      'Também dá para bater o ponto digital, pelo botão com localização: só libera dentro da área da empresa.',
+      'ADM supremo: nova "Folha de ponto" com horas do mês, saldo, correção de batidas, jornada por pessoa e exportação em Excel e PDF.',
+    ],
+  },
+  {
     id: '2026-11-16-negociar-banco-inicio-atraso',
     date: '2026-11-16',
     title: 'Negociar com o banco conta do início do atraso',
