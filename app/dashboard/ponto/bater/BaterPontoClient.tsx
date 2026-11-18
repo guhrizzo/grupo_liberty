@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { IconCheck, IconClock, IconMapPin, IconQrcode } from '@tabler/icons-react'
-import { Button, Card, StatusBadge, useToast } from '@/app/components/ui'
+import { IconCamera, IconCheck, IconClock, IconMapPin, IconQrcode } from '@tabler/icons-react'
+import { Button, Card, Modal, StatusBadge, useToast } from '@/app/components/ui'
+import LeitorQr from './LeitorQr'
 import { BATIDAS, BATIDA_LABEL, type Batida, type Batidas } from '@/constants/ponto'
 import { horaSP } from '@/utils/ponto/calculo'
 import { baterPonto, baterPontoDigital, type BaterPontoResultado } from './actions'
@@ -36,6 +37,7 @@ export default function BaterPontoClient({
   const [erro, setErro] = useState<string | null>(null)
 
   const [localizando, setLocalizando] = useState(false)
+  const [lendo, setLendo] = useState(false)
 
   function concluir(r: BaterPontoResultado) {
     if (r.ok) {
@@ -48,10 +50,16 @@ export default function BaterPontoClient({
     }
   }
 
-  function registrar() {
-    if (!token) return
+  function registrar(t: string | null = token) {
+    if (!t) return
     setErro(null)
-    iniciar(async () => concluir(await baterPonto(token)))
+    iniciar(async () => concluir(await baterPonto(t)))
+  }
+
+  /** QR lido pela câmera do site: fecha o leitor e já registra a batida. */
+  function aoLerQr(t: string) {
+    setLendo(false)
+    registrar(t)
   }
 
   /** Ponto digital: pega a posição do aparelho e o servidor confere se está na empresa. */
@@ -132,16 +140,30 @@ export default function BaterPontoClient({
       ) : (
         <div className="space-y-3">
           {tokenValido ? (
-            <Button variant="liberty" size="lg" fullWidth loading={pendente} loadingLabel="Registrando..." onClick={registrar}>
+            <Button variant="liberty" size="lg" fullWidth loading={pendente} loadingLabel="Registrando..." onClick={() => registrar()}>
               Registrar {BATIDA_LABEL[proxima].toLowerCase()}
             </Button>
           ) : (
-            <Card className="space-y-2 p-5 text-center">
+            <Card className="space-y-3 p-5 text-center">
               <IconQrcode className="mx-auto h-8 w-8 text-neutral-400" />
               <p className="text-sm font-semibold text-neutral-800">
-                {token ? 'QR expirado. Escaneie o QR code da tela novamente.' : 'Aponte a câmera do celular para o QR code da tela da empresa.'}
+                {token ? 'QR expirado. Escaneie o QR code da tela novamente.' : 'Escaneie o QR code da tela da empresa.'}
               </p>
               <p className="text-xs text-neutral-500">O QR muda a cada 30 segundos, por segurança.</p>
+              <Button
+                variant="liberty"
+                size="lg"
+                fullWidth
+                loading={pendente}
+                loadingLabel="Registrando..."
+                leftIcon={<IconCamera className="h-5 w-5" />}
+                onClick={() => {
+                  setErro(null)
+                  setLendo(true)
+                }}
+              >
+                Escanear QR code
+              </Button>
             </Card>
           )}
 
@@ -167,6 +189,10 @@ export default function BaterPontoClient({
           {erro && <p className="text-center text-sm font-medium text-rose-600">{erro}</p>}
         </div>
       )}
+
+      <Modal open={lendo} onClose={() => setLendo(false)} title="Escanear QR code" size="sm">
+        {lendo && <LeitorQr onToken={aoLerQr} />}
+      </Modal>
     </div>
   )
 }
