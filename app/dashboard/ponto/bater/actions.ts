@@ -1,6 +1,8 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { adminDb } from '@/utils/firebase/admin'
+import { ehUserAgentMobile } from '@/utils/ponto/dispositivo'
 import { getSessionUser, type SessionUser } from '@/utils/permissions'
 import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
 import { validarTokenPonto } from '@/utils/ponto/token'
@@ -110,6 +112,10 @@ export async function baterPontoDigital(pos: {
 }): Promise<BaterPontoResultado> {
   const user = await getSessionUser()
   if (!user) return { ok: false, erro: 'Você precisa estar logado para bater o ponto.' }
+
+  if (!ehUserAgentMobile((await headers()).get('user-agent'))) {
+    return { ok: false, erro: 'O ponto digital só funciona no celular.' }
+  }
 
   const local = lerLocalEmpresa(process.env)
   if (!local) {

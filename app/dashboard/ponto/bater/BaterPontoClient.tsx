@@ -170,13 +170,13 @@ export default function BaterPontoClient({
               )}
               {mobile === false && (
                 <p className="text-xs font-semibold text-amber-700">
-                  A leitura do QR só funciona no celular. Abra esta página no seu celular para bater o ponto.
+                  A leitura do QR e o ponto digital só funcionam no celular. Abra esta página no seu celular para bater o ponto.
                 </p>
               )}
             </Card>
           )}
 
-          {digitalDisponivel && (
+          {digitalDisponivel && mobile === true && (
             <>
               <p className="text-center text-xs font-semibold uppercase tracking-wider text-neutral-400">ou</p>
               <Button
