@@ -149,6 +149,7 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     label: 'QR do ponto',
     icon: 'qrcode',
     soAparelho: 'desktop',
+    soEmails: PONTO_FUNCIONARIOS_EMAILS,
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
+import { podeBaterPonto } from '@/constants/ponto'
 import QrClient from './QrClient'
 
 export const metadata = {
@@ -11,8 +12,8 @@ export const metadata = {
 export default async function QrPontoPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
-  // Todo funcionário com cargo vê o QR; a folha de ponto é só do ADM supremo.
-  if (!user.role) redirect('/dashboard?error=acesso_negado')
+  // O QR é só de quem bate ponto; a folha de ponto é só do ADM supremo.
+  if (!user.role || !podeBaterPonto(user.email)) redirect('/dashboard?error=acesso_negado')
 
   return (
     <div className="space-y-6">

@@ -29,7 +29,15 @@ function tomSaldo(min: number) {
   return min < 0 ? 'text-rose-600' : min > 0 ? 'text-emerald-700' : 'text-neutral-700'
 }
 
-export default function FolhaClient({ hoje, inicial }: { hoje: string; inicial: FolhaMes }) {
+export default function FolhaClient({
+  hoje,
+  inicial,
+  podeVerQr,
+}: {
+  hoje: string
+  inicial: FolhaMes
+  podeVerQr: boolean
+}) {
   const toast = useToast()
   const mobile = useDispositivoMobile()
   const [folha, setFolha] = useState(inicial)
@@ -122,7 +130,7 @@ export default function FolhaClient({ hoje, inicial }: { hoje: string; inicial: 
           />
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
-          {mobile === false && (
+          {podeVerQr && mobile === false && (
             <Link href="/dashboard/ponto/qr">
               <Button variant="secondary" leftIcon={<IconQrcode className="h-4 w-4" />}>Tela do QR</Button>
             </Link>

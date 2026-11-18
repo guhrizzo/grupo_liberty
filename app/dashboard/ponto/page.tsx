@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
 import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
+import { podeBaterPonto } from '@/constants/ponto'
 import { getFolhaMes } from './actions'
 import FolhaClient from './FolhaClient'
 
@@ -29,7 +30,7 @@ export default async function FolhaPontoPage() {
         </p>
       </div>
 
-      <FolhaClient hoje={hoje} inicial={folha} />
+      <FolhaClient hoje={hoje} inicial={folha} podeVerQr={podeBaterPonto(user.email)} />
     </div>
   )
 }
