@@ -31,6 +31,7 @@ import {
   IconHeartHandshake,
   IconReportAnalytics,
   IconClockHour4,
+  IconQrcode,
   IconRoute,
   IconUserX,
   IconMenu2,
@@ -52,16 +53,19 @@ import { ehAdmSupremo, temAcessoAba, type PermissionKey } from '@/constants/perm
 import { Button, ConfirmDialog, Modal, useToast } from './ui'
 import { salvarOrdemMenu } from '@/app/dashboard/menu-actions'
 import { useDashboardTheme } from './DashboardThemeProvider'
+import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
 
 type NavItem = {
   href: string
   label: string
-  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route' | 'negativacao' | 'clock'
+  icon: 'home' | 'car' | 'mail' | 'megaphone' | 'scales' | 'file-text' | 'finance' | 'wrench' | 'users' | 'receipt' | 'search' | 'sparkles' | 'bug' | 'chart' | 'target' | 'checklist' | 'trophy' | 'calendar' | 'map-pins' | 'report' | 'cash' | 'interest' | 'shield' | 'route' | 'negativacao' | 'clock' | 'qrcode'
   /** Itens sem `permissionKey`: cargos que veem o item. */
   roles?: string[]
   /** Só o ADM supremo vê (ignora cargo). */
   somenteSupremo?: boolean
   permissionKey?: PermissionKey
+  /** Item que só existe em um tipo de aparelho (ex.: bater ponto só no celular). */
+  soAparelho?: 'mobile' | 'desktop'
   /** Setor fixo do menu: o título aparece separando os grupos. */
   setor: SetorId
 }
@@ -85,6 +89,7 @@ const SETOR_DE: Record<string, SetorId> = {
   '/dashboard/novidades': 'geral',
   '/dashboard/feedback': 'geral',
   '/dashboard/ponto/bater': 'geral',
+  '/dashboard/ponto/qr': 'geral',
   '/dashboard/ponto': 'gestao',
   '/dashboard/veiculos': 'veiculos',
   '/dashboard/checklist-pos-compra': 'veiculos',
@@ -132,6 +137,14 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     href: '/dashboard/ponto/bater',
     label: 'Bater ponto',
     icon: 'clock',
+    soAparelho: 'mobile',
+    roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
+  },
+  {
+    href: '/dashboard/ponto/qr',
+    label: 'QR do ponto',
+    icon: 'qrcode',
+    soAparelho: 'desktop',
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
@@ -343,6 +356,8 @@ function NavIcon({ name }: { name: NavItem['icon'] }) {
       return <IconCashBanknote className={cls} stroke={2} />
     case 'clock':
       return <IconClockHour4 className={cls} stroke={2} />
+    case 'qrcode':
+      return <IconQrcode className={cls} stroke={2} />
     case 'report':
       return <IconReportAnalytics className={cls} stroke={2} />
     case 'negativacao':
@@ -417,6 +432,7 @@ export default function DashboardShell({
   const [organizando, setOrganizando] = useState(false)
   const [isLoggingOut, startLogout] = useTransition()
   const toast = useToast()
+  const mobile = useDispositivoMobile()
   const { theme, toggleTheme } = useDashboardTheme()
   const drawerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -460,6 +476,8 @@ export default function DashboardShell({
 
   const allowedItems = ordenarItens(
     NAV_ITEMS.filter((item) => {
+      // Enquanto o aparelho não é detectado (null), esconde os itens por aparelho.
+      if (item.soAparelho && (mobile === null || (item.soAparelho === 'mobile') !== mobile)) return false
       if (item.somenteSupremo) return ehAdmSupremo(email)
       if (item.permissionKey) return temAcessoAba(role, permissions, item.permissionKey, email)
       if (!role) return false
@@ -485,8 +503,8 @@ export default function DashboardShell({
     href === '/dashboard'
       ? pathname === '/dashboard'
       : href === '/dashboard/ponto'
-        ? // "Bater ponto" (/ponto/bater) é outro item do menu; só a folha e o QR contam aqui.
-          pathname === href || !!pathname?.startsWith('/dashboard/ponto/qr')
+        ? // "Bater ponto" e "QR do ponto" são outros itens do menu; aqui só a folha.
+          pathname === href
         : pathname?.startsWith(href)
 
   // Fechar drawer com ESC e travar scroll quando aberto (mobile).

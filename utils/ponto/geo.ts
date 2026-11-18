@@ -54,14 +54,11 @@ export function verificarLocal(
   if (!coordenadaValida(pos.lat, pos.lng)) return { ok: false, erro: 'Localização inválida.' }
   const precisao = typeof pos.precisaoM === 'number' && Number.isFinite(pos.precisaoM) ? pos.precisaoM : Infinity
   if (precisao > PRECISAO_MAX_M) {
-    return {
-      ok: false,
-      erro: `Sinal de GPS fraco (precisão de ${Number.isFinite(precisao) ? Math.round(precisao) + ' m' : 'desconhecida'}). Vá para um local aberto e tente de novo.`,
-    }
+    return { ok: false, erro: 'Sinal de GPS fraco. Vá para um local aberto e tente de novo.' }
   }
   const distanciaM = distanciaMetros(local, { lat: pos.lat as number, lng: pos.lng as number })
   if (distanciaM > local.raioM) {
-    return { ok: false, erro: `Você está fora da área da empresa (a ${Math.round(distanciaM)} m). O ponto digital só libera dentro do local.` }
+    return { ok: false, erro: 'Você precisa estar na empresa para bater o ponto.' }
   }
   return { ok: true, distanciaM: Math.round(distanciaM) }
 }

@@ -10,6 +10,33 @@ import { BATIDAS, BATIDA_LABEL, type Batida, type Batidas } from '@/constants/po
 import { horaSP } from '@/utils/ponto/calculo'
 import { baterPonto, baterPontoDigital, type BaterPontoResultado } from './actions'
 
+interface Posicao {
+  lat: number
+  lng: number
+  precisaoM: number
+}
+
+function obterPosicao(): Promise<Posicao> {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject(new Error('Este aparelho não permite bater o ponto.'))
+      return
+    }
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, precisaoM: p.coords.accuracy }),
+      (e) =>
+        reject(
+          new Error(
+            e.code === e.PERMISSION_DENIED
+              ? 'Permita o acesso à localização do navegador para bater o ponto.'
+              : 'Não foi possível confirmar onde você está. Tente de novo em um local aberto.',
+          ),
+        ),
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
+    )
+  })
+}
+
 function formatarDia(data: string) {
   const [a, m, d] = data.split('-')
   return `${d}/${m}/${a}`
@@ -37,7 +64,6 @@ export default function BaterPontoClient({
   const [pendente, iniciar] = useTransition()
   const [erro, setErro] = useState<string | null>(null)
 
-  const [localizando, setLocalizando] = useState(false)
   const [lendo, setLendo] = useState(false)
   const mobile = useDispositivoMobile()
 
@@ -52,10 +78,21 @@ export default function BaterPontoClient({
     }
   }
 
+  /** Pega a posição (o servidor confere se está na empresa) e registra a batida. */
+  function executar(registrarCom: (pos: Posicao) => Promise<BaterPontoResultado>) {
+    setErro(null)
+    iniciar(async () => {
+      try {
+        concluir(await registrarCom(await obterPosicao()))
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Não foi possível registrar o ponto.')
+      }
+    })
+  }
+
   function registrar(t: string | null = token) {
     if (!t) return
-    setErro(null)
-    iniciar(async () => concluir(await baterPonto(t)))
+    executar((pos) => baterPonto(t, pos))
   }
 
   /** QR lido pela câmera do site: fecha o leitor e já registra a batida. */
@@ -64,38 +101,19 @@ export default function BaterPontoClient({
     registrar(t)
   }
 
-  /** Ponto digital: pega a posição do aparelho e o servidor confere se está na empresa. */
   function registrarDigital() {
-    setErro(null)
-    if (!('geolocation' in navigator)) {
-      setErro('Este aparelho não oferece localização.')
-      return
-    }
-    setLocalizando(true)
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        setLocalizando(false)
-        iniciar(async () =>
-          concluir(
-            await baterPontoDigital({
-              lat: p.coords.latitude,
-              lng: p.coords.longitude,
-              precisaoM: p.coords.accuracy,
-            }),
-          ),
-        )
-      },
-      (e) => {
-        setLocalizando(false)
-        setErro(
-          e.code === e.PERMISSION_DENIED
-            ? 'Permissão de localização negada. Libere a localização do navegador para este site e tente de novo.'
-            : e.code === e.TIMEOUT
-              ? 'Não foi possível obter sua localização a tempo. Vá para um local aberto e tente de novo.'
-              : 'Não foi possível obter sua localização.',
-        )
-      },
-      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 0 },
+    executar((pos) => baterPontoDigital(pos))
+  }
+
+  // Bater ponto não existe no computador: nem o resumo do dia nem os botões.
+  if (mobile === null) return null
+  if (mobile === false) {
+    return (
+      <Card className="space-y-2 p-6 text-center">
+        <IconClock className="mx-auto h-8 w-8 text-neutral-400" />
+        <p className="font-semibold text-neutral-900">O ponto só pode ser batido pelo celular.</p>
+        <p className="text-sm text-neutral-500">Abra esta página no seu celular para registrar o horário.</p>
+      </Card>
     )
   }
 
@@ -152,47 +170,37 @@ export default function BaterPontoClient({
                 {token ? 'QR expirado. Escaneie o QR code da tela novamente.' : 'Escaneie o QR code da tela da empresa.'}
               </p>
               <p className="text-xs text-neutral-500">O QR muda a cada 30 segundos, por segurança.</p>
-              {mobile === true && (
-                <Button
-                  variant="liberty"
-                  size="lg"
-                  fullWidth
-                  loading={pendente}
-                  loadingLabel="Registrando..."
-                  leftIcon={<IconCamera className="h-5 w-5" />}
-                  onClick={() => {
-                    setErro(null)
-                    setLendo(true)
-                  }}
-                >
-                  Escanear QR code
-                </Button>
-              )}
-              {mobile === false && (
-                <p className="text-xs font-semibold text-amber-700">
-                  A leitura do QR e o ponto digital só funcionam no celular. Abra esta página no seu celular para bater o ponto.
-                </p>
-              )}
+              <Button
+                variant="liberty"
+                size="lg"
+                fullWidth
+                loading={pendente}
+                loadingLabel="Registrando..."
+                leftIcon={<IconCamera className="h-5 w-5" />}
+                onClick={() => {
+                  setErro(null)
+                  setLendo(true)
+                }}
+              >
+                Escanear QR code
+              </Button>
             </Card>
           )}
 
-          {digitalDisponivel && mobile === true && (
+          {digitalDisponivel && (
             <>
               <p className="text-center text-xs font-semibold uppercase tracking-wider text-neutral-400">ou</p>
               <Button
                 variant={tokenValido ? 'secondary' : 'liberty'}
                 size="lg"
                 fullWidth
-                loading={localizando || pendente}
-                loadingLabel={localizando ? 'Obtendo localização...' : 'Registrando...'}
+                loading={pendente}
+                loadingLabel="Registrando..."
                 leftIcon={<IconMapPin className="h-5 w-5" />}
                 onClick={registrarDigital}
               >
                 Bater ponto digital: {BATIDA_LABEL[proxima].toLowerCase()}
               </Button>
-              <p className="text-center text-xs text-neutral-500">
-                Usa a localização do celular e só libera dentro da empresa.
-              </p>
             </>
           )}
           {erro && <p className="text-center text-sm font-medium text-rose-600">{erro}</p>}

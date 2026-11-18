@@ -6,6 +6,7 @@ import { IconFileSpreadsheet, IconFileTypePdf, IconMapPin, IconPencil, IconQrcod
 import { Button, Card, EmptyState, Modal, StatusBadge, useToast } from '@/app/components/ui'
 import { BATIDAS, BATIDA_LABEL, type Batida, type RegistroPonto } from '@/constants/ponto'
 import { diasDoMes, formatarMinutos, horaSP, minutosTrabalhados, saldoDia } from '@/utils/ponto/calculo'
+import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
 import { editarBatida, getFolhaMes, salvarJornada, type FolhaMes } from './actions'
 
 const inputCls =
@@ -30,6 +31,7 @@ function tomSaldo(min: number) {
 
 export default function FolhaClient({ hoje, inicial }: { hoje: string; inicial: FolhaMes }) {
   const toast = useToast()
+  const mobile = useDispositivoMobile()
   const [folha, setFolha] = useState(inicial)
   const [mes, setMes] = useState(inicial.mes)
   const [uid, setUid] = useState<string | null>(null)
@@ -120,9 +122,11 @@ export default function FolhaClient({ hoje, inicial }: { hoje: string; inicial: 
           />
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
-          <Link href="/dashboard/ponto/qr">
-            <Button variant="secondary" leftIcon={<IconQrcode className="h-4 w-4" />}>Tela do QR</Button>
-          </Link>
+          {mobile === false && (
+            <Link href="/dashboard/ponto/qr">
+              <Button variant="secondary" leftIcon={<IconQrcode className="h-4 w-4" />}>Tela do QR</Button>
+            </Link>
+          )}
           <a href={`/api/ponto/xlsx?mes=${mes}`}>
             <Button variant="secondary" leftIcon={<IconFileSpreadsheet className="h-4 w-4" />}>Excel</Button>
           </a>

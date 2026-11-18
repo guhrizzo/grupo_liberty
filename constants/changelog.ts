@@ -31,7 +31,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     items: [
       'Nova aba "Bater ponto": escaneie o QR code da empresa e registre entrada, saída para o almoço, volta e saída.',
       'O QR muda a cada 30 segundos e o horário vale o do servidor, então não dá para bater ponto de casa.',
-      'Também dá para bater o ponto digital, pelo botão com localização: só libera dentro da área da empresa. Leitura do QR e ponto digital funcionam só no celular; o QR é gerado só no computador.',
+      'Também dá para bater o ponto digital, pelo botão com localização. Tanto o QR quanto o ponto digital só liberam com o celular dentro da área da empresa; o QR é gerado só no computador.',
       'ADM supremo: nova "Folha de ponto" com horas do mês, saldo, correção de batidas, jornada por pessoa e exportação em Excel e PDF.',
     ],
   },

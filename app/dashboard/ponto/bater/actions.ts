@@ -84,8 +84,28 @@ async function registrarProximaBatida(
   }
 }
 
-/** Ponto pelo QR code: exige um token de QR válido. */
-export async function baterPonto(token: string): Promise<BaterPontoResultado> {
+interface PosicaoInformada {
+  lat: number
+  lng: number
+  precisaoM: number
+}
+
+/** Celular + dentro do raio da empresa. Usado pelo QR e pelo ponto digital. */
+async function conferirCelularNaEmpresa(
+  pos: PosicaoInformada,
+): Promise<{ ok: true; distanciaM: number } | { ok: false; erro: string }> {
+  if (!ehUserAgentMobile((await headers()).get('user-agent'))) {
+    return { ok: false, erro: 'O ponto só pode ser batido pelo celular.' }
+  }
+  const local = lerLocalEmpresa(process.env)
+  if (!local) {
+    return { ok: false, erro: 'Ponto indisponível: a localização da empresa não está configurada.' }
+  }
+  return verificarLocal(local, { lat: pos?.lat, lng: pos?.lng, precisaoM: pos?.precisaoM })
+}
+
+/** Ponto pelo QR code: exige token de QR válido e o celular dentro da empresa. */
+export async function baterPonto(token: string, pos: PosicaoInformada): Promise<BaterPontoResultado> {
   const user = await getSessionUser()
   if (!user) return { ok: false, erro: 'Você precisa estar logado para bater o ponto.' }
 
@@ -98,34 +118,20 @@ export async function baterPonto(token: string): Promise<BaterPontoResultado> {
   if (!validarTokenPonto(token, segredo)) {
     return { ok: false, erro: 'QR expirado. Escaneie o QR code da tela novamente.' }
   }
-  return registrarProximaBatida(user, 'qr')
+
+  const local = await conferirCelularNaEmpresa(pos)
+  if (!local.ok) return { ok: false, erro: local.erro }
+  return registrarProximaBatida(user, 'qr', local.distanciaM)
 }
 
-/**
- * Ponto digital: o celular informa a localização e o servidor só libera se
- * estiver dentro do raio da empresa (PONTO_EMPRESA_LAT/LNG, PONTO_RAIO_M).
- */
-export async function baterPontoDigital(pos: {
-  lat: number
-  lng: number
-  precisaoM: number
-}): Promise<BaterPontoResultado> {
+/** Ponto digital: sem QR, só a localização do celular dentro da empresa. */
+export async function baterPontoDigital(pos: PosicaoInformada): Promise<BaterPontoResultado> {
   const user = await getSessionUser()
   if (!user) return { ok: false, erro: 'Você precisa estar logado para bater o ponto.' }
 
-  if (!ehUserAgentMobile((await headers()).get('user-agent'))) {
-    return { ok: false, erro: 'O ponto digital só funciona no celular.' }
-  }
-
-  const local = lerLocalEmpresa(process.env)
-  if (!local) {
-    return { ok: false, erro: 'Ponto digital indisponível: a localização da empresa não está configurada.' }
-  }
-
-  const v = verificarLocal(local, { lat: pos?.lat, lng: pos?.lng, precisaoM: pos?.precisaoM })
-  if (!v.ok) return { ok: false, erro: v.erro }
-
-  return registrarProximaBatida(user, 'digital', v.distanciaM)
+  const local = await conferirCelularNaEmpresa(pos)
+  if (!local.ok) return { ok: false, erro: local.erro }
+  return registrarProximaBatida(user, 'digital', local.distanciaM)
 }
 
 /** Se o ponto digital está configurado no servidor (para a tela mostrar ou esconder o botão). */

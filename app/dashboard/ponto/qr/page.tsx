@@ -11,14 +11,15 @@ export const metadata = {
 export default async function QrPontoPage() {
   const user = await getSessionUser()
   if (!user) redirect('/login')
-  if (!hasPageAccess(user, 'ponto')) redirect('/dashboard?error=acesso_negado')
+  // Todo funcionário com cargo vê o QR; a folha de ponto é só do ADM supremo.
+  if (!user.role) redirect('/dashboard?error=acesso_negado')
 
   return (
     <div className="space-y-6">
       <Breadcrumb
         items={[
           { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Folha de ponto', href: '/dashboard/ponto' },
+          ...(hasPageAccess(user, 'ponto') ? [{ label: 'Folha de ponto', href: '/dashboard/ponto' }] : []),
           { label: 'QR code' },
         ]}
       />
