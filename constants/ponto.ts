@@ -1,5 +1,20 @@
 // Registro de ponto — constantes compartilhadas (servidor e cliente).
 
+/**
+ * Quem bate ponto (Gustavo, Jessica e Álesis). Só essas contas veem "Bater
+ * ponto", conseguem registrar batida e aparecem na folha de ponto.
+ */
+export const PONTO_FUNCIONARIOS_EMAILS: readonly string[] = [
+  'gurizzo943@gmail.com',
+  'jhessycamalaquias1@gmail.com',
+  'alesisquiojau@gmail.com',
+]
+
+export function podeBaterPonto(email: string | null | undefined): boolean {
+  const e = email?.toLowerCase().trim()
+  return !!e && PONTO_FUNCIONARIOS_EMAILS.includes(e)
+}
+
 /** Ordem fixa das batidas do dia. */
 export const BATIDAS = ['entrada', 'saida_almoco', 'volta_almoco', 'saida'] as const
 export type Batida = (typeof BATIDAS)[number]

@@ -4,6 +4,7 @@ import { Breadcrumb } from '@/app/components/ui'
 import { validarTokenPonto } from '@/utils/ponto/token'
 import { proximaBatida } from '@/utils/ponto/calculo'
 import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
+import { podeBaterPonto } from '@/constants/ponto'
 import { getMeuDia, pontoDigitalDisponivel } from './actions'
 import BaterPontoClient from './BaterPontoClient'
 
@@ -19,6 +20,7 @@ export default async function BaterPontoPage({
 }) {
   const user = await getSessionUser()
   if (!user) redirect('/login')
+  if (!podeBaterPonto(user.email)) redirect('/dashboard?error=acesso_negado')
 
   const { t } = await searchParams
   const segredo = process.env.PONTO_QR_SECRET ?? ''

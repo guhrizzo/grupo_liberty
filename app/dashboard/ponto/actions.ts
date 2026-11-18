@@ -12,6 +12,7 @@ import {
   COLECAO_PONTO_CONFIG,
   JORNADA_MIN_MAXIMA,
   JORNADA_PADRAO_MIN,
+  podeBaterPonto,
   type Batida,
   type Batidas,
   type EdicaoPonto,
@@ -60,7 +61,7 @@ async function listarFuncionarios(): Promise<FuncionarioPonto[]> {
     if (typeof v === 'number' && v > 0) jornadas.set(d.id, v)
   })
   return lista.users
-    .filter((u) => comCargo.has(u.uid))
+    .filter((u) => comCargo.has(u.uid) && podeBaterPonto(u.email))
     .map((u) => ({
       uid: u.uid,
       nome: u.displayName || u.email || u.uid,

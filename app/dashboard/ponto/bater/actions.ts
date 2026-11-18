@@ -11,6 +11,7 @@ import { lerLocalEmpresa, verificarLocal } from '@/utils/ponto/geo'
 import { getJornadaMin, segredoPonto, serializarRegistro } from '@/utils/ponto/registros'
 import {
   COLECAO_PONTO,
+  podeBaterPonto,
   INTERVALO_MIN_ENTRE_BATIDAS_MS,
   type Batida,
   type OrigemBatida,
@@ -90,10 +91,14 @@ interface PosicaoInformada {
   precisaoM: number
 }
 
-/** Celular + dentro do raio da empresa. Usado pelo QR e pelo ponto digital. */
+/** Funcionário autorizado + celular + dentro do raio. Usado pelo QR e pelo ponto digital. */
 async function conferirCelularNaEmpresa(
+  user: SessionUser,
   pos: PosicaoInformada,
 ): Promise<{ ok: true; distanciaM: number } | { ok: false; erro: string }> {
+  if (!podeBaterPonto(user.email)) {
+    return { ok: false, erro: 'Seu usuário não está autorizado a bater ponto.' }
+  }
   if (!ehUserAgentMobile((await headers()).get('user-agent'))) {
     return { ok: false, erro: 'O ponto só pode ser batido pelo celular.' }
   }
@@ -119,7 +124,7 @@ export async function baterPonto(token: string, pos: PosicaoInformada): Promise<
     return { ok: false, erro: 'QR expirado. Escaneie o QR code da tela novamente.' }
   }
 
-  const local = await conferirCelularNaEmpresa(pos)
+  const local = await conferirCelularNaEmpresa(user, pos)
   if (!local.ok) return { ok: false, erro: local.erro }
   return registrarProximaBatida(user, 'qr', local.distanciaM)
 }
@@ -129,7 +134,7 @@ export async function baterPontoDigital(pos: PosicaoInformada): Promise<BaterPon
   const user = await getSessionUser()
   if (!user) return { ok: false, erro: 'Você precisa estar logado para bater o ponto.' }
 
-  const local = await conferirCelularNaEmpresa(pos)
+  const local = await conferirCelularNaEmpresa(user, pos)
   if (!local.ok) return { ok: false, erro: local.erro }
   return registrarProximaBatida(user, 'digital', local.distanciaM)
 }

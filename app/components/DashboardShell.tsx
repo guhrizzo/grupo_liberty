@@ -54,6 +54,7 @@ import { Button, ConfirmDialog, Modal, useToast } from './ui'
 import { salvarOrdemMenu } from '@/app/dashboard/menu-actions'
 import { useDashboardTheme } from './DashboardThemeProvider'
 import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
+import { PONTO_FUNCIONARIOS_EMAILS } from '@/constants/ponto'
 
 type NavItem = {
   href: string
@@ -64,6 +65,8 @@ type NavItem = {
   /** Só o ADM supremo vê (ignora cargo). */
   somenteSupremo?: boolean
   permissionKey?: PermissionKey
+  /** Item restrito a estas contas (e-mails), ignorando cargo. */
+  soEmails?: readonly string[]
   /** Item que só existe em um tipo de aparelho (ex.: bater ponto só no celular). */
   soAparelho?: 'mobile' | 'desktop'
   /** Setor fixo do menu: o título aparece separando os grupos. */
@@ -138,6 +141,7 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     label: 'Bater ponto',
     icon: 'clock',
     soAparelho: 'mobile',
+    soEmails: PONTO_FUNCIONARIOS_EMAILS,
     roles: ['admin', 'vendedor', 'vendedor_externo', 'advogado', 'suporte', 'financeiro'],
   },
   {
@@ -478,6 +482,7 @@ export default function DashboardShell({
     NAV_ITEMS.filter((item) => {
       // Enquanto o aparelho não é detectado (null), esconde os itens por aparelho.
       if (item.soAparelho && (mobile === null || (item.soAparelho === 'mobile') !== mobile)) return false
+      if (item.soEmails && !item.soEmails.includes(email?.toLowerCase().trim() ?? '')) return false
       if (item.somenteSupremo) return ehAdmSupremo(email)
       if (item.permissionKey) return temAcessoAba(role, permissions, item.permissionKey, email)
       if (!role) return false
