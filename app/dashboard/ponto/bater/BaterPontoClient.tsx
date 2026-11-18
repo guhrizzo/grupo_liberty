@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { IconCamera, IconCheck, IconClock, IconMapPin, IconQrcode } from '@tabler/icons-react'
 import { Button, Card, Modal, StatusBadge, useToast } from '@/app/components/ui'
+import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
 import LeitorQr from './LeitorQr'
 import { BATIDAS, BATIDA_LABEL, type Batida, type Batidas } from '@/constants/ponto'
 import { horaSP } from '@/utils/ponto/calculo'
@@ -38,6 +39,7 @@ export default function BaterPontoClient({
 
   const [localizando, setLocalizando] = useState(false)
   const [lendo, setLendo] = useState(false)
+  const mobile = useDispositivoMobile()
 
   function concluir(r: BaterPontoResultado) {
     if (r.ok) {
@@ -150,20 +152,27 @@ export default function BaterPontoClient({
                 {token ? 'QR expirado. Escaneie o QR code da tela novamente.' : 'Escaneie o QR code da tela da empresa.'}
               </p>
               <p className="text-xs text-neutral-500">O QR muda a cada 30 segundos, por segurança.</p>
-              <Button
-                variant="liberty"
-                size="lg"
-                fullWidth
-                loading={pendente}
-                loadingLabel="Registrando..."
-                leftIcon={<IconCamera className="h-5 w-5" />}
-                onClick={() => {
-                  setErro(null)
-                  setLendo(true)
-                }}
-              >
-                Escanear QR code
-              </Button>
+              {mobile === true && (
+                <Button
+                  variant="liberty"
+                  size="lg"
+                  fullWidth
+                  loading={pendente}
+                  loadingLabel="Registrando..."
+                  leftIcon={<IconCamera className="h-5 w-5" />}
+                  onClick={() => {
+                    setErro(null)
+                    setLendo(true)
+                  }}
+                >
+                  Escanear QR code
+                </Button>
+              )}
+              {mobile === false && (
+                <p className="text-xs font-semibold text-amber-700">
+                  A leitura do QR só funciona no celular. Abra esta página no seu celular para bater o ponto.
+                </p>
+              )}
             </Card>
           )}
 

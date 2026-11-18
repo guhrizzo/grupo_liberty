@@ -3,12 +3,31 @@
 import { useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import { QR_JANELA_MS } from '@/constants/ponto'
+import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
 import { getTokenQr } from './actions'
 
 /** Renova o token um pouco antes da janela virar, para nunca exibir um QR vencido. */
 const RENOVAR_APOS_MS = QR_JANELA_MS - 5_000
 
+/** O QR só é gerado em computador; no celular mostra o aviso e nem pede o token. */
 export default function QrClient() {
+  const mobile = useDispositivoMobile()
+  if (mobile === null) return null
+  if (mobile) {
+    return (
+      <div className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center">
+        <p className="font-semibold text-amber-900">O QR code só pode ser gerado em um computador.</p>
+        <p className="mt-1 text-sm text-amber-800">
+          Abra esta página no computador (ou numa TV/tablet em modo computador) e deixe-a na empresa. No celular,
+          use apenas a leitura do QR em &quot;Bater ponto&quot;.
+        </p>
+      </div>
+    )
+  }
+  return <QrExibicao />
+}
+
+function QrExibicao() {
   const [imagem, setImagem] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [restante, setRestante] = useState(100)

@@ -26,7 +26,7 @@ export default async function QrPontoPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-neutral-950">QR code do ponto</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Deixe esta tela aberta num tablet ou TV na empresa. O QR muda a cada 30 segundos.
+          Deixe esta tela aberta num computador (ou TV ligada a um) na empresa. O QR muda a cada 30 segundos.
         </p>
       </div>
 

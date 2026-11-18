@@ -1,6 +1,8 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { assertPageAccess } from '@/utils/permissions'
+import { ehUserAgentMobile } from '@/utils/ponto/dispositivo'
 import { gerarTokenPonto } from '@/utils/ponto/token'
 import { segredoPonto } from '@/utils/ponto/registros'
 
@@ -10,6 +12,9 @@ export async function getTokenQr(): Promise<{ ok: true; token: string } | { ok: 
     await assertPageAccess('ponto')
   } catch {
     return { ok: false, erro: 'Acesso negado.' }
+  }
+  if (ehUserAgentMobile((await headers()).get('user-agent'))) {
+    return { ok: false, erro: 'O QR code só pode ser gerado em um computador.' }
   }
   try {
     return { ok: true, token: gerarTokenPonto(segredoPonto()) }
