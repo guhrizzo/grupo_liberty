@@ -6,9 +6,9 @@ import { temAcessoPagina, type PermissionKey } from '@/constants/permissoes'
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-// Usada no cadastro de veículo, na nova proposta e na Consulta FIPE: quem tem
-// acesso a qualquer uma dessas abas pode consultar.
-const ABAS_PERMITIDAS: PermissionKey[] = ['veiculos', 'propostas', 'consulta_fipe']
+// Usada no cadastro de veículo, na nova proposta, na Consulta FIPE e na geração de
+// contratos: quem tem acesso a qualquer uma dessas abas pode consultar.
+const ABAS_PERMITIDAS: PermissionKey[] = ['veiculos', 'propostas', 'consulta_fipe', 'contratos']
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
 // A lógica de consulta (cache + Sistema Puxa Placa) mora em
