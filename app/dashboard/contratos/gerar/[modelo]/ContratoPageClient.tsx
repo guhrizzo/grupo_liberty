@@ -17,9 +17,8 @@ import {
   TIPO_LOCACAO,
   TIPO_PRESTACAO_CASAL,
   TIPO_RECUPERACAO,
-  TESTEMUNHAS_PADRAO,
   TIPO_PROMESSA_PARCELADA,
-  compraVazia,
+  compraDoTipo,
   ehPrestacao,
   contratanteVazio,
   numeroDe,
@@ -54,11 +53,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const [w, setW] = useState(contratanteVazio)
   const [v, setV] = useState(veiculoContratoVazio)
   const [p, setP] = useState(prestacaoVazia)
-  const [k, setK] = useState(() => {
-    const base = compraVazia(tipo === TIPO_PROMESSA_PARCELADA)
-    // Locação: a testemunha I é fixa por padrão; a II varia de contrato para contrato.
-    return tipo === TIPO_LOCACAO ? { ...base, testemunhas: [{ ...TESTEMUNHAS_PADRAO[0] }, { nome: '', cpf: '' }] } : base
-  })
+  const [k, setK] = useState(() => compraDoTipo(tipo))
   const [salvarCliente, setSalvarCliente] = useState(false)
   const [clientes, setClientes] = useState<ClienteContrato[]>([])
   const [aba, setAba] = useState<Aba>('dados')
@@ -213,6 +208,18 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
     })
   }
 
+  // Testemunhas: editáveis em todos os modelos (o valor inicial vem de `compraDoTipo`).
+  const blocoTestemunhas = (
+    <Bloco titulo="Testemunhas">
+      {[0, 1].map((idx) => (
+        <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_11rem]">
+          <Input id={`gc-t${idx}-nome`} label={`Testemunha ${idx + 1} — nome`} placeholder="Nome completo" value={k.testemunhas[idx]?.nome ?? ''} onChange={(e) => mudarTestemunha(idx, 'nome', e.target.value)} autoComplete="off" />
+          <Input id={`gc-t${idx}-cpf`} label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.testemunhas[idx]?.cpf ?? '')} onChange={(e) => mudarTestemunha(idx, 'cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
+        </div>
+      ))}
+    </Bloco>
+  )
+
   return (
     <div className="space-y-4">
       {/* ── Cabeçalho ───────────────────────────────────────── */}
@@ -345,14 +352,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
                 </p>
               </Bloco>
 
-              <Bloco titulo="Testemunhas">
-                {[0, 1].map((idx) => (
-                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_11rem]">
-                    <Input id={`gc-lt${idx}-nome`} label={`Testemunha ${idx + 1} — nome`} value={k.testemunhas[idx]?.nome ?? ''} onChange={(e) => mudarTestemunha(idx, 'nome', e.target.value)} autoComplete="off" />
-                    <Input id={`gc-lt${idx}-cpf`} label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.testemunhas[idx]?.cpf ?? '')} onChange={(e) => mudarTestemunha(idx, 'cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
-                  </div>
-                ))}
-              </Bloco>
+              {blocoTestemunhas}
             </>
           )}
 
@@ -459,14 +459,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
                 </div>
               </Bloco>
 
-              <Bloco titulo="Testemunhas">
-                {[0, 1].map((idx) => (
-                  <div key={idx} className="grid gap-3 sm:grid-cols-[1fr_11rem]">
-                    <Input id={`gc-t${idx}-nome`} label={`Testemunha ${idx + 1} — nome`} value={k.testemunhas[idx]?.nome ?? ''} onChange={(e) => mudarTestemunha(idx, 'nome', e.target.value)} autoComplete="off" />
-                    <Input id={`gc-t${idx}-cpf`} label="CPF" placeholder="000.000.000-00" value={maskCPFCNPJ(k.testemunhas[idx]?.cpf ?? '')} onChange={(e) => mudarTestemunha(idx, 'cpf', soDigitos(e.target.value, 11))} inputMode="numeric" autoComplete="off" />
-                  </div>
-                ))}
-              </Bloco>
+              {blocoTestemunhas}
 
               <Bloco titulo="Local e data da assinatura">
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -476,6 +469,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
               </Bloco>
             </>
           )}
+          {!locacao && !parcelado && blocoTestemunhas}
         </form>
       </div>
     </div>

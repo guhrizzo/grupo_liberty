@@ -2,7 +2,8 @@
 // lacunas ("[campo]") para o que o formulário ainda não preencheu — a prévia
 // destaca essas lacunas, e o PDF só sai com o formulário completo (validado antes).
 
-import { numeroDe } from './types'
+import { maskCPFCNPJ, onlyDigits } from '@/utils/masks'
+import { numeroDe, type TestemunhaInput } from './types'
 
 const UNIDADES = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove']
 const DEZENAS = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa']
@@ -75,4 +76,17 @@ const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julh
 
 export function dataPorExtenso(d: Date): string {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`
+}
+
+/** Assinaturas das duas testemunhas do formulário (lacuna onde faltar nome ou CPF). */
+export function assinaturasTestemunhas(testemunhas: TestemunhaInput[]) {
+  return [0, 1].map((idx) => {
+    const t = testemunhas[idx]
+    const papel = idx === 0 ? 'TESTEMUNHA I' : 'TESTEMUNHA II'
+    return {
+      nome: t?.nome.trim() ? t.nome.trim().toUpperCase() : lacuna(`NOME DA TESTEMUNHA ${idx === 0 ? 'I' : 'II'}`),
+      documento: `CPF n° ${t && onlyDigits(t.cpf) ? maskCPFCNPJ(t.cpf) : lacuna('CPF')}`,
+      papel,
+    }
+  })
 }

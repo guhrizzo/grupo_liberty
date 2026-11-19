@@ -7,19 +7,19 @@
 import { ESTADOS_CIVIS, labelEstadoCivil } from '@/utils/cobrancas/pessoa'
 import { maskCPFCNPJ, maskPhone, onlyDigits } from '@/utils/masks'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
-import { dataPorExtenso, dinheiro, inteiroPorExtenso, meses } from './texto'
+import { assinaturasTestemunhas, dataPorExtenso, dinheiro, inteiroPorExtenso, meses } from './texto'
 import {
   FORMAS_PAGAMENTO,
   INTERMEDIADOR_PADRAO,
-  TESTEMUNHAS_PADRAO,
   TIPO_PROMESSA_PARCELADA,
   numeroDe,
   type GerarContratoInput,
 } from './types'
 
 /**
- * Intermediador e testemunhas da promessa à vista: fixos. Na parcelada os mesmos
- * dados são só o valor inicial do formulário (INTERMEDIADOR_PADRAO).
+ * Intermediador da promessa à vista: fixo. Na parcelada os mesmos dados são só o
+ * valor inicial do formulário (INTERMEDIADOR_PADRAO). As testemunhas são editáveis
+ * nas duas (valor inicial em TESTEMUNHAS_PADRAO).
  */
 export const INTERMEDIADOR = {
   empresa: INTERMEDIADOR_PADRAO.razaoSocial,
@@ -29,12 +29,6 @@ export const INTERMEDIADOR = {
   cpf: maskCPFCNPJ(INTERMEDIADOR_PADRAO.cpf),
   email: INTERMEDIADOR_PADRAO.email,
 }
-
-export const TESTEMUNHAS = TESTEMUNHAS_PADRAO.map((t, idx) => ({
-  nome: t.nome,
-  cpf: maskCPFCNPJ(t.cpf),
-  papel: idx === 0 ? 'TESTEMUNHA I' : 'TESTEMUNHA II',
-}))
 
 export const LOCAL_ASSINATURA = 'Jaú/SP'
 
@@ -325,7 +319,7 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
       itens: [
         { nome: nomeComprador, documento: `CPF nº ${cpfComprador}`, papel: 'COMPRADOR(A)' },
         { nome: INTERMEDIADOR.socio, documento: `CPF nº ${INTERMEDIADOR.cpf}`, papel: 'INTERMEDIADOR' },
-        ...TESTEMUNHAS.map((t) => ({ nome: t.nome, documento: `CPF n° ${t.cpf}`, papel: t.papel })),
+        ...assinaturasTestemunhas(i.compra.testemunhas),
       ],
     },
   ]
@@ -541,14 +535,7 @@ function pecasParceladas(i: GerarContratoInput, valorTotal: string) {
     },
   ]
 
-  const testemunhas = [0, 1].map((idx) => {
-    const t = k.testemunhas[idx]
-    return {
-      nome: t?.nome.trim() ? t.nome.trim().toUpperCase() : lacuna(`NOME DA TESTEMUNHA ${idx === 0 ? 'I' : 'II'}`),
-      documento: `CPF n° ${t && onlyDigits(t.cpf) ? maskCPFCNPJ(t.cpf) : lacuna('CPF')}`,
-      papel: idx === 0 ? 'TESTEMUNHA I' : 'TESTEMUNHA II',
-    }
-  })
+  const testemunhas = assinaturasTestemunhas(k.testemunhas)
 
   const fecho: BlocoContrato[] = [
     { tipo: 'p', texto: `${ou(k.cidade, 'CIDADE/UF')}, ${dataLonga(k.dataAssinatura)}.` },

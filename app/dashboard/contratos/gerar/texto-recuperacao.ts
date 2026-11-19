@@ -10,7 +10,7 @@ import { ESTADOS_CIVIS, labelEstadoCivil } from '@/utils/cobrancas/pessoa'
 import { maskCPFCNPJ, maskPhone, onlyDigits } from '@/utils/masks'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
 import { cpfFormatado, ou } from './texto-prestacao'
-import { dataPorExtenso, lacuna } from './texto'
+import { assinaturasTestemunhas, dataPorExtenso, lacuna } from './texto'
 import type { GerarContratoInput } from './types'
 
 const TITULO = 'CONTRATO PARTICULAR DE PRESTAÇÃO DE SERVIÇOS DE ANÁLISE, CANCELAMENTO E RECUPERAÇÃO DE VALORES'
@@ -18,10 +18,7 @@ const LOCAL_ASSINATURA = 'Jaú/SP'
 
 const SOCIO = 'OTÁVIO MORETTO'
 const CPF_SOCIO = '520.525.368-17'
-const TESTEMUNHAS = [
-  { nome: 'ALESIS SILVA QUIO', cpf: '542.342.458-52', papel: 'TESTEMUNHA I' },
-  { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '262.988.758-83', papel: 'TESTEMUNHA II' },
-]
+// As testemunhas vêm do formulário (valor inicial em TESTEMUNHAS_PADRAO_SERVICOS).
 
 export function montarRecuperacao(i: GerarContratoInput, hoje: Date = new Date()): ContratoBlocos {
   const c = i.contratante
@@ -139,7 +136,7 @@ export function montarRecuperacao(i: GerarContratoInput, hoje: Date = new Date()
       itens: [
         { nome: nome, documento: `CPF nº ${cpf}`, papel: 'CONTRATANTE' },
         { nome: SOCIO, documento: `CPF nº ${CPF_SOCIO}`, papel: 'CONTRATADA' },
-        ...TESTEMUNHAS.map((t) => ({ nome: t.nome, documento: `CPF n° ${t.cpf}`, papel: t.papel })),
+        ...assinaturasTestemunhas(k.testemunhas),
       ],
     },
   ]

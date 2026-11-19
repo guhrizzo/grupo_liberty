@@ -7,19 +7,16 @@
 import { ESTADOS_CIVIS, labelEstadoCivil } from '@/utils/cobrancas/pessoa'
 import { maskPhone, onlyDigits } from '@/utils/masks'
 import type { BlocoContrato, ContratoBlocos } from './blocos'
-import { brl, dataPorExtenso, dinheiro, lacuna } from './texto'
+import { assinaturasTestemunhas, brl, dataPorExtenso, dinheiro, lacuna } from './texto'
 import { TIPO_PRESTACAO_CASAL, numeroDe, type ContratanteInput, type GerarContratoInput } from './types'
 
 const TITULO = 'CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE INTERMEDIAÇÃO E OUTRAS AVENÇAS'
 const LOCAL_ASSINATURA = 'Jaú/SP'
 
-// Intermediador e testemunhas deste modelo: fixos, como no PDF.
+// Intermediador deste modelo: fixo, como no PDF. As testemunhas vêm do formulário
+// (valor inicial em TESTEMUNHAS_PADRAO_SERVICOS).
 const SOCIO = 'OTÁVIO MORETTO'
 const CPF_SOCIO = '520.525.368-17'
-const TESTEMUNHAS = [
-  { nome: 'ALESIS SILVA QUIO', cpf: '542.342.458-52', papel: 'TESTEMUNHA I' },
-  { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '262.988.758-83', papel: 'TESTEMUNHA II' },
-]
 
 export const ou = (valor: string, rotulo: string) => valor.trim() || lacuna(rotulo)
 const moeda = (raw: string) => brl(numeroDe(raw))
@@ -438,7 +435,7 @@ export function montarPrestacao(i: GerarContratoInput, hoje: Date = new Date()):
         { nome: v1.nome, documento: `CPF nº ${v1.cpf}`, papel: casal ? 'VENDEDOR I' : 'VENDEDOR' },
         ...(v2 ? [{ nome: v2.nome, documento: `CPF nº ${v2.cpf}`, papel: 'VENDEDOR II' }] : []),
         { nome: SOCIO, documento: `CPF nº ${CPF_SOCIO}`, papel: 'INTERMEDIADOR' },
-        ...TESTEMUNHAS.map((t) => ({ nome: t.nome, documento: `CPF n° ${t.cpf}`, papel: t.papel })),
+        ...assinaturasTestemunhas(i.compra.testemunhas),
       ],
     },
   ]

@@ -180,6 +180,16 @@ export const TESTEMUNHAS_PADRAO: TestemunhaInput[] = [
 ]
 
 /**
+ * Valor inicial das testemunhas na prestação de serviços e na recuperação de valores.
+ * São os dados que esses modelos já traziam fixos (o CPF do Alex difere do de
+ * TESTEMUNHAS_PADRAO); agora são só o ponto de partida do formulário.
+ */
+export const TESTEMUNHAS_PADRAO_SERVICOS: TestemunhaInput[] = [
+  { nome: 'ALESIS SILVA QUIO', cpf: '54234245852' },
+  { nome: 'ALEX RODRIGO LEVORATO PARRELLA', cpf: '26298875883' },
+]
+
+/**
  * Dados próprios da promessa de compra. Instituição financeira, parcelas e valor
  * da parcela do financiamento vêm de `prestacao`.
  */
@@ -245,7 +255,7 @@ export const veiculoContratoVazio = (): VeiculoContratoInput => ({
 export const prestacaoVazia = (): PrestacaoInput => ({
   banco: '', qtdParcelas: '', parcelasPagas: '', parcelasAtraso: '', valorParcela: '',
 })
-export const compraVazia = (parcelado = false): CompraInput => ({
+export const compraVazia = (parcelado = false, testemunhas: TestemunhaInput[] = TESTEMUNHAS_PADRAO): CompraInput => ({
   marca: '', modelo: '', cor: '', chassi: '',
   categoria: parcelado ? 'PARTICULAR' : '',
   conservacao: parcelado ? 'USADO' : '',
@@ -254,7 +264,7 @@ export const compraVazia = (parcelado = false): CompraInput => ({
   intermediador: parcelado
     ? { ...INTERMEDIADOR_PADRAO }
     : { razaoSocial: '', cnpj: '', endereco: '', nome: '', nacionalidade: '', estadoCivil: '', cpf: '', email: '' },
-  testemunhas: parcelado ? TESTEMUNHAS_PADRAO.map((t) => ({ ...t })) : [{ nome: '', cpf: '' }, { nome: '', cpf: '' }],
+  testemunhas: testemunhas.map((t) => ({ ...t })),
   pagamentos: '2', valorPagamento: '', vencimentos: ['', ''],
   cidade: parcelado ? 'Jaú/SP' : '',
   dataAssinatura: '',
@@ -264,6 +274,14 @@ export const compraVazia = (parcelado = false): CompraInput => ({
   locacao: { aluguel: '', diaVencimento: '', primeiroPagamento: '', entrada: '', parcelas: '36', franquia: '' },
 })
 
+/** Dados da compra com o valor inicial (inclusive das testemunhas, sempre editáveis) de cada modelo. */
+export const compraDoTipo = (tipo: TipoContratoGerado): CompraInput => {
+  const servicos = ehPrestacao(tipo) || tipo === TIPO_RECUPERACAO
+  const base = compraVazia(tipo === TIPO_PROMESSA_PARCELADA, servicos ? TESTEMUNHAS_PADRAO_SERVICOS : TESTEMUNHAS_PADRAO)
+  // Locação: a testemunha I é fixa por padrão; a II varia de contrato para contrato.
+  return tipo === TIPO_LOCACAO ? { ...base, testemunhas: [{ ...TESTEMUNHAS_PADRAO[0] }, { nome: '', cpf: '' }] } : base
+}
+
 /** Formulário do modelo escolhido ainda sem nada preenchido. */
 export const inputPromessaVazio = (tipo: TipoContratoGerado = TIPO_PROMESSA): GerarContratoInput => ({
   tipo,
@@ -271,7 +289,7 @@ export const inputPromessaVazio = (tipo: TipoContratoGerado = TIPO_PROMESSA): Ge
   vendedor2: contratanteVazio(),
   veiculo: veiculoContratoVazio(),
   prestacao: prestacaoVazia(),
-  compra: compraVazia(tipo === TIPO_PROMESSA_PARCELADA),
+  compra: compraDoTipo(tipo),
   salvarCliente: false,
 })
 
@@ -330,6 +348,16 @@ export function dataIsoValida(iso: string): boolean {
   return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3])
 }
 
+/** As duas testemunhas (nome e CPF), em qualquer modelo. */
+function validarTestemunhas(k: CompraInput): string | null {
+  for (let n = 0; n < 2; n++) {
+    const t = k.testemunhas[n]
+    if (!t?.nome.trim()) return `Informe o nome da testemunha ${n + 1}.`
+    if (onlyDigits(t.cpf).length !== 11) return `Informe o CPF da testemunha ${n + 1} (11 dígitos).`
+  }
+  return null
+}
+
 /** Parte própria da promessa parcelada: intermediador, testemunhas, parcelas, local e data. */
 function validarParcelada(i: GerarContratoInput): string | null {
   const k = i.compra
@@ -349,11 +377,8 @@ function validarParcelada(i: GerarContratoInput): string | null {
   for (let n = 0; n < qtd; n++) {
     if (!dataIsoValida(k.vencimentos[n] ?? '')) return `Informe o vencimento da parcela ${n + 1}.`
   }
-  for (let n = 0; n < 2; n++) {
-    const t = k.testemunhas[n]
-    if (!t?.nome.trim()) return `Informe o nome da testemunha ${n + 1}.`
-    if (onlyDigits(t.cpf).length !== 11) return `Informe o CPF da testemunha ${n + 1} (11 dígitos).`
-  }
+  const erroTestemunhas = validarTestemunhas(k)
+  if (erroTestemunhas) return erroTestemunhas
   if (!k.cidade.trim()) return 'Informe a cidade/UF da assinatura.'
   if (!dataIsoValida(k.dataAssinatura)) return 'Informe a data da assinatura.'
   return null
@@ -401,7 +426,7 @@ function validarCompra(i: GerarContratoInput): string | null {
   if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor total do contrato.'
   if (parcelado) return validarParcelada(i)
   if (!FORMAS_PAGAMENTO.some((f) => f.value === k.formaPagamento)) return 'Informe a forma de pagamento.'
-  return null
+  return validarTestemunhas(k)
 }
 
 /** Dados pessoais de um vendedor da prestação de serviços (RG só no contrato do casal). */
@@ -455,7 +480,7 @@ function validarPrestacao(i: GerarContratoInput): string | null {
   if (!(numeroDe(k.saldoDevedor) > 0)) return 'Informe o saldo devedor aproximado.'
   if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor pago ao vendedor.'
   if (!dataIsoValida(k.dataPagamento)) return 'Informe a data limite do pagamento.'
-  return null
+  return validarTestemunhas(k)
 }
 
 /** Locação com opção de aquisição: locatário, veículo, condições e testemunhas. */
@@ -479,11 +504,8 @@ function validarLocacao(i: GerarContratoInput): string | null {
   if (!(numeroDe(l.entrada) >= 0)) return 'Informe o valor da entrada (0 se não houver).'
   if (!(inteiroDe(l.parcelas) > 0)) return 'Informe a quantidade de parcelas.'
   if (!(numeroDe(l.franquia) > 0)) return 'Informe o valor da franquia do seguro.'
-  for (let n = 0; n < 2; n++) {
-    const t = k.testemunhas[n]
-    if (!t?.nome.trim()) return `Informe o nome da testemunha ${n + 1}.`
-    if (onlyDigits(t.cpf).length !== 11) return `Informe o CPF da testemunha ${n + 1} (11 dígitos).`
-  }
+  const erroTestemunhas = validarTestemunhas(k)
+  if (erroTestemunhas) return erroTestemunhas
   return null
 }
 
@@ -512,7 +534,7 @@ function validarRecuperacao(i: GerarContratoInput): string | null {
   if (!c.agencia.trim()) return 'Informe a agência.'
   if (!c.conta.trim()) return 'Informe o número da conta.'
   if (!c.tipoConta.trim()) return 'Informe o tipo da conta.'
-  return null
+  return validarTestemunhas(k)
 }
 
 /** Retorna a mensagem do primeiro problema do formulário, ou null. */
