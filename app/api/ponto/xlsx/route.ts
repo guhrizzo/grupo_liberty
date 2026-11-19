@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { assertPageAccess } from '@/utils/permissions'
-import { adminDb } from '@/utils/firebase/admin'
 import { getFolhaMes } from '@/app/dashboard/ponto/actions'
-import { COLECAO_PONTO } from '@/constants/ponto'
-import { serializarRegistro } from '@/utils/ponto/registros'
 import { formatarMinutos, horaSP, minutosTrabalhados, saldoDia } from '@/utils/ponto/calculo'
 
 export async function GET(req: NextRequest) {
@@ -17,11 +14,15 @@ export async function GET(req: NextRequest) {
   const mes = req.nextUrl.searchParams.get('mes') ?? ''
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return new NextResponse('Mês inválido.', { status: 400 })
 
-  const folha = await getFolhaMes(mes, null)
-  const snap = await adminDb.collection(COLECAO_PONTO).where('mes', '==', mes).get()
-  const registros = snap.docs
-    .map((d) => serializarRegistro(d.id, d.data()))
-    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.data.localeCompare(b.data))
+  let folha
+  try {
+    folha = await getFolhaMes(mes, null)
+  } catch (err) {
+    return new NextResponse(err instanceof Error ? err.message : 'Folha indisponível.', { status: 502 })
+  }
+  const registros = [...folha.todos].sort(
+    (a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.data.localeCompare(b.data),
+  )
 
   const resumo = [
     ['Funcionário', 'E-mail', 'Jornada/dia', 'Dias completos', 'Dias incompletos', 'Horas no mês', 'Saldo'],

@@ -1,18 +1,15 @@
 'use server'
 
 import { headers } from 'next/headers'
-import { adminDb } from '@/utils/firebase/admin'
 import { ehUserAgentMobile } from '@/utils/ponto/dispositivo'
 import { getSessionUser, type SessionUser } from '@/utils/permissions'
-import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
 import { validarTokenPonto } from '@/utils/ponto/token'
-import { proximaBatida, horaSP } from '@/utils/ponto/calculo'
+import { horaSP } from '@/utils/ponto/calculo'
 import { lerLocalEmpresa, verificarLocal } from '@/utils/ponto/geo'
-import { getJornadaMin, segredoPonto, serializarRegistro } from '@/utils/ponto/registros'
+import { segredoPonto } from '@/utils/ponto/registros'
+import { chamarFolhaUnica, registroDaFolhaUnica, ultimaBatida } from '@/utils/ponto/folha-unica'
 import {
-  COLECAO_PONTO,
   podeBaterPonto,
-  INTERVALO_MIN_ENTRE_BATIDAS_MS,
   type Batida,
   type OrigemBatida,
   type RegistroPonto,
@@ -22,67 +19,34 @@ export type BaterPontoResultado =
   | { ok: true; batida: Batida; hora: string }
   | { ok: false; erro: string }
 
-/** Registro do usuário logado para o dia de hoje (null se ainda não bateu). */
+/** Registro do usuário logado para o dia de hoje (null se ainda não bateu). Vem da folha única. */
 export async function getMeuDia(): Promise<RegistroPonto | null> {
   const user = await getSessionUser()
-  if (!user) return null
-  const data = hojeSaoPaulo()
-  const snap = await adminDb.collection(COLECAO_PONTO).doc(`${user.uid}_${data}`).get()
-  return snap.exists ? serializarRegistro(snap.id, snap.data()!) : null
+  if (!user?.email || !podeBaterPonto(user.email)) return null
+  const r = await chamarFolhaUnica<{ registro: RegistroPonto | null }>('meu_dia', { email: user.email })
+  if (!r.ok) {
+    console.error('[getMeuDia]', r.erro)
+    return null
+  }
+  return r.registro ? registroDaFolhaUnica(r.registro) : null
 }
 
-/** Grava a próxima batida do dia numa transação (ordem fixa, sem duplicar). */
+/** Grava a próxima batida do dia na folha única (ordem, intervalo e duplicidade são validados lá). */
 async function registrarProximaBatida(
   user: SessionUser,
   origem: OrigemBatida,
-  distanciaM?: number,
+  distanciaM: number,
 ): Promise<BaterPontoResultado> {
-  try {
-    const agora = new Date()
-    const data = hojeSaoPaulo(agora)
-    const jornadaMin = await getJornadaMin(user.uid)
-    const ref = adminDb.collection(COLECAO_PONTO).doc(`${user.uid}_${data}`)
-
-    return await adminDb.runTransaction<BaterPontoResultado>(async (tx) => {
-      const snap = await tx.get(ref)
-      const existente = snap.exists ? serializarRegistro(snap.id, snap.data()!) : null
-      const batidas = existente?.batidas ?? {}
-
-      const proxima = proximaBatida(batidas)
-      if (!proxima) return { ok: false, erro: 'Seu ponto de hoje já está completo.' }
-
-      const ultimo = Math.max(0, ...Object.values(batidas).map((v) => new Date(v).getTime()))
-      if (ultimo && agora.getTime() - ultimo < INTERVALO_MIN_ENTRE_BATIDAS_MS) {
-        return { ok: false, erro: 'Você acabou de bater o ponto. Aguarde alguns minutos para a próxima batida.' }
-      }
-
-      const iso = agora.toISOString()
-      if (existente) {
-        tx.update(ref, {
-          [`batidas.${proxima}`]: iso,
-          [`origens.${proxima}`]: origem,
-          ...(distanciaM !== undefined ? { [`distancias.${proxima}`]: distanciaM } : {}),
-        })
-      } else {
-        tx.set(ref, {
-          uid: user.uid,
-          email: user.email ?? '',
-          nome: user.name ?? user.email ?? 'Usuário',
-          data,
-          mes: data.slice(0, 7),
-          batidas: { [proxima]: iso },
-          origens: { [proxima]: origem },
-          distancias: distanciaM !== undefined ? { [proxima]: distanciaM } : {},
-          jornadaMin,
-          edicoes: [],
-        })
-      }
-      return { ok: true, batida: proxima, hora: horaSP(iso) }
-    })
-  } catch (err) {
-    console.error('[registrarProximaBatida]', err)
-    return { ok: false, erro: 'Não foi possível registrar o ponto. Tente novamente.' }
-  }
+  const r = await chamarFolhaUnica<{ registro: RegistroPonto | null }>('registrar', {
+    email: user.email ?? '',
+    nome: user.name ?? user.email ?? 'Usuário',
+    origem,
+    distanciaM,
+  })
+  if (!r.ok) return { ok: false, erro: r.erro }
+  const ultima = r.registro ? ultimaBatida(r.registro) : null
+  if (!ultima) return { ok: false, erro: 'Ponto registrado, mas não foi possível confirmar o horário. Confira a folha.' }
+  return { ok: true, batida: ultima.batida, hora: horaSP(ultima.iso) }
 }
 
 interface PosicaoInformada {
