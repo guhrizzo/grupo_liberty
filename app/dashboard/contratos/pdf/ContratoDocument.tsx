@@ -69,6 +69,7 @@ const styles = StyleSheet.create({
   tableCellLabel: {
     width: '35%',
     padding: 6,
+    textAlign: 'center',
     fontWeight: 700,
     backgroundColor: '#f3f3f3',
     borderRightWidth: 1,
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
   tableCellValue: {
     flex: 1,
     padding: 6,
+    textAlign: 'center',
   },
   signatureBlock: {
     marginTop: 36,

@@ -127,7 +127,7 @@ function UnidadeView({ u }: { u: Unidade }) {
               {u.linhas.map(([rotulo, valor]) => (
                 <tr key={rotulo}>
                   <th className="w-[36%] border border-black px-[4pt] py-[1.5pt] text-center font-bold text-black">{rotulo}</th>
-                  <td className="h-[1.6em] border border-black px-[6pt] py-[1.5pt] text-black">{valor}</td>
+                  <td className="h-[1.6em] border border-black px-[6pt] py-[1.5pt] text-center text-black">{valor}</td>
                 </tr>
               ))}
             </tbody>

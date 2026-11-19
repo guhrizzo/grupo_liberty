@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   tabela: { borderTopWidth: 1, borderColor: '#000', marginBottom: 12 },
   linha: { flexDirection: 'row' },
   celulaRotulo: { width: '36%', borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#000', paddingVertical: 1.5, paddingHorizontal: 4, textAlign: 'center', fontFamily: NEGRITO },
-  celulaValor: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#000', paddingVertical: 1.5, paddingHorizontal: 6 },
+  celulaValor: { flex: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: '#000', paddingVertical: 1.5, paddingHorizontal: 6, textAlign: 'center' },
   assinatura: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 34 },
   assinaturaTexto: { fontFamily: NEGRITO },
   assinaturaLinha: { width: 170, borderBottomWidth: 1, borderColor: '#000', marginBottom: 2 },
