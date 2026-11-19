@@ -11,7 +11,17 @@ import { assertPodeGerarContratos } from '@/utils/permissions'
 import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
 import { onlyDigits } from '@/utils/masks'
 import ReciboDocument from './ReciboDocument'
-import { validarRecibo, type GerarReciboResponse, type ReciboInput } from './types'
+import { numeroDe } from '../types'
+import {
+  validarRecibo,
+  type BaixarReciboResponse,
+  type GerarReciboResponse,
+  type ListarRecibosResponse,
+  type ReciboInput,
+  type ReciboRegistro,
+} from './types'
+
+const COLECAO = 'recibos_pagamento'
 
 function txt(v: unknown, max = 200): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : ''
@@ -138,5 +148,90 @@ export async function gerarReciboAction(raw: unknown): Promise<GerarReciboRespon
     }
   }
 
+  // Histórico mensal: guarda os dados do recibo (o PDF é refeito a partir deles).
+  try {
+    const total = input.pagamento.valorTotal.trim() ? numeroDe(input.pagamento.valorTotal) : null
+    await adminDb.collection(COLECAO).add({
+      dados: input,
+      emitidoEm: agora.toISOString(),
+      mes: input.pagamento.data.slice(0, 7),
+      data: input.pagamento.data,
+      pagadorNome: input.pagador.nome,
+      pagadorDocumento: input.pagador.documento,
+      veiculoResumo: `${input.veiculo.marca} ${input.veiculo.modelo}`.trim(),
+      placa: input.veiculo.placa,
+      valor: numeroDe(input.pagamento.valor),
+      valorTotal: total,
+      forma: input.pagamento.forma,
+      referencia: input.pagamento.referencia,
+      veiculoId: input.veiculo.veiculoId,
+      geradoPorUid: user.uid,
+      geradoPor: user.name || user.email || user.uid,
+    })
+  } catch (err) {
+    console.error('[gerarReciboAction] historico', err)
+    avisos.push('O recibo foi gerado, mas não entrou no histórico.')
+  }
+
   return { success: 'Recibo gerado.', fileName, pdfBase64: buffer.toString('base64'), guardadoNoVeiculo, avisos }
+}
+
+/** Recibos do mês (pela data do pagamento), do mais recente para o mais antigo. */
+export async function listarRecibosAction(mes: string): Promise<ListarRecibosResponse> {
+  try {
+    await assertPodeGerarContratos()
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return { error: 'Mês inválido.' }
+  try {
+    const snap = await adminDb.collection(COLECAO).where('mes', '==', mes).get()
+    const recibos: ReciboRegistro[] = snap.docs
+      .map((d) => {
+        const x = d.data()
+        return {
+          id: d.id,
+          emitidoEm: String(x.emitidoEm ?? ''),
+          data: String(x.data ?? ''),
+          pagadorNome: String(x.pagadorNome ?? ''),
+          pagadorDocumento: String(x.pagadorDocumento ?? ''),
+          veiculoResumo: String(x.veiculoResumo ?? ''),
+          placa: String(x.placa ?? ''),
+          valor: Number(x.valor ?? 0),
+          valorTotal: typeof x.valorTotal === 'number' ? x.valorTotal : null,
+          forma: String(x.forma ?? ''),
+          referencia: String(x.referencia ?? ''),
+          geradoPor: String(x.geradoPor ?? ''),
+        }
+      })
+      .sort((a, b) => b.data.localeCompare(a.data) || b.emitidoEm.localeCompare(a.emitidoEm))
+    return { recibos }
+  } catch (err) {
+    console.error('[listarRecibosAction]', err)
+    return { error: 'Não foi possível carregar o histórico.' }
+  }
+}
+
+/** Refaz o PDF de um recibo do histórico, com a data de emissão original. */
+export async function baixarReciboAction(id: string): Promise<BaixarReciboResponse> {
+  try {
+    await assertPodeGerarContratos()
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+  if (!/^[A-Za-z0-9]{1,40}$/.test(id)) return { error: 'Recibo inválido.' }
+  try {
+    const snap = await adminDb.collection(COLECAO).doc(id).get()
+    if (!snap.exists) return { error: 'Recibo não encontrado.' }
+    const x = snap.data()!
+    const input = normalizar(x.dados)
+    const emitido = new Date(String(x.emitidoEm))
+    const buffer = await renderToBuffer(
+      createElement(ReciboDocument, { input, agora: Number.isNaN(emitido.getTime()) ? new Date() : emitido }) as never,
+    )
+    return { fileName: nomeArquivo(input.pagador.nome), pdfBase64: buffer.toString('base64') }
+  } catch (err) {
+    console.error('[baixarReciboAction]', err)
+    return { error: 'Não foi possível gerar o PDF do recibo.' }
+  }
 }

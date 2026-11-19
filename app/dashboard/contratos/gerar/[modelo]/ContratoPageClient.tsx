@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { IconArrowLeft, IconFileDownload, IconFileText } from '@tabler/icons-react'
 import { Button, Input, SegmentedControl, Select, useToast } from '@/app/components/ui'
@@ -10,6 +10,7 @@ import { gerarContratoAction, listarClientesContratoAction } from '../actions'
 import { baixarPdf } from '../baixar-pdf'
 import { Bloco, Marcar } from '../campos'
 import ContratoPreview from '../ContratoPreview'
+import { useBuscaPlaca } from '../useBuscaPlaca'
 import { montarContratoGerado } from '../montar'
 import {
   FORMAS_PAGAMENTO,
@@ -38,9 +39,6 @@ const ABAS: { value: Aba; label: string }[] = [
   { value: 'dados', label: 'Preencher dados' },
   { value: 'contrato', label: 'Contrato' },
 ]
-
-const PLACA_REGEX = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
-const placaLimpa = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 const soDigitos = (v: string, max: number) => onlyDigits(v).slice(0, max)
 const maskCep = (v: string) => soDigitos(v, 8).replace(/^(\d{5})(\d)/, '$1-$2')
@@ -113,65 +111,22 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   const totalContrato = numeroDe(k.valorTotal) || 0
   const somaDiverge = parcelado && somaParcelas > 0 && totalContrato > 0 && Math.abs(somaParcelas - totalContrato) > 0.01
 
-  // ─── Busca por placa (Sistema Puxa Placa) ───────────────────────────────
-  // Mesmo endpoint do cadastro de veículo. Assim que a placa fica completa e válida,
-  // busca sozinha (debounce de 600 ms) e preenche marca, modelo, ano, cor, chassi e
-  // RENAVAM. Não roda quando um veículo do estoque está escolhido: os dados dele valem.
-  const [buscandoPlaca, setBuscandoPlaca] = useState(false)
-  const placaJaBuscadaRef = useRef('')
-
-  const buscarDadosPlaca = useCallback(
-    async (placa: string) => {
-      setBuscandoPlaca(true)
-      try {
-        const res = await fetch(`/api/consulta-placa?placa=${placa}`)
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.message || err.error || 'Não encontramos registro para a placa informada.')
-        }
-        const data = await res.json()
-        setV((a) => ({
-          ...a,
-          ano: data.anoModelo ? soDigitos(String(data.anoModelo), 4) : a.ano,
-          renavam: data.renavam ? maskRenavam(String(data.renavam)) : a.renavam,
-        }))
-        setK((a) => ({
-          ...a,
-          marca: data.marca || a.marca,
-          modelo: data.modelo || a.modelo,
-          cor: data.cor || a.cor,
-          chassi: data.chassi ? String(data.chassi).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17) : a.chassi,
-        }))
-        if (data.rouboFurto && data.rouboFurto !== 'NAO') {
-          toast.error(`Status retornado: ${data.rouboFurto}. Confira antes de seguir com o contrato.`, 'Ocorrência de roubo/furto')
-        } else {
-          toast.success('Marca, modelo, ano, cor, chassi e RENAVAM preenchidos. Confira os dados.', 'Placa encontrada')
-        }
-      } catch (err) {
-        // Permite tentar de novo quando a placa for editada.
-        placaJaBuscadaRef.current = ''
-        toast.error(err instanceof Error ? err.message : 'Erro ao consultar a placa.', 'Falha na busca')
-      } finally {
-        setBuscandoPlaca(false)
-      }
-    },
-    [toast],
-  )
-
-  useEffect(() => {
-    if (v.veiculoId) return
-    const placa = placaLimpa(v.placa)
-    if (!PLACA_REGEX.test(placa)) {
-      placaJaBuscadaRef.current = ''
-      return
-    }
-    if (placaJaBuscadaRef.current === placa) return
-    const id = window.setTimeout(() => {
-      placaJaBuscadaRef.current = placa
-      void buscarDadosPlaca(placa)
-    }, 600)
-    return () => window.clearTimeout(id)
-  }, [v.placa, v.veiculoId, buscarDadosPlaca])
+  // Busca por placa (hook compartilhado com o recibo): ao completar a placa, preenche marca,
+  // modelo, ano, cor, chassi e RENAVAM. Não roda com veículo do estoque escolhido.
+  const { buscando: buscandoPlaca, marcarJaBuscada } = useBuscaPlaca(v.placa, !v.veiculoId, (d) => {
+    setV((a) => ({
+      ...a,
+      ano: d.anoModelo ? soDigitos(String(d.anoModelo), 4) : a.ano,
+      renavam: d.renavam ? maskRenavam(String(d.renavam)) : a.renavam,
+    }))
+    setK((a) => ({
+      ...a,
+      marca: d.marca || a.marca,
+      modelo: d.modelo || a.modelo,
+      cor: d.cor || a.cor,
+      chassi: d.chassi ? String(d.chassi).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17) : a.chassi,
+    }))
+  })
 
   function escolherVeiculo(id: string) {
     const x = veiculos.find((q) => q.id === id)
@@ -180,7 +135,7 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
       return
     }
     // Já temos os dados do estoque: não consulta essa placa de novo se o veículo for desmarcado.
-    placaJaBuscadaRef.current = placaLimpa(x.placa)
+    marcarJaBuscada(x.placa)
     setV({ veiculoId: x.id, ano: x.ano, placa: x.placa, renavam: x.renavam })
     setK((a) => ({ ...a, marca: x.marca, modelo: x.modelo }))
     setP((a) => ({

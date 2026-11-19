@@ -78,6 +78,29 @@ export const reciboVazio = (): ReciboInput => ({
   guardarNoVeiculo: true,
 })
 
+/** Recibo já gerado, como aparece no histórico (coleção `recibos_pagamento`). */
+export interface ReciboRegistro {
+  id: string
+  /** ISO do momento em que o recibo foi emitido. */
+  emitidoEm: string
+  /** AAAA-MM-DD, data do pagamento. */
+  data: string
+  pagadorNome: string
+  /** CPF ou CNPJ, só dígitos. */
+  pagadorDocumento: string
+  veiculoResumo: string
+  placa: string
+  valor: number
+  valorTotal: number | null
+  forma: string
+  referencia: string
+  geradoPor: string
+}
+
+export type ListarRecibosResponse = { recibos: ReciboRegistro[] } | { error: string }
+
+export type BaixarReciboResponse = { fileName: string; pdfBase64: string } | { error: string }
+
 export type GerarReciboResponse =
   | { error: string }
   | { success: string; fileName: string; pdfBase64: string; guardadoNoVeiculo: boolean; avisos: string[] }

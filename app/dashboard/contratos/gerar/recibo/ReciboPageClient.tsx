@@ -8,8 +8,10 @@ import { maskCPFCNPJ, maskMoney, maskPhone, maskPlate, maskRenavam, onlyDigits }
 import { listarClientesContratoAction } from '../actions'
 import { baixarPdf } from '../baixar-pdf'
 import { Bloco, Marcar } from '../campos'
+import { useBuscaPlaca } from '../useBuscaPlaca'
 import { numeroDe, type ClienteContrato, type VeiculoParaContrato } from '../types'
 import { gerarReciboAction } from './actions'
+import HistoricoRecibos from './HistoricoRecibos'
 import { FORMAS_RECIBO, reciboVazio, validarRecibo, type ReciboInput } from './types'
 
 const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -19,12 +21,30 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
   const [isPending, startTransition] = useTransition()
   const [r, setR] = useState<ReciboInput>(reciboVazio)
   const [clientes, setClientes] = useState<ClienteContrato[]>([])
+  const [recarregarHistorico, setRecarregarHistorico] = useState(0)
 
   const { pagador: p, veiculo: v, recebedor: e, pagamento: g } = r
   const setP = (campo: keyof ReciboInput['pagador'], valor: string) => setR((a) => ({ ...a, pagador: { ...a.pagador, [campo]: valor } }))
   const setV = (campo: keyof ReciboInput['veiculo'], valor: string) => setR((a) => ({ ...a, veiculo: { ...a.veiculo, [campo]: valor } }))
   const setE = (campo: keyof ReciboInput['recebedor'], valor: string) => setR((a) => ({ ...a, recebedor: { ...a.recebedor, [campo]: valor } }))
   const setG = (campo: keyof ReciboInput['pagamento'], valor: string) => setR((a) => ({ ...a, pagamento: { ...a.pagamento, [campo]: valor } }))
+
+  // Busca por placa (hook compartilhado com o contrato): ao completar a placa, preenche marca,
+  // modelo, ano, cor, chassi e RENAVAM. Não roda com veículo do estoque escolhido.
+  const { buscando: buscandoPlaca, marcarJaBuscada } = useBuscaPlaca(v.placa, !v.veiculoId, (d) => {
+    setR((a) => ({
+      ...a,
+      veiculo: {
+        ...a.veiculo,
+        marca: d.marca || a.veiculo.marca,
+        modelo: d.modelo || a.veiculo.modelo,
+        ano: d.anoModelo ? onlyDigits(String(d.anoModelo)).slice(0, 4) : a.veiculo.ano,
+        cor: d.cor || a.veiculo.cor,
+        chassi: d.chassi ? String(d.chassi).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17) : a.veiculo.chassi,
+        renavam: d.renavam ? maskRenavam(String(d.renavam)) : a.veiculo.renavam,
+      },
+    }))
+  })
 
   // Data do pagamento padrão = hoje (fuso do navegador). Fica para depois da montagem
   // para não divergir na hidratação quando o servidor está em outro fuso.
@@ -65,6 +85,8 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
       setR((a) => ({ ...a, veiculo: { ...a.veiculo, veiculoId: '' } }))
       return
     }
+    // Já temos os dados do estoque: não consulta essa placa de novo se o veículo for desmarcado.
+    marcarJaBuscada(x.placa)
     setR((a) => ({
       ...a,
       veiculo: { ...a.veiculo, veiculoId: x.id, marca: x.marca, modelo: x.modelo, ano: x.ano, placa: x.placa, renavam: x.renavam },
@@ -83,6 +105,7 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
         return
       }
       baixarPdf(res.pdfBase64, res.fileName)
+      setRecarregarHistorico((n) => n + 1)
       toast.success(res.guardadoNoVeiculo ? 'Recibo gerado e guardado no veículo.' : 'Recibo gerado.')
       res.avisos.forEach((a) => toast.error(a))
     })
@@ -165,7 +188,7 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
               <Input id="rc-modelo" label="Modelo" placeholder="Ex.: Polo 1.0 MPI" value={v.modelo} onChange={(ev) => setV('modelo', ev.target.value)} autoComplete="off" />
               <Input id="rc-ano" label="Ano (opcional)" placeholder="AAAA" value={v.ano} onChange={(ev) => setV('ano', onlyDigits(ev.target.value).slice(0, 4))} inputMode="numeric" autoComplete="off" />
               <Input id="rc-cor" label="Cor (opcional)" placeholder="Ex.: Branca" value={v.cor} onChange={(ev) => setV('cor', ev.target.value)} autoComplete="off" />
-              <Input id="rc-placa" label="Placa" placeholder="AAA0A00" value={v.placa} onChange={(ev) => setV('placa', maskPlate(ev.target.value))} autoComplete="off" />
+              <Input id="rc-placa" label="Placa" placeholder="AAA0A00" value={v.placa} onChange={(ev) => setV('placa', maskPlate(ev.target.value))} hint={buscandoPlaca ? 'Buscando dados da placa…' : 'Ao completar a placa, preenche marca, modelo, ano, cor, chassi e RENAVAM.'} autoComplete="off" />
               <Input id="rc-chassi" label="Chassi (opcional)" placeholder="17 caracteres" value={v.chassi} onChange={(ev) => setV('chassi', ev.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 17))} autoComplete="off" />
               <Input id="rc-renavam" label="RENAVAM (opcional)" placeholder="00000000000" value={v.renavam} onChange={(ev) => setV('renavam', maskRenavam(ev.target.value))} inputMode="numeric" autoComplete="off" />
             </div>
@@ -201,6 +224,10 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
             <Input id="rc-r-end" label="Endereço" placeholder="Rua, número, bairro, cidade/UF" value={e.endereco} onChange={(ev) => setE('endereco', ev.target.value)} autoComplete="off" />
           </Bloco>
         </form>
+
+        <div className="mt-4">
+          <HistoricoRecibos recarregar={recarregarHistorico} />
+        </div>
       </div>
     </div>
   )
