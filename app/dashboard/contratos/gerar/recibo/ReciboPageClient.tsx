@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { IconArrowLeft, IconFileDownload, IconReceipt } from '@tabler/icons-react'
-import { Button, Input, Select, useToast } from '@/app/components/ui'
+import { Button, Input, SegmentedControl, Select, useToast } from '@/app/components/ui'
 import { maskCPFCNPJ, maskMoney, maskPhone, maskPlate, maskRenavam, onlyDigits } from '@/utils/masks'
 import { listarClientesContratoAction } from '../actions'
 import { baixarPdf } from '../baixar-pdf'
@@ -12,7 +12,15 @@ import { useBuscaPlaca } from '../useBuscaPlaca'
 import { numeroDe, type ClienteContrato, type VeiculoParaContrato } from '../types'
 import { gerarReciboAction } from './actions'
 import HistoricoRecibos from './HistoricoRecibos'
+import ReciboPreview from './ReciboPreview'
 import { FORMAS_RECIBO, reciboVazio, validarRecibo, type ReciboInput } from './types'
+
+type Aba = 'dados' | 'simulacao'
+
+const ABAS: { value: Aba; label: string }[] = [
+  { value: 'dados', label: 'Preencher dados' },
+  { value: 'simulacao', label: 'Simulação' },
+]
 
 const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -22,6 +30,7 @@ export default function ReciboPageClient({ veiculos, podeExcluir }: { veiculos: 
   const [r, setR] = useState<ReciboInput>(reciboVazio)
   const [clientes, setClientes] = useState<ClienteContrato[]>([])
   const [recarregarHistorico, setRecarregarHistorico] = useState(0)
+  const [aba, setAba] = useState<Aba>('dados')
 
   const { pagador: p, veiculo: v, recebedor: e, pagamento: g } = r
   const setP = (campo: keyof ReciboInput['pagador'], valor: string) => setR((a) => ({ ...a, pagador: { ...a.pagador, [campo]: valor } }))
@@ -145,7 +154,30 @@ export default function ReciboPageClient({ veiculos, podeExcluir }: { veiculos: 
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-3xl">
+      {/* Fixo no topo ao rolar (mesmo esquema da página de contrato). */}
+      <div className="sticky -top-8 z-20 -mx-4 bg-slate-50/90 px-4 py-2 backdrop-blur md:-mx-8 md:px-8 adobe-dark:bg-[var(--color-adobe-bg-0)]/90">
+        <SegmentedControl options={ABAS} value={aba} onChange={setAba} ariaLabel="Seção do recibo" />
+      </div>
+
+      {aba === 'simulacao' && (
+        <section aria-label="Simulação do recibo" className="mx-auto w-full max-w-4xl space-y-3">
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
+            Simulação: o recibo ainda não foi gerado nem entrou no histórico.{' '}
+            {pendencia ? (
+              <>
+                Os campos em amarelo estão vazios. <span className="font-semibold">Falta: {pendencia}</span>
+              </>
+            ) : (
+              'Está tudo certo: use "Gerar PDF" para emitir.'
+            )}
+          </p>
+          <div className="rounded-xl border border-neutral-200 bg-neutral-100 p-3 md:p-5 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+            <ReciboPreview input={r} />
+          </div>
+        </section>
+      )}
+
+      <div className={`mx-auto w-full max-w-3xl ${aba === 'dados' ? '' : 'hidden'}`}>
         <form
           onSubmit={(ev) => {
             ev.preventDefault()
