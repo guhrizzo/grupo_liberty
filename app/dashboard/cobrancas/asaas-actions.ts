@@ -28,6 +28,7 @@ import {
   type StatusAsaasCobranca,
 } from '@/utils/asaas/ledger'
 import { sugerirPercentualReserva } from '@/utils/asaas/reserva'
+import { camposFaltando } from '@/utils/asaas/consolidada'
 
 export interface AsaasCobrancaInfo {
   paymentId: string
@@ -286,6 +287,132 @@ export async function gerarCobrancaAsaas(
     if (err instanceof AsaasError) return { error: `Asaas: ${err.message}` }
     console.error('[gerarCobrancaAsaas]', err)
     return { error: err instanceof Error ? err.message : 'Erro ao gerar cobrança.' }
+  }
+}
+
+/**
+ * Uma única cobrança no Asaas com tudo o que o cliente deve em atraso (todas as parcelas
+ * vencidas da cobrança, com multa e juros até hoje). É a cobrança que será negativada.
+ */
+export async function gerarCobrancaConsolidadaAsaas(
+  cobrancaId: string,
+  billingType: AsaasBillingType,
+): Promise<AsaasResponse<{ link: string | null }>> {
+  try {
+    const user = await autorizar()
+    if (!asaasConfigurado()) {
+      return { error: 'Asaas não configurado (ASAAS_API_KEY e ASAAS_RESERVA_WALLET_ID).' }
+    }
+    if (billingType === 'CREDIT_CARD') return { error: 'Use Pix ou boleto.' }
+
+    const cobDoc = await adminDb.collection('cobrancas').doc(cobrancaId).get()
+    const cob = cobDoc.data()
+    if (!cob) return { error: 'Cobrança não encontrada.' }
+    if (camposFaltando(cob.cliente).length > 0) {
+      return { error: 'Faltam dados do cliente (CPF, telefone ou endereço).' }
+    }
+
+    const hoje = hojeSaoPaulo()
+    // Filtra o vencimento em memória (evita índice composto no Firestore).
+    const parcelasSnap = await adminDb.collection('cobranca_parcelas').where('cobrancaId', '==', cobrancaId).get()
+    const taxas = taxasDaCobranca(cob)
+    const itens: { id: string; numero: number; devido: number; vencimento: string }[] = []
+    for (const doc of parcelasSnap.docs) {
+      const p = doc.data()
+      if (p.suspensa || !(p.dataVencimento < hoje)) continue
+      const pagSnap = await adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', doc.id).get()
+      const r = calcularParcela(p, taxas, pagamentosDoSnap(pagSnap), hoje)
+      if (r.principalRestante > EPSILON) {
+        itens.push({ id: doc.id, numero: p.numeroParcela, devido: r.totalDevido, vencimento: p.dataVencimento })
+      }
+    }
+    if (itens.length === 0) return { error: 'Não há parcelas atrasadas em aberto.' }
+    itens.sort((a, b) => a.vencimento.localeCompare(b.vencimento))
+    const ids = itens.map((i) => i.id)
+
+    // Nenhuma dessas parcelas pode já ter cobrança Asaas em aberto (própria ou consolidada).
+    const existentes = await adminDb.collection(COL_COBRANCAS).where('veiculoId', '==', cob.veiculoId).get()
+    const emAberto = existentes.docs.some((d) => {
+      const x = d.data()
+      if (!['pendente', 'vencida'].includes(x.status)) return false
+      const cobertas: string[] = x.parcelaIds ?? [x.parcelaId]
+      return cobertas.some((pid) => ids.includes(pid))
+    })
+    if (emAberto) {
+      return { error: 'Já existe cobrança Asaas em aberto para parte dessas parcelas. Cancele-a antes.' }
+    }
+
+    const total = round2(itens.reduce((s, i) => s + i.devido, 0))
+    const reserva = await lerReserva(cob.veiculoId)
+    const customer = await buscarOuCriarCliente({
+      nome: cob.clienteNome,
+      cpfCnpj: String(cob.cliente.cpf).replace(/\D/g, ''),
+      email: cob.clienteEmail,
+      telefone: cob.cliente?.telefone,
+    })
+    const numeros = itens.map((i) => i.numero).join(', ')
+    const payment = await criarCobranca({
+      customer,
+      billingType,
+      value: total,
+      dueDate: hoje,
+      description: `Parcelas em atraso (${numeros}) — ${cob.veiculoResumo}`,
+      externalReference: cobrancaId,
+      reservaPct: reserva.pct,
+    })
+    const link =
+      payment.billingType === 'BOLETO'
+        ? (payment.bankSlipUrl ?? payment.invoiceUrl ?? null)
+        : (payment.invoiceUrl ?? null)
+    await adminDb
+      .collection(COL_COBRANCAS)
+      .doc(payment.id)
+      .set({
+        veiculoId: cob.veiculoId,
+        cobrancaId,
+        parcelaId: ids[0],
+        parcelaIds: ids,
+        consolidada: true,
+        billingType,
+        valor: total,
+        vencimento: hoje,
+        status: 'pendente',
+        link,
+        reservaPct: reserva.pct,
+        divergencia: false,
+        criadoEm: new Date().toISOString(),
+        criadoPor: user.name || user.email || user.uid,
+      })
+    revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/negativacoes')
+    return { success: `Cobrança única de ${itens.length} parcela(s) gerada.`, link }
+  } catch (err) {
+    if (err instanceof AsaasError) return { error: `Asaas: ${err.message}` }
+    console.error('[gerarCobrancaConsolidadaAsaas]', err)
+    return { error: err instanceof Error ? err.message : 'Erro ao gerar cobrança.' }
+  }
+}
+
+/** Completa CPF, telefone e endereço do cliente (necessários para cobrar e negativar). */
+export async function salvarDadosClienteCobranca(
+  cobrancaId: string,
+  dados: { cpf: string; telefone: string; endereco: string },
+): Promise<AsaasResponse> {
+  try {
+    await autorizar()
+    const cpf = dados.cpf.replace(/\D/g, '')
+    const telefone = dados.telefone.replace(/\D/g, '')
+    const endereco = dados.endereco.trim()
+    if (cpf.length !== 11) return { error: 'CPF inválido (11 dígitos).' }
+    if (telefone.length < 10) return { error: 'Informe o telefone com DDD.' }
+    if (!endereco) return { error: 'Informe o endereço.' }
+    const ref = adminDb.collection('cobrancas').doc(cobrancaId)
+    if (!(await ref.get()).exists) return { error: 'Cobrança não encontrada.' }
+    await ref.set({ cliente: { cpf, telefone: dados.telefone.trim(), endereco } }, { merge: true })
+    revalidatePath('/dashboard/negativacoes')
+    return { success: 'Dados do cliente salvos.' }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Erro ao salvar.' }
   }
 }
 

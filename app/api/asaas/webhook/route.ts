@@ -5,6 +5,7 @@ import { adminDb } from '@/utils/firebase/admin'
 import { registrarPagamentoCore } from '@/utils/cobrancas/pagamento-core'
 import { buscarCobranca, type AsaasPayment } from '@/utils/asaas/client'
 import { sincronizarNegativacao } from '@/utils/asaas/negativacao'
+import { baixarParcelasConsolidadas, estornarParcelasConsolidadas } from '@/utils/asaas/consolidada'
 import {
   COL_COBRANCAS,
   COL_EVENTOS,
@@ -55,6 +56,30 @@ async function tratarRecebimento(evento: string, pagamento: AsaasPayment & { pay
   const completo = await buscarCobranca(pagamento.id).catch(() => pagamento)
 
   const data = pagamento.clientPaymentDate ?? pagamento.paymentDate ?? hojeISO()
+
+  const parcelaIds = (cob.parcelaIds as string[] | undefined) ?? []
+  if (parcelaIds.length > 1) {
+    const { sobra, erros } = await baixarParcelasConsolidadas({
+      paymentId: pagamento.id,
+      parcelaIds,
+      valor: completo.value,
+      data,
+      descricaoExtra: `Asaas ${completo.billingType} (cobrança única)`,
+    })
+    const pendencia = [
+      ...erros,
+      ...(sobra > 0 ? [`Sobraram R$ ${sobra.toFixed(2).replace('.', ',')} sem parcela para receber.`] : []),
+    ].join(' ')
+    if (pendencia) {
+      await cobRef.update({ pendenciaBaixa: pendencia })
+      console.error('[asaas/webhook] baixa consolidada com pendência:', pagamento.id, pendencia)
+    }
+    await creditarReserva(completo)
+    revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/financeiro')
+    return
+  }
+
   const r = await registrarPagamentoCore({
     parcelaId: cob.parcelaId,
     valor: completo.value,
@@ -78,7 +103,16 @@ async function tratarRecebimento(evento: string, pagamento: AsaasPayment & { pay
 /** Estorno: desfaz a baixa da parcela (e a receita) e a reserva. */
 async function tratarEstorno(paymentId: string) {
   const cobRef = adminDb.collection(COL_COBRANCAS).doc(paymentId)
-  if (!(await cobRef.get()).exists) return
+  const cobSnap = await cobRef.get()
+  if (!cobSnap.exists) return
+  const parcelaIds = (cobSnap.data()!.parcelaIds as string[] | undefined) ?? []
+  if (parcelaIds.length > 1) {
+    await estornarParcelasConsolidadas(paymentId, parcelaIds)
+    await estornarReserva(paymentId)
+    revalidatePath('/dashboard/cobrancas')
+    revalidatePath('/dashboard/financeiro')
+    return
+  }
   const pagRef = adminDb.collection('cobranca_pagamentos').doc(`asaas_${paymentId}`)
   const pag = await pagRef.get()
   const transacaoId = pag.data()?.transacaoId as string | undefined

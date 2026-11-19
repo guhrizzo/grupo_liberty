@@ -13,6 +13,9 @@ import {
   type AsaasDunningDados,
 } from '@/utils/asaas/client'
 import { COL_COBRANCAS } from '@/utils/asaas/ledger'
+import { hojeSaoPaulo } from '@/utils/cobrancas/encargos'
+import { camposFaltando, type CampoCliente } from '@/utils/asaas/consolidada'
+import { calcularParcela, pagamentosDoSnap, taxasDaCobranca, EPSILON } from '@/utils/cobrancas/pagamento-core'
 import {
   NEGATIVACAO_ATIVA,
   registroDeDunning,
@@ -220,6 +223,131 @@ export interface LinhaNegativacao {
   vencimento: string
   statusCobranca: string
   negativacao: NegativacaoRegistro | null
+}
+
+export interface ParcelaAtrasadaItem {
+  parcelaId: string
+  numeroParcela: number
+  vencimento: string
+  diasAtraso: number
+  /** Total devido hoje nesta parcela (principal + multa + juros). */
+  totalDevido: number
+}
+
+/** Tudo o que um cliente (uma cobrança/contrato) deve em atraso, somado. */
+export interface ClienteAtrasado {
+  cobrancaId: string
+  clienteNome: string
+  veiculoResumo: string
+  numeroParcelas: number
+  parcelas: ParcelaAtrasadaItem[]
+  totalDevido: number
+  /** Dados do cliente já cadastrados (para pré-preencher o modal). */
+  dados: { cpf: string; telefone: string; endereco: string }
+  faltando: CampoCliente[]
+  /** Cobrança Asaas já gerada que ainda não venceu (aguardando virar "vencida"). */
+  asaas: { paymentId: string; billingType: string; vencimento: string; link: string | null } | null
+}
+
+/**
+ * Clientes com parcelas atrasadas no sistema que ainda não têm cobrança vencida (ou negativação) no Asaas.
+ * O Asaas só negativa cobranças dele: para estes, gera-se UMA cobrança com o total devido, espera-se vencer e negativa-se.
+ */
+export async function listarParcelasAtrasadasSemAsaas(): Promise<ClienteAtrasado[]> {
+  const user = await getSessionUser()
+  if (!user || !hasPageAccess(user, 'cobrancas')) return []
+
+  const hoje = hojeSaoPaulo()
+  const [parcelasSnap, asaasSnap] = await Promise.all([
+    adminDb.collection('cobranca_parcelas').where('dataVencimento', '<', hoje).get(),
+    adminDb.collection(COL_COBRANCAS).get(),
+  ])
+
+  // Cobranças Asaas por parcela (inclui as consolidadas, que cobrem várias parcelas).
+  const porParcela = new Map<string, FirebaseFirestore.DocumentData[]>()
+  for (const doc of asaasSnap.docs) {
+    const d = doc.data()
+    const cobertas: string[] = d.parcelaIds ?? (d.parcelaId ? [d.parcelaId] : [])
+    for (const pid of cobertas) {
+      porParcela.set(pid, [...(porParcela.get(pid) ?? []), { ...d, _id: doc.id }])
+    }
+  }
+
+  const candidatas = parcelasSnap.docs.filter((doc) => {
+    if (doc.data().suspensa) return false
+    const asaas = porParcela.get(doc.id) ?? []
+    return !asaas.some((a) => a.status === 'vencida' || a.status === 'recebida' || a.negativacao)
+  })
+
+  const cobIds = [...new Set(candidatas.map((doc) => doc.data().cobrancaId as string))]
+  const cobs = new Map<string, FirebaseFirestore.DocumentData>()
+  await Promise.all(
+    cobIds.map(async (id) => {
+      const s = await adminDb.collection('cobrancas').doc(id).get()
+      if (s.exists) cobs.set(id, s.data()!)
+    }),
+  )
+
+  const itens = await Promise.all(
+    candidatas.map(async (doc) => {
+      const p = doc.data()
+      const cob = cobs.get(p.cobrancaId)
+      if (!cob) return null
+      const pagSnap = await adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', doc.id).get()
+      const r = calcularParcela(p, taxasDaCobranca(cob), pagamentosDoSnap(pagSnap), hoje)
+      if (r.principalRestante <= EPSILON) return null
+      const item: ParcelaAtrasadaItem = {
+        parcelaId: doc.id,
+        numeroParcela: p.numeroParcela as number,
+        vencimento: p.dataVencimento as string,
+        diasAtraso: Math.max(
+          0,
+          Math.round((Date.parse(hoje) - Date.parse(p.dataVencimento as string)) / 86_400_000),
+        ),
+        totalDevido: r.totalDevido,
+      }
+      const pendente = (porParcela.get(doc.id) ?? []).find((a) => a.status === 'pendente')
+      return { cobrancaId: p.cobrancaId as string, item, pendente }
+    }),
+  )
+
+  const grupos = new Map<string, ClienteAtrasado>()
+  for (const x of itens) {
+    if (!x) continue
+    let g = grupos.get(x.cobrancaId)
+    if (!g) {
+      const cob = cobs.get(x.cobrancaId)!
+      g = {
+        cobrancaId: x.cobrancaId,
+        clienteNome: (cob.clienteNome as string) ?? '—',
+        veiculoResumo: (cob.veiculoResumo as string) ?? '',
+        numeroParcelas: (cob.numeroParcelas as number) ?? 0,
+        parcelas: [],
+        totalDevido: 0,
+        dados: {
+          cpf: String(cob.cliente?.cpf ?? ''),
+          telefone: String(cob.cliente?.telefone ?? ''),
+          endereco: String(cob.cliente?.endereco ?? ''),
+        },
+        faltando: camposFaltando(cob.cliente),
+        asaas: null,
+      }
+      grupos.set(x.cobrancaId, g)
+    }
+    g.parcelas.push(x.item)
+    g.totalDevido = Math.round((g.totalDevido + x.item.totalDevido) * 100) / 100
+    if (x.pendente && !g.asaas) {
+      g.asaas = {
+        paymentId: x.pendente._id as string,
+        billingType: x.pendente.billingType as string,
+        vencimento: x.pendente.vencimento as string,
+        link: (x.pendente.link as string | null) ?? null,
+      }
+    }
+  }
+  return [...grupos.values()]
+    .map((g) => ({ ...g, parcelas: g.parcelas.sort((a, b) => a.vencimento.localeCompare(b.vencimento)) }))
+    .sort((a, b) => a.parcelas[0].vencimento.localeCompare(b.parcelas[0].vencimento))
 }
 
 /** Cobranças vencidas (candidatas) e cobranças com negativação, para a aba Negativações. */
