@@ -20,6 +20,7 @@ import {
   IconPencil,
   IconTrash,
   IconTrendingUp,
+  IconTrendingDown,
   IconChevronLeft,
   IconChevronRight,
   IconCalendarMonth,
@@ -516,56 +517,68 @@ export default function FinanceiroClient({
       <>
       <ContasNaoPagas pendencias={pendenciasContasFixas} navegando={navegando} />
 
-      {/* Cards de Métricas — todos referentes ao mês selecionado. Só ADM supremo. */}
+      {/* Resumo do mês — receitas, despesas e resultado numa tabela só, como células de planilha
+          (+) receitas (−) despesas (=) resultado. Todos referentes ao mês selecionado. Só ADM supremo. */}
       {podeVerResumo && (
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 adobe-dark:text-adobe-text-lo">
-              Balanço do mês
+      <dl
+        aria-label={`Resumo de ${rotuloMesCurto(mes)}`}
+        className="grid grid-cols-1 divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xs sm:grid-cols-3 sm:divide-x sm:divide-y-0 adobe-dark:divide-adobe-line adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2"
+      >
+        {/* (+) Receitas */}
+        <div>
+          <dt className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-5 py-2.5 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500 adobe-dark:text-adobe-text-lo">
+              (+) Receitas do mês (concluídas)
             </span>
-            <div className="h-9 w-9 rounded-xl bg-liberty/10 text-liberty-deep flex items-center justify-center adobe-dark:bg-adobe-accent/15 adobe-dark:text-adobe-accent-soft">
-              <IconWallet size={20} stroke={2} />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">
-            {formatCurrency(saldoTotal)}
-          </p>
-          <p className="mt-1 text-xs font-semibold text-emerald-600 flex items-center gap-1 adobe-dark:text-emerald-400">
-            <IconTrendingUp size={14} /> Receitas − despesas de {rotuloMesCurto(mes)}
-          </p>
+            <IconArrowUpRight size={16} stroke={2.5} className="shrink-0 text-emerald-600 adobe-dark:text-emerald-400" aria-hidden />
+          </dt>
+          <dd className="px-5 py-4">
+            <p className="text-2xl font-black tabular-nums text-emerald-600 adobe-dark:text-emerald-400">{formatCurrency(totalReceitas)}</p>
+            <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">Vendas de veículos e serviços</p>
+          </dd>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 adobe-dark:text-adobe-text-lo">
-              Receitas do mês (concluídas)
+        {/* (−) Despesas */}
+        <div>
+          <dt className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-5 py-2.5 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-500 adobe-dark:text-adobe-text-lo">
+              (−) Despesas do mês (concluídas)
             </span>
-            <div className="h-9 w-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center adobe-dark:bg-emerald-500/15 adobe-dark:text-emerald-400">
-              <IconArrowUpRight size={20} stroke={2} />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">
-            {formatCurrency(totalReceitas)}
-          </p>
-          <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">Vendas de veículos e serviços</p>
+            <IconArrowDownRight size={16} stroke={2.5} className="shrink-0 text-rose-600 adobe-dark:text-rose-400" aria-hidden />
+          </dt>
+          <dd className="px-5 py-4">
+            <p className="text-2xl font-black tabular-nums text-rose-600 adobe-dark:text-rose-400">{formatCurrency(totalDespesas)}</p>
+            <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">Comissões, manutenção e taxas</p>
+          </dd>
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-xs adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-400 adobe-dark:text-adobe-text-lo">
-              Despesas do mês (concluídas)
+        {/* (=) Resultado: destacado, verde no lucro e vermelho no prejuízo */}
+        <div className={saldoTotal >= 0 ? 'bg-emerald-50/60 adobe-dark:bg-emerald-500/5' : 'bg-rose-50/60 adobe-dark:bg-rose-500/5'}>
+          <dt className="flex items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-100 px-5 py-2.5 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-neutral-600 adobe-dark:text-adobe-text-md">
+              (=) Resultado do mês
             </span>
-            <div className="h-9 w-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center adobe-dark:bg-rose-500/15 adobe-dark:text-rose-400">
-              <IconArrowDownRight size={20} stroke={2} />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-black text-neutral-950 adobe-dark:text-adobe-text-hi">
-            {formatCurrency(totalDespesas)}
-          </p>
-          <p className="mt-1 text-xs text-neutral-500 adobe-dark:text-adobe-text-lo">Comissões, manutenção e taxas</p>
+            <IconWallet size={16} stroke={2.5} className="shrink-0 text-neutral-500 adobe-dark:text-adobe-text-lo" aria-hidden />
+          </dt>
+          <dd className="px-5 py-4">
+            <p
+              className={`text-2xl font-black tabular-nums ${
+                saldoTotal >= 0 ? 'text-emerald-600 adobe-dark:text-emerald-400' : 'text-rose-600 adobe-dark:text-rose-400'
+              }`}
+            >
+              {formatCurrency(saldoTotal)}
+            </p>
+            <p
+              className={`mt-1 flex items-center gap-1 text-xs font-semibold ${
+                saldoTotal >= 0 ? 'text-emerald-600 adobe-dark:text-emerald-400' : 'text-rose-600 adobe-dark:text-rose-400'
+              }`}
+            >
+              {saldoTotal >= 0 ? <IconTrendingUp size={14} aria-hidden /> : <IconTrendingDown size={14} aria-hidden />}
+              Receitas − despesas de {rotuloMesCurto(mes)}
+            </p>
+          </dd>
         </div>
-      </div>
+      </dl>
       )}
 
       {/* Tabela de Lançamentos */}
