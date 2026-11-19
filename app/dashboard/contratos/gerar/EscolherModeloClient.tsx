@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { IconArrowLeft, IconArrowRight, IconFileText } from '@tabler/icons-react'
+import { IconArrowLeft, IconArrowRight, IconFileText, IconReceipt } from '@tabler/icons-react'
 import { TIPOS_CONTRATO_GERADO } from './types'
 
 const CARD =
@@ -38,6 +38,20 @@ export default function EscolherModeloClient() {
             </span>
           </Link>
         ))}
+
+        <Link href="/dashboard/contratos/gerar/recibo" className={CARD}>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-liberty/10 text-liberty">
+            <IconReceipt size={22} stroke={1.8} />
+          </span>
+          <span className="mt-5 block text-lg font-extrabold leading-snug text-neutral-950">Recibo de pagamento</span>
+          <span className="mt-2 block flex-1 text-sm leading-relaxed text-neutral-500">
+            Recibo do valor recebido por um veículo, com os dados do cliente, do veículo e do pagamento (total e saldo opcionais).
+          </span>
+          <span className="mt-6 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-liberty-deep">
+            Gerar recibo
+            <IconArrowRight size={14} stroke={2.5} className="transition-transform duration-200 group-hover:translate-x-1" />
+          </span>
+        </Link>
       </div>
     </div>
   )

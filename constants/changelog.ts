@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-19-recibo-de-pagamento',
+    date: '2026-11-19',
+    title: 'Recibo de pagamento de veículo',
+    tag: 'novo',
+    items: [
+      'Em Contratos > Gerar, novo modelo "Recibo de pagamento": informe cliente, veículo, valor e data, e gere o PDF.',
+      'Dá para escolher o veículo do estoque, informar o valor total do contrato (o recibo mostra o saldo e se o pagamento é parcial ou integral) e guardar o recibo nos documentos do veículo.',
+      'Gerar contrato: ao completar a placa, o sistema busca marca, modelo, ano, cor, chassi e RENAVAM; as testemunhas agora são editáveis em todos os modelos.',
+    ],
+  },
+  {
     id: '2026-11-18-registro-de-ponto',
     date: '2026-11-18',
     title: 'Registro de ponto por QR code',
