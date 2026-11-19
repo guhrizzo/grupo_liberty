@@ -114,7 +114,21 @@ export const FORMAS_PAGAMENTO = [
   { value: 'pix', label: 'PIX' },
   { value: 'transferencia', label: 'Transferência bancária' },
   { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'combinada', label: 'Combinar formas (ex.: parte em PIX, parte em dinheiro)' },
 ] as const
+
+/** Valor da forma de pagamento "combinada": paga o preço em mais de uma forma. */
+export const FORMA_COMBINADA = 'combinada'
+
+/** Formas que podem compor um pagamento combinado (todas menos a própria "combinada"). */
+export const FORMAS_PARTE = FORMAS_PAGAMENTO.filter((f) => f.value !== FORMA_COMBINADA)
+
+/** Uma parte do pagamento combinado: quanto, e de que forma. */
+export interface PagamentoParteInput {
+  forma: string
+  /** "1.234,56" */
+  valor: string
+}
 
 /** Condições financeiras da locação com opção de aquisição. */
 export interface LocacaoInput {
@@ -208,6 +222,8 @@ export interface CompraInput {
   prazoQuitacao: string
   valorTotal: string
   formaPagamento: string
+  /** Partes do pagamento quando `formaPagamento` é "combinada" (a soma deve igualar o valor total). */
+  pagamentoCombinado: PagamentoParteInput[]
   // ── Só na promessa parcelada ──
   intermediador: IntermediadorInput
   testemunhas: TestemunhaInput[]
@@ -261,6 +277,7 @@ export const compraVazia = (parcelado = false, testemunhas: TestemunhaInput[] = 
   conservacao: parcelado ? 'USADO' : '',
   tipoFinanciamento: '', valorFinanciado: '', saldoDevedor: '',
   prazoQuitacao: '12', valorTotal: '', formaPagamento: 'pix',
+  pagamentoCombinado: [{ forma: 'pix', valor: '' }, { forma: 'dinheiro', valor: '' }],
   intermediador: parcelado
     ? { ...INTERMEDIADOR_PADRAO }
     : { razaoSocial: '', cnpj: '', endereco: '', nome: '', nacionalidade: '', estadoCivil: '', cpf: '', email: '' },
@@ -358,6 +375,26 @@ function validarTestemunhas(k: CompraInput): string | null {
   return null
 }
 
+/** Pagamento em mais de uma forma: cada parte com forma e valor, somando exatamente o valor total. */
+function validarPagamentoCombinado(k: CompraInput): string | null {
+  const partes = k.pagamentoCombinado
+  if (partes.length < 2) return 'No pagamento combinado, informe pelo menos duas formas.'
+  let soma = 0
+  for (let n = 0; n < partes.length; n++) {
+    const p = partes[n]
+    if (!FORMAS_PARTE.some((f) => f.value === p.forma)) return `Escolha a forma de pagamento da parte ${n + 1}.`
+    const v = numeroDe(p.valor)
+    if (!(v > 0)) return `Informe o valor da parte ${n + 1} do pagamento.`
+    soma += v
+  }
+  const total = numeroDe(k.valorTotal)
+  if (Math.abs(soma - total) > 0.005) {
+    const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    return `As formas de pagamento somam ${reais(soma)}, mas o valor total do contrato é ${reais(total)}.`
+  }
+  return null
+}
+
 /** Parte própria da promessa parcelada: intermediador, testemunhas, parcelas, local e data. */
 function validarParcelada(i: GerarContratoInput): string | null {
   const k = i.compra
@@ -426,6 +463,10 @@ function validarCompra(i: GerarContratoInput): string | null {
   if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor total do contrato.'
   if (parcelado) return validarParcelada(i)
   if (!FORMAS_PAGAMENTO.some((f) => f.value === k.formaPagamento)) return 'Informe a forma de pagamento.'
+  if (k.formaPagamento === FORMA_COMBINADA) {
+    const erroPartes = validarPagamentoCombinado(k)
+    if (erroPartes) return erroPartes
+  }
   return validarTestemunhas(k)
 }
 

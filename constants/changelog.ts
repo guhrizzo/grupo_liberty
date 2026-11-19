@@ -32,6 +32,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Em Contratos > Gerar, novo modelo "Recibo de pagamento": informe cliente, veículo, valor e data, e gere o PDF.',
       'Dá para escolher o veículo do estoque, informar o valor total do contrato (o recibo mostra o saldo e se o pagamento é parcial ou integral) e guardar o recibo nos documentos do veículo.',
       'O recibo busca os dados do veículo pela placa, tem a aba "Simulação" para ver como ele vai ficar antes de gerar, e todo recibo gerado entra no histórico, por mês, com o total recebido e o PDF para baixar de novo.',
+      'Promessa de compra à vista: nova forma de pagamento "Combinar formas", para dividir o preço entre PIX, transferência e dinheiro (ex.: R$ 150 em PIX + R$ 200 em dinheiro). A soma precisa bater com o valor total.',
       'Gerar contrato: ao completar a placa, o sistema busca marca, modelo, ano, cor, chassi e RENAVAM; as testemunhas agora são editáveis em todos os modelos.',
     ],
   },

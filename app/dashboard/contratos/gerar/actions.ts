@@ -134,6 +134,10 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       prazoQuitacao: txt(k.prazoQuitacao, 4),
       valorTotal: txt(k.valorTotal, 20),
       formaPagamento: txt(k.formaPagamento, 20),
+      pagamentoCombinado: (Array.isArray(k.pagamentoCombinado) ? k.pagamentoCombinado.slice(0, 6) : []).map((x) => {
+        const r = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>
+        return { forma: txt(r.forma, 20), valor: txt(r.valor, 20) }
+      }),
       intermediador: normalizarIntermediador(k.intermediador),
       testemunhas: [0, 1].map((n) => normalizarTestemunha(Array.isArray(k.testemunhas) ? k.testemunhas[n] : null)),
       pagamentos: txt(k.pagamentos, 2),

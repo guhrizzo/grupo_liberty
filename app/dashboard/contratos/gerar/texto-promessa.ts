@@ -10,6 +10,7 @@ import type { BlocoContrato, ContratoBlocos } from './blocos'
 import { assinaturasTestemunhas, dataPorExtenso, dinheiro, inteiroPorExtenso, meses } from './texto'
 import {
   FORMAS_PAGAMENTO,
+  FORMA_COMBINADA,
   INTERMEDIADOR_PADRAO,
   TIPO_PROMESSA_PARCELADA,
   numeroDe,
@@ -72,6 +73,17 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
   const pagasOk = /^\d+$/.test(p.parcelasPagas.trim())
   const vincendas = qtdOk && pagasOk ? String(Math.max(0, Number(p.qtdParcelas) - Number(p.parcelasPagas))) : lacuna('parcelas vincendas')
   const forma = FORMA_TEXTO[k.formaPagamento] ?? FORMAS_PAGAMENTO.find((f) => f.value === k.formaPagamento)?.label ?? lacuna('forma de pagamento')
+  // Pagamento combinado: "R$ 150,00 (...) em PIX e R$ 200,00 (...) em dinheiro".
+  const combinado = k.formaPagamento === FORMA_COMBINADA
+  const partesTexto = k.pagamentoCombinado.map(
+    (x) => `**${dinheiro(x.valor, 'valor da parte')} em ${FORMA_TEXTO[x.forma] ?? lacuna('forma da parte')}**`,
+  )
+  const formaCombinada =
+    partesTexto.length === 0
+      ? lacuna('formas de pagamento')
+      : partesTexto.length === 1
+        ? partesTexto[0]
+        : `${partesTexto.slice(0, -1).join(', ')} e ${partesTexto[partesTexto.length - 1]}`
   const nomeComprador = c.nome.trim() ? c.nome.trim().toUpperCase() : lacuna('NOME COMPLETO')
   const cpfComprador = onlyDigits(c.cpf) ? maskCPFCNPJ(c.cpf) : lacuna('CPF')
   const estadoCivil = ESTADOS_CIVIS.some((e) => e.value === c.estadoCivil) ? labelEstadoCivil(c.estadoCivil).toLowerCase() : lacuna('estado civil')
@@ -271,7 +283,7 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
     },
     {
       tipo: 'p',
-      texto: `**6.2.** O pagamento do valor integral previsto no item 6.1 será realizado à vista, em parcela única, mediante pagamento em **${forma}**, na data de assinatura deste contrato.`,
+      texto: `**6.2.** O pagamento do valor integral previsto no item 6.1 será realizado à vista, em parcela única, mediante pagamento ${combinado ? `de ${formaCombinada}` : `em **${forma}**`}, na data de assinatura deste contrato.`,
     },
     {
       tipo: 'p',

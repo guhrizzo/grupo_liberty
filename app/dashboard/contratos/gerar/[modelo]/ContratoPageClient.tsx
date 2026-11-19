@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { IconArrowLeft, IconFileDownload, IconFileText } from '@tabler/icons-react'
+import { IconArrowLeft, IconFileDownload, IconFileText, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Button, Input, SegmentedControl, Select, useToast } from '@/app/components/ui'
 import { ESTADOS_CIVIS } from '@/utils/cobrancas/pessoa'
 import { maskCPFCNPJ, maskMoney, maskPhone, maskPlate, maskRenavam, moneyFromNumber, onlyDigits } from '@/utils/masks'
@@ -14,6 +14,8 @@ import { useBuscaPlaca } from '../useBuscaPlaca'
 import { montarContratoGerado } from '../montar'
 import {
   FORMAS_PAGAMENTO,
+  FORMAS_PARTE,
+  FORMA_COMBINADA,
   TIPOS_CONTRATO_GERADO,
   TIPO_LOCACAO,
   TIPO_PRESTACAO_CASAL,
@@ -90,6 +92,17 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
   )
   const contrato = useMemo(() => montarContratoGerado(input), [input])
   const pendencia = useMemo(() => validarGerarContrato(input), [input])
+
+  const combinada = k.formaPagamento === FORMA_COMBINADA
+  const mudarParte = (idx: number, campo: 'forma' | 'valor', valor: string) =>
+    setK((a) => ({ ...a, pagamentoCombinado: a.pagamentoCombinado.map((p, n) => (n === idx ? { ...p, [campo]: valor } : p)) }))
+  const adicionarParte = () =>
+    setK((a) => (a.pagamentoCombinado.length >= 6 ? a : { ...a, pagamentoCombinado: [...a.pagamentoCombinado, { forma: 'pix', valor: '' }] }))
+  const removerParte = (idx: number) =>
+    setK((a) => ({ ...a, pagamentoCombinado: a.pagamentoCombinado.filter((_, n) => n !== idx) }))
+  const somaPartes = k.pagamentoCombinado.reduce((s, p) => s + (numeroDe(p.valor) || 0), 0)
+  const totalPartes = numeroDe(k.valorTotal) || 0
+  const faltaPartes = Math.round((totalPartes - somaPartes) * 100) / 100
 
   const mudarIntermediador = (campo: keyof typeof k.intermediador, valor: string) =>
     setK((a) => ({ ...a, intermediador: { ...a.intermediador, [campo]: valor } }))
@@ -373,6 +386,41 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
             </div>
             {!parcelado && (
               <Select id="gc-forma" label="Forma de pagamento" value={k.formaPagamento} onChange={(e) => setK({ ...k, formaPagamento: e.target.value })} options={FORMAS_PAGAMENTO.map((f) => ({ value: f.value, label: f.label }))} />
+            )}
+            {!parcelado && combinada && (
+              <div className="space-y-2.5 rounded-lg border border-neutral-200 p-3 adobe-dark:border-adobe-line">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500">Partes do pagamento</p>
+                {k.pagamentoCombinado.map((parte, idx) => (
+                  <div key={idx} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                    <Select
+                      id={`gc-parte${idx}-forma`}
+                      label={`Parte ${idx + 1} — forma`}
+                      value={parte.forma}
+                      onChange={(e) => mudarParte(idx, 'forma', e.target.value)}
+                      options={FORMAS_PARTE.map((f) => ({ value: f.value, label: f.label }))}
+                    />
+                    <Input id={`gc-parte${idx}-valor`} label="Valor (R$)" placeholder="R$ 0,00" value={parte.valor} onChange={(e) => mudarParte(idx, 'valor', maskMoney(e.target.value))} inputMode="numeric" autoComplete="off" />
+                    <Button variant="ghost" aria-label={`Remover parte ${idx + 1}`} title="Remover parte" disabled={k.pagamentoCombinado.length <= 2} onClick={() => removerParte(idx)}>
+                      <IconTrash size={16} />
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button variant="ghost" leftIcon={<IconPlus size={14} />} disabled={k.pagamentoCombinado.length >= 6} onClick={adicionarParte}>
+                    Adicionar forma
+                  </Button>
+                  <p
+                    className={`text-xs font-semibold ${
+                      totalPartes > 0 && Math.abs(faltaPartes) < 0.005
+                        ? 'text-emerald-700 adobe-dark:text-emerald-300'
+                        : 'text-amber-700 adobe-dark:text-amber-300'
+                    }`}
+                  >
+                    Soma {reais(somaPartes)} de {reais(totalPartes)}
+                    {totalPartes > 0 && Math.abs(faltaPartes) >= 0.005 ? (faltaPartes > 0 ? ` · faltam ${reais(faltaPartes)}` : ` · passou ${reais(-faltaPartes)}`) : ''}
+                  </p>
+                </div>
+              </div>
             )}
           </Bloco>
           )}
