@@ -16,7 +16,7 @@ import { FORMAS_RECIBO, reciboVazio, validarRecibo, type ReciboInput } from './t
 
 const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaContrato[] }) {
+export default function ReciboPageClient({ veiculos, podeExcluir }: { veiculos: VeiculoParaContrato[]; podeExcluir: boolean }) {
   const toast = useToast()
   const [isPending, startTransition] = useTransition()
   const [r, setR] = useState<ReciboInput>(reciboVazio)
@@ -226,7 +226,7 @@ export default function ReciboPageClient({ veiculos }: { veiculos: VeiculoParaCo
         </form>
 
         <div className="mt-4">
-          <HistoricoRecibos recarregar={recarregarHistorico} />
+          <HistoricoRecibos recarregar={recarregarHistorico} podeExcluir={podeExcluir} />
         </div>
       </div>
     </div>

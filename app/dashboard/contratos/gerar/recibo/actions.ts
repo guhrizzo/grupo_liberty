@@ -235,3 +235,27 @@ export async function baixarReciboAction(id: string): Promise<BaixarReciboRespon
     return { error: 'Não foi possível gerar o PDF do recibo.' }
   }
 }
+
+/** Exclui um recibo do histórico. Só administradores: é registro de dinheiro recebido. */
+export async function excluirReciboAction(id: string): Promise<{ success: string } | { error: string }> {
+  let user: Awaited<ReturnType<typeof assertPodeGerarContratos>>
+  try {
+    user = await assertPodeGerarContratos()
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Acesso negado.' }
+  }
+  if (user.role !== 'admin') return { error: 'Apenas administradores podem excluir recibos.' }
+  if (!/^[A-Za-z0-9]{1,40}$/.test(id)) return { error: 'Recibo inválido.' }
+  try {
+    const ref = adminDb.collection(COLECAO).doc(id)
+    const snap = await ref.get()
+    if (!snap.exists) return { error: 'Recibo não encontrado (talvez já excluído).' }
+    const x = snap.data()!
+    await ref.delete()
+    console.info('[excluirReciboAction]', id, x.pagadorNome, x.valor, 'por', user.email ?? user.uid)
+    return { success: 'Recibo excluído do histórico.' }
+  } catch (err) {
+    console.error('[excluirReciboAction]', err)
+    return { error: 'Não foi possível excluir o recibo.' }
+  }
+}

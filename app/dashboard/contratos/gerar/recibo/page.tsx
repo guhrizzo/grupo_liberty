@@ -20,5 +20,5 @@ export default async function ReciboPage() {
   }
 
   const veiculos = (await getVehicles()).map(paraVeiculoContrato)
-  return <ReciboPageClient veiculos={veiculos} />
+  return <ReciboPageClient veiculos={veiculos} podeExcluir={user.role === 'admin'} />
 }

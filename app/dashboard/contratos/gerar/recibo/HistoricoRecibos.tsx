@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { IconChevronLeft, IconChevronRight, IconFileDownload } from '@tabler/icons-react'
-import { Button, Input, useToast } from '@/app/components/ui'
+import { IconChevronLeft, IconChevronRight, IconFileDownload, IconTrash } from '@tabler/icons-react'
+import { Button, ConfirmDialog, Input, useToast } from '@/app/components/ui'
 import { maskCPFCNPJ } from '@/utils/masks'
 import { baixarPdf } from '../baixar-pdf'
-import { baixarReciboAction, listarRecibosAction } from './actions'
+import { baixarReciboAction, excluirReciboAction, listarRecibosAction } from './actions'
 import type { ReciboRegistro } from './types'
 
 const reais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -24,11 +24,14 @@ function deslocar(mes: string, delta: number): string {
 }
 
 /** Histórico de recibos gerados, por mês de pagamento. `recarregar` muda quando um novo recibo é gerado. */
-export default function HistoricoRecibos({ recarregar }: { recarregar: number }) {
+export default function HistoricoRecibos({ recarregar, podeExcluir }: { recarregar: number; podeExcluir: boolean }) {
   const toast = useToast()
   const [mes, setMes] = useState('')
   const [recibos, setRecibos] = useState<ReciboRegistro[] | null>(null)
   const [baixando, setBaixando] = useState<string | null>(null)
+  const [excluindo, setExcluindo] = useState<ReciboRegistro | null>(null)
+  const [apagando, setApagando] = useState(false)
+  const [versao, setVersao] = useState(0)
 
   // Mês inicial = o atual (fuso do navegador), depois da montagem para não divergir na hidratação.
   useEffect(() => {
@@ -54,7 +57,7 @@ export default function HistoricoRecibos({ recarregar }: { recarregar: number })
     return () => {
       vivo = false
     }
-  }, [mes, recarregar, toast])
+  }, [mes, recarregar, versao, toast])
 
   async function baixar(id: string) {
     setBaixando(id)
@@ -65,6 +68,20 @@ export default function HistoricoRecibos({ recarregar }: { recarregar: number })
       return
     }
     baixarPdf(res.pdfBase64, res.fileName)
+  }
+
+  async function excluir() {
+    if (!excluindo) return
+    setApagando(true)
+    const res = await excluirReciboAction(excluindo.id)
+    setApagando(false)
+    if ('error' in res) {
+      toast.error(res.error, 'Não foi possível excluir')
+      return
+    }
+    toast.success(res.success)
+    setExcluindo(null)
+    setVersao((n) => n + 1)
   }
 
   const total = (recibos ?? []).reduce((s, r) => s + r.valor, 0)
@@ -114,12 +131,35 @@ export default function HistoricoRecibos({ recarregar }: { recarregar: number })
                   <Button variant="ghost" leftIcon={<IconFileDownload size={14} />} loading={baixando === r.id} loadingLabel="Gerando..." onClick={() => baixar(r.id)}>
                     PDF
                   </Button>
+                  {podeExcluir && (
+                    <Button variant="ghost" aria-label={`Excluir recibo de ${r.pagadorNome}`} title="Excluir recibo" onClick={() => setExcluindo(r)}>
+                      <IconTrash size={16} />
+                    </Button>
+                  )}
                 </div>
               </li>
             ))}
           </ul>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!excluindo}
+        onClose={() => !apagando && setExcluindo(null)}
+        onConfirm={excluir}
+        title="Excluir recibo?"
+        tone="danger"
+        confirmLabel="Excluir"
+        loading={apagando}
+        description={
+          excluindo && (
+            <>
+              Recibo de <strong>{excluindo.pagadorNome}</strong> de {reais(excluindo.valor)} ({dataCurta(excluindo.data)}) será removido do
+              histórico. Não dá para desfazer. Se ele foi guardado nos documentos do veículo, essa cópia continua lá.
+            </>
+          )
+        }
+      />
     </section>
   )
 }
