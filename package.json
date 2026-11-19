@@ -12,6 +12,7 @@
     "encargos:antigas": "tsx scripts/encargos-cobrancas-antigas.ts",
     "leads:duplicados": "tsx scripts/apagar-leads-duplicados.ts",
     "propostas:recalcular": "tsx scripts/recalcular-propostas.ts",
+    "ponto:migrar": "tsx scripts/migrar-ponto-folha-unica.ts",
     "test": "vitest run"
   },
   "dependencies": {
