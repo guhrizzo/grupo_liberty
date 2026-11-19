@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       mes,
       registros: folha.registros,
       jornadaMin: func.jornadaMin,
+      diasEspeciais: folha.diasEspeciais.filter((d) => d.uid === uid).map((d) => ({ data: d.data, tipo: d.tipo, nome: d.nome })),
     }) as Parameters<typeof renderToBuffer>[0],
   )
 

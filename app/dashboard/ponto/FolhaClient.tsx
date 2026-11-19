@@ -2,12 +2,12 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { IconFileSpreadsheet, IconFileTypePdf, IconMapPin, IconPencil, IconQrcode } from '@tabler/icons-react'
+import { IconCalendarEvent, IconFileSpreadsheet, IconFileTypePdf, IconMapPin, IconPencil, IconQrcode } from '@tabler/icons-react'
 import { Button, Card, EmptyState, Modal, StatusBadge, useToast } from '@/app/components/ui'
-import { BATIDAS, BATIDA_LABEL, type Batida, type RegistroPonto } from '@/constants/ponto'
+import { BATIDAS, BATIDA_LABEL, FERIADOS_NACIONAIS_FIXOS, FERIADOS_SUGESTOES, TIPO_DIA_LABEL, TIPOS_DIA_ESPECIAL, type Batida, type RegistroPonto, type TipoDiaEspecial } from '@/constants/ponto'
 import { diasDoMes, formatarMinutos, horaSP, minutosTrabalhados, saldoDia } from '@/utils/ponto/calculo'
 import { useDispositivoMobile } from '@/utils/ponto/useDispositivoMobile'
-import { editarBatida, getFolhaMes, salvarJornada, type FolhaMes } from './actions'
+import { editarBatida, getFolhaMes, marcarDiaEspecial, salvarJornada, type FolhaMes } from './actions'
 
 const inputCls =
   'w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-900 focus:border-liberty focus:outline-none focus:ring-4 focus:ring-liberty/15'
@@ -50,6 +50,8 @@ export default function FolhaClient({
   const [motivo, setMotivo] = useState('')
   const [salvando, salvar] = useTransition()
 
+  const [diaEspecial, setDiaEspecial] = useState<{ data: string; tipo: TipoDiaEspecial | ''; nome: string } | null>(null)
+
   const [jornadaUid, setJornadaUid] = useState<string | null>(null)
   const [jornadaTxt, setJornadaTxt] = useState('08:00')
 
@@ -76,6 +78,10 @@ export default function FolhaClient({
 
   const func = folha.funcionarios.find((f) => f.uid === uid) ?? null
   const porData = useMemo(() => new Map(folha.registros.map((r) => [r.data, r])), [folha.registros])
+  const diaEspecialPorData = useMemo(
+    () => new Map(folha.diasEspeciais.filter((d) => d.uid === uid).map((d) => [d.data, d])),
+    [folha.diasEspeciais, uid],
+  )
   const totalSel = folha.totais.find((t) => t.uid === uid)
 
   function abrirEdicao(data: string, campo: Batida) {
@@ -92,6 +98,25 @@ export default function FolhaClient({
       if (r.ok) {
         toast.success('Batida atualizada.')
         setEditando(null)
+        recarregar()
+      } else {
+        toast.error(r.erro)
+      }
+    })
+  }
+
+  function abrirDiaEspecial(data: string) {
+    const atual = diaEspecialPorData.get(data)
+    setDiaEspecial({ data, tipo: atual?.tipo ?? '', nome: atual?.nome ?? '' })
+  }
+
+  function confirmarDiaEspecial() {
+    if (!diaEspecial || !uid) return
+    salvar(async () => {
+      const r = await marcarDiaEspecial({ uid, data: diaEspecial.data, tipo: diaEspecial.tipo || null, nome: diaEspecial.nome })
+      if (r.ok) {
+        toast.success(diaEspecial.tipo ? `Dia marcado como ${TIPO_DIA_LABEL[diaEspecial.tipo].toLowerCase()}.` : 'Marcação removida.')
+        setDiaEspecial(null)
         recarregar()
       } else {
         toast.error(r.erro)
@@ -240,7 +265,26 @@ export default function FolhaClient({
                   const futuro = data > hoje
                   return (
                     <tr key={data} className={ehFimDeSemana(data) ? 'bg-neutral-50/60' : ''}>
-                      <td className="whitespace-nowrap px-4 py-2 font-medium text-neutral-700">{rotuloDia(data)}</td>
+                      <td className="whitespace-nowrap px-4 py-2 font-medium text-neutral-700">
+                        <div className="flex items-center gap-2">
+                          <span>{rotuloDia(data)}</span>
+                          {diaEspecialPorData.get(data) && (
+                            <StatusBadge tone="info">
+                              {TIPO_DIA_LABEL[diaEspecialPorData.get(data)!.tipo]}
+                              {diaEspecialPorData.get(data)!.nome ? ` · ${diaEspecialPorData.get(data)!.nome}` : ''}
+                            </StatusBadge>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => abrirDiaEspecial(data)}
+                            className="cursor-pointer rounded-md p-1 text-neutral-300 transition-colors hover:bg-liberty/10 hover:text-liberty"
+                            title="Marcar feriado ou troca de feriado"
+                            aria-label={`Marcar tipo do dia ${rotuloDia(data)}`}
+                          >
+                            <IconCalendarEvent className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
                       {BATIDAS.map((b) => {
                         const iso = r?.batidas[b]
                         return (
@@ -324,6 +368,67 @@ export default function FolhaClient({
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" onClick={() => setEditando(null)}>Cancelar</Button>
             <Button variant="liberty" loading={salvando} onClick={confirmarEdicao}>Salvar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={!!diaEspecial}
+        onClose={() => setDiaEspecial(null)}
+        title={diaEspecial ? `Tipo do dia — ${rotuloDia(diaEspecial.data)}` : ''}
+        description={func ? `Para ${func.nome}. Feriado e troca de feriado zeram a jornada do dia: não gera saldo negativo, e as horas trabalhadas contam como saldo positivo.` : undefined}
+        size="sm"
+      >
+        <div className="space-y-3">
+          <div role="radiogroup" aria-label="Tipo do dia" className="space-y-2">
+            {([{ value: '', label: 'Dia normal' }, ...TIPOS_DIA_ESPECIAL.map((t) => ({ value: t, label: TIPO_DIA_LABEL[t] }))] as { value: TipoDiaEspecial | ''; label: string }[]).map((o) => (
+              <label
+                key={o.value || 'normal'}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  diaEspecial?.tipo === o.value ? 'border-liberty bg-liberty/10 text-neutral-950' : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="tipo-dia"
+                  checked={diaEspecial?.tipo === o.value}
+                  onChange={() =>
+                    setDiaEspecial((d) => {
+                      if (!d) return d
+                      // Ao escolher feriado ou troca, sugere o nome se a data é feriado nacional fixo e o campo está vazio.
+                      const sugestao = o.value && !d.nome.trim() ? (FERIADOS_NACIONAIS_FIXOS[d.data.slice(5)] ?? '') : ''
+                      return { ...d, tipo: o.value, nome: o.value ? sugestao || d.nome : '' }
+                    })
+                  }
+                  className="h-4 w-4 accent-[var(--color-liberty,#0a84ff)]"
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          {diaEspecial?.tipo ? (
+            <div>
+              <label htmlFor="nome-feriado" className="mb-1 block text-xs font-semibold text-neutral-600">Nome do feriado (opcional)</label>
+              <input
+                id="nome-feriado"
+                list="sugestoes-feriado"
+                value={diaEspecial.nome}
+                onChange={(e) => setDiaEspecial((d) => (d ? { ...d, nome: e.target.value } : d))}
+                maxLength={80}
+                placeholder="Ex.: Finados"
+                autoComplete="off"
+                className={inputCls}
+              />
+              <datalist id="sugestoes-feriado">
+                {FERIADOS_SUGESTOES.map((f) => (
+                  <option key={f} value={f} />
+                ))}
+              </datalist>
+            </div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDiaEspecial(null)}>Cancelar</Button>
+            <Button variant="liberty" loading={salvando} onClick={confirmarDiaEspecial}>Salvar</Button>
           </div>
         </div>
       </Modal>

@@ -20,6 +20,38 @@ export const BATIDAS = ['entrada', 'saida_almoco', 'volta_almoco', 'saida'] as c
 export type Batida = (typeof BATIDAS)[number]
 export type Batidas = Partial<Record<Batida, string>> // ISO 8601 (UTC)
 
+/** Marcações que zeram a jornada esperada do dia (por funcionário). */
+export const TIPOS_DIA_ESPECIAL = ['feriado', 'troca_feriado'] as const
+export type TipoDiaEspecial = (typeof TIPOS_DIA_ESPECIAL)[number]
+export const TIPO_DIA_LABEL: Record<TipoDiaEspecial, string> = {
+  feriado: 'Feriado',
+  troca_feriado: 'Troca de feriado',
+}
+
+/** Feriados nacionais de data fixa ("MM-DD" → nome): sugeridos ao marcar um dia. */
+export const FERIADOS_NACIONAIS_FIXOS: Record<string, string> = {
+  '01-01': 'Confraternização Universal',
+  '04-21': 'Tiradentes',
+  '05-01': 'Dia do Trabalho',
+  '09-07': 'Independência do Brasil',
+  '10-12': 'Nossa Senhora Aparecida',
+  '11-02': 'Finados',
+  '11-15': 'Proclamação da República',
+  '11-20': 'Consciência Negra',
+  '12-25': 'Natal',
+}
+
+/** Sugestões do campo de nome: os fixos mais feriados móveis e comuns. */
+export const FERIADOS_SUGESTOES = [
+  ...Object.values(FERIADOS_NACIONAIS_FIXOS),
+  'Carnaval',
+  'Sexta-feira Santa',
+  'Corpus Christi',
+  'Aniversário da cidade',
+  'Véspera de Natal',
+  'Véspera de Ano Novo',
+]
+
 export const BATIDA_LABEL: Record<Batida, string> = {
   entrada: 'Entrada',
   saida_almoco: 'Saída para o almoço',
