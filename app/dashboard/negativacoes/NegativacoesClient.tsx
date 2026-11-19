@@ -113,6 +113,7 @@ function ModalDadosCliente({
           <input
             className={campoModal}
             inputMode="numeric"
+            placeholder="000.000.000-00"
             value={dados.cpf}
             onChange={(e) => setDados({ ...dados, cpf: e.target.value })}
             autoFocus={cliente.faltando.includes('cpf')}
@@ -123,6 +124,7 @@ function ModalDadosCliente({
           <input
             className={campoModal}
             inputMode="tel"
+            placeholder="(11) 91234-5678"
             value={dados.telefone}
             onChange={(e) => setDados({ ...dados, telefone: e.target.value })}
           />
@@ -132,6 +134,7 @@ function ModalDadosCliente({
           <textarea
             className={campoModal}
             rows={2}
+            placeholder="Rua das Flores, 123, Centro, São Paulo - SP, 01001-000"
             value={dados.endereco}
             onChange={(e) => setDados({ ...dados, endereco: e.target.value })}
           />
