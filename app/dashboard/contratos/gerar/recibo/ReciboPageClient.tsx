@@ -161,14 +161,15 @@ export default function ReciboPageClient({ veiculos, podeExcluir }: { veiculos: 
 
       {aba === 'simulacao' && (
         <section aria-label="Simulação do recibo" className="mx-auto w-full max-w-4xl space-y-3">
-          <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-900">
-            Simulação: o recibo ainda não foi gerado nem entrou no histórico.{' '}
+          <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-900 adobe-dark:border-sky-400/30 adobe-dark:bg-sky-500/10 adobe-dark:text-sky-100">
+            <span className="font-semibold">Simulação:</span> o recibo ainda não foi gerado nem entrou no histórico.{' '}
             {pendencia ? (
               <>
-                Os campos em amarelo estão vazios. <span className="font-semibold">Falta: {pendencia}</span>
+                Os campos em amarelo estão vazios.{' '}
+                <span className="font-semibold text-amber-800 adobe-dark:text-amber-300">Falta: {pendencia}</span>
               </>
             ) : (
-              'Está tudo certo: use "Gerar PDF" para emitir.'
+              <span className="font-semibold text-emerald-800 adobe-dark:text-emerald-300">Está tudo certo: use &quot;Gerar PDF&quot; para emitir.</span>
             )}
           </p>
           <div className="rounded-xl border border-neutral-200 bg-neutral-100 p-3 md:p-5 adobe-dark:border-adobe-line adobe-dark:bg-adobe-bg-3">
