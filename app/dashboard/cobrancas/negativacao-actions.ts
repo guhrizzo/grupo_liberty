@@ -232,6 +232,8 @@ export interface ParcelaAtrasadaItem {
   diasAtraso: number
   /** Total devido hoje nesta parcela (principal + multa + juros). */
   totalDevido: number
+  /** Cobrança Asaas já gerada que cobre esta parcela e ainda não venceu (aguardando virar "vencida"). */
+  cobrada: { paymentId: string; billingType: string; vencimento: string; link: string | null } | null
 }
 
 /** Tudo o que um cliente (uma cobrança/contrato) deve em atraso, somado. */
@@ -241,12 +243,11 @@ export interface ClienteAtrasado {
   veiculoResumo: string
   numeroParcelas: number
   parcelas: ParcelaAtrasadaItem[]
+  /** Soma das parcelas ainda sem cobrança Asaas. */
   totalDevido: number
   /** Dados do cliente já cadastrados (para pré-preencher o modal). */
   dados: { cpf: string; telefone: string; endereco: string }
   faltando: CampoCliente[]
-  /** Cobrança Asaas já gerada que ainda não venceu (aguardando virar "vencida"). */
-  asaas: { paymentId: string; billingType: string; vencimento: string; link: string | null } | null
 }
 
 /**
@@ -296,6 +297,7 @@ export async function listarParcelasAtrasadasSemAsaas(): Promise<ClienteAtrasado
       const pagSnap = await adminDb.collection('cobranca_pagamentos').where('parcelaId', '==', doc.id).get()
       const r = calcularParcela(p, taxasDaCobranca(cob), pagamentosDoSnap(pagSnap), hoje)
       if (r.principalRestante <= EPSILON) return null
+      const pendente = (porParcela.get(doc.id) ?? []).find((a) => a.status === 'pendente')
       const item: ParcelaAtrasadaItem = {
         parcelaId: doc.id,
         numeroParcela: p.numeroParcela as number,
@@ -305,9 +307,16 @@ export async function listarParcelasAtrasadasSemAsaas(): Promise<ClienteAtrasado
           Math.round((Date.parse(hoje) - Date.parse(p.dataVencimento as string)) / 86_400_000),
         ),
         totalDevido: r.totalDevido,
+        cobrada: pendente
+          ? {
+              paymentId: pendente._id as string,
+              billingType: pendente.billingType as string,
+              vencimento: pendente.vencimento as string,
+              link: (pendente.link as string | null) ?? null,
+            }
+          : null,
       }
-      const pendente = (porParcela.get(doc.id) ?? []).find((a) => a.status === 'pendente')
-      return { cobrancaId: p.cobrancaId as string, item, pendente }
+      return { cobrancaId: p.cobrancaId as string, item }
     }),
   )
 
@@ -330,20 +339,11 @@ export async function listarParcelasAtrasadasSemAsaas(): Promise<ClienteAtrasado
           endereco: String(cob.cliente?.endereco ?? ''),
         },
         faltando: camposFaltando(cob.cliente),
-        asaas: null,
       }
       grupos.set(x.cobrancaId, g)
     }
     g.parcelas.push(x.item)
-    g.totalDevido = Math.round((g.totalDevido + x.item.totalDevido) * 100) / 100
-    if (x.pendente && !g.asaas) {
-      g.asaas = {
-        paymentId: x.pendente._id as string,
-        billingType: x.pendente.billingType as string,
-        vencimento: x.pendente.vencimento as string,
-        link: (x.pendente.link as string | null) ?? null,
-      }
-    }
+    if (!x.item.cobrada) g.totalDevido = Math.round((g.totalDevido + x.item.totalDevido) * 100) / 100
   }
   return [...grupos.values()]
     .map((g) => ({ ...g, parcelas: g.parcelas.sort((a, b) => a.vencimento.localeCompare(b.vencimento)) }))

@@ -181,10 +181,34 @@ function ClientesAtrasados({
     })
   }
 
+  // Parcelas desmarcadas pelo usuário; por padrão todas as ainda não cobradas vêm marcadas.
+  const [desmarcadas, setDesmarcadas] = useState<Set<string>>(new Set())
+
+  function selecionadas(c: ClienteAtrasado) {
+    return c.parcelas.filter((p) => !p.cobrada && !desmarcadas.has(p.parcelaId))
+  }
+
+  function marcar(ids: string[], marcada: boolean) {
+    setDesmarcadas((atual) => {
+      const novo = new Set(atual)
+      for (const id of ids) {
+        if (marcada) novo.delete(id)
+        else novo.add(id)
+      }
+      return novo
+    })
+  }
+
   async function gerar(c: ClienteAtrasado, tipo: 'PIX' | 'BOLETO') {
     if (c.faltando.length > 0) return setModal(c)
+    const escolhidas = selecionadas(c)
+    if (escolhidas.length === 0) return onMudou({ error: 'Selecione ao menos uma parcela.' })
     setOcupado(c.cobrancaId + tipo)
-    const r = await gerarCobrancaConsolidadaAsaas(c.cobrancaId, tipo)
+    const r = await gerarCobrancaConsolidadaAsaas(
+      c.cobrancaId,
+      tipo,
+      escolhidas.map((p) => p.parcelaId),
+    )
     setOcupado(null)
     onMudou('error' in r ? { error: r.error } : { success: r.success })
   }
@@ -198,8 +222,8 @@ function ClientesAtrasados({
         </span>
       </h2>
       <p className="text-[11px] text-neutral-500">
-        O Asaas só negativa cobranças dele. Gera-se uma cobrança única com tudo o que o cliente deve (parcelas
-        atrasadas com multa e juros até hoje, vencimento hoje). Depois que vencer, ela aparece em
+        O Asaas só negativa cobranças dele. Escolha as parcelas (todas vêm marcadas) e gere uma cobrança única
+        com a soma delas, com multa e juros até hoje e vencimento hoje. Depois que vencer, ela aparece em
         &ldquo;Cobranças vencidas, sem negativação&rdquo;.
       </p>
       {clientes.length > 1 && (
@@ -244,46 +268,92 @@ function ClientesAtrasados({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-bold text-neutral-900">{formatCurrency(c.totalDevido)}</p>
+                  <p className="text-sm font-bold text-neutral-900">
+                    {formatCurrency(selecionadas(c).reduce((s, p) => s + p.totalDevido, 0))}
+                  </p>
                   <p className="text-neutral-500">
-                    {c.parcelas.length} {c.parcelas.length === 1 ? 'parcela' : 'parcelas'} · desde{' '}
+                    {selecionadas(c).length} de {c.parcelas.filter((p) => !p.cobrada).length} selecionadas · desde{' '}
                     {formatDate(c.parcelas[0].vencimento)}
                   </p>
                 </div>
               </button>
               {abertos.has(c.cobrancaId) && (
-                <ul className="mt-2 space-y-0.5 text-neutral-500">
-                  {c.parcelas.map((p) => (
-                    <li key={p.parcelaId} className="flex justify-between gap-2">
-                      <span>
-                        Parcela {p.numeroParcela}/{c.numeroParcelas} · venceu em {formatDate(p.vencimento)} (
-                        {p.diasAtraso} dias)
-                      </span>
-                      <span>{formatCurrency(p.totalDevido)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-2 space-y-1">
+                  <div className="flex gap-3 text-[11px] font-bold text-blue-600">
+                    <button
+                      type="button"
+                      className="cursor-pointer underline"
+                      onClick={() =>
+                        marcar(
+                          c.parcelas.filter((p) => !p.cobrada).map((p) => p.parcelaId),
+                          true,
+                        )
+                      }
+                    >
+                      Marcar todas
+                    </button>
+                    <button
+                      type="button"
+                      className="cursor-pointer underline"
+                      onClick={() =>
+                        marcar(
+                          c.parcelas.filter((p) => !p.cobrada).map((p) => p.parcelaId),
+                          false,
+                        )
+                      }
+                    >
+                      Desmarcar todas
+                    </button>
+                  </div>
+                  <ul className="space-y-0.5 text-neutral-500">
+                    {c.parcelas.map((p) => (
+                      <li key={p.parcelaId} className="flex items-center justify-between gap-2">
+                        <label className="flex cursor-pointer items-center gap-2">
+                          <input
+                            type="checkbox"
+                            disabled={p.cobrada !== null}
+                            checked={p.cobrada === null && !desmarcadas.has(p.parcelaId)}
+                            onChange={(e) => marcar([p.parcelaId], e.target.checked)}
+                          />
+                          <span>
+                            Parcela {p.numeroParcela}/{c.numeroParcelas} · venceu em {formatDate(p.vencimento)} (
+                            {p.diasAtraso} dias)
+                            {p.cobrada && (
+                              <span className="ml-1 font-semibold text-amber-700 adobe-dark:text-amber-300">
+                                · {p.cobrada.billingType} gerado, vence em {formatDate(p.cobrada.vencimento)}
+                                {p.cobrada.link && (
+                                  <>
+                                    {' '}
+                                    <a
+                                      href={p.cobrada.link}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue-600 underline"
+                                    >
+                                      Abrir link
+                                    </a>
+                                  </>
+                                )}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                        <span>{formatCurrency(p.totalDevido)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {c.asaas ? (
-                  <>
-                    <span className="font-semibold text-amber-700 adobe-dark:text-amber-300">
-                      {c.asaas.billingType} gerado, vence em {formatDate(c.asaas.vencimento)}. Aguardando vencer
-                      para negativar.
-                    </span>
-                    {c.asaas.link && (
-                      <a
-                        href={c.asaas.link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-bold text-blue-600 underline"
-                      >
-                        Abrir link
-                      </a>
-                    )}
-                  </>
+                {c.parcelas.every((p) => p.cobrada) ? (
+                  <span className="font-semibold text-amber-700 adobe-dark:text-amber-300">
+                    Todas as parcelas já têm cobrança gerada. Aguardando vencer para negativar.
+                  </span>
                 ) : (
                   <>
+                    {!abertos.has(c.cobrancaId) && (
+                      <span className="text-neutral-500">Expanda para escolher as parcelas.</span>
+                    )}
                     {c.faltando.length > 0 && (
                       <>
                         <span className="font-semibold text-rose-700 adobe-dark:text-rose-300">
@@ -297,7 +367,7 @@ function ClientesAtrasados({
                     <button
                       type="button"
                       className={botao}
-                      disabled={ocupado !== null}
+                      disabled={ocupado !== null || selecionadas(c).length === 0}
                       onClick={() => gerar(c, 'BOLETO')}
                     >
                       {ocupado === c.cobrancaId + 'BOLETO' ? 'Gerando…' : 'Gerar boleto'}
@@ -305,7 +375,7 @@ function ClientesAtrasados({
                     <button
                       type="button"
                       className={botao}
-                      disabled={ocupado !== null}
+                      disabled={ocupado !== null || selecionadas(c).length === 0}
                       onClick={() => gerar(c, 'PIX')}
                     >
                       {ocupado === c.cobrancaId + 'PIX' ? 'Gerando…' : 'Gerar Pix'}

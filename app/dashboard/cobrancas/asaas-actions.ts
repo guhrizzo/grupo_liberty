@@ -297,6 +297,8 @@ export async function gerarCobrancaAsaas(
 export async function gerarCobrancaConsolidadaAsaas(
   cobrancaId: string,
   billingType: AsaasBillingType,
+  /** Parcelas escolhidas; sem isso, todas as atrasadas em aberto. */
+  parcelaIdsEscolhidas?: string[],
 ): Promise<AsaasResponse<{ link: string | null }>> {
   try {
     const user = await autorizar()
@@ -304,6 +306,9 @@ export async function gerarCobrancaConsolidadaAsaas(
       return { error: 'Asaas não configurado (ASAAS_API_KEY e ASAAS_RESERVA_WALLET_ID).' }
     }
     if (billingType === 'CREDIT_CARD') return { error: 'Use Pix ou boleto.' }
+    if (parcelaIdsEscolhidas && parcelaIdsEscolhidas.length === 0) {
+      return { error: 'Selecione ao menos uma parcela.' }
+    }
 
     const cobDoc = await adminDb.collection('cobrancas').doc(cobrancaId).get()
     const cob = cobDoc.data()
@@ -327,6 +332,14 @@ export async function gerarCobrancaConsolidadaAsaas(
       }
     }
     if (itens.length === 0) return { error: 'Não há parcelas atrasadas em aberto.' }
+    if (parcelaIdsEscolhidas) {
+      const abertas = new Set(itens.map((i) => i.id))
+      if (parcelaIdsEscolhidas.some((id) => !abertas.has(id))) {
+        return { error: 'Alguma parcela escolhida não está mais atrasada em aberto. Recarregue a página.' }
+      }
+      const escolhidas = new Set(parcelaIdsEscolhidas)
+      for (let i = itens.length - 1; i >= 0; i--) if (!escolhidas.has(itens[i].id)) itens.splice(i, 1)
+    }
     itens.sort((a, b) => a.vencimento.localeCompare(b.vencimento))
     const ids = itens.map((i) => i.id)
 
