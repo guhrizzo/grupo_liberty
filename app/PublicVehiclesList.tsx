@@ -236,7 +236,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
                     </span>
                   )}
                   {v.fotos && v.fotos.length > 1 && (
-                    <span className={`absolute top-3 ${em ? 'right-24' : 'right-3'} rounded-md bg-white/90 backdrop-blur-sm text-neutral-700 text-[10px] font-bold px-2 py-1 border border-neutral-200`}>
+                    <span className={`absolute top-3 ${em ? 'right-24' : 'right-3'} rounded-md bg-neutral-900/80 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 border border-white/20 shadow-md`}>
                       +{v.fotos.length - 1} fotos
                     </span>
                   )}
