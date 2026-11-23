@@ -266,7 +266,7 @@ export function montarPromessa(i: GerarContratoInput, hoje: Date = new Date()): 
     { tipo: 'titulo', texto: 'CONTRATO DE PROMESSA DE COMPRA DE VEÍCULO FINANCIADO COM ASSUNÇÃO DE OBRIGAÇÕES' },
     {
       tipo: 'p',
-      texto: `**COMPRADOR: ${nomeComprador}**, ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpfComprador}**, com endereço na ${ou(c.endereco, 'endereço completo')}, com **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
+      texto: `**COMPRADOR: ${nomeComprador}**, ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpfComprador}**, com endereço na ${ou(c.endereco, 'endereço completo')}, com o telefone **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
     },
     {
       tipo: 'p',

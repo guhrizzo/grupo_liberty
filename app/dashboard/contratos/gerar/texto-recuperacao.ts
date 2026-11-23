@@ -36,7 +36,7 @@ export function montarRecuperacao(i: GerarContratoInput, hoje: Date = new Date()
     { tipo: 'titulo', texto: TITULO },
     {
       tipo: 'p',
-      texto: `**CONTRATANTE: ${nome},** ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do CPF nº ${cpf} e RG nº ${ou(c.rg, 'RG')}, com endereço na ${ou(c.endereco, 'endereço completo')}, com ${telefone} e endereço eletrônico ${ou(c.email, 'e-mail')}.`,
+      texto: `**CONTRATANTE: ${nome},** ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do CPF nº ${cpf} e RG nº ${ou(c.rg, 'RG')}, com endereço na ${ou(c.endereco, 'endereço completo')}, com o telefone ${telefone} e endereço eletrônico ${ou(c.email, 'e-mail')}.`,
     },
     {
       tipo: 'p',

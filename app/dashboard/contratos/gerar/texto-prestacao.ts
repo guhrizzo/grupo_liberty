@@ -49,7 +49,7 @@ function vendedor(c: ContratanteInput, papel: string, comRg: boolean): Vendedor 
   return {
     nome,
     cpf,
-    paragrafo: `**${papel}: ${nome},** ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpf}**${rg}, com endereço na ${ou(c.endereco, 'endereço completo')}, com **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
+    paragrafo: `**${papel}: ${nome},** ${ou(c.nacionalidade, 'nacionalidade')}, ${estadoCivil}, ${ou(c.profissao, 'profissão')}, portador do **CPF nº ${cpf}**${rg}, com endereço na ${ou(c.endereco, 'endereço completo')}, com o telefone **${telefone}** e endereço eletrônico **${ou(c.email, 'e-mail')}**.`,
   }
 }
 
