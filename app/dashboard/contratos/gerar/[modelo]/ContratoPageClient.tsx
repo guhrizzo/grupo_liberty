@@ -367,8 +367,13 @@ export default function ContratoPageClient({ tipo, veiculos }: { tipo: TipoContr
             <Bloco titulo="Pagamento ao vendedor e cláusulas opcionais">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Input id="gc-vtotal" label="Valor pago ao vendedor (R$)" placeholder="R$ 0,00" value={k.valorTotal} onChange={(e) => setK({ ...k, valorTotal: maskMoney(e.target.value) })} inputMode="numeric" autoComplete="off" />
-                <Input id="gc-dpag" label="Pagamento à vista até" type="date" value={k.dataPagamento} onChange={(e) => setK({ ...k, dataPagamento: e.target.value })} />
+                {!k.pagamentoNaEntrega && (
+                  <Input id="gc-dpag" label="Pagamento à vista até" type="date" value={k.dataPagamento} onChange={(e) => setK({ ...k, dataPagamento: e.target.value })} />
+                )}
               </div>
+              <Marcar id="gc-entrega" checked={k.pagamentoNaEntrega} onChange={(x) => setK({ ...k, pagamentoNaEntrega: x })}>
+                Pagar até o dia da entrega do veículo (sem data fixa na cláusula 6)
+              </Marcar>
               <Marcar id="gc-limpa" checked={k.limpaNome} onChange={(x) => setK({ ...k, limpaNome: x })}>
                 Incluir o serviço “Limpa Nome” (cláusula 1.6)
               </Marcar>

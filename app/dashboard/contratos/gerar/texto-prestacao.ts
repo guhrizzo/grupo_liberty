@@ -277,7 +277,7 @@ export function montarPrestacao(i: GerarContratoInput, hoje: Date = new Date()):
     { tipo: 'secao', texto: '6. PAGAMENTO PELO VEÍCULO' },
     {
       tipo: 'p',
-      texto: `**6.1.** Pelo presente instrumento, o INTERMEDIADOR paga ao VENDEDOR, a título de compensação pela cessão dos direitos de posse e negociação do veículo objeto deste contrato, o valor fixo de ${valorPago}, cuja quitação ocorrerá por meio de pagamento à vista até o dia ${dataCurta(k.dataPagamento)}.`,
+      texto: `**6.1.** Pelo presente instrumento, o INTERMEDIADOR paga ao VENDEDOR, a título de compensação pela cessão dos direitos de posse e negociação do veículo objeto deste contrato, o valor fixo de **${valorPago}**, cuja quitação ocorrerá por meio de pagamento à vista até o dia ${k.pagamentoNaEntrega ? 'da entrega do veículo' : dataCurta(k.dataPagamento)}.`,
     },
     {
       tipo: 'p',

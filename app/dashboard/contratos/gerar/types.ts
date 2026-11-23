@@ -239,6 +239,8 @@ export interface CompraInput {
   // ── Só na prestação de serviços ──
   /** Data limite do pagamento ao vendedor (AAAA-MM-DD). */
   dataPagamento: string
+  /** Cláusula 6.1 sem data fixa: pagamento "até o dia da entrega do veículo" (ignora `dataPagamento`). */
+  pagamentoNaEntrega: boolean
   /** Inclui a cláusula 1.6 (Limpa Nome). */
   limpaNome: boolean
   /** Inclui as cláusulas 5.3 a 5.3.3 (seguro prestamista). */
@@ -285,7 +287,7 @@ export const compraVazia = (parcelado = false, testemunhas: TestemunhaInput[] = 
   pagamentos: '2', valorPagamento: '', vencimentos: ['', ''],
   cidade: parcelado ? 'Jaú/SP' : '',
   dataAssinatura: '',
-  dataPagamento: '', limpaNome: true, seguroPrestamista: true,
+  dataPagamento: '', pagamentoNaEntrega: false, limpaNome: true, seguroPrestamista: true,
   numeroContrato: '',
   conta: { titular: '', documento: '', banco: '', agencia: '', conta: '', tipoConta: '', chavePix: '' },
   locacao: { aluguel: '', diaVencimento: '', primeiroPagamento: '', entrada: '', parcelas: '36', franquia: '' },
@@ -520,7 +522,7 @@ function validarPrestacao(i: GerarContratoInput): string | null {
   if (!(atraso >= 0)) return 'Informe as parcelas em atraso (0 se nenhuma).'
   if (!(numeroDe(k.saldoDevedor) > 0)) return 'Informe o saldo devedor aproximado.'
   if (!(numeroDe(k.valorTotal) > 0)) return 'Informe o valor pago ao vendedor.'
-  if (!dataIsoValida(k.dataPagamento)) return 'Informe a data limite do pagamento.'
+  if (!k.pagamentoNaEntrega && !dataIsoValida(k.dataPagamento)) return 'Informe a data limite do pagamento.'
   return validarTestemunhas(k)
 }
 

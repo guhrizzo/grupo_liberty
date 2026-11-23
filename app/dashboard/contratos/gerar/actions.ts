@@ -146,6 +146,7 @@ function normalizarInput(raw: unknown): GerarContratoInput {
       cidade: txt(k.cidade, 60),
       dataAssinatura: dataIso(k.dataAssinatura),
       dataPagamento: dataIso(k.dataPagamento),
+      pagamentoNaEntrega: k.pagamentoNaEntrega === true,
       limpaNome: k.limpaNome !== false,
       seguroPrestamista: k.seguroPrestamista !== false,
       numeroContrato: txt(k.numeroContrato, 40),
