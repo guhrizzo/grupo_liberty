@@ -41,6 +41,7 @@ import EstoqueSkeleton from '@/app/estoque/loading'
 import AnuncieSeuVeiculoSkeleton from '@/app/anuncie-seu-veiculo/loading'
 import DashboardSkeleton from '@/app/dashboard/loading'
 import EntrarDispositivoSkeleton from '@/app/entrar-dispositivo/loading'
+import EntrarLoading from '@/app/entrar/loading'
 import LoginSkeleton from '@/app/login/loading'
 import MapaRastreamentoSkeleton from '@/app/mapa-rastreamento/loading'
 
@@ -91,6 +92,7 @@ const routeSkeletons = [
 /** Usa o skeleton da rota mesmo enquanto o layout autenticado ainda carrega. */
 export default function Loading() {
   const pathname = usePathname() ?? ''
+  if (pathname === '/entrar') return <EntrarLoading />
   if (pathname === '/area-do-cliente' || pathname.startsWith('/area-do-cliente/')) return <SkeletonPortal />
   const segments = pathname.split('/').filter(Boolean)
   const Component = routeSkeletons.find(({ route }) => {
