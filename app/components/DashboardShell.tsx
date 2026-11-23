@@ -113,6 +113,9 @@ const SETOR_DE: Record<string, SetorId> = {
   '/dashboard/juridico': 'gestao',
   '/dashboard/rede-apoio': 'gestao',
   '/dashboard/usuarios': 'gestao',
+  '/dashboard/clientes-portal': 'gestao',
+  '/dashboard/pos-venda': 'gestao',
+  '/dashboard/investimentos': 'financeiro',
   '/dashboard/analytics': 'gestao',
 }
 
@@ -271,6 +274,24 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     label: 'Jurídico',
     icon: 'scales',
     permissionKey: 'juridico',
+  },
+  {
+    href: '/dashboard/investimentos',
+    label: 'Investimentos',
+    icon: 'cash',
+    permissionKey: 'investimentos',
+  },
+  {
+    href: '/dashboard/pos-venda',
+    label: 'Pós-venda',
+    icon: 'users',
+    permissionKey: 'pos_venda',
+  },
+  {
+    href: '/dashboard/clientes-portal',
+    label: 'Clientes do portal',
+    icon: 'users',
+    permissionKey: 'clientes_portal',
   },
   {
     href: '/dashboard/usuarios',

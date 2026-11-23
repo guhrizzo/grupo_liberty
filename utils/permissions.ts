@@ -35,6 +35,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+    if (!profileDoc.exists) return null
     const profile = profileDoc.data() as { role?: string; permissions?: UserPermissions } | undefined
     const name =
       ((decoded as unknown) as { name?: string; displayName?: string }).name ||

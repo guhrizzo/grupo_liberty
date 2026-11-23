@@ -1,5 +1,9 @@
 'use server'
 
+import { atualizarAcompanhamento, versaoAnexoQuitacao, type PublicacaoQuitacao, type Acompanhamento } from '@/utils/quitacoes/acompanhamento'
+import { tentarAvisoQuitacao } from '@/utils/quitacoes/avisos'
+import { etapaValida, type EtapaQuitacao } from '@/utils/quitacoes/etapas'
+import { chaveTitularQuitacao, compraQuitacao } from '@/utils/quitacoes/vinculo'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { FieldValue } from 'firebase-admin/firestore'
@@ -90,6 +94,7 @@ export async function listarVeiculosParaQuitacao(): Promise<VeiculoQuitacaoOpcao
   if ('error' in acesso) return []
   const [veiculos, terceirosSnap] = await Promise.all([getVehicles(), adminDb.collection(COL_TERCEIROS).get()])
   const proprios: VeiculoQuitacaoOpcao[] = veiculos.map((v) => ({
+    portalVinculo: compraQuitacao(v)?.vinculo,
     id: v.id,
     marca: v.marca,
     modelo: v.modelo,
@@ -242,13 +247,24 @@ export async function excluirQuitacao(id: string): Promise<Resultado> {
 
 const DATA_OPCIONAL_RE = /^(\d{4}-\d{2}-\d{2})?$/
 
+const versaoArquivo = (valor: unknown) => typeof valor === 'string' && valor
+  ? versaoAnexoQuitacao(valor)
+  : undefined
+
 function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQuitacao {
   let cpf = ''
   if (d.cpf) {
     cpf = String(d.cpf).includes(':') ? decrypt(String(d.cpf)) || '' : String(d.cpf)
   }
+  const acompanhamento = d.portalAcompanhamento as Acompanhamento | undefined
   return {
     veiculoId: id,
+    portalChaveLegada: chaveTitularQuitacao(cpf),
+    portal: acompanhamento ? {
+      vinculo: acompanhamento.vinculo,
+      etapa: acompanhamento.etapa,
+      publicados: Object.fromEntries(Object.entries(acompanhamento.publicados).map(([tipo, path]) => [tipo, versaoArquivo(path)])),
+    } : undefined,
     quitado: d.quitado === true,
     quitadoEm: d.quitadoEm ?? null,
     nome: d.nome ?? '',
@@ -360,6 +376,29 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
   return { success: 'Dados do cliente salvos.' }
 }
 
+export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQuitacao, vinculo: string, anexos: PublicacaoQuitacao[]): Promise<Resultado> {
+  const acesso = await checarAcesso()
+  if ('error' in acesso) return { error: acesso.error }
+  if (typeof veiculoId !== 'string' || !ID_RE.test(veiculoId) || !etapaValida(etapa) ||
+    typeof vinculo !== 'string' || !/^[a-f0-9]{64}:\d{4}-\d{2}-\d{2}$/.test(vinculo) ||
+    !Array.isArray(anexos) || anexos.length > TIPOS_ANEXO.length ||
+    !anexos.every((anexo) => anexo && tipoValido(anexo.tipo) && /^[a-f0-9]{64}$/.test(anexo.versao)) ||
+    new Set(anexos.map(({ tipo }) => tipo)).size !== anexos.length) {
+    return { error: 'Confira a etapa e os documentos selecionados.' }
+  }
+
+  try {
+    const resultado = await atualizarAcompanhamento(veiculoId, etapa, acesso.user.uid, { vinculo, arquivos: anexos })
+    if (!resultado.vinculado) return { error: 'Preencha o documento do antigo proprietário e a data da aquisição no veículo.' }
+    revalidatePath('/dashboard/quitacoes')
+    revalidatePath('/area-do-cliente/quitacao')
+    if (resultado.aviso) await tentarAvisoQuitacao(resultado.aviso)
+    return { success: 'Acompanhamento atualizado.' }
+  } catch {
+    return { error: 'Não foi possível atualizar. Recarregue a ficha e confira a etapa e os arquivos.' }
+  }
+}
+
 /** Marca (ou desmarca) um item do checklist pós-compra do veículo. */
 export async function definirChecklistItem(
   veiculoId: string,
@@ -406,6 +445,13 @@ export async function definirQuitado(veiculoId: string, quitado: boolean): Promi
   const acesso = await checarAcesso()
   if ('error' in acesso) return { error: acesso.error }
   if (!veiculoId || !(await veiculoExiste(veiculoId))) return { error: 'Veículo não encontrado.' }
+  const portal = await atualizarAcompanhamento(veiculoId, quitado ? 'quitado' : 'em_quitacao', acesso.user.uid)
+  if (portal.vinculado) {
+    revalidatePath('/dashboard/quitacoes')
+    revalidatePath('/area-do-cliente/quitacao')
+    if (portal.aviso) await tentarAvisoQuitacao(portal.aviso)
+    return { success: quitado ? 'Veículo marcado como quitado.' : 'Veículo voltou para não quitado.' }
+  }
   const hoje = new Date()
   const quitadoEm = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
   await adminDb
@@ -464,6 +510,7 @@ const anexoPath = (veiculoId: string, tipo: TipoAnexo, uploadId: string, ext: st
 
 function anexoSerialize(d: FirebaseFirestore.DocumentData): AnexoQuitacao {
   return {
+    versaoArquivo: versaoArquivo(d.storagePath),
     veiculoId: String(d.veiculoId ?? ''),
     tipo: d.tipo as TipoAnexo,
     fileName: String(d.fileName ?? ''),

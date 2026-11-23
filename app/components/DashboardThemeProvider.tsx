@@ -89,8 +89,9 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // O tema escuro vale no painel e no site público; só o login fica de fora.
-  const isDashboardRoute = !(pathname ?? '').startsWith('/login')
+  // A Área do Cliente aplica o tema salvo no próprio portal.
+  const rota = pathname ?? ''
+  const isDashboardRoute = !rota.startsWith('/login') && !rota.startsWith('/area-do-cliente')
   const active = theme === 'dark' && isDashboardRoute
 
   useEffect(() => {
@@ -224,7 +225,7 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
       <script
         // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
-          __html: `try{if(localStorage.getItem('${STORAGE_KEY}')==='dark'&&location.pathname.indexOf('/login')!==0){document.body.classList.add('adobe-dark')}}catch(e){}`,
+          __html: `try{if(localStorage.getItem('${STORAGE_KEY}')==='dark'&&location.pathname.indexOf('/login')!==0&&location.pathname.indexOf('/area-do-cliente')!==0){document.body.classList.add('adobe-dark')}}catch(e){}`,
         }}
       />
       {children}

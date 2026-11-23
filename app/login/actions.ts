@@ -43,6 +43,9 @@ export async function login(_prev: LoginResult, formData: FormData): Promise<Log
     }
 
     const { idToken } = await res.json()
+    const identidade = await adminAuth.verifyIdToken(idToken, true)
+    const perfil = await adminDb.collection('profiles').doc(identidade.uid).get()
+    if (!perfil.exists) return { error: 'Esta conta não tem acesso ao painel interno.' }
 
     const expiresIn = 60 * 60 * 24 * 5 * 1000
     const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn })
@@ -106,11 +109,8 @@ export async function checkEmailAuthMethod(email: string): Promise<EmailAuthMeth
  *
  * Nunca cria usuário novo: só cria a sessão se já existir um perfil em
  * `profiles/{uid}` (provisionado por um admin em /dashboard/usuarios).
- * A vinculação de conta acontece no cliente ANTES desta função ser chamada
- * (ver checkEmailAuthMethod) — aqui só validamos e criamos a sessão.
- * Se for um e-mail realmente novo (sem perfil), o usuário do Auth que o
- * popup do Google acabou de criar é removido, para não sobrar cadastro
- * órfão no banco.
+ * A vinculação de conta acontece no cliente antes desta função ser chamada.
+ * Contas do Firebase também podem pertencer à Área do Cliente.
  */
 export async function loginWithGoogle(
   idToken: string,
@@ -126,9 +126,6 @@ export async function loginWithGoogle(
 
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
     if (!profileDoc.exists) {
-      await adminAuth.deleteUser(decoded.uid).catch((err) => {
-        console.error('Erro ao limpar conta Google não autorizada:', err)
-      })
       return {
         error:
           'Esta conta Google ainda não tem acesso liberado. Peça a um administrador para cadastrar seu e-mail no sistema.',

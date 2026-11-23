@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { SkeletonPortal } from '@/app/area-do-cliente/SkeletonPortal'
 import { Skeleton, SkeletonPage, SkeletonHeader } from '@/app/components/ui'
 import DashboardPropostasRegistrosIdEditarSkeleton from '@/app/dashboard/propostas/registros/[id]/editar/loading'
 import DashboardContratosGerarModeloSkeleton from '@/app/dashboard/contratos/gerar/[modelo]/loading'
@@ -88,6 +89,7 @@ const routeSkeletons = [
 /** Usa o skeleton da rota mesmo enquanto o layout autenticado ainda carrega. */
 export default function Loading() {
   const pathname = usePathname() ?? ''
+  if (pathname === '/area-do-cliente' || pathname.startsWith('/area-do-cliente/')) return <SkeletonPortal />
   const segments = pathname.split('/').filter(Boolean)
   const Component = routeSkeletons.find(({ route }) => {
     if (route === '/') return pathname === '/'

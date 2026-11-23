@@ -1,0 +1,93 @@
+.acoes {
+  --fundo-controle: #fff;
+  --fundo-hover: var(--color-neutral-100);
+  --borda-controle: var(--color-neutral-300);
+  --texto-controle: var(--color-neutral-800);
+  --destaque: var(--color-liberty-deep);
+  --primario: var(--color-liberty-deep);
+  --primario-hover: #005680;
+  --texto-primario: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+:global(.adobe-dark) .acoes {
+  --fundo-controle: var(--color-adobe-bg-2);
+  --fundo-hover: var(--color-adobe-bg-3);
+  --borda-controle: var(--color-adobe-line-strong);
+  --texto-controle: var(--color-adobe-text-hi);
+  --destaque: var(--color-adobe-accent-soft);
+  --primario: var(--color-adobe-accent);
+  --primario-hover: var(--color-adobe-accent-soft);
+  --texto-primario: #0a1720;
+}
+
+.acoes .secundario,
+.acoes .primario,
+.acoes .tema {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--borda-controle);
+  border-radius: 10px;
+  background: var(--fundo-controle);
+  color: var(--texto-controle);
+  white-space: nowrap;
+  font-size: .8125rem;
+  font-weight: 650;
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.acoes .tema {
+  width: 44px;
+}
+
+.acoes .secundario,
+.acoes .primario {
+  padding-inline: 12px;
+}
+
+.acoes .secundario svg {
+  color: var(--destaque);
+}
+
+.acoes .primario {
+  border-color: transparent;
+  background: var(--primario);
+  color: var(--texto-primario);
+}
+
+.acoes .tema:hover,
+.acoes .secundario:hover {
+  border-color: var(--destaque);
+  background: var(--fundo-hover);
+}
+
+.acoes .primario:hover {
+  background: var(--primario-hover);
+}
+
+.acoes :is(.tema, .secundario, .primario):focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 3px;
+}
+
+@media (min-width: 640px) {
+  .acoes { gap: 10px; }
+  .acoes .secundario,
+  .acoes .primario { padding-inline: 16px; }
+}
+
+@media (max-width: 359px) {
+  .acoes { gap: 6px; }
+  .acoes .secundario,
+  .acoes .primario { gap: 5px; padding-inline: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acoes :is(.tema, .secundario, .primario) { transition: none; }
+}

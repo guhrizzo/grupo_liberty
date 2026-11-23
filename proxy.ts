@@ -38,8 +38,9 @@ export default async function proxy(request: NextRequest) {
   const global = rateLimit(`global:${ip}`, GLOBAL_LIMIT, GLOBAL_WINDOW_MS)
   if (!global.allowed) return tooManyRequests(global.retryAfterSeconds)
 
-  if (pathname === '/login' && request.method === 'POST') {
-    const login = rateLimit(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
+  if ((pathname === '/login' || pathname.startsWith('/area-do-cliente')) && request.method === 'POST') {
+    const rota = pathname === '/login' ? 'login' : 'login-cliente'
+    const login = rateLimit(`${rota}:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS)
     if (!login.allowed) return tooManyRequests(login.retryAfterSeconds)
   }
 

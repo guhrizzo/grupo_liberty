@@ -54,6 +54,7 @@ import {
   type Quitacao,
   type VeiculoQuitacaoOpcao,
 } from './types'
+import AcompanhamentoSection from './AcompanhamentoSection'
 import { ChecklistSection } from './ChecklistSection'
 
 interface Props {
@@ -265,6 +266,8 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
         <ul className="space-y-3">
           {lista.map((v) => {
             const ficha = fichas[v.id]
+            const acompanhamento = ficha?.portal?.vinculo === v.portalVinculo ? ficha?.portal : undefined
+            const anexosVeiculo = anexos[v.id] ?? {}
             const quitado = ficha?.quitado === true
             const historico = historicoPorVeiculo.get(v.id) ?? []
             const atual = historico[0]
@@ -398,7 +401,23 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                       dataInicioAtraso={ficha?.dataInicioAtraso ?? ''}
                     />
 
-                    <AnexosSection veiculoId={v.id} anexos={anexos[v.id] ?? {}} />
+                    <AnexosSection veiculoId={v.id} anexos={anexosVeiculo} />
+
+                    {v.portalVinculo && (
+                      <AcompanhamentoSection
+                        key={JSON.stringify([v.portalVinculo, acompanhamento, anexosVeiculo])}
+                        veiculoId={v.id}
+                        vinculo={v.portalVinculo}
+                        etapaInicial={acompanhamento?.etapa ?? (
+                          ficha?.quitado && !ficha.portal && !!ficha.quitadoEm &&
+                          !!ficha.portalChaveLegada && v.portalVinculo.startsWith(`${ficha.portalChaveLegada}:`) &&
+                          (!ficha.dataCompra || v.portalVinculo.endsWith(`:${ficha.dataCompra}`))
+                            ? 'quitado' : 'recebido'
+                        )}
+                        anexos={anexosVeiculo}
+                        publicados={acompanhamento?.publicados ?? {}}
+                      />
+                    )}
 
                     <section>
                       <h4 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-neutral-500">

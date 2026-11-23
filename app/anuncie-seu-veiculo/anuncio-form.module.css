@@ -1,0 +1,107 @@
+/*
+ * From Uiverse.io by Matilemak - https://uiverse.io/Matilemak/breezy-catfish-99
+ * MIT License, Copyright (c) gharsh11032000 (Harsh Gupta), Matilemak (Matias Alcayaga Cabello)
+ */
+
+.enviar {
+  --contorno: #1e1e1e;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 10px 34px;
+  border: 4px solid transparent;
+  border-radius: 100px;
+  background-color: inherit;
+  box-shadow: 0 0 0 2px var(--contorno);
+  color: var(--contorno);
+  cursor: pointer;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all .6s cubic-bezier(.23, 1, .32, 1);
+}
+
+:global(.adobe-dark) .enviar {
+  --contorno: #f2f2f2;
+}
+
+.enviar svg {
+  position: absolute;
+  z-index: 9;
+  width: 24px;
+  fill: none;
+  transition: all .8s cubic-bezier(.23, 1, .32, 1);
+}
+
+.iconeSaida { right: 16px; }
+.iconeEntrada { left: -25%; }
+
+.circulo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background-color: var(--portal-acao);
+  opacity: 0;
+  transition: all .8s cubic-bezier(.23, 1, .32, 1);
+}
+
+.texto {
+  position: relative;
+  z-index: 1;
+  transform: translateX(-12px);
+  transition: all .8s cubic-bezier(.23, 1, .32, 1);
+}
+
+.enviar:enabled:is(:hover, :focus-visible) {
+  border-radius: 12px;
+  box-shadow: 0 0 0 12px transparent;
+  color: #1e1e1e;
+}
+
+.enviar:enabled:is(:hover, :focus-visible) .iconeSaida { right: -25%; }
+.enviar:enabled:is(:hover, :focus-visible) .iconeEntrada { left: 16px; }
+.enviar:enabled:is(:hover, :focus-visible) .texto { transform: translateX(12px); }
+
+.enviar:enabled:is(:hover, :focus-visible) .circulo {
+  width: 220px;
+  height: 220px;
+  opacity: 1;
+}
+
+.enviar:enabled:active {
+  scale: .95;
+  box-shadow: 0 0 0 4px var(--portal-acao);
+}
+
+.enviar:focus-visible {
+  outline: 2px solid var(--portal-foco);
+  outline-offset: 4px;
+}
+
+.enviar:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enviar,
+  .enviar svg,
+  .circulo,
+  .texto {
+    transition: none;
+  }
+}
+
+@media (width < 48rem) {
+  .enviar { display: none; }
+}
+
+@media (width >= 48rem) {
+  .enviarPadrao { display: none; }
+}

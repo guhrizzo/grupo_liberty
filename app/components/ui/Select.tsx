@@ -9,10 +9,12 @@ import React, {
   useEffect,
   useMemo,
   ReactNode,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { IconChevronDown, IconCheck } from '@tabler/icons-react'
 import { cn } from '@/utils/cn'
+import styles from './Select.module.css'
 
 export interface SelectOption {
   value: string
@@ -27,7 +29,8 @@ export interface SelectProps
   error?: string
   placeholder?: string
   containerClassName?: string
-  options?: SelectOption[]
+  options?: readonly SelectOption[]
+  temaPortal?: boolean
   children?: ReactNode
 }
 
@@ -67,6 +70,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     containerClassName,
     id,
     options: providedOptions,
+    temaPortal,
     children,
     value: controlledValue,
     defaultValue,
@@ -80,6 +84,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 ) {
   const reactId = useId()
   const inputId = id ?? `sel-${reactId}`
+  const listId = `${inputId}-opcoes`
   const hintId = hint ? `${inputId}-hint` : undefined
   const errorId = error ? `${inputId}-error` : undefined
 
@@ -99,6 +104,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   })
 
   const [isOpen, setIsOpen] = useState(false)
+  const [indiceAtivo, setIndiceAtivo] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -179,10 +185,54 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     }
   }, [isOpen, options.length])
 
+  useEffect(() => {
+    if (isOpen && pos && indiceAtivo >= 0) {
+      dropdownRef.current?.querySelectorAll('[role="option"]')[indiceAtivo]?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [isOpen, pos, indiceAtivo])
+
+  function abrir() {
+    const selecionado = options.findIndex((opcao) => opcao.value === currentValue && !opcao.disabled)
+    setIndiceAtivo(selecionado >= 0 ? selecionado : options.findIndex((opcao) => !opcao.disabled))
+    setIsOpen(true)
+  }
+
+  function teclado(evento: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (evento.key === 'Tab' || evento.key === 'Escape') {
+      if (evento.key === 'Escape' && isOpen) {
+        evento.preventDefault()
+        evento.stopPropagation()
+      }
+      setIsOpen(false)
+      return
+    }
+
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(evento.key)) {
+      evento.preventDefault()
+      if (!isOpen) abrir()
+      const disponiveis = options.flatMap((opcao, i) => opcao.disabled ? [] : [i])
+      if (evento.key === 'Home') setIndiceAtivo(disponiveis[0] ?? -1)
+      else if (evento.key === 'End') setIndiceAtivo(disponiveis.at(-1) ?? -1)
+      else if (isOpen) {
+        const delta = evento.key === 'ArrowDown' ? 1 : -1
+        const indice = Math.max(0, Math.min(disponiveis.length - 1, disponiveis.indexOf(indiceAtivo) + delta))
+        setIndiceAtivo(disponiveis[indice] ?? -1)
+      }
+      return
+    }
+
+    if (isOpen && (evento.key === 'Enter' || evento.key === ' ')) {
+      evento.preventDefault()
+      const opcao = options[indiceAtivo]
+      if (opcao && !opcao.disabled) handleSelectOption(opcao.value)
+    }
+  }
+
   // Trata a escolha de uma opção
   const handleSelectOption = (optValue: string) => {
     setInternalValue(optValue)
     setIsOpen(false)
+    triggerRef.current?.focus()
 
     // Notifica formulários / handlers do React através do elemento select oculto
     if (hiddenSelectRef.current) {
@@ -206,7 +256,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <div className={cn('w-full', containerClassName)} ref={containerRef}>
       {label && (
         <label
-          htmlFor={inputId}
+          htmlFor={`${inputId}-gatilho`}
           className="block text-[10px] font-extrabold uppercase tracking-[0.2em] text-neutral-500 neon-theme:text-text-lo adobe-dark:text-adobe-text-lo mb-1.5"
         >
           {label}
@@ -229,6 +279,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           aria-invalid={error ? true : undefined}
           aria-describedby={cn(errorId, hintId) || undefined}
           className="sr-only"
+          aria-hidden="true"
           tabIndex={-1}
           {...rest}
         >
@@ -242,10 +293,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {/* Gatilho Visível Estilizado */}
         <button
           ref={triggerRef}
+          id={`${inputId}-gatilho`}
+          role="combobox"
           aria-label={rest['aria-label'] ?? label}
+          aria-describedby={cn(errorId, hintId) || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-controls={isOpen && pos ? listId : undefined}
+          aria-expanded={isOpen}
+          aria-activedescendant={isOpen && pos && indiceAtivo >= 0 ? `${listId}-${indiceAtivo}` : undefined}
           type="button"
           disabled={disabled}
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={() => isOpen ? setIsOpen(false) : abrir()}
+          onKeyDown={teclado}
           className={cn(
             // base
             'w-full flex items-center justify-between gap-2 rounded-xl border text-sm font-semibold transition-[border-color,box-shadow,background-color,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer py-2.5 px-3.5 text-left',
@@ -268,10 +327,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               : '',
             isOpen &&
               'border-liberty ring-4 ring-liberty/15 neon-theme:border-[var(--color-neon)] neon-theme:ring-[rgba(0,212,255,0.18)] adobe-dark:border-adobe-accent adobe-dark:ring-adobe-accent/15',
+            styles.gatilho,
+            temaPortal && styles.portal,
             className,
           )}
         >
-          <span className="truncate">
+          <span className="truncate" data-vazio={currentValue === ''}>
             {selectedOption ? selectedOption.label : placeholder ?? 'Selecione...'}
           </span>
           <IconChevronDown
@@ -288,9 +349,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         {isOpen && pos && createPortal(
           <div
             ref={dropdownRef}
+            id={listId}
+            role="listbox"
+            aria-label={rest['aria-label'] ?? label}
             style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
             className={cn(
               'z-[100] max-h-60 overflow-y-auto rounded-xl border p-1 shadow-xl',
+              styles.lista,
+              temaPortal && styles.portal,
               'animate-zoom-in-95 backdrop-blur-md',
               // tema claro
               'bg-white/95 border-neutral-200 text-neutral-800 shadow-neutral-900/10',
@@ -300,11 +366,16 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               'adobe-dark:bg-adobe-bg-2/95 adobe-dark:border-adobe-line adobe-dark:text-adobe-text-hi adobe-dark:shadow-black/50',
             )}
           >
-            {options.map((opt) => {
+            {options.map((opt, indice) => {
               const isSelected = opt.value === currentValue
               return (
                 <button
                   key={opt.value}
+                  id={`${listId}-${indice}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={-1}
+                  data-ativo={indice === indiceAtivo}
                   type="button"
                   disabled={opt.disabled}
                   onClick={() => handleSelectOption(opt.value)}
@@ -335,7 +406,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
               )
             })}
           </div>,
-          containerRef.current?.closest('.neon-theme, .adobe-dark') ?? document.body,
+          (temaPortal ? containerRef.current?.closest('[data-tema]') : containerRef.current?.closest('.neon-theme, .adobe-dark')) ?? document.body,
         )}
       </div>
 

@@ -23,6 +23,9 @@ export type PermissionKey =
   | 'leads'
   | 'manutencao'
   | 'usuarios'
+  | 'clientes_portal'
+  | 'pos_venda'
+  | 'investimentos'
   | 'analytics'
   | 'rede_apoio'
   | 'metricas_diarias'
@@ -44,6 +47,9 @@ export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   leads: ['admin', 'vendedor_externo'],
   manutencao: ['admin', 'vendedor', 'suporte'],
   usuarios: ['admin'],
+  clientes_portal: ['admin'],
+  pos_venda: ['admin', 'financeiro'],
+  investimentos: ['admin', 'financeiro'],
   analytics: ['admin'],
   rede_apoio: ['admin'],
   metricas_diarias: ['admin', 'vendedor', 'vendedor_externo'],

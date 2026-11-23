@@ -1,5 +1,7 @@
 'use server'
 
+import { chaveComprador } from '@/utils/pos-venda/vinculo'
+import { chaveTitularQuitacao, documentoQuitacao } from '@/utils/quitacoes/vinculo'
 import { CUSTOS_EXTRAS, type CustoExtraChave } from '@/constants/custos'
 import { ehDataValida } from '@/constants/tarefas'
 import { CANAIS_AQUISICAO } from '@/utils/veiculos/opcoes'
@@ -769,7 +771,11 @@ export async function createVehicle(formData: FormData): Promise<VeiculoResponse
       updated_at: now,
     }
 
-    await docRef.set(novoVeiculo)
+    await docRef.set({
+      ...novoVeiculo,
+      portalPosVendaChave: chaveComprador(cpfCliente),
+      portalQuitacaoChave: dataAquisicao ? chaveTitularQuitacao(sellerCpf) : null,
+    })
 
     revalidatePath('/dashboard/veiculos')
 
@@ -1118,7 +1124,11 @@ export async function updateVehicle(id: string, formData: FormData): Promise<Vei
       updated_at: now,
     }
 
-    await docRef.update(atualizacao)
+    await docRef.update({
+      ...atualizacao,
+      portalPosVendaChave: veiculoAntigo?.terceiro !== true ? chaveComprador(cpfCliente) : null,
+      portalQuitacaoChave: dataAquisicao && veiculoAntigo?.terceiro !== true ? chaveTitularQuitacao(sellerCpf) : null,
+    })
 
     // `atualizacao.custoEfetivoTotal` cobre só débitos + preço de aquisição;
     // dobra as manutenções não canceladas por cima do valor já gravado.
@@ -1212,7 +1222,8 @@ export async function registrarVendaVeiculo(
     const batch = adminDb.batch()
     batch.update(docRef, {
       vendidoEm: dataInformada.iso ?? now,
-      vendidoRegistradoEm: now,
+      vendidoRegistradoEm: dados.vendidoEm ? dados.vendidoRegistradoEm || dados.vendidoEm : now,
+      portalPosVendaChave: dados.terceiro !== true ? chaveComprador(documentoQuitacao(dados.cpfCliente)) : null,
       vendidoOculto: false,
       precoVendaFinal: precoVenda,
       lucroVendaPercent,
@@ -1304,7 +1315,8 @@ export async function setVeiculoEstoqueEstado(
     let success: string
     if (estado === 'vendido') {
       patch.vendidoEm = now
-      patch.vendidoRegistradoEm = now
+      patch.vendidoRegistradoEm = doc.get('vendidoEm') ? doc.get('vendidoRegistradoEm') || doc.get('vendidoEm') : now
+      patch.portalPosVendaChave = doc.get('terceiro') !== true ? chaveComprador(documentoQuitacao(doc.get('cpfCliente'))) : null
       success = 'Veículo marcado como vendido.'
     } else if (estado === 'privado') {
       patch.publico = false

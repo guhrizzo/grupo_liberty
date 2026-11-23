@@ -249,3 +249,36 @@ export function reenviarDocumentoNegativacao(id: string, documento: File): Promi
   form.append('documents', documento, documento.name)
   return chamar<AsaasDunning>('POST', `/paymentDunnings/${encodeURIComponent(id)}/documents`, form)
 }
+export interface AsaasAssinaturaServico {
+  id: string
+  customer: string
+  externalReference?: string
+  status: string
+  value?: number
+}
+
+export type AsaasMensalidadeServico = AsaasPayment & { subscription?: string; deleted?: boolean }
+
+export function assinaturasPorReferencia(referencia: string) {
+  return chamar<{ data: AsaasAssinaturaServico[] }>(
+    'GET', `/subscriptions?externalReference=${encodeURIComponent(referencia)}&limit=10`,
+  )
+}
+
+export function criarAssinaturaServico(customer: string, referencia: string, value: number, nextDueDate: string, description: string) {
+  return chamar<AsaasAssinaturaServico>('POST', '/subscriptions', {
+    customer, externalReference: referencia, value, nextDueDate, description, billingType: 'PIX', cycle: 'MONTHLY',
+  })
+}
+
+export function obterAssinaturaServico(id: string) {
+  return chamar<AsaasAssinaturaServico>('GET', `/subscriptions/${encodeURIComponent(id)}`)
+}
+
+export function inativarAssinaturaServico(id: string) {
+  return chamar<AsaasAssinaturaServico>('PUT', `/subscriptions/${encodeURIComponent(id)}`, { status: 'INACTIVE' })
+}
+
+export function listarMensalidadesAssinatura(id: string) {
+  return chamar<{ data: AsaasMensalidadeServico[] }>('GET', `/subscriptions/${encodeURIComponent(id)}/payments?limit=30`)
+}

@@ -16,28 +16,33 @@ import {
   IconMapPin,
 } from '@tabler/icons-react'
 import { Button, Input, Select, Textarea, useToast } from '../components/ui'
+import SelectCliente from '@/app/area-do-cliente/SelectCliente'
 import { onlyDigits, parseMoney } from '@/utils/masks'
 import { formatCurrency } from '@/utils/format'
 import { validarCPF } from '@/utils/validadorCpf'
 import { CAMBIO_OPCOES, COMBUSTIVEL_OPCOES } from '@/utils/veiculos/opcoes'
 import { ESTADO_OPCOES } from '@/utils/estadosBrasil'
 import PhotoUploadField, { type LocalFoto } from './PhotoUploadField'
+import styles from './anuncio-form.module.css'
 
+// From Uiverse.io by Matilemak - https://uiverse.io/Matilemak/breezy-catfish-99
+// MIT License, Copyright (c) gharsh11032000 (Harsh Gupta), Matilemak (Matias Alcayaga Cabello)
 const ANO_MAX = new Date().getFullYear() + 1
 /** Comissão que a LibertyCar retém sobre o valor anunciado pelo dono. */
 const TAXA_COMISSAO = 0.08
 const PLACA_RE = /^[A-Z]{3}-?\d{4}$|^[A-Z]{3}\d[A-Z]\d{2}$/
 
-const CAMBIO_SELECT = [{ value: '', label: 'Selecione…' }, ...CAMBIO_OPCOES]
-const COMBUSTIVEL_SELECT = [{ value: '', label: 'Selecione…' }, ...COMBUSTIVEL_OPCOES]
-const ESTADO_SELECT = [{ value: '', label: 'UF' }, ...ESTADO_OPCOES]
+const CAMBIO_SELECT = [{ value: '', label: 'Selecione o câmbio' }, ...CAMBIO_OPCOES]
+const COMBUSTIVEL_SELECT = [{ value: '', label: 'Selecione o combustível' }, ...COMBUSTIVEL_OPCOES]
+const ESTADO_SELECT = [{ value: '', label: 'Selecione o estado' }, ...ESTADO_OPCOES]
 
-export default function AnuncioForm() {
+export default function AnuncioForm({ clientePortal }: { clientePortal?: { nome: string; email: string } }) {
   const toast = useToast()
+  const Selecao = clientePortal ? SelectCliente : Select
 
-  const [nome, setNome] = useState('')
+  const [nome, setNome] = useState(clientePortal?.nome ?? '')
   const [cpf, setCpf] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(clientePortal?.email ?? '')
   const [telefone, setTelefone] = useState('')
 
   const [marca, setMarca] = useState('')
@@ -151,8 +156,8 @@ export default function AnuncioForm() {
           Nossa equipe vai avaliar as informações e as fotos do seu veículo e
           entrar em contato pelo telefone ou e-mail que você informou.
         </p>
-        <Link href="/" className="mt-6 inline-block">
-          <Button variant="secondary" size="sm">Voltar para o site</Button>
+        <Link href={clientePortal ? '/area-do-cliente' : '/'} className="mt-6 inline-block">
+          <Button variant="secondary" size="sm">{clientePortal ? 'Voltar à Área do Cliente' : 'Voltar para o site'}</Button>
         </Link>
       </div>
     )
@@ -259,13 +264,13 @@ export default function AnuncioForm() {
             onChange={(e) => setCor(e.target.value)}
             placeholder="Ex: Prata"
           />
-          <Select
+          <Selecao
             label="Câmbio"
             options={CAMBIO_SELECT}
             value={cambio}
             onChange={(e) => setCambio(e.target.value)}
           />
-          <Select
+          <Selecao
             label="Combustível"
             options={COMBUSTIVEL_SELECT}
             value={combustivel}
@@ -306,7 +311,7 @@ export default function AnuncioForm() {
             placeholder="Ex: Jaú"
             leftIcon={<IconMapPin size={14} />}
           />
-          <Select
+          <Selecao
             label="Estado"
             options={ESTADO_SELECT}
             value={estado}
@@ -370,6 +375,14 @@ export default function AnuncioForm() {
       </section>
 
       <div className="flex flex-col items-center gap-3">
+        {clientePortal && (
+          <button type="submit" disabled={loading} aria-busy={loading} className={styles.enviar}>
+            <IconSend aria-hidden size={24} stroke={2} className={styles.iconeEntrada} />
+            <span className={styles.texto}>{loading ? 'Enviando anúncio…' : 'Enviar anúncio'}</span>
+            <span aria-hidden="true" className={styles.circulo} />
+            <IconSend aria-hidden size={24} stroke={2} className={styles.iconeSaida} />
+          </button>
+        )}
         <Button
           type="submit"
           variant="liberty"
@@ -377,6 +390,7 @@ export default function AnuncioForm() {
           loading={loading}
           loadingLabel="Enviando anúncio…"
           leftIcon={<IconSend size={15} stroke={2.5} />}
+          className={clientePortal ? styles.enviarPadrao : undefined}
         >
           Enviar anúncio
         </Button>

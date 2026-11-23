@@ -1,3 +1,5 @@
+import type { EtapaQuitacao } from '@/utils/quitacoes/etapas'
+
 /** Uma quitação negociada com o banco para um veículo (histórico completo na coleção `quitacoes`). */
 export interface Quitacao {
   id: string
@@ -13,6 +15,7 @@ export interface Quitacao {
 
 /** Resumo do veículo para o seletor e a lista. */
 export interface VeiculoQuitacaoOpcao {
+  portalVinculo?: string
   id: string
   marca: string
   modelo: string
@@ -77,6 +80,8 @@ export function somarMeses(data: string, meses: number): string {
 
 /** Dados do cliente e do financiamento para ligar ao banco. Um por veículo (coleção `quitacao_fichas`). */
 export interface FichaQuitacao {
+  portalChaveLegada?: string | null
+  portal?: { vinculo: string; etapa: EtapaQuitacao; publicados: Partial<Record<TipoAnexo, string>> }
   veiculoId: string
   /** O veículo já foi quitado com o banco. */
   quitado: boolean
@@ -104,7 +109,7 @@ export interface FichaQuitacao {
   checklistHistorico: ChecklistReabertura[]
 }
 
-export type FichaInput = Omit<FichaQuitacao, 'quitado' | 'quitadoEm' | 'checklist' | 'checklistHistorico'>
+export type FichaInput = Omit<FichaQuitacao, 'quitado' | 'quitadoEm' | 'checklist' | 'checklistHistorico' | 'portal' | 'portalChaveLegada'>
 
 export interface VeiculoTerceiroInput {
   marca: string
@@ -143,6 +148,7 @@ export const TIPOS_ANEXO: { id: TipoAnexo; label: string }[] = [
 ]
 
 export interface AnexoQuitacao {
+  versaoArquivo?: string
   veiculoId: string
   tipo: TipoAnexo
   fileName: string

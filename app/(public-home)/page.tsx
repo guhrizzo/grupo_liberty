@@ -1,6 +1,4 @@
-import { cookies } from 'next/headers'
 import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
-import { adminAuth } from '@/utils/firebase/admin'
 import { getVehicles } from '@/app/dashboard/veiculos/actions'
 import { toPublicVeiculo, vendidoVisivel } from '@/app/dashboard/veiculos/public'
 import PublicVehiclesList from '@/app/PublicVehiclesList'
@@ -14,18 +12,6 @@ export const metadata = {
 }
 
 export default async function HomePage() {
-  const cookieStore = await cookies()
-  const session = cookieStore.get('session')?.value
-  let user: { uid: string; email?: string | null } | null = null
-
-  if (session) {
-    try {
-      const decoded = await adminAuth.verifySessionCookie(session, true)
-      user = { uid: decoded.uid, email: decoded.email ?? null }
-    } catch (error) {
-      // Ignorar erro e continuar como deslogado
-    }
-  }
   const todosVeiculos = await getVehicles()
   // Todo veículo fica no mesmo estoque. Mapeado para um subconjunto
   // público-seguro — sem CPF, dados do vendedor ou financiamento — antes de
@@ -42,7 +28,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col">
 
-      <PublicHeader user={user} variant="home" />
+      <PublicHeader />
 
       {/* Main Content */}
       <main className="flex-1 overflow-x-clip px-4 py-10 md:px-8 md:py-16">

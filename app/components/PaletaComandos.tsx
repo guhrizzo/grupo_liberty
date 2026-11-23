@@ -24,9 +24,9 @@ function normalizar(s: string): string {
     .trim()
 }
 
-function lerRecentes(): string[] {
+function lerRecentes(chave: string): string[] {
   try {
-    const bruto = localStorage.getItem(CHAVE_RECENTES)
+    const bruto = localStorage.getItem(chave)
     const lista = bruto ? JSON.parse(bruto) : []
     return Array.isArray(lista) ? lista.filter((x): x is string => typeof x === 'string') : []
   } catch {
@@ -38,7 +38,15 @@ function lerRecentes(): string[] {
  * Busca rápida do painel (Ctrl+K / ⌘K): abre uma caixa de pesquisa para ir direto
  * a qualquer aba a que o usuário tem acesso. Guarda as últimas escolhas.
  */
-export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
+export default function PaletaComandos({
+  itens, chaveRecentes = CHAVE_RECENTES, rotulo = 'Buscar no painel', mostrarAtalhos = false, escuro,
+}: {
+  itens: ItemPaleta[]
+  chaveRecentes?: string
+  rotulo?: string
+  mostrarAtalhos?: boolean
+  escuro?: boolean
+}) {
   const router = useRouter()
   const [aberta, setAberta] = useState(false)
   const [consulta, setConsulta] = useState('')
@@ -50,7 +58,7 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
   // Atalho global. Ctrl+K (Windows/Linux) ou ⌘K (Mac).
   useEffect(() => {
     function tecla(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      if (!e.repeat && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setAberta((v) => !v)
       }
@@ -63,28 +71,32 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
     if (!aberta) return
     setConsulta('')
     setIndice(0)
-    setRecentes(lerRecentes())
+    setRecentes(lerRecentes(chaveRecentes))
     const anterior = document.body.style.overflow
+    const focoAnterior = document.activeElement
     document.body.style.overflow = 'hidden'
-    requestAnimationFrame(() => inputRef.current?.focus())
+    const quadro = requestAnimationFrame(() => inputRef.current?.focus())
     return () => {
+      cancelAnimationFrame(quadro)
       document.body.style.overflow = anterior
+      if (focoAnterior instanceof HTMLElement && focoAnterior.isConnected) focoAnterior.focus({ preventScroll: true })
     }
-  }, [aberta])
+  }, [aberta, chaveRecentes])
 
   const resultados = useMemo(() => {
     const q = normalizar(consulta)
     if (!q) {
-      return recentes
+      const usados = recentes
         .map((h) => itens.find((i) => i.href === h))
         .filter((i): i is ItemPaleta => !!i)
+      return mostrarAtalhos ? [...usados, ...itens.filter((i) => !recentes.includes(i.href))] : usados
     }
     const termos = q.split(/\s+/)
     return itens.filter((i) => {
       const alvo = normalizar(`${i.label} ${i.busca ?? ''}`)
       return termos.every((t) => alvo.includes(t))
     })
-  }, [consulta, itens, recentes])
+  }, [consulta, itens, recentes, mostrarAtalhos])
 
   useEffect(() => {
     setIndice(0)
@@ -96,8 +108,8 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
 
   function abrirItem(item: ItemPaleta) {
     try {
-      const novos = [item.href, ...lerRecentes().filter((h) => h !== item.href)].slice(0, MAX_RECENTES)
-      localStorage.setItem(CHAVE_RECENTES, JSON.stringify(novos))
+      const novos = [item.href, ...lerRecentes(chaveRecentes).filter((h) => h !== item.href)].slice(0, MAX_RECENTES)
+      localStorage.setItem(chaveRecentes, JSON.stringify(novos))
     } catch {
       // sem localStorage: só não lembra dos recentes
     }
@@ -126,13 +138,16 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-start justify-center bg-neutral-950/50 px-4 pt-[12vh] backdrop-blur-[2px]"
+      className={`fixed inset-0 z-[200] flex items-start justify-center px-4 pt-[12vh] ${
+        // Área do Cliente (mostrarAtalhos): fundo desfocado em vez de escurecido.
+        mostrarAtalhos ? 'bg-neutral-950/15 backdrop-blur-md' : 'bg-neutral-950/50 backdrop-blur-[2px]'
+      } ${escuro ? 'adobe-dark' : ''}`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) setAberta(false)
       }}
       role="dialog"
       aria-modal="true"
-      aria-label="Buscar no painel"
+      aria-label={rotulo}
     >
       <div
         onKeyDown={aoTeclar}
@@ -144,8 +159,8 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
             ref={inputRef}
             value={consulta}
             onChange={(e) => setConsulta(e.target.value)}
-            placeholder="Buscar no painel..."
-            aria-label="Buscar no painel"
+            placeholder={`${rotulo}...`}
+            aria-label={rotulo}
             className="input-sem-borda h-14 flex-1 border-0 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 adobe-dark:text-[var(--color-adobe-text-hi)]"
           />
           <kbd className="rounded-md border border-neutral-200 px-1.5 py-0.5 text-[11px] font-semibold text-neutral-500 adobe-dark:border-[var(--color-adobe-line)] adobe-dark:text-[var(--color-adobe-text-lo)]">
@@ -160,7 +175,7 @@ export default function PaletaComandos({ itens }: { itens: ItemPaleta[] }) {
         ) : (
           <>
             {!consulta && (
-              <p className="px-4 pt-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">Recentes</p>
+              <p className="px-4 pt-3 text-[11px] font-bold uppercase tracking-wider text-neutral-400">{mostrarAtalhos ? 'Atalhos' : 'Recentes'}</p>
             )}
             <ul ref={listaRef} className="max-h-80 overflow-y-auto p-2" role="listbox">
               {resultados.map((item, i) => (

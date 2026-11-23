@@ -109,7 +109,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
   return (
     <div className="flex-1 overflow-x-clip flex flex-col">
 
-      <PublicHeader user={user} variant="inner" />
+      <PublicHeader />
 
       <main className="flex-1 overflow-x-clip px-4 py-8 md:px-8">
         <div className="mx-auto max-w-7xl">

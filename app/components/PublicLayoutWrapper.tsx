@@ -13,6 +13,8 @@ export default function PublicLayoutWrapper({ children }: { children: ReactNode 
   const isPrivate =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/login') ||
+    pathname === '/entrar' ||
+    pathname.startsWith('/area-do-cliente') ||
     pathname.startsWith('/api')
 
   if (isPrivate) return <>{children}</>

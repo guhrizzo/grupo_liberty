@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  ...(process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_LIBERTY_PORTAL_EMULATOR === '1'
+    ? { distDir: '.next/portal-local' }
+    : {}),
   // Só no `next dev`: deixa abrir o painel por túnel (ex.: webhook do Asaas via cloudflared).
   allowedDevOrigins: ['*.trycloudflare.com'],
   serverExternalPackages: ['firebase-admin', 'jwks-rsa', 'jose'],

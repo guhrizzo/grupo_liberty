@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { IconSpeakerphone, IconShieldCheck, IconClockHour4, IconCoin } from '@tabler/icons-react'
-import { getSessionUser } from '@/utils/permissions'
 import PublicHeader from '@/app/components/PublicHeader'
 import AnuncioForm from './AnuncioForm'
 
@@ -17,12 +16,9 @@ const BENEFICIOS = [
 ]
 
 export default async function AnuncieSeuVeiculoPage() {
-  const session = await getSessionUser()
-  const user = session ? { email: session.email } : null
-
   return (
     <div className="flex flex-col">
-      <PublicHeader user={user} variant="inner" />
+      <PublicHeader />
 
       <main className="flex-1 px-4 py-10 md:px-8 md:py-14">
         <div className="mx-auto max-w-3xl">

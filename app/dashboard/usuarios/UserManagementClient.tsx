@@ -43,6 +43,9 @@ const PERMISSION_TABS = [
   { key: 'rede_apoio',    label: 'Rede de apoio' },
   { key: 'metricas_diarias', label: 'Métricas diárias' },
   { key: 'interesses', label: 'Interesses' },
+  { key: 'clientes_portal', label: 'Clientes do portal' },
+  { key: 'pos_venda', label: 'Pós-venda' },
+  { key: 'investimentos', label: 'Investimentos' },
   { key: 'rastreamento', label: 'Rastreamento' },
 ] as const
 

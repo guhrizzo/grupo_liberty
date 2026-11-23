@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { tratarEncerramentoAssinaturaPosVenda, tratarPagamentoPosVenda } from '@/utils/pos-venda/cobranca'
 import { adminDb } from '@/utils/firebase/admin'
 import { registrarPagamentoCore } from '@/utils/cobrancas/pagamento-core'
-import { buscarCobranca, type AsaasPayment } from '@/utils/asaas/client'
+import { buscarCobranca, type AsaasAssinaturaServico, type AsaasPayment } from '@/utils/asaas/client'
 import { sincronizarNegativacao } from '@/utils/asaas/negativacao'
 import { baixarParcelasConsolidadas, estornarParcelasConsolidadas } from '@/utils/asaas/consolidada'
 import {
@@ -27,7 +28,8 @@ export const dynamic = 'force-dynamic'
 interface AsaasEvento {
   id?: string
   event?: string
-  payment?: AsaasPayment & { paymentDate?: string; clientPaymentDate?: string }
+  subscription?: AsaasAssinaturaServico
+  payment?: AsaasPayment & { paymentDate?: string; clientPaymentDate?: string; subscription?: string; deleted?: boolean }
 }
 
 function tokenValido(recebido: string | null): boolean {
@@ -141,7 +143,17 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'JSON inválido.' }, { status: 400 })
   }
-  const { id: eventoId, event: evento, payment: pagamento } = corpo
+  const { id: eventoId, event: evento, payment: pagamento, subscription: assinatura } = corpo
+  if (eventoId && evento && assinatura?.id && evento.startsWith('SUBSCRIPTION_')) {
+    try {
+      await tratarEncerramentoAssinaturaPosVenda(evento, assinatura)
+      revalidatePath('/area-do-cliente/pos-venda')
+      revalidatePath('/dashboard/pos-venda')
+      return NextResponse.json({ ok: true })
+    } catch {
+      return NextResponse.json({ error: 'Erro ao processar assinatura.' }, { status: 500 })
+    }
+  }
   if (!eventoId || !evento || !pagamento?.id) return NextResponse.json({ ok: true, ignorado: true })
 
   // Idempotência: o Asaas reentrega eventos. `create` falha se já foi processado.
@@ -153,6 +165,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (evento.startsWith('PAYMENT_') && await tratarPagamentoPosVenda(evento, pagamento)) {
+      revalidatePath('/area-do-cliente/pos-venda')
+      revalidatePath('/dashboard/pos-venda')
+      revalidatePath('/dashboard/financeiro')
+      return NextResponse.json({ ok: true })
+    }
+
     switch (evento) {
       case 'PAYMENT_CONFIRMED':
       case 'PAYMENT_RECEIVED':

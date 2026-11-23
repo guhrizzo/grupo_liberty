@@ -12,6 +12,7 @@ export type TransacaoCategoria =
   | 'Manutenção'
   | 'Documentação'
   | 'Serviço Legal'
+  | 'Serviços de Pós-venda'
   | 'Conta Fixa'
   | 'Outros'
 
@@ -21,6 +22,7 @@ export const TRANSACAO_CATEGORIAS: TransacaoCategoria[] = [
   'Manutenção',
   'Documentação',
   'Serviço Legal',
+  'Serviços de Pós-venda',
   'Conta Fixa',
   'Outros',
 ]

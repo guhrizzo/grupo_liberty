@@ -29,6 +29,7 @@ export default async function DashboardLayout({
   try {
     const decoded = await adminAuth.verifySessionCookie(session, true)
     const profileDoc = await adminDb.collection('profiles').doc(decoded.uid).get()
+    if (!profileDoc.exists) redirect('/login')
     role = profileDoc.data()?.role || null
     permissions = profileDoc.data()?.permissions || {}
     const ordem = profileDoc.data()?.sidebarOrdem

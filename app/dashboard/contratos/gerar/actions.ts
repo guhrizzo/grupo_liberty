@@ -277,6 +277,7 @@ export async function gerarContratoAction(raw: unknown): Promise<GerarContratoRe
         await ref.set({
           id: ref.id,
           veiculoId,
+          portalDocumento: input.contratante.cpf,
           fileName,
           descricao: `Gerado pelo painel — ${input.contratante.nome}`,
           storagePath,
