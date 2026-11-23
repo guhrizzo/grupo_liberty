@@ -94,9 +94,9 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
     typeof veiculo.publico === 'boolean' ? veiculo.publico : veiculo.finalidade !== 'pessoal'
 
   // Veículo vendido continua acessível (link vem da seção "Vendidos" da home),
-  // mesmo que estivesse privado antes. Após 30 dias o cron apaga o registro e
-  // cai no notFound() acima pelo docSnap inexistente.
-  const isVendido = !!veiculo.vendidoEm
+  // mesmo que estivesse privado antes. Após 30 dias o cron move o veículo pra
+  // Privado (`vendidoOculto`) e o link público passa a dar notFound().
+  const isVendido = !!veiculo.vendidoEm && veiculo.vendidoOculto !== true
 
   if (!isPublic && !isVendido && !showInternalInfo) {
     notFound()

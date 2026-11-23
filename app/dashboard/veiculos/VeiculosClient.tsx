@@ -514,6 +514,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [dataVenda, setDataVenda] = useState(() => dataParaInput())
   const [dataVendaSalvando, setDataVendaSalvando] = useState(false)
   const [precoVendaInput, setPrecoVendaInput] = useState('')
+  const [destinoFin, setDestinoFin] = useState<'tudo' | 'parcelado' | 'nenhum'>('tudo')
+  const [valorFinInput, setValorFinInput] = useState('')
+  const [mesesFin, setMesesFin] = useState('12')
   const [vendaSaving, setVendaSaving] = useState(false)
 
   // ─── Photo handling ──────────────────────────────────────────────────────
@@ -1142,6 +1145,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     // estado só muda quando a venda é confirmada (confirmarVenda).
     if (novo === 'vendido') {
       setPrecoVendaInput(maskMoney(preco))
+      setDestinoFin('tudo')
+      setValorFinInput('')
+      setMesesFin('12')
       setDataVenda(dataParaInput())
       setVendaModalOpen(true)
       return
@@ -1196,9 +1202,28 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       toast.error('Informe o preço de venda.')
       return
     }
+    const valorFinNum = parseMoney(valorFinInput) || 0
+    const mesesNum = parseInt(mesesFin, 10)
+    if (destinoFin === 'parcelado') {
+      if (!(valorFinNum > 0) || valorFinNum > precoVendaNum) {
+        toast.error('Informe o valor a lançar (até o preço de venda).')
+        return
+      }
+      if (!(mesesNum >= 2 && mesesNum <= 60)) {
+        toast.error('Informe de 2 a 60 meses.')
+        return
+      }
+    }
     setVendaSaving(true)
     try {
-      const result = await registrarVendaVeiculo(editingId, precoVendaNum, dataVenda)
+      const result = await registrarVendaVeiculo(
+        editingId,
+        precoVendaNum,
+        dataVenda,
+        destinoFin === 'parcelado'
+          ? { modo: 'parcelado', valor: valorFinNum, meses: mesesNum }
+          : { modo: destinoFin },
+      )
       if (result.error) {
         toast.error(result.error)
       } else {
@@ -1599,7 +1624,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   {estoqueEstado === 'vendido' && (
                     <>
                       <p className="mt-1.5 text-xs text-amber-700">
-                        Fica na seção “Vendidos” do site por 30 dias e depois é removido automaticamente.
+                        Fica na seção “Vendidos” do site por 30 dias e depois vai automaticamente para Privado.
                       </p>
                       <div className="mt-3 flex max-w-xs items-end gap-2">
                         <div className="flex-1">
@@ -3025,7 +3050,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
           if (!vendaSaving) setVendaModalOpen(false)
         }}
         title="Marcar como vendido"
-        description="Informe por quanto o veículo foi vendido."
+        description="Informe por quanto foi vendido e como lançar no Financeiro."
       >
         <div className="mt-4 space-y-4">
           <Input
@@ -3086,12 +3111,72 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
             </p>
           )}
 
+          <fieldset className="space-y-2">
+            <legend className="mb-1 text-sm font-medium text-neutral-800">
+              O que lançar no Financeiro?
+            </legend>
+            {([
+              { v: 'tudo', t: 'Valor todo, de uma vez', d: 'Lança o preço de venda como uma receita só.' },
+              { v: 'parcelado', t: 'Uma parte, em vários meses', d: 'Você escolhe quanto entra e em quantos meses.' },
+              { v: 'nenhum', t: 'Não lançar agora', d: 'Você adiciona o valor manualmente no Financeiro depois.' },
+            ] as const).map((o) => (
+              <label
+                key={o.v}
+                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm ${
+                  destinoFin === o.v ? 'border-emerald-500 bg-emerald-50' : 'border-neutral-200'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="destinoFin"
+                  className="mt-1"
+                  checked={destinoFin === o.v}
+                  onChange={() => setDestinoFin(o.v)}
+                />
+                <span>
+                  <span className="block font-medium text-neutral-900">{o.t}</span>
+                  <span className="block text-xs text-neutral-600">{o.d}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
+          {destinoFin === 'parcelado' && (
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                id="valorFin"
+                label="Valor a lançar (R$)"
+                type="text"
+                inputMode="decimal"
+                value={valorFinInput}
+                onChange={(e) => setValorFinInput(maskMoney(e.target.value))}
+                placeholder="Ex: R$ 30.000,00"
+                leftIcon={<IconCash size={14} />}
+              />
+              <Input
+                id="mesesFin"
+                label="Em quantos meses"
+                type="number"
+                min={2}
+                max={60}
+                value={mesesFin}
+                onChange={(e) => setMesesFin(e.target.value)}
+                placeholder="Ex: 12"
+              />
+              {parseMoney(valorFinInput) > 0 && parseInt(mesesFin, 10) >= 2 && (
+                <p className="col-span-2 text-xs text-neutral-600">
+                  ≈ {formatCurrency(parseMoney(valorFinInput) / parseInt(mesesFin, 10))} por mês, a partir da
+                  data da venda. Meses futuros ficam como pendentes.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
             <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
             <p>
-              Ao confirmar, o preço de venda será lançado automaticamente como{' '}
-              <strong>receita (“Venda de Veículo”) no Financeiro</strong>. Se voltar o veículo para
-              Disponível ou Privado, esse lançamento é removido.
+              O lucro é calculado sobre o preço de venda, independente do que for lançado. Se voltar o
+              veículo para Disponível ou Privado, os lançamentos desta venda são removidos.
             </p>
           </div>
 

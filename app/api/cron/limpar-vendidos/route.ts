@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { limparVeiculosVendidos } from '@/utils/veiculos/limpar-vendidos'
 
-// ─── Cron diário: apagar veículos vendidos há mais de 30 dias ──────────────
+// ─── Cron diário: mover pra Privado os veículos vendidos há mais de 30 dias ──────────────
 // A lógica de fato mora em utils/veiculos/limpar-vendidos.ts. Aqui só cuidamos
 // da autenticação do cron.
 //

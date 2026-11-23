@@ -172,6 +172,8 @@ export interface Veiculo {
   vendidoEm: string | null
   /** Quando a venda foi registrada no sistema (a `vendidoEm` pode ser retroativa). Base do prazo de exibição/limpeza. */
   vendidoRegistradoEm: string | null
+  /** `true` depois que o prazo de `VENDIDO_TTL_DIAS` venceu: o veículo vai pra Privado (sem sair do histórico de vendas). */
+  vendidoOculto?: boolean
   /** Preço pelo qual foi vendido (R$). Gravado ao marcar como vendido; lançado como receita no Financeiro. */
   precoVendaFinal?: number | null
   /** Lucro da venda em % sobre o custo efetivo total (`(venda − custo) / custo`). Interno. */
@@ -349,6 +351,7 @@ export async function getVehicles(): Promise<Veiculo[]> {
           typeof data.publico === 'boolean' ? data.publico : data.finalidade !== 'pessoal',
         vendidoEm: data.vendidoEm ?? null,
         vendidoRegistradoEm: data.vendidoRegistradoEm ?? null,
+        vendidoOculto: data.vendidoOculto === true,
         precoVendaFinal: data.precoVendaFinal ?? null,
         lucroVendaPercent: data.lucroVendaPercent ?? null,
         terceiro: typeof data.terceiro === 'boolean' ? data.terceiro : false,
@@ -1139,6 +1142,27 @@ function lancamentoDaVenda(veiculoId: string) {
   return adminDb.collection('transacoes').doc(`venda_${veiculoId}`)
 }
 
+/** Destino da venda no Financeiro: tudo de uma vez, uma parte em vários meses, ou nada (lançado à mão depois). */
+export type VendaFinanceiro =
+  | { modo: 'tudo' }
+  | { modo: 'parcelado'; valor: number; meses: number }
+  | { modo: 'nenhum' }
+
+/** Todos os lançamentos gerados pela venda (o único `venda_<id>` ou as parcelas `venda_<id>_<n>`). */
+async function lancamentosDaVenda(veiculoId: string) {
+  const snap = await adminDb.collection('transacoes').where('origemVeiculoId', '==', veiculoId).get()
+  return snap.docs.filter((d) => d.id === `venda_${veiculoId}` || d.id.startsWith(`venda_${veiculoId}_`))
+}
+
+function somarMeses(dataIso: string, n: number): string {
+  const [a, m, d] = dataIso.split('-').map(Number)
+  const total = (m - 1) + n
+  const ano = a + Math.floor(total / 12)
+  const mes = (total % 12) + 1
+  const ultimo = new Date(ano, mes, 0).getDate()
+  return `${ano}-${String(mes).padStart(2, '0')}-${String(Math.min(d, ultimo)).padStart(2, '0')}`
+}
+
 /**
  * Marca o veículo como vendido pelo `precoVenda` informado: grava preço e lucro
  * (venda − custo efetivo total, em % do custo) e lança o preço de venda como
@@ -1148,6 +1172,7 @@ export async function registrarVendaVeiculo(
   id: string,
   precoVenda: number,
   dataVenda?: string,
+  financeiro: VendaFinanceiro = { modo: 'tudo' },
 ): Promise<VeiculoResponse> {
   let user: { uid: string }
   try {
@@ -1161,6 +1186,13 @@ export async function registrarVendaVeiculo(
   }
   const dataInformada = dataVendaParaIso(dataVenda)
   if (dataInformada.error) return { error: dataInformada.error }
+
+  if (financeiro.modo === 'parcelado') {
+    const { valor, meses } = financeiro
+    if (!Number.isFinite(valor) || valor <= 0) return { error: 'Informe o valor a lançar no Financeiro.' }
+    if (valor > precoVenda) return { error: 'O valor a lançar não pode ser maior que o preço de venda.' }
+    if (!Number.isInteger(meses) || meses < 2 || meses > 60) return { error: 'Informe de 2 a 60 meses.' }
+  }
 
   try {
     // Garante que o custo usado no lucro está atualizado (manutenções etc.).
@@ -1181,28 +1213,56 @@ export async function registrarVendaVeiculo(
     batch.update(docRef, {
       vendidoEm: dataInformada.iso ?? now,
       vendidoRegistradoEm: now,
+      vendidoOculto: false,
       precoVendaFinal: precoVenda,
       lucroVendaPercent,
       updated_at: now,
     })
-    batch.set(lancamentoDaVenda(id), {
-      descricao: `Venda: ${nomeVeiculo || 'Veículo'}${dados.placa ? ` (${dados.placa})` : ''}`,
+    // Registrar de novo troca os lançamentos anteriores da venda.
+    for (const antigo of await lancamentosDaVenda(id)) batch.delete(antigo.ref)
+
+    const descBase = `Venda: ${nomeVeiculo || 'Veículo'}${dados.placa ? ` (${dados.placa})` : ''}`
+    const dataBase = dataInformada.iso ? dataInformada.iso.slice(0, 10) : hojeSaoPaulo()
+    const base = {
       categoria: 'Venda de Veículo',
       tipo: 'receita',
-      valor: precoVenda,
-      data: dataInformada.iso ? dataInformada.iso.slice(0, 10) : hojeSaoPaulo(),
-      status: 'concluido',
       origemVeiculoId: id,
       created_by: user?.uid ?? null,
       created_at: now,
       updated_at: now,
-    })
+    }
+    if (financeiro.modo === 'tudo') {
+      batch.set(lancamentoDaVenda(id), {
+        ...base, descricao: descBase, valor: precoVenda, data: dataBase, status: 'concluido',
+      })
+    } else if (financeiro.modo === 'parcelado') {
+      const { valor, meses } = financeiro
+      const centavos = Math.round(valor * 100)
+      const parcela = Math.floor(centavos / meses)
+      const hoje = hojeSaoPaulo()
+      for (let i = 0; i < meses; i++) {
+        const cents = i === meses - 1 ? centavos - parcela * (meses - 1) : parcela
+        const data = somarMeses(dataBase, i)
+        batch.set(adminDb.collection('transacoes').doc(`venda_${id}_${i + 1}`), {
+          ...base,
+          descricao: `${descBase} — parcela ${i + 1}/${meses}`,
+          valor: cents / 100,
+          data,
+          status: data <= hoje ? 'concluido' : 'pendente',
+        })
+      }
+    }
     await batch.commit()
 
     revalidatePath('/dashboard/veiculos')
     revalidatePath('/dashboard/financeiro')
     revalidatePath('/')
-    return { success: 'Veículo vendido e lançado no Financeiro!' }
+    return {
+      success:
+        financeiro.modo === 'nenhum'
+          ? 'Veículo vendido. Nada foi lançado no Financeiro — adicione o valor manualmente.'
+          : 'Veículo vendido e lançado no Financeiro!',
+    }
   } catch (error: any) {
     return { error: `Erro ao registrar a venda: ${error.message}` }
   }
@@ -1240,7 +1300,7 @@ export async function setVeiculoEstoqueEstado(
     }
 
     const now = new Date().toISOString()
-    const patch: Record<string, unknown> = { updated_at: now }
+    const patch: Record<string, unknown> = { updated_at: now, vendidoOculto: false }
     let success: string
     if (estado === 'vendido') {
       patch.vendidoEm = now
@@ -1267,7 +1327,7 @@ export async function setVeiculoEstoqueEstado(
       patch.lucroVendaPercent = null
       const batch = adminDb.batch()
       batch.update(docRef, patch)
-      batch.delete(lancamentoDaVenda(id))
+      for (const l of await lancamentosDaVenda(id)) batch.delete(l.ref)
       await batch.commit()
       revalidatePath('/dashboard/financeiro')
     }

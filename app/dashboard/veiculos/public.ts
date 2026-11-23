@@ -54,7 +54,10 @@ export type EstoqueEstado = 'disponivel' | 'vendido' | 'privado'
 export function estoqueEstadoDe(v: {
   publico: boolean
   vendidoEm: string | null
+  vendidoOculto?: boolean
 }): EstoqueEstado {
+  // Venda com prazo vencido: foi pro Privado (mantém vendidoEm só pro histórico).
+  if (v.vendidoEm && v.vendidoOculto) return 'privado'
   if (v.vendidoEm) return 'vendido'
   return v.publico ? 'disponivel' : 'privado'
 }
@@ -62,7 +65,7 @@ export function estoqueEstadoDe(v: {
 /**
  * `true` enquanto um veículo vendido ainda deve aparecer na seção "Vendidos"
  * do site — isto é, foi marcado como vendido há no máximo `VENDIDO_TTL_DIAS`.
- * Depois disso o cron `limpar-vendidos` apaga o registro; este guard cobre a
+ * Depois disso o cron `limpar-vendidos` move o veículo pra Privado; este guard cobre a
  * janela entre o vencimento e a próxima execução do cron.
  */
 export function vendidoVisivel(
