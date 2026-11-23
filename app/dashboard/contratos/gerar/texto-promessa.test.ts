@@ -337,6 +337,22 @@ describe('prestação de serviços de intermediação', () => {
     expect(t(prestacao())).toContain('Limpa Nome')
   })
 
+  it('cláusula 6: assumir a dívida (sem pagamento) e pagamento até a entrega', () => {
+    const i = prestacao()
+    i.compra.assumirDivida = true
+    i.compra.valorTotal = ''
+    i.compra.dataPagamento = ''
+    expect(validarGerarContrato(i)).toBeNull()
+    const x = t(i)
+    expect(x).toContain('assume a responsabilidade pelo saldo devedor')
+    expect(x).not.toContain('valor fixo de')
+    const j = prestacao()
+    j.compra.pagamentoNaEntrega = true
+    j.compra.dataPagamento = ''
+    expect(validarGerarContrato(j)).toBeNull()
+    expect(t(j)).toContain('até o dia da entrega do veículo')
+  })
+
   it('validação e formulário vazio', async () => {
     const i = prestacao(true)
     i.vendedor2.rg = ''

@@ -273,7 +273,26 @@ export function montarPrestacao(i: GerarContratoInput, hoje: Date = new Date()):
       : []),
   ]
 
-  const clausula6: BlocoContrato[] = [
+  const clausula6Divida: BlocoContrato[] = [
+    { tipo: 'secao', texto: '6. PAGAMENTO PELO VEÍCULO' },
+    {
+      tipo: 'p',
+      texto:
+        '**6.1.** Pelo presente instrumento, as partes ajustam que **não haverá qualquer pagamento de valores pelo INTERMEDIADOR diretamente ao VENDEDOR**, a título de aquisição, compensação ou cessão dos direitos de posse e negociação do veículo objeto deste contrato.',
+    },
+    {
+      tipo: 'p',
+      texto:
+        '**6.2.** O INTERMEDIADOR **assume a responsabilidade pelo saldo devedor do financiamento do veículo**, comprometendo-se a providenciar sua **quitação integral**, seja por meio de terceiro interessado ou com recursos próprios, conforme as condições estabelecidas neste instrumento.',
+    },
+    {
+      tipo: 'p',
+      texto:
+        '**6.3.** O VENDEDOR declara estar ciente e de acordo que a obrigação assumida pelo INTERMEDIADOR consiste **exclusivamente na responsabilidade pela quitação da dívida do veículo**, não havendo qualquer valor adicional a ser pago diretamente ao VENDEDOR em razão desta negociação.',
+    },
+  ]
+
+  const clausula6: BlocoContrato[] = k.assumirDivida ? clausula6Divida : [
     { tipo: 'secao', texto: '6. PAGAMENTO PELO VEÍCULO' },
     {
       tipo: 'p',
