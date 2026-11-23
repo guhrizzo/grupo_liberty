@@ -117,7 +117,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
           {/* Breadcrumb + Share */}
           <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
             <nav aria-label="Trilha de navegação" className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 flex-wrap">
-              <Link href="/" className="hover:text-liberty transition-colors">
+              <Link href="/estoque" className="hover:text-liberty transition-colors">
                 Estoque
               </Link>
               {veiculo.marca && (
@@ -296,7 +296,7 @@ export default async function VeiculoPublicPage({ params }: { params: Promise<{ 
                     Confira os outros veículos disponíveis no nosso estoque.
                   </p>
                   <Link
-                    href="/#estoque"
+                    href="/estoque"
                     className="mt-4 inline-flex items-center justify-center rounded-lg bg-liberty px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-liberty-deep"
                   >
                     Ver veículos disponíveis

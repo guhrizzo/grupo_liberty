@@ -37,6 +37,7 @@ import DashboardVeiculosSkeleton from '@/app/dashboard/veiculos/loading'
 import GoogleAgendaConectadoSkeleton from '@/app/google-agenda/conectado/loading'
 import VeiculosIdSkeleton from '@/app/veiculos/[id]/loading'
 import PublicHomeSkeleton from '@/app/(public-home)/loading'
+import EstoqueSkeleton from '@/app/estoque/loading'
 import AnuncieSeuVeiculoSkeleton from '@/app/anuncie-seu-veiculo/loading'
 import DashboardSkeleton from '@/app/dashboard/loading'
 import EntrarDispositivoSkeleton from '@/app/entrar-dispositivo/loading'
@@ -79,6 +80,7 @@ const routeSkeletons = [
     { route: '/google-agenda/conectado', Component: GoogleAgendaConectadoSkeleton },
     { route: '/veiculos/[id]', Component: VeiculosIdSkeleton },
     { route: '/', Component: PublicHomeSkeleton },
+    { route: '/estoque', Component: EstoqueSkeleton },
     { route: '/anuncie-seu-veiculo', Component: AnuncieSeuVeiculoSkeleton },
     { route: '/dashboard', Component: DashboardSkeleton },
     { route: '/entrar-dispositivo', Component: EntrarDispositivoSkeleton },

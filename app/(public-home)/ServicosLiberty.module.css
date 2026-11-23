@@ -1,0 +1,147 @@
+.intro {
+  background: linear-gradient(180deg, #0b111d, #111c2c);
+  color: #f5f8ff;
+}
+
+.atalho {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: .4rem;
+  padding-inline: .75rem;
+  border: 1px solid #819bb64d;
+  border-radius: .65rem;
+  background: #86caff0d;
+  color: #e5eeff;
+  font-size: .81rem;
+  font-weight: 600;
+}
+
+.atalho svg { color: #86caff; }
+.atalho:hover { border-color: #86caff; background: #86caff1a; }
+.atalho:focus-visible { outline: 2px solid #b7e0ff; outline-offset: 3px; }
+
+.quitacao {
+  background: linear-gradient(125deg, #f3faff, #fff 55%);
+  border-block: 1px solid #dbe6ed;
+}
+
+.visualQuitacao {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: 23rem;
+  align-items: end;
+  overflow: hidden;
+  padding: clamp(1rem, 4vw, 2rem);
+  border-radius: 1.5rem;
+  background: #101a26;
+  box-shadow: 0 16px 42px #0a1a2c22;
+}
+
+.foto {
+  position: absolute;
+  z-index: -1;
+  inset: -5% 0;
+  background: linear-gradient(180deg, #08121d12 15%, #07111dda 92%), url('../public/portal-liberty-entrada.webp') 50% 43% / cover;
+}
+
+.etapas {
+  display: grid;
+  gap: .55rem;
+  justify-self: start;
+  padding: .85rem 1rem;
+  border: 1px solid #d9efff33;
+  border-radius: 1rem;
+  background: #0d1b2de8;
+  color: #f1f7ff;
+  backdrop-filter: blur(8px);
+}
+
+.etapas li,
+.painelInvestimentos li {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  font-size: .875rem;
+  font-weight: 600;
+}
+
+.etapas svg,
+.painelInvestimentos svg {
+  flex-shrink: 0;
+  color: #7dccff;
+}
+
+.posVenda { background: #f5f7f9; }
+
+.plano {
+  padding: clamp(1.15rem, 2.8vw, 1.6rem);
+  border: 1px solid #dce4ec;
+  border-radius: 1.15rem;
+  background: #fff;
+  box-shadow: 0 3px 12px #132a4110;
+}
+
+.plano svg { color: #006fa3; }
+.plano h4 { margin-block: 1.4rem .5rem; font-size: 1.04rem; font-weight: 700; }
+.plano p { color: #465569; font-size: .875rem; line-height: 1.6; }
+
+.pacote {
+  border-color: #295276;
+  background: linear-gradient(140deg, #193c5c, #111f34);
+  color: #fff;
+}
+
+.pacote svg,
+.pacote p { color: #c1e2ff; }
+
+.investimentos {
+  background: radial-gradient(ellipse at 85% 18%, #153752, transparent 63%), #0b1727;
+  color: #f1f7ff;
+}
+
+.iconeInvestimento {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: .75rem;
+  background: #7dccff18;
+  color: #7dccff;
+}
+
+.linkInvestimento {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  gap: .75rem;
+  margin-top: 1.75rem;
+  padding: .5rem 1.25rem;
+  border-radius: 2rem;
+  background: #8ed4ff;
+  color: #071521;
+  font-size: .875rem;
+  font-weight: 750;
+}
+
+.linkInvestimento:hover { background: #b2e3ff; }
+.linkInvestimento:focus-visible { outline: 2px solid #b2e3ff; outline-offset: 4px; }
+
+.painelInvestimentos {
+  display: grid;
+  padding: .75rem clamp(1rem, 4vw, 2rem);
+  border: 1px solid #8ed4ff38;
+  border-radius: 1.25rem;
+  background: #182c42ba;
+  box-shadow: 0 20px 55px #020a1540;
+}
+
+.painelInvestimentos li { padding-block: 1.3rem; }
+.painelInvestimentos li + li { border-top: 1px solid #8ed4ff24; }
+
+:global(.adobe-dark) .quitacao { border-color: #34414b; background: linear-gradient(120deg, #202a33, #252525 60%); }
+:global(.adobe-dark) .posVenda { background: #202020; }
+:global(.adobe-dark) .plano:not(.pacote) { border-color: #414141; background: #292929; }
+:global(.adobe-dark) .plano:not(.pacote) p { color: #cacaca; }
+:global(.adobe-dark) .plano:not(.pacote) svg { color: #7dccff; }

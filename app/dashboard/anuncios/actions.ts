@@ -244,7 +244,7 @@ export async function aprovarAnuncio(
 
     revalidatePath('/dashboard/anuncios')
     revalidatePath('/dashboard/veiculos')
-    if (opts.publicar) revalidatePath('/')
+    if (opts.publicar) revalidatePath('/estoque')
 
     const emailSent = await sendAnuncioStatusEmail({
       nome: d.nome ?? 'Anunciante',

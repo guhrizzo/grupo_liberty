@@ -822,7 +822,7 @@ export async function deleteVehicle(id: string): Promise<{ success?: string; err
   try {
     await apagarVeiculoCompleto(id)
     revalidatePath('/dashboard/veiculos')
-    revalidatePath('/')
+    revalidatePath('/estoque')
     return { success: 'Veículo removido com sucesso!' }
   } catch (error: any) {
     return { error: `Erro ao deletar veículo: ${error.message}` }
@@ -1267,7 +1267,7 @@ export async function registrarVendaVeiculo(
 
     revalidatePath('/dashboard/veiculos')
     revalidatePath('/dashboard/financeiro')
-    revalidatePath('/')
+    revalidatePath('/estoque')
     return {
       success:
         financeiro.modo === 'nenhum'
@@ -1345,7 +1345,7 @@ export async function setVeiculoEstoqueEstado(
     }
 
     revalidatePath('/dashboard/veiculos')
-    revalidatePath('/')
+    revalidatePath('/estoque')
     return { success }
   } catch (error: any) {
     return { error: `Erro ao atualizar o estado do veículo: ${error.message}` }
@@ -1390,7 +1390,7 @@ export async function atualizarDataVenda(
 
     revalidatePath('/dashboard/veiculos')
     revalidatePath('/dashboard/financeiro')
-    revalidatePath('/')
+    revalidatePath('/estoque')
     return { success: 'Data da venda atualizada.' }
   } catch (error: any) {
     return { error: `Erro ao atualizar a data da venda: ${error.message}` }

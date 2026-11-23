@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { IconSearch, IconCar, IconArrowRight, IconMapPin } from '@tabler/icons-react'
 import LoadingBar from './components/LoadingBar'
@@ -18,6 +19,7 @@ type CambioFilter = 'Todos' | 'Manual' | 'Automatico' | 'CVT'
 type SortBy = 'recente' | 'preco-cresc' | 'preco-decresc' | 'ano-novo'
 
 export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const debouncedSearch = useDebounce(search, 200)
   const [selectedBrand, setSelectedBrand] = useState('Todas')
@@ -87,9 +89,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
         title="Nenhum veículo disponível no momento"
         description="Nosso estoque está sendo atualizado. Volte em breve para conferir as novidades."
         action={
-          <Link href="/">
-            <Button variant="secondary" size="sm">Atualizar página</Button>
-          </Link>
+          <Button variant="secondary" size="sm" onClick={() => router.refresh()}>Atualizar página</Button>
         }
       />
     )

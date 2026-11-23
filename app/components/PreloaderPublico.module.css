@@ -1,0 +1,59 @@
+.abertura {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, #123451 0%, #0b1725 45%, #070f18 85%);
+}
+
+.abertura[data-ativa='true'] {
+  display: grid;
+  animation: sair 950ms cubic-bezier(.3, .75, .35, 1) both;
+}
+
+.marca {
+  display: grid;
+  justify-items: center;
+  gap: 1.5rem;
+  animation: surgir 450ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.trilho {
+  width: 7rem;
+  height: 2px;
+  border-radius: 1rem;
+  background: #ffffff33;
+}
+
+.trilho::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #55c5ff;
+  box-shadow: 0 0 12px #55c5ffbf;
+  content: '';
+  transform-origin: left;
+  animation: preencher 650ms cubic-bezier(.22, 1, .36, 1) both;
+}
+
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes preencher {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes sair {
+  0%, 65% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abertura[data-ativa='true'] { display: none; }
+}

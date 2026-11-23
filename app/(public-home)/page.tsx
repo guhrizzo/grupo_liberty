@@ -1,137 +1,45 @@
-import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
-import { getVehicles } from '@/app/dashboard/veiculos/actions'
-import { toPublicVeiculo, vendidoVisivel } from '@/app/dashboard/veiculos/public'
-import PublicVehiclesList from '@/app/PublicVehiclesList'
-import PublicSoldVehiclesList from '@/app/PublicSoldVehiclesList'
-import PublicHeader from '@/app/components/PublicHeader'
-import { Button } from '@/app/components/ui'
+import Link from 'next/link'
+import { IconArrowDown, IconArrowRight, IconMapPin, IconShieldCheck } from '@tabler/icons-react'
+import MidiaHero from './MidiaHero'
+import ServicosLiberty from './ServicosLiberty'
+import styles from './HeroLiberty.module.css'
 
 export const metadata = {
   title: 'Liberty Car | Encontre seu Veículo Ideal',
-  description: 'Confira nosso estoque completo de veículos seminovos e novos com as melhores condições.',
+  description: 'Confira o estoque de veículos da Liberty Car e conheça os serviços de quitação, pós-venda e investimentos.',
 }
 
-export default async function HomePage() {
-  const todosVeiculos = await getVehicles()
-  // Todo veículo fica no mesmo estoque. Mapeado para um subconjunto
-  // público-seguro — sem CPF, dados do vendedor ou financiamento — antes de
-  // serializar no payload da página pública.
-  //  - `veiculos`: à venda (público e não vendido) → grid principal.
-  //  - `vendidos`: marcados como vendidos há ≤ 30 dias → seção "Vendidos".
-  const veiculos = todosVeiculos
-    .filter((v) => v.publico === true && !v.vendidoEm)
-    .map(toPublicVeiculo)
-  const vendidos = todosVeiculos
-    .filter((v) => vendidoVisivel(v.vendidoRegistradoEm ?? v.vendidoEm))
-    .map(toPublicVeiculo)
-
+export default function HomePage() {
   return (
-    <div className="flex flex-col">
-
-      <PublicHeader />
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-x-clip px-4 py-10 md:px-8 md:py-16">
-        <div className="mx-auto max-w-7xl space-y-12 md:space-y-16">
-
-          {/* Hero Section */}
-          <section className="relative overflow-hidden rounded-3xl border border-neutral-200 bg-linear-to-br from-liberty/8 via-white to-white shadow-lg shadow-liberty/5">
-            {/* Manchas coloridas em movimento (estilo aurora). Decorativo: fica atrás do texto. */}
-            <div className="aurora" aria-hidden>
-              <span className="aurora-blob aurora-blob-1" />
-              <span className="aurora-blob aurora-blob-2" />
-              <span className="aurora-blob aurora-blob-3" />
-              <span className="aurora-blob aurora-blob-4" />
-              <span className="aurora-dots" />
+    <main className="flex flex-col overflow-x-clip">
+      <section className={styles.hero} aria-labelledby="titulo-home">
+        <div className={styles.interior}>
+          <div className={styles.conteudo}>
+            <p className={styles.categoria}>Novos e seminovos</p>
+            <h1 id="titulo-home">Seu próximo carro <span>está na Liberty.</span></h1>
+            <p className={styles.descricao}>Explore nosso estoque de veículos vistoriados e encontre a opção certa para você.</p>
+            <div className={styles.acoes}>
+              <Link href="/estoque" className={styles.primario}>
+                Explorar estoque <IconArrowRight aria-hidden size={19} />
+              </Link>
+              <Link href="/anuncie-seu-veiculo" className={styles.secundario}>Anuncie seu veículo</Link>
             </div>
+            <ul className={styles.detalhes}>
+              <li><IconShieldCheck aria-hidden size={19} /> Veículos vistoriados</li>
+              <li><IconMapPin aria-hidden size={19} /> Jaú e Bauru, SP</li>
+            </ul>
+          </div>
 
-            <div className="relative px-6 py-14 md:px-16 md:py-20 text-center max-w-3xl mx-auto space-y-5">
-              <span className="inline-flex items-center gap-2 rounded-full border border-liberty/30 bg-liberty/5 px-3.5 py-1 text-xs font-extrabold uppercase tracking-[0.25em] text-liberty-deep animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]">
-                <span className="h-1.5 w-1.5 rounded-full bg-liberty animate-[pulse-soft_1.4s_ease-in-out_infinite]" />
-                Estoque Atualizado
-              </span>
-              <h1 className="text-4xl md:text-6xl font-black text-neutral-900 tracking-tight leading-[1.05] animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_100ms_both]">
-                Seu próximo carro com <span className="text-liberty">segurança</span> e o melhor Preço.
-              </h1>
-              <p className="text-sm md:text-base text-neutral-600 leading-relaxed max-w-xl mx-auto animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_200ms_both]">
-                Veículos vistoriados, procedência garantida e atendimento de Jaú/SP e Bauru/SP. Explore a frota e faça sua proposta.
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]">
-                <a href="#estoque">
-                  <Button variant="liberty" size="lg" rightIcon={<IconArrowRight size={14} stroke={2.5} />}>
-                    Ver Estoque
-                  </Button>
-                </a>
-                <a href="/anuncie-seu-veiculo">
-                  <Button variant="secondary" size="lg" leftIcon={<IconSpeakerphone size={14} stroke={2.5} />}>
-                    Anuncie seu veículo
-                  </Button>
-                </a>
-                <a href="https://libertycar.net.br" target="_blank" rel="noopener noreferrer">
-                  <Button variant="secondary" size="lg">
-                    Sobre a Liberty
-                  </Button>
-                </a>
-              </div>
+          <MidiaHero />
 
-              {/* Trust strip */}
-              <div className="pt-6 mt-2 border-t border-neutral-200 grid grid-cols-3 gap-4 text-center animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_400ms_both]">
-                <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">{veiculos.length}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Veículos</p>
-                </div>
-                <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">2</p>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Lojas</p>
-                </div>
-                <div className="group cursor-default">
-                  <p className="text-xl md:text-2xl font-black text-liberty group-hover:scale-110 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">100%</p>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500 mt-0.5">Vistoriados</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Listagem de Veículos */}
-          <section id="estoque" className="space-y-6">
-            <div className="flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-liberty">
-                  Frota Disponível
-                </p>
-                <h2 className="text-2xl md:text-3xl font-black text-neutral-900 mt-1">
-                  Veículos em Destaque
-                </h2>
-              </div>
-              <span className="shrink-0 text-xs font-semibold text-neutral-500 whitespace-nowrap">
-                {veiculos.length} {veiculos.length === 1 ? 'veículo' : 'veículos'}
-              </span>
-            </div>
-            <PublicVehiclesList veiculos={veiculos} />
-          </section>
-
-          {/* Vendidos recentemente — prova social; some sozinho após 30 dias */}
-          {vendidos.length > 0 && (
-            <section id="vendidos" className="space-y-6">
-              <div className="flex items-end justify-between gap-4 border-b border-neutral-200 pb-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.25em] text-neutral-400">
-                    Saíram do estoque
-                  </p>
-                  <h2 className="text-2xl md:text-3xl font-black text-neutral-900 mt-1">
-                    Vendidos recentemente
-                  </h2>
-                </div>
-                <span className="shrink-0 text-xs font-semibold text-neutral-500 whitespace-nowrap">
-                  {vendidos.length} {vendidos.length === 1 ? 'veículo' : 'veículos'}
-                </span>
-              </div>
-              <PublicSoldVehiclesList veiculos={vendidos} />
-            </section>
-          )}
-
+          <nav aria-label="Mais sobre a Liberty" className={styles.atalhos}>
+            <a href="#servicos">Conheça nossos serviços <IconArrowDown aria-hidden size={16} /></a>
+            <a href="https://libertycar.net.br" target="_blank" rel="noopener noreferrer">Sobre a Liberty</a>
+          </nav>
         </div>
-      </main>
-    </div>
+      </section>
+
+      <ServicosLiberty />
+    </main>
   )
 }

@@ -64,7 +64,7 @@ function mensagemFirebase(erro: unknown) {
   }
 }
 
-export default function FormEntrada() {
+export default function FormEntrada({ destino }: { destino?: string }) {
   const router = useRouter()
   const [modo, setModo] = useState<Modo>('entrar')
   const [recuperando, setRecuperando] = useState(false)
@@ -116,7 +116,8 @@ export default function FormEntrada() {
           setMensagem({ erro: true, texto: resultado.erro })
           return
         }
-        router.replace('/area-do-cliente')
+        if (destino) window.location.replace(`/area-do-cliente/entrar?destino=${encodeURIComponent(destino)}`)
+        else router.replace('/area-do-cliente')
       } catch (erro) {
         setMensagem({ erro: true, texto: mensagemFirebase(erro) })
       } finally {

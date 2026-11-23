@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { IconArrowRight, IconSpeakerphone } from '@tabler/icons-react'
+import { IconArrowRight, IconCar, IconSpeakerphone } from '@tabler/icons-react'
 import LOGO_LIBERTY from '@/app/public/logo-liberty-car-blue.png'
 import LOGO_LIBERTY_CLARO from '@/app/public/logo-liberty-car-white.png'
 import BotaoTemaPublico from './BotaoTemaPublico'
@@ -24,6 +24,10 @@ export default function PublicHeader() {
         </Link>
 
         <nav aria-label="Ações do site" className={styles.acoes}>
+          <Link href="/estoque" className={styles.secundario} aria-label="Estoque de veículos">
+            <IconCar aria-hidden size={17} stroke={2} />
+            <span className="hidden md:inline">Estoque</span>
+          </Link>
           <BotaoTemaPublico className={styles.tema} />
           <Link href="/anuncie-seu-veiculo" className={styles.secundario} aria-label="Anuncie seu veículo">
             <IconSpeakerphone aria-hidden size={17} stroke={2} />

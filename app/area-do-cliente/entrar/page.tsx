@@ -9,8 +9,21 @@ import TemaEntrada from './TemaEntrada'
 import VideoEntrada from './VideoEntrada'
 import styles from './entrada.module.css'
 
-export default async function EntrarPortalPage() {
-  if (await clienteAutenticado()) redirect('/area-do-cliente')
+const destinos = [
+  { rota: 'quitacao', modulo: 'quitacao' },
+  { rota: 'pos-venda', modulo: 'posVenda' },
+  { rota: 'investimentos', modulo: 'investimentos' },
+] as const
+
+export default async function EntrarPortalPage({ searchParams }: { searchParams: Promise<{ destino?: string | string[] }> }) {
+  const { destino } = await searchParams
+  const destinoPermitido = destinos.find(({ rota }) => rota === destino)
+  const cliente = await clienteAutenticado()
+  if (cliente) {
+    redirect(destinoPermitido && cliente.cadastro.modulos.includes(destinoPermitido.modulo)
+      ? `/area-do-cliente/${destinoPermitido.rota}`
+      : '/area-do-cliente')
+  }
   const temaInicial = await lerTemaPortal()
 
   return (
@@ -24,7 +37,7 @@ export default async function EntrarPortalPage() {
       <section className={styles.acesso} aria-labelledby="entrar-titulo">
         <div className={styles.conteudo}>
           <h1 id="entrar-titulo">Entrar na Área do Cliente</h1>
-          <FormEntrada />
+          <FormEntrada destino={destinoPermitido?.rota} />
         </div>
       </section>
     </TemaEntrada>
