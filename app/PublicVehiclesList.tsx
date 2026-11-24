@@ -105,6 +105,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
           <div className="md:col-span-6">
             <Input
               id="vehicle-search"
+              label="Buscar veículos"
               type="search"
               placeholder="Buscar por marca ou modelo..."
               value={search}
@@ -112,9 +113,10 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
               leftIcon={<IconSearch size={18} stroke={2} />}
             />
           </div>
-          <div className="md:col-span-6 flex items-center justify-end">
+          <div className="md:col-span-6 flex items-end justify-end">
             <Select
               id="vehicle-sort"
+              label="Ordenar por"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
               options={[

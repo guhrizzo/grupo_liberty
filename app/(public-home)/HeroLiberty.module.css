@@ -5,6 +5,12 @@
   color: #f5f8ff;
 }
 
+@media (prefers-reduced-motion: no-preference) and ((hover: none) or (pointer: coarse)) {
+  html:has(.hero) {
+    scroll-behavior: smooth;
+  }
+}
+
 .interior {
   --espaco: clamp(1rem, 4vw, 2rem);
   display: grid;
