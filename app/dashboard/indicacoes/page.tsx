@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
-import { carregarConfigIndicacoes, listarTodasIndicacoes } from '@/utils/indicacoes/servidor'
+import { carregarConfigIndicacoes, listarRecompensasAdmin, listarTodasIndicacoes } from '@/utils/indicacoes/servidor'
 import IndicacoesClient from './IndicacoesClient'
 
 export const metadata = {
@@ -14,12 +14,12 @@ export default async function IndicacoesPage() {
   if (!user) redirect('/login')
   if (!hasPageAccess(user, 'indicacoes')) redirect('/dashboard?error=acesso_negado')
 
-  const [config, indicacoes] = await Promise.all([carregarConfigIndicacoes(), listarTodasIndicacoes()])
+  const [config, indicacoes, recompensas] = await Promise.all([carregarConfigIndicacoes(), listarTodasIndicacoes(), listarRecompensasAdmin()])
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Indicações' }]} />
-      <IndicacoesClient config={config} indicacoes={indicacoes} podeEditarRegras={user.role === 'admin'} />
+      <IndicacoesClient config={config} indicacoes={indicacoes} recompensas={recompensas} podeEditarRegras={user.role === 'admin'} />
     </div>
   )
 }

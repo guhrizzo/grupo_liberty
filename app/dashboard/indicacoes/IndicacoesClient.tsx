@@ -3,8 +3,9 @@
 import { useState, useTransition } from 'react'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { Button, Input, Select, useToast } from '@/app/components/ui'
-import { ROTULO_STATUS_INDICACAO, type ConfigIndicacoes, type FaixaRecompensa, type StatusIndicacao } from '@/utils/indicacoes/modelo'
+import { ROTULO_STATUS_INDICACAO, type ConfigIndicacoes, type FaixaRecompensa, type LinhaRecompensa, type StatusIndicacao } from '@/utils/indicacoes/modelo'
 import { decidirIndicacao, salvarConfigIndicacoes } from './actions'
+import FinanceiroRecompensas from './FinanceiroRecompensas'
 
 type LinhaIndicacao = {
   id: string
@@ -18,9 +19,10 @@ type LinhaIndicacao = {
 const data = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const cartao = 'rounded-xl border border-neutral-200 bg-white p-5 shadow-xs'
 
-export default function IndicacoesClient({ config, indicacoes, podeEditarRegras }: {
+export default function IndicacoesClient({ config, indicacoes, recompensas, podeEditarRegras }: {
   config: ConfigIndicacoes
   indicacoes: LinhaIndicacao[]
+  recompensas: LinhaRecompensa[]
   podeEditarRegras: boolean
 }) {
   const [faixas, setFaixas] = useState<FaixaRecompensa[]>(config.faixas)
@@ -76,6 +78,8 @@ export default function IndicacoesClient({ config, indicacoes, podeEditarRegras 
           Programa Indique e ganhe da Área do Cliente. A indicação converte quando a pessoa indicada cria a conta pelo link, confirma o e-mail e acessa a Área do Cliente.
         </p>
       </header>
+
+      <FinanceiroRecompensas recompensas={recompensas} />
 
       <section className={`${cartao} space-y-4`} aria-labelledby="regras">
         <h2 id="regras" className="font-semibold">Regras de recompensa</h2>

@@ -6,8 +6,8 @@ import { normalizarDocumento } from '@/utils/portal/documento'
 import { normalizarEmail } from '@/utils/portal/modelo'
 import { rateLimit } from '@/utils/rate-limit'
 import {
-  CONFIG_PADRAO, codigoIndicacaoValido, gerarCodigoIndicacao, normalizarConfig, valorRecompensa,
-  type ConfigIndicacoes, type EventoAuditoria, type StatusIndicacao, type StatusRecompensa,
+  CONFIG_PADRAO, codigoIndicacaoValido, gerarCodigoIndicacao, normalizarConfig, transicaoRecompensa, valorRecompensa,
+  type AcaoRecompensa, type ConfigIndicacoes, type EventoAuditoria, type LinhaRecompensa, type StatusIndicacao, type StatusRecompensa,
 } from './modelo'
 
 const configRef = () => adminDb.collection('indicacao_config').doc('regras')
@@ -272,4 +272,55 @@ export async function revisarIndicacao(id: string, decisao: 'aprovar' | 'recusar
   })
   if (novoStatus === 'cadastrado') await converterIndicacao(id, `admin:${uid}`)
   return novoStatus
+}
+
+/** Recompensas para o controle financeiro, com nomes do indicador e do indicado. */
+export async function listarRecompensasAdmin(): Promise<LinhaRecompensa[]> {
+  const snap = await recompensasRef().orderBy('criadoEm', 'desc').limit(1000).get()
+  if (snap.empty) return []
+  const recompensas = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Recompensa) }))
+  const documentos = [...new Set(recompensas.map((r) => r.indicadorDocumento))]
+  const [clientes, indicacoes] = await Promise.all([
+    adminDb.getAll(...documentos.map((doc) => clientesPortal().doc(doc))),
+    adminDb.getAll(...recompensas.map((r) => indicacoesRef().doc(r.indicacaoId))),
+  ])
+  const nomes = new Map(clientes.map((c) => [c.id, String(c.get('contratante.nome') ?? 'Cliente')]))
+  const indicados = new Map(indicacoes.map((i) => [i.id, String(i.get('indicadoNome') ?? '')]))
+  return recompensas.map((r) => ({
+    id: r.id, indicadorDocumento: r.indicadorDocumento, indicadorNome: nomes.get(r.indicadorDocumento) ?? 'Cliente',
+    indicadoNome: indicados.get(r.indicacaoId) ?? '', ordem: r.ordem, valor: r.valor, status: r.status, criadoEm: r.criadoEm,
+    liberadaEm: r.liberadaEm ?? null, pagaEm: r.pagaEm ?? null, temComprovante: !!r.comprovantePath,
+  }))
+}
+
+export type DadosPagamento = { pagaEm: string; comprovantePath: string | null }
+
+/** Liberar, pagar ou cancelar uma recompensa. Só segue pelas transições permitidas e sempre deixa registro de auditoria. */
+export async function mudarRecompensa(id: string, acao: AcaoRecompensa, uid: string, extra?: { pagamento?: DadosPagamento; motivo?: string }) {
+  const ref = recompensasRef().doc(id)
+  return adminDb.runTransaction(async (tx) => {
+    const r = (await tx.get(ref)).data() as Recompensa | undefined
+    if (!r) return { erro: 'Recompensa não encontrada.' as const }
+    const novo = transicaoRecompensa(r.status, acao)
+    if (!novo) return { erro: 'Esta ação não é permitida na situação atual da recompensa.' as const }
+
+    const em = agora()
+    const por = `admin:${uid}`
+    const evento: EventoAuditoria =
+      acao === 'liberar' ? { em, por, acao: 'liberada' }
+      : acao === 'pagar' ? { em, por, acao: 'paga', detalhe: `Pagamento em ${extra?.pagamento?.pagaEm}${extra?.pagamento?.comprovantePath ? ' com comprovante' : ' sem comprovante'}` }
+      : { em, por, acao: 'cancelada', detalhe: extra?.motivo }
+    tx.update(ref, {
+      status: novo,
+      ...(acao === 'liberar' ? { liberadaEm: em } : {}),
+      ...(acao === 'pagar' && extra?.pagamento ? { pagaEm: extra.pagamento.pagaEm, comprovantePath: extra.pagamento.comprovantePath } : {}),
+      historico: [...r.historico, evento],
+    })
+    return { status: novo }
+  })
+}
+
+export async function comprovanteDaRecompensa(id: string) {
+  const r = (await recompensasRef().doc(id).get()).data() as Recompensa | undefined
+  return r?.status === 'paga' && r.comprovantePath ? r.comprovantePath : null
 }

@@ -36,3 +36,38 @@ describe('código de indicação', () => {
     expect(codigoIndicacaoValido('abcdefgh')).toBe(false)
   })
 })
+
+import { resumoFinanceiro, transicaoRecompensa, type LinhaRecompensa } from './modelo'
+
+describe('transições da recompensa', () => {
+  it('só avança pelo caminho pendente → liberada → paga', () => {
+    expect(transicaoRecompensa('pendente', 'liberar')).toBe('liberada')
+    expect(transicaoRecompensa('liberada', 'liberar')).toBeNull()
+    expect(transicaoRecompensa('pendente', 'pagar')).toBeNull()
+    expect(transicaoRecompensa('liberada', 'pagar')).toBe('paga')
+  })
+
+  it('não cancela nem altera uma recompensa já paga', () => {
+    expect(transicaoRecompensa('paga', 'cancelar')).toBeNull()
+    expect(transicaoRecompensa('paga', 'liberar')).toBeNull()
+    expect(transicaoRecompensa('cancelada', 'liberar')).toBeNull()
+    expect(transicaoRecompensa('pendente', 'cancelar')).toBe('cancelada')
+  })
+})
+
+describe('resumo financeiro', () => {
+  const linha = (id: string, doc: string, valor: number, status: LinhaRecompensa['status'], pagaEm: string | null = null): LinhaRecompensa => ({
+    id, indicadorDocumento: doc, indicadorNome: `Cliente ${doc}`, indicadoNome: 'Fulano', ordem: 1, valor, status,
+    criadoEm: '2026-11-01T10:00:00Z', liberadaEm: null, pagaEm, temComprovante: false,
+  })
+
+  it('soma por situação, ignora canceladas e agrupa por indicador', () => {
+    const r = resumoFinanceiro([
+      linha('a', '1', 150, 'paga', '2026-11-10'), linha('b', '1', 150, 'liberada'), linha('c', '2', 200.1, 'pendente'),
+      linha('d', '2', 0.2, 'pendente'), linha('e', '2', 999, 'cancelada'),
+    ])
+    expect(r).toMatchObject({ gerado: 500.3, pendente: 200.3, liberado: 150, pago: 150 })
+    expect(r.porIndicador.map((p) => [p.documento, p.quantidade, p.total, p.pago])).toEqual([['1', 2, 300, 150], ['2', 2, 200.3, 0]])
+    expect(r.pagamentos.map((p) => p.id)).toEqual(['a'])
+  })
+})

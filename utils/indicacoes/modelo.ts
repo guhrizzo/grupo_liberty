@@ -89,3 +89,53 @@ export const gerarCodigoIndicacao = (aleatorio: (n: number) => number = (n) => M
 
 export const codigoIndicacaoValido = (codigo: unknown): codigo is string =>
   typeof codigo === 'string' && /^[A-HJ-NP-Z2-9]{8}$/.test(codigo)
+
+export type AcaoRecompensa = 'liberar' | 'pagar' | 'cancelar'
+
+/** Próximo status de uma recompensa, ou null se a ação não é permitida. Recompensa paga nunca muda. */
+export function transicaoRecompensa(atual: StatusRecompensa, acao: AcaoRecompensa): StatusRecompensa | null {
+  if (acao === 'liberar') return atual === 'pendente' ? 'liberada' : null
+  if (acao === 'pagar') return atual === 'liberada' ? 'paga' : null
+  return atual === 'pendente' || atual === 'liberada' ? 'cancelada' : null
+}
+
+export type LinhaRecompensa = {
+  id: string
+  indicadorDocumento: string
+  indicadorNome: string
+  indicadoNome: string
+  ordem: number
+  valor: number
+  status: StatusRecompensa
+  criadoEm: string
+  liberadaEm: string | null
+  pagaEm: string | null
+  temComprovante: boolean
+}
+
+const centavos = (valor: number) => Math.round(valor * 100)
+
+/** Totais do controle financeiro. Recompensas canceladas ficam de fora de todos os totais. */
+export function resumoFinanceiro(linhas: readonly LinhaRecompensa[]) {
+  const ativas = linhas.filter((l) => l.status !== 'cancelada')
+  const soma = (status?: StatusRecompensa) =>
+    ativas.filter((l) => !status || l.status === status).reduce((total, l) => total + centavos(l.valor), 0) / 100
+
+  const porIndicador = new Map<string, { documento: string; nome: string; quantidade: number; total: number; pago: number }>()
+  for (const l of ativas) {
+    const atual = porIndicador.get(l.indicadorDocumento) ?? { documento: l.indicadorDocumento, nome: l.indicadorNome, quantidade: 0, total: 0, pago: 0 }
+    atual.quantidade += 1
+    atual.total = (centavos(atual.total) + centavos(l.valor)) / 100
+    if (l.status === 'paga') atual.pago = (centavos(atual.pago) + centavos(l.valor)) / 100
+    porIndicador.set(l.indicadorDocumento, atual)
+  }
+
+  return {
+    gerado: soma(),
+    pendente: soma('pendente'),
+    liberado: soma('liberada'),
+    pago: soma('paga'),
+    porIndicador: [...porIndicador.values()].sort((a, b) => b.total - a.total),
+    pagamentos: ativas.filter((l) => l.status === 'paga').sort((a, b) => (b.pagaEm ?? '').localeCompare(a.pagaEm ?? '')),
+  }
+}
