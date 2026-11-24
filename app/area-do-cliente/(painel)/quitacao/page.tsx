@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { IconCheck, IconDownload, IconMessageCircle } from '@tabler/icons-react'
 import { listarQuitacoesCliente } from '@/utils/quitacoes/portal'
-import { ETAPAS_QUITACAO } from '@/utils/quitacoes/etapas'
 import AtualizarQuitacaoAberta from './AtualizarQuitacaoAberta'
 
 const dataFormatada = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium', timeZone: 'America/Sao_Paulo' })
@@ -29,7 +28,7 @@ export default async function QuitacaoClientePage() {
         </p>
       )}
       {compras.map((compra) => {
-        const atual = ETAPAS_QUITACAO.findIndex(({ id }) => id === compra.etapa)
+        const atual = compra.etapas.findIndex(({ id }) => id === compra.etapa)
         const datas = new Map(compra.historico.map(({ etapa, em }) => [etapa, em]))
         const mensagem = encodeURIComponent('Olá! Preciso de ajuda com uma quitação na Área do Cliente Liberty.')
         return (
@@ -55,14 +54,14 @@ export default async function QuitacaoClientePage() {
                   </div>
                 )}
               </dl>
-              <p className="mt-2 font-semibold text-[var(--portal-link)]">{ETAPAS_QUITACAO[atual]?.nome}</p>
+              <p className="mt-2 font-semibold text-[var(--portal-link)]">{compra.nomesEtapas[compra.etapa]}</p>
               <p className="mt-1 text-sm text-[var(--portal-secundario)]">Última atualização em {formatarData(compra.atualizadoEm)}</p>
             </header>
             <div className="grid gap-6 lg:grid-cols-2">
               <section aria-label="Linha do tempo da quitação">
                 <h3 className="mb-3 font-semibold">Linha do tempo</h3>
                 <ol className="space-y-3">
-                  {ETAPAS_QUITACAO.map(({ id, nome }, i) => {
+                  {compra.etapas.map(({ id, nome, descricao }, i) => {
                     const data = datas.get(id)
                     return (
                       <li key={id} aria-current={i === atual ? 'step' : undefined} className="flex gap-3">
@@ -71,6 +70,7 @@ export default async function QuitacaoClientePage() {
                         </span>
                         <div>
                           <p className={i === atual ? 'font-semibold text-[var(--portal-link)]' : 'text-sm'}>{nome}</p>
+                          {descricao && <p className="text-xs text-[var(--portal-secundario)]">{descricao}</p>}
                           {data && <p className="text-xs text-[var(--portal-secundario)]">{formatarData(data)}</p>}
                         </div>
                       </li>
@@ -99,7 +99,7 @@ export default async function QuitacaoClientePage() {
                   <summary className="cursor-pointer font-semibold">Histórico de atualizações</summary>
                   <ol className="mt-2 space-y-2 text-sm text-[var(--portal-secundario)]">
                     {compra.historico.slice().reverse().map(({ etapa, em }, i) => (
-                      <li key={`${em}-${i}`}>{formatarData(em)} · {ETAPAS_QUITACAO.find(({ id }) => id === etapa)?.nome}</li>
+                      <li key={`${em}-${i}`}>{formatarData(em)} · {compra.nomesEtapas[etapa] ?? etapa}</li>
                     ))}
                   </ol>
                 </details>

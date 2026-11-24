@@ -4,7 +4,8 @@ import { adminDb } from '@/utils/firebase/admin'
 import { chavesPortal, chaveHash, clientesPortal, type CadastroPortal } from '@/utils/portal/acesso'
 import { normalizarEmail } from '@/utils/portal/modelo'
 import { acompanhamentoQuitacao, fichaQuitacao, FILA_QUITACAO, type AvisoQuitacao } from './acompanhamento'
-import { ETAPAS_QUITACAO } from './etapas'
+import { nomeEtapa } from './etapas'
+import { carregarEtapas } from './etapas-config'
 import { compraQuitacao } from './vinculo'
 
 export async function tentarAvisoQuitacao(id: string) {
@@ -33,7 +34,7 @@ export async function tentarAvisoQuitacao(id: string) {
       return false
     }
 
-    const etapa = ETAPAS_QUITACAO.find(({ id }) => id === aviso.etapa)?.nome
+    const etapa = nomeEtapa(await carregarEtapas(), aviso.etapa)
     if (!etapa) return false
     const { error } = await new Resend(apiKey).emails.send({
       from: 'Liberty Car <noreply@grupolibertycar.com.br>',

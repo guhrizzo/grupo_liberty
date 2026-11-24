@@ -3,7 +3,8 @@ import { adminDb } from '@/utils/firebase/admin'
 import { clienteAutenticado } from '@/utils/portal/acesso'
 import { TIPOS_ANEXO, type TipoAnexo } from '@/app/dashboard/quitacoes/types'
 import { acompanhamentoQuitacao, anexoQuitacao, fichaQuitacao } from './acompanhamento'
-import { etapaTemQuitacao } from './etapas'
+import { etapaTemQuitacao, etapasDaOperacao } from './etapas'
+import { carregarEtapas } from './etapas-config'
 import { chaveTitularQuitacao, compraQuitacao } from './vinculo'
 
 export async function listarQuitacoesCliente() {
@@ -11,6 +12,7 @@ export async function listarQuitacoesCliente() {
   if (!cliente || !cliente.cadastro.modulos.includes('quitacao')) return null
   const chave = chaveTitularQuitacao(cliente.documento)
   if (!chave) return []
+  const etapasConfig = await carregarEtapas()
 
   const snapshot = await adminDb.collection('veiculos').where('portalQuitacaoChave', '==', chave)
     .select('sellerCpf', 'terceiro', 'dataAquisicao', 'marca', 'modelo', 'ano', 'placa', 'banco').get()
@@ -21,7 +23,7 @@ export async function listarQuitacoesCliente() {
 
   return Promise.all(titular.map(async ({ veiculo, compra }) => {
     const ficha = await fichaQuitacao(veiculo.id).get()
-    const { etapa, atualizadoEm, historico, publicados, previsao } = acompanhamentoQuitacao(compra, ficha.data())
+    const { etapa, atualizadoEm, historico, publicados, previsao, naoAplicaveis } = acompanhamentoQuitacao(compra, ficha.data())
     const anexos = TIPOS_ANEXO.filter(({ id }) => !!publicados[id])
     const documentos = await Promise.all(anexos.map(async ({ id, label }) => {
       const anexo = await anexoQuitacao(veiculo.id, id).get()
@@ -37,8 +39,11 @@ export async function listarQuitacoesCliente() {
       banco: String(veiculo.get('banco') ?? '').trim(),
       dataOperacao: compra.data,
       // Previsão só aparece enquanto a quitação não terminou.
-      previsao: previsao && !etapaTemQuitacao(etapa) ? previsao : null,
+      previsao: previsao && !etapaTemQuitacao(etapasConfig, etapa) ? previsao : null,
       etapa, atualizadoEm, historico,
+      etapas: etapasDaOperacao(etapasConfig, etapa, historico, naoAplicaveis ?? [])
+        .map(({ id, nome, descricao }) => ({ id, nome, descricao })),
+      nomesEtapas: Object.fromEntries(etapasConfig.map(({ id, nome }) => [id, nome])),
       documentos: documentos.filter((item) => item !== null),
     }
   }))

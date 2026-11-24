@@ -54,6 +54,7 @@ import {
   type Quitacao,
   type VeiculoQuitacaoOpcao,
 } from './types'
+import type { EtapaConfig } from '@/utils/quitacoes/etapas'
 import AcompanhamentoSection from './AcompanhamentoSection'
 import { ChecklistSection } from './ChecklistSection'
 
@@ -62,6 +63,7 @@ interface Props {
   veiculos: VeiculoQuitacaoOpcao[]
   fichas: Record<string, FichaQuitacao>
   anexos: AnexosPorVeiculo
+  etapas: EtapaConfig[]
   veiculoInicial: string
 }
 
@@ -99,7 +101,7 @@ function FotoVeiculo({ v }: { v: VeiculoQuitacaoOpcao | undefined }) {
   )
 }
 
-export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, veiculoInicial }: Props) {
+export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, etapas, veiculoInicial }: Props) {
   const router = useRouter()
   const toast = useToast()
   const [busca, setBusca] = useState('')
@@ -414,7 +416,9 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                           (!ficha.dataCompra || v.portalVinculo.endsWith(`:${ficha.dataCompra}`))
                             ? 'quitado' : 'recebido'
                         )}
+                        etapas={etapas}
                         previsaoInicial={acompanhamento?.previsao ?? ''}
+                        naoAplicaveisInicial={acompanhamento?.naoAplicaveis ?? []}
                         anexos={anexosVeiculo}
                         publicados={acompanhamento?.publicados ?? {}}
                       />

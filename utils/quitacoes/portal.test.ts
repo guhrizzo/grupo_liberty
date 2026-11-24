@@ -24,6 +24,7 @@ vi.mock('@/utils/firebase/admin', () => ({
 import { acompanhamentoQuitacao, atualizarAcompanhamento, versaoAnexoQuitacao } from './acompanhamento'
 import { obterDocumentoQuitacaoCliente } from './portal'
 import { compraQuitacao } from './vinculo'
+import { ETAPAS_PADRAO, etapasDaOperacao } from './etapas'
 
 const veiculo = { sellerCpf: fake.documento, dataAquisicao: '2026-11-10' }
 const anexo = () => fake.snap({ veiculoId: 'veiculo', tipo: 'cliente', storagePath: fake.arquivo, size: 10, contentType: 'application/pdf' })
@@ -49,7 +50,7 @@ describe('acompanhamento de quitação', () => {
   it('registra etapa, histórico, documento publicado e aviso juntos na ficha existente', async () => {
     const compra = compraQuitacao(veiculo)!
     fake.getAll.mockResolvedValueOnce([fake.snap(veiculo), fake.snap({})]).mockResolvedValueOnce([anexo()])
-    const result = await atualizarAcompanhamento('veiculo', 'quitado', 'funcionario', {
+    const result = await atualizarAcompanhamento('veiculo', 'quitado', 'funcionario', ETAPAS_PADRAO, {
       vinculo: compra.vinculo,
       arquivos: [{ tipo: 'cliente', versao: versaoAnexoQuitacao(fake.arquivo) }],
     })
@@ -67,7 +68,7 @@ describe('acompanhamento de quitação', () => {
 
   it('recusa publicação quando o documento selecionado foi substituído', async () => {
     fake.getAll.mockResolvedValueOnce([fake.snap(veiculo), fake.snap({})]).mockResolvedValueOnce([anexo()])
-    await expect(atualizarAcompanhamento('veiculo', 'recebido', 'funcionario', {
+    await expect(atualizarAcompanhamento('veiculo', 'recebido', 'funcionario', ETAPAS_PADRAO, {
       vinculo: compraQuitacao(veiculo)!.vinculo,
       arquivos: [{ tipo: 'cliente', versao: versaoAnexoQuitacao('versao-antiga') }],
     })).rejects.toThrow('O arquivo foi alterado.')
@@ -91,5 +92,32 @@ describe('acompanhamento de quitação', () => {
     expect(await obterDocumentoQuitacaoCliente('veiculo', 'cliente')).toBeNull()
     fake.cliente.mockResolvedValueOnce({ documento: fake.documento, cadastro: { modulos: [] } })
     expect(await obterDocumentoQuitacaoCliente('veiculo', 'cliente')).toBeNull()
+  })
+
+  it('guarda as etapas que não se aplicam e ignora ids inexistentes ou a etapa atual', async () => {
+    const compra = compraQuitacao(veiculo)!
+    fake.getAll.mockResolvedValueOnce([fake.snap(veiculo), fake.snap({})])
+    await atualizarAcompanhamento('veiculo', 'negociacao', 'funcionario', ETAPAS_PADRAO, {
+      vinculo: compra.vinculo, arquivos: [], naoAplicaveis: ['documentacao_recebida', 'negociacao', 'inexistente'],
+    })
+    expect(fake.set).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      portalAcompanhamento: expect.objectContaining({ etapa: 'negociacao', naoAplicaveis: ['documentacao_recebida'] }),
+    }), expect.anything())
+  })
+
+  it('recusa etapa que não existe na configuração', async () => {
+    const compra = compraQuitacao(veiculo)!
+    fake.getAll.mockResolvedValueOnce([fake.snap(veiculo), fake.snap({})])
+    await expect(atualizarAcompanhamento('veiculo', 'inventada', 'funcionario', ETAPAS_PADRAO, { vinculo: compra.vinculo, arquivos: [] }))
+      .rejects.toThrow('Etapa inexistente.')
+  })
+
+  it('monta a linha do tempo sem etapas que não se aplicam, mantendo as já usadas', () => {
+    const inativas = ETAPAS_PADRAO.map((e) => (e.id === 'finalizacao_documental' ? { ...e, ativa: false } : e))
+    const ids = (lista: ReturnType<typeof etapasDaOperacao>) => lista.map((e) => e.id)
+    expect(ids(etapasDaOperacao(inativas, 'recebido', [], ['documentacao_recebida']))).not.toContain('documentacao_recebida')
+    expect(ids(etapasDaOperacao(inativas, 'recebido', [], []))).not.toContain('finalizacao_documental')
+    expect(ids(etapasDaOperacao(inativas, 'recebido', [{ etapa: 'finalizacao_documental', em: '2026-11-12' }], [])))
+      .toContain('finalizacao_documental')
   })
 })

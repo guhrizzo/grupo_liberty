@@ -3,6 +3,7 @@
 import { atualizarAcompanhamento, versaoAnexoQuitacao, type PublicacaoQuitacao, type Acompanhamento } from '@/utils/quitacoes/acompanhamento'
 import { tentarAvisoQuitacao } from '@/utils/quitacoes/avisos'
 import { etapaValida, type EtapaQuitacao } from '@/utils/quitacoes/etapas'
+import { carregarEtapas } from '@/utils/quitacoes/etapas-config'
 import { chaveTitularQuitacao, compraQuitacao } from '@/utils/quitacoes/vinculo'
 import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
@@ -265,6 +266,7 @@ function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQui
       etapa: acompanhamento.etapa,
       publicados: Object.fromEntries(Object.entries(acompanhamento.publicados).map(([tipo, path]) => [tipo, versaoArquivo(path)])),
       previsao: acompanhamento.previsao ?? null,
+      naoAplicaveis: acompanhamento.naoAplicaveis ?? [],
     } : undefined,
     quitado: d.quitado === true,
     quitadoEm: d.quitadoEm ?? null,
@@ -377,15 +379,20 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
   return { success: 'Dados do cliente salvos.' }
 }
 
-export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQuitacao, vinculo: string, anexos: PublicacaoQuitacao[], previsao = ''): Promise<Resultado> {
+export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQuitacao, vinculo: string, anexos: PublicacaoQuitacao[], previsao = '', naoAplicaveis: string[] = []): Promise<Resultado> {
   const acesso = await checarAcesso()
   if ('error' in acesso) return { error: acesso.error }
-  if (typeof veiculoId !== 'string' || !ID_RE.test(veiculoId) || !etapaValida(etapa) ||
+  if (typeof veiculoId !== 'string' || !ID_RE.test(veiculoId) || typeof etapa !== 'string' ||
     typeof vinculo !== 'string' || !/^[a-f0-9]{64}:\d{4}-\d{2}-\d{2}$/.test(vinculo) ||
     !Array.isArray(anexos) || anexos.length > TIPOS_ANEXO.length ||
     !anexos.every((anexo) => anexo && tipoValido(anexo.tipo) && /^[a-f0-9]{64}$/.test(anexo.versao)) ||
     new Set(anexos.map(({ tipo }) => tipo)).size !== anexos.length) {
     return { error: 'Confira a etapa e os documentos selecionados.' }
+  }
+  const etapas = await carregarEtapas()
+  if (!etapaValida(etapas, etapa) || !Array.isArray(naoAplicaveis) || naoAplicaveis.length > etapas.length ||
+    !naoAplicaveis.every((id) => etapaValida(etapas, id) && id !== etapa)) {
+    return { error: 'Confira a etapa e as etapas que não se aplicam.' }
   }
   const previsaoLimpa = typeof previsao === 'string' ? previsao.trim() : ''
   if (previsaoLimpa && (!/^\d{4}-\d{2}-\d{2}$/.test(previsaoLimpa) || Number.isNaN(Date.parse(`${previsaoLimpa}T12:00:00Z`)))) {
@@ -393,7 +400,7 @@ export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQui
   }
 
   try {
-    const resultado = await atualizarAcompanhamento(veiculoId, etapa, acesso.user.uid, { vinculo, arquivos: anexos, previsao: previsaoLimpa || null })
+    const resultado = await atualizarAcompanhamento(veiculoId, etapa, acesso.user.uid, etapas, { vinculo, arquivos: anexos, previsao: previsaoLimpa || null, naoAplicaveis })
     if (!resultado.vinculado) return { error: 'Preencha o documento do antigo proprietário e a data da aquisição no veículo.' }
     revalidatePath('/dashboard/quitacoes')
     revalidatePath('/area-do-cliente/quitacao')
@@ -450,7 +457,7 @@ export async function definirQuitado(veiculoId: string, quitado: boolean): Promi
   const acesso = await checarAcesso()
   if ('error' in acesso) return { error: acesso.error }
   if (!veiculoId || !(await veiculoExiste(veiculoId))) return { error: 'Veículo não encontrado.' }
-  const portal = await atualizarAcompanhamento(veiculoId, quitado ? 'quitado' : 'em_quitacao', acesso.user.uid)
+  const portal = await atualizarAcompanhamento(veiculoId, quitado ? 'quitado' : 'em_quitacao', acesso.user.uid, await carregarEtapas())
   if (portal.vinculado) {
     revalidatePath('/dashboard/quitacoes')
     revalidatePath('/area-do-cliente/quitacao')

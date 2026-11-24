@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getSessionUser, hasPageAccess } from '@/utils/permissions'
 import { Breadcrumb } from '@/app/components/ui'
 import { listarAnexos, listarFichas, listarQuitacoes, listarVeiculosParaQuitacao } from './actions'
+import { carregarEtapas } from '@/utils/quitacoes/etapas-config'
 import QuitacoesClient from './QuitacoesClient'
 
 export const metadata = {
@@ -23,18 +25,25 @@ export default async function QuitacoesPage({
   }
 
   const { veiculo } = await searchParams
-  const [quitacoes, veiculos, fichas, anexos] = await Promise.all([
+  const [quitacoes, veiculos, fichas, anexos, etapas] = await Promise.all([
     listarQuitacoes(),
     listarVeiculosParaQuitacao(),
     listarFichas(),
     listarAnexos(),
+    carregarEtapas(),
   ])
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Quitações' }]} />
 
-      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} anexos={anexos} veiculoInicial={veiculo ?? ''} />
+      {user.role === 'admin' && (
+        <Link href="/dashboard/quitacoes/etapas" className="inline-flex text-sm font-semibold text-liberty-deep hover:underline">
+          Configurar etapas do Acompanhe sua Quitação
+        </Link>
+      )}
+
+      <QuitacoesClient quitacoes={quitacoes} veiculos={veiculos} fichas={fichas} anexos={anexos} etapas={etapas} veiculoInicial={veiculo ?? ''} />
     </div>
   )
 }

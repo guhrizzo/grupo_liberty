@@ -2,7 +2,7 @@ import 'server-only'
 import { createHash, randomUUID } from 'node:crypto'
 import { adminDb } from '@/utils/firebase/admin'
 import { TIPOS_ANEXO, type TipoAnexo } from '@/app/dashboard/quitacoes/types'
-import { etapaNotificavel, etapaTemQuitacao, type EtapaQuitacao, type EventoQuitacao } from './etapas'
+import { ETAPA_INICIAL, etapaNotificavel, etapaTemQuitacao, etapaValida, type EtapaConfig, type EtapaQuitacao, type EventoQuitacao } from './etapas'
 import { compraQuitacao, documentoQuitacao } from './vinculo'
 
 export const FILA_QUITACAO = 'quitacao_notificacoes'
@@ -18,6 +18,8 @@ export type Acompanhamento = {
   avisoId?: string | null
   /** Estimativa de conclusão (AAAA-MM-DD), só quando a equipe cadastra. */
   previsao?: string | null
+  /** Etapas que não fazem sentido nesta operação; somem da linha do tempo do cliente. */
+  naoAplicaveis?: string[]
 }
 export type PublicacaoQuitacao = { tipo: TipoAnexo; versao: string }
 export const versaoAnexoQuitacao = (path: string) => createHash('sha256').update(path).digest('hex')
@@ -29,13 +31,13 @@ export function acompanhamentoQuitacao(compra: NonNullable<ReturnType<typeof com
   const salvo = ficha?.portalAcompanhamento as Acompanhamento | undefined
   if (salvo?.vinculo === compra.vinculo) return salvo
 
-  const recebido: EventoQuitacao = { etapa: 'recebido', em: compra.data }
+  const recebido: EventoQuitacao = { etapa: ETAPA_INICIAL, em: compra.data }
   const quitadoLegado = !salvo && ficha?.quitado === true && documentoQuitacao(ficha.cpf) === compra.documento &&
     (!ficha.dataCompra || ficha.dataCompra === compra.data)
   const quitadoEm = quitadoLegado && (ficha.quitadoEm || ficha.atualizadoEm)
   return {
     vinculo: compra.vinculo,
-    etapa: quitadoEm ? 'quitado' : 'recebido',
+    etapa: quitadoEm ? 'quitado' : ETAPA_INICIAL,
     atualizadoEm: quitadoEm || compra.data,
     historico: quitadoEm ? [recebido, { etapa: 'quitado', em: quitadoEm }] : [recebido],
     publicados: {},
@@ -43,7 +45,13 @@ export function acompanhamentoQuitacao(compra: NonNullable<ReturnType<typeof com
 }
 
 /** Atualiza a mesma ficha usada pela equipe e grava o evento de notificação na transação. */
-export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada: EtapaQuitacao, uid: string, publicacao?: { vinculo: string; arquivos: PublicacaoQuitacao[]; previsao?: string | null }) {
+export async function atualizarAcompanhamento(
+  veiculoId: string,
+  etapaSolicitada: EtapaQuitacao,
+  uid: string,
+  etapas: readonly EtapaConfig[],
+  publicacao?: { vinculo: string; arquivos: PublicacaoQuitacao[]; previsao?: string | null; naoAplicaveis?: string[] },
+) {
   const veiculoRef = adminDb.collection('veiculos').doc(veiculoId)
   const fichaRef = fichaQuitacao(veiculoId)
   const avisoRef = adminDb.collection(FILA_QUITACAO).doc(randomUUID())
@@ -53,9 +61,11 @@ export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada
     if (!compra) return { vinculado: false as const, aviso: null }
     if (publicacao && publicacao.vinculo !== compra.vinculo) throw new Error('A aquisição mudou.')
     const atual = acompanhamentoQuitacao(compra, ficha.data())
-    const etapa = !publicacao && etapaSolicitada === 'quitado' && atual.etapa === 'finalizado'
-      ? 'finalizado'
+    // "Marcar como quitado" não pode fazer uma operação já encerrada voltar atrás.
+    const etapa = !publicacao && etapaSolicitada === 'quitado' && etapaTemQuitacao(etapas, atual.etapa)
+      ? atual.etapa
       : etapaSolicitada
+    if (!etapaValida(etapas, etapa)) throw new Error('Etapa inexistente.')
     const publicados: Acompanhamento['publicados'] = publicacao ? {} : atual.publicados
     const arquivos = publicacao?.arquivos ?? []
     if (arquivos.length) {
@@ -76,12 +86,14 @@ export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada
     const mudouAnexo = TIPOS_ANEXO.some(({ id }) => atual.publicados[id] !== publicados[id])
     const previsao = publicacao ? publicacao.previsao || null : atual.previsao ?? null
     const mudouPrevisao = previsao !== (atual.previsao ?? null)
-    const quitado = etapaTemQuitacao(etapa)
+    const quitado = etapaTemQuitacao(etapas, etapa)
+    const naoAplicaveis = (publicacao ? publicacao.naoAplicaveis ?? [] : atual.naoAplicaveis ?? [])
+      .filter((id) => id !== etapa && etapaValida(etapas, id))
     const anterior = ficha.data()
     const segueQuitado = !!anterior?.quitado && anterior.portalAcompanhamento?.vinculo === compra.vinculo
-    const aviso = mudouEtapa && etapaNotificavel(etapa)
+    const aviso = mudouEtapa && etapaNotificavel(etapas, etapa)
     const novo: Acompanhamento = {
-      ...atual, etapa, publicados, previsao,
+      ...atual, etapa, publicados, previsao, naoAplicaveis,
       avisoId: mudouEtapa ? (aviso ? avisoRef.id : null) : atual.avisoId ?? null,
       atualizadoEm: mudouEtapa || mudouAnexo || mudouPrevisao ? em : atual.atualizadoEm,
       historico: mudouEtapa ? [...atual.historico, { etapa, em }] : atual.historico,
@@ -91,7 +103,7 @@ export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada
       atualizadoPorUid: uid,
       quitado,
       quitadoEm: quitado
-        ? ((segueQuitado || etapaTemQuitacao(atual.etapa)) && anterior?.quitadoEm || dataSaoPaulo.format(agora))
+        ? ((segueQuitado || etapaTemQuitacao(etapas, atual.etapa)) && anterior?.quitadoEm || dataSaoPaulo.format(agora))
         : null,
       portalAcompanhamento: novo,
     }, { mergeFields: ['atualizadoEm', 'atualizadoPorUid', 'quitado', 'quitadoEm', 'portalAcompanhamento'] })
