@@ -389,6 +389,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   const [detalhesId, setDetalhesId] = useState<string | null>(null)
   const scrollAntesDeEditarRef = useRef<number | null>(null)
   const idEditadoRef = useRef<string | null>(null)
+  const resetFormRef = useRef<() => void>(() => {})
+  const voltarParaListaRef = useRef<(id: string | null) => void>(() => {})
 
   // Zoom nas fotos do estoque (lightbox em tela cheia ao clicar na miniatura do card).
   const [lightbox, setLightbox] = useState<{ fotos: string[]; alt: string; index: number } | null>(null)
@@ -828,6 +830,24 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     return () => clearTimeout(timer)
   }, [placa, editingId, buscarDadosPlaca])
 
+  // Edição abre como janela sobre a lista: trava a rolagem do fundo e Esc fecha.
+  useEffect(() => {
+    if (!editingId || !showForm) return
+    const overflowAnterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      setShowForm(false)
+      resetFormRef.current()
+      voltarParaListaRef.current(idEditadoRef.current)
+    }
+    window.addEventListener('keydown', aoTeclar)
+    return () => {
+      document.body.style.overflow = overflowAnterior
+      window.removeEventListener('keydown', aoTeclar)
+    }
+  }, [editingId, showForm])
+
   const handleEdit = useCallback((veiculo: Veiculo) => {
     if (scrollAntesDeEditarRef.current == null) scrollAntesDeEditarRef.current = window.scrollY
     idEditadoRef.current = veiculo.id
@@ -948,7 +968,6 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       .then((lista) => setManutencoesVeiculo(lista))
       .catch(() => setManutencoesVeiculo([]))
 
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [canManageContratos])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1253,6 +1272,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }, 120)
   }
 
+  resetFormRef.current = resetForm
+  voltarParaListaRef.current = voltarParaALista
+
   // ─── Delete ──────────────────────────────────────────────────────────────
 
   const handleDelete = async () => {
@@ -1404,7 +1426,13 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
 
         {/* Formulário de Cadastro / Edição */}
         {showForm && canEdit && (
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-xs mb-8">
+          <div
+            className={editingId ? 'fixed inset-0 z-[70] overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-8' : undefined}
+            role={editingId ? 'dialog' : undefined}
+            aria-modal={editingId ? true : undefined}
+            aria-label={editingId ? 'Editar veículo' : undefined}
+          >
+          <div className={`rounded-xl border border-neutral-200 bg-white p-6 shadow-xs ${editingId ? 'mx-auto max-w-6xl' : 'mb-8'}`}>
             <h2 className="text-lg font-semibold text-neutral-900 mb-6">
               {editingId ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}
             </h2>
@@ -2700,6 +2728,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       </div>
       {loading && <LoadingBar className="h-0.5" />}
             </form>
+          </div>
           </div>
         )}
 
