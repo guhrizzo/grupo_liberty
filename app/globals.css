@@ -1161,3 +1161,9 @@ html:has(> body.adobe-dark) {
 .revelar-card[data-visivel] {
   animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
 }
+
+/* Skeleton do estoque de veículos: mostra só o formato (blocos ou lista) salvo pelo usuário. */
+html[data-modo-veiculos='lista'] .sk-veiculos-blocos,
+html:not([data-modo-veiculos='lista']) .sk-veiculos-lista {
+  display: none;
+}

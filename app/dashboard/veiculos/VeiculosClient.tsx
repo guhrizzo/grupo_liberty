@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useTransition, useMemo } from 'react'
 import { temAcessoPagina } from '@/constants/permissoes'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
@@ -401,6 +401,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   // "Vendidos" do site por 30 dias) ou Privado (fora do site).
   const [estoqueEstado, setEstoqueEstado] = useState<EstoqueEstado>('disponivel')
   const [filtroCidade, setFiltroCidade] = useState<string>('')
+  const [filtrosCarregados, setFiltrosCarregados] = useState(false)
   const [ordem, setOrdem] = useState<OrdemVeiculos>('aquisicao-recente')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
   // Detalhes (somente leitura) e posição da lista, para voltar ao mesmo ponto depois de editar.
@@ -1379,26 +1380,30 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     }
   }, [veiculos, filtroCidade, filtroBusca, ordem])
 
-  // Filtros da lista sobrevivem a sair e voltar (ex.: ir às Quitações e usar o Voltar do navegador).
-  useEffect(() => {
+  // Filtros da lista sobrevivem a F5, a sair e voltar e a fechar a aba.
+  // Só grava depois de ler o que estava salvo, senão os valores padrão sobrescrevem a escolha.
+  // Layout effect: restaura antes da tela ser pintada, para a lista não "piscar" na ordem padrão.
+  useLayoutEffect(() => {
     try {
-      const salvo = JSON.parse(sessionStorage.getItem('veiculos:filtros') ?? 'null')
+      const salvo = JSON.parse(localStorage.getItem('veiculos:filtros') ?? 'null')
       if (salvo && typeof salvo === 'object') {
         if (typeof salvo.busca === 'string') setFiltroBusca(salvo.busca)
         if (typeof salvo.cidade === 'string') setFiltroCidade(salvo.cidade)
         if (OPCOES_ORDEM.some((o) => o.valor === salvo.ordem)) setOrdem(salvo.ordem)
       }
     } catch {
-      // sessionStorage indisponível: a lista simplesmente começa sem filtros.
+      // storage indisponível: a lista simplesmente começa sem filtros.
     }
+    setFiltrosCarregados(true)
   }, [])
   useEffect(() => {
+    if (!filtrosCarregados) return
     try {
-      sessionStorage.setItem('veiculos:filtros', JSON.stringify({ busca: filtroBusca, cidade: filtroCidade, ordem }))
+      localStorage.setItem('veiculos:filtros', JSON.stringify({ busca: filtroBusca, cidade: filtroCidade, ordem }))
     } catch {
       // ignora
     }
-  }, [filtroBusca, filtroCidade, ordem])
+  }, [filtrosCarregados, filtroBusca, filtroCidade, ordem])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -2788,8 +2793,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
           </div>
         )}
 
-        {/* Lista de Veículos */}
-        <div className="space-y-4">
+        {/* Lista de Veículos (oculta até os filtros salvos serem aplicados, evitando o "pisca") */}
+        <div className={`space-y-4 ${filtrosCarregados ? '' : 'invisible'}`}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">
               Estoque de Veículos ({veiculosFiltrados.length})

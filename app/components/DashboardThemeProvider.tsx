@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -78,15 +79,18 @@ function originFrom(e?: ToggleOrigin): { x: number; y: number } {
 export function DashboardThemeProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const [theme, setTheme] = useState<DashboardTheme>('light')
+  // Enquanto a preferência salva não foi lida, `theme` é só o padrão: não pode mexer na classe do <body>.
+  const [carregado, setCarregado] = useState(false)
 
   // Lê a preferência salva assim que monta no cliente.
-  useEffect(() => {
+  useLayoutEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored === 'dark' || stored === 'light') setTheme(stored)
     } catch {
       // localStorage indisponível (modo privado etc.) — mantém o padrão claro.
     }
+    setCarregado(true)
   }, [])
 
   // A Área do Cliente aplica o tema salvo no próprio portal.
@@ -95,11 +99,14 @@ export function DashboardThemeProvider({ children }: { children: ReactNode }) {
   const active = theme === 'dark' && isDashboardRoute
 
   useEffect(() => {
+    // Antes de ler a preferência, `active` é falso e apagaria a classe que o script inline
+    // já aplicou ao <body>, causando um flash de tela clara no carregamento.
+    if (!carregado) return
     document.body.classList.toggle('adobe-dark', active)
     return () => {
       document.body.classList.remove('adobe-dark')
     }
-  }, [active])
+  }, [active, carregado])
 
   const fadeTimer = useRef<number | null>(null)
   useEffect(

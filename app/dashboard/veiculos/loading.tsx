@@ -1,6 +1,7 @@
-import { Skeleton, SkeletonCard, SkeletonHeader, SkeletonPage } from '@/app/components/ui'
+import { Skeleton, SkeletonHeader, SkeletonPage } from '@/app/components/ui'
+import ListaSkeleton from './ListaSkeleton'
 
-/** Veículos: cabeçalho com "Novo Veículo", filtros do estoque e grade de cards com foto 16:9. */
+/** Veículos: cabeçalho com "Novo Veículo", filtros e ordenação do estoque e a lista no modo salvo (blocos ou lista). */
 export default function VeiculosLoading() {
   return (
     <SkeletonPage>
@@ -11,14 +12,11 @@ export default function VeiculosLoading() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Skeleton className="h-10 w-full rounded-xl sm:w-64" />
             <Skeleton className="h-10 w-full rounded-xl sm:w-44" />
+            <Skeleton className="h-10 w-full rounded-xl sm:w-64" />
             <Skeleton className="h-10 w-24 rounded-xl" />
           </div>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+        <ListaSkeleton />
       </div>
     </SkeletonPage>
   )
