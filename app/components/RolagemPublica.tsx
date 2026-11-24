@@ -35,25 +35,13 @@ export default function RolagemPublica({ children }: { children: ReactNode }) {
         smoothTouch: 0,
         onFocusIn: (_smoother, evento) => !(evento.target instanceof HTMLElement && evento.target.matches('section[tabindex="-1"]')),
       })
-      let transicao: gsap.core.Tween | undefined
-      const interromper = () => transicao?.kill()
       const irParaSecao = (hash: string, animar: boolean) => {
         const destino = document.getElementById(hash.slice(1))
         if (!destino || !content.contains(destino)) return false
         const margem = Number.parseFloat(getComputedStyle(destino).scrollMarginTop) || topo.offsetHeight
         const posicao = gsap.utils.clamp(0, ScrollTrigger.maxScroll(window), suavizador.offset(destino, 'top top') - margem)
-        interromper()
-        if (animar) {
-          const distancia = Math.abs(posicao - suavizador.scrollTop())
-          transicao = gsap.to(suavizador, {
-            scrollTop: posicao,
-            duration: gsap.utils.clamp(0.9, 1.8, distancia / 2000),
-            ease: 'power2.inOut',
-            overwrite: true,
-          })
-        } else {
-          suavizador.scrollTo(posicao, animar)
-        }
+        // Rolagem nativa: o navegador anima sem JS por quadro e o ScrollSmoother apenas acompanha.
+        window.scrollTo({ top: posicao, behavior: animar ? 'smooth' : 'auto' })
         return true
       }
       const clicarAncora = (evento: MouseEvent) => {
@@ -68,8 +56,6 @@ export default function RolagemPublica({ children }: { children: ReactNode }) {
       const frame = requestAnimationFrame(sincronizarAncora)
       content.addEventListener('click', clicarAncora)
       window.addEventListener('hashchange', sincronizarAncora)
-      window.addEventListener('wheel', interromper, { passive: true })
-      window.addEventListener('touchstart', interromper, { passive: true })
       const observer = new ResizeObserver(ajustarTopo)
       observer.observe(topo)
 
@@ -78,9 +64,6 @@ export default function RolagemPublica({ children }: { children: ReactNode }) {
         cancelAnimationFrame(frame)
         content.removeEventListener('click', clicarAncora)
         window.removeEventListener('hashchange', sincronizarAncora)
-        window.removeEventListener('wheel', interromper)
-        window.removeEventListener('touchstart', interromper)
-        interromper()
         suavizador.kill()
         delete container.dataset.rolagemSuave
         container.style.removeProperty('--altura-cabecalho')

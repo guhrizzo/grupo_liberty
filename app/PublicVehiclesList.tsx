@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -26,6 +26,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
   const [cambio, setCambio] = useState<CambioFilter>('Todos')
   const [sortBy, setSortBy] = useState<SortBy>('recente')
   const [showInitialLoading, setShowInitialLoading] = useState(true)
+  const gradeRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setShowInitialLoading(false), 400)
@@ -65,6 +66,28 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
     }
     return result
   }, [veiculos, debouncedSearch, selectedBrand, cambio, sortBy])
+
+  useEffect(() => {
+    const grade = gradeRef.current
+    if (!grade) return
+    const cards = grade.querySelectorAll<HTMLElement>('[data-revelar]:not([data-visivel])')
+    if (typeof IntersectionObserver === 'undefined') {
+      cards.forEach(card => card.setAttribute('data-visivel', ''))
+      return
+    }
+    const observer = new IntersectionObserver(
+      entradas => {
+        for (const entrada of entradas) {
+          if (!entrada.isIntersecting) continue
+          entrada.target.setAttribute('data-visivel', '')
+          observer.unobserve(entrada.target)
+        }
+      },
+      { rootMargin: '0px 0px -8% 0px', threshold: 0.08 }
+    )
+    cards.forEach(card => observer.observe(card))
+    return () => observer.disconnect()
+  }, [filteredAndSorted])
 
   const totalCount = veiculos.length
   const filteredCount = filteredAndSorted.length
@@ -180,7 +203,7 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
           }
         />
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div ref={gradeRef} className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {filteredAndSorted.map((v, idx) => {
             const em = isEmDesconto(v)
             const pct = em ? descontoPercent(v) : 0
@@ -195,8 +218,9 @@ export default function PublicVehiclesList({ veiculos }: PublicVehiclesListProps
             return (
             <div
               key={v.id}
-              style={{ animationDelay: `${Math.min(idx * 50, 400)}ms` }}
-              className="group relative rounded-2xl border border-neutral-200 bg-white overflow-hidden liberty-card-hover animate-[fade-up_0.5s_cubic-bezier(0.16,1,0.3,1)_both]"
+              data-revelar
+              style={{ animationDelay: `${(idx % 3) * 140}ms` }}
+              className="revelar-card group relative rounded-2xl border border-neutral-200 bg-white overflow-hidden liberty-card-hover"
             >
               {/* Link que cobre o card inteiro (clicável em qualquer ponto) */}
               <Link

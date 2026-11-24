@@ -1152,3 +1152,12 @@ html:has(> body.adobe-dark) {
 @media (prefers-reduced-motion: reduce) {
   .aurora-dots { animation: none; }
 }
+
+/* Cards de veículos: surgem ao entrar na tela, com atraso por coluna (definido inline). */
+.revelar-card[data-revelar]:not([data-visivel]) {
+  opacity: 0;
+}
+
+.revelar-card[data-visivel] {
+  animation: fade-up 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
