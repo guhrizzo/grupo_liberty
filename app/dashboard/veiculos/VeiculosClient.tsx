@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useTransition, useMemo } from 'react'
 import { temAcessoPagina } from '@/constants/permissoes'
 import Image from 'next/image'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { IconPlus, IconUpload, IconX, IconCar, IconCash, IconSearch, IconLoader2, IconArrowsMaximize, IconFileText, IconTrash, IconAlertTriangle } from '@tabler/icons-react'
@@ -830,6 +831,9 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
     return () => clearTimeout(timer)
   }, [placa, editingId, buscarDadosPlaca])
 
+  // Fora do fluxo da página para o fundo escurecido cobrir a tela inteira.
+  const emJanela = (no: React.ReactNode) => (editingId ? createPortal(no, document.body) : no)
+
   // Edição abre como janela sobre a lista: trava a rolagem do fundo e Esc fecha.
   useEffect(() => {
     if (!editingId || !showForm) return
@@ -1425,7 +1429,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
         )}
 
         {/* Formulário de Cadastro / Edição */}
-        {showForm && canEdit && (
+        {showForm && canEdit && emJanela(
           <div
             className={editingId ? 'fixed inset-0 z-[70] overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:p-8' : undefined}
             role={editingId ? 'dialog' : undefined}
@@ -2709,8 +2713,8 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 </div>
               )}
 
-              {/* Botão Submit */}
-              <div className="flex items-center justify-end gap-3 pt-2">
+              {/* Ações: fixas no rodapé da janela para ficarem sempre à vista */}
+              <div className="sticky bottom-0 z-20 -mx-6 -mb-6 flex items-center justify-end gap-3 rounded-b-xl border-t border-neutral-200 bg-white px-6 py-4">
                 <button
                   type="button"
                   onClick={() => { setShowForm(false); resetForm(); voltarParaALista(idEditadoRef.current) }}
@@ -2718,14 +2722,14 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                 >
                   Cancelar
                 </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-neutral-950 hover:bg-neutral-800 text-white font-medium px-6 py-2.5 text-sm transition-ui shadow-xs disabled:opacity-50 cursor-pointer"
-        >
-          {uploadProgress ? 'Enviando fotos...' : contratosUploadProgress ? 'Enviando contratos...' : loading ? 'Salvando...' : 'Cadastrar Veículo'}
-        </button>
-      </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="rounded-lg bg-liberty-deep px-6 py-2.5 text-sm font-semibold text-white shadow-xs transition-ui hover:bg-[#005680] cursor-pointer disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none adobe-dark:bg-liberty adobe-dark:text-neutral-950 adobe-dark:hover:bg-liberty-soft adobe-dark:disabled:bg-neutral-700 adobe-dark:disabled:text-neutral-400"
+                >
+                  {uploadProgress ? 'Enviando fotos...' : contratosUploadProgress ? 'Enviando contratos...' : loading ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Cadastrar Veículo'}
+                </button>
+              </div>
       {loading && <LoadingBar className="h-0.5" />}
             </form>
           </div>
