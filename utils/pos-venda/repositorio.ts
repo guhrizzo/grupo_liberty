@@ -90,7 +90,7 @@ export async function carregarPosVendaCliente(cliente: ClientePosVenda) {
       proposta: contrato.proposta ? {
         id: contrato.proposta.id, valorCentavos: contrato.proposta.valorCentavos,
         vencimento: contrato.proposta.vencimento, termos: contrato.proposta.termos,
-        honorarios20: contrato.proposta.honorarios20,
+        honorarios20: contrato.proposta.honorarios20, periodicidade: contrato.proposta.periodicidade ?? 'mensal',
       } : null,
       cobrancas,
     }))]

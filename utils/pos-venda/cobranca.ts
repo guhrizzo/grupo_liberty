@@ -5,6 +5,7 @@ import {
   inativarAssinaturaServico, listarMensalidadesAssinatura, obterAssinaturaServico, type AsaasMensalidadeServico, type AsaasAssinaturaServico,
 } from '@/utils/asaas/client'
 import { clientesPortal, type CadastroPortal } from '@/utils/portal/acesso'
+import { PERIODICIDADES } from './catalogo-modelo'
 import { contratosPosVenda, encerrarContratoPosVenda, veiculosPosVenda } from './repositorio'
 import { hojePosVenda, idPosVendaValido, nomeServico, pagoPosVenda, type ContratoPosVenda } from './modelo'
 import { vendaPosVenda } from './vinculo'
@@ -96,6 +97,7 @@ export async function ativarPosVenda(id: string) {
 
   const { contrato, cadastro, podeCriar, nome } = dados
   const proposta = contrato.proposta!
+  const ciclo = PERIODICIDADES[proposta.periodicidade ?? 'mensal'].ciclo
   let solicitouCriacao = false
   try {
     const refExterna = referencia(id)
@@ -108,9 +110,10 @@ export async function ativarPosVenda(id: string) {
     })
     if (!assinatura) {
       solicitouCriacao = true
-      assinatura = await criarAssinaturaServico(cliente, refExterna, proposta.valorCentavos / 100, proposta.vencimento, nomeServico(contrato.servico))
+      assinatura = await criarAssinaturaServico(cliente, refExterna, proposta.valorCentavos / 100, proposta.vencimento, nomeServico(contrato.servico), ciclo)
     }
     if (!assinatura.id || assinatura.customer !== cliente || assinatura.status !== 'ACTIVE' ||
+      (assinatura.cycle && assinatura.cycle !== ciclo) ||
       Math.round(Number(assinatura.value) * 100) !== proposta.valorCentavos) {
       throw new Error('Assinatura diverge da proposta aceita.')
     }

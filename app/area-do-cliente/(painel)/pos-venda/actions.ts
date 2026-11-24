@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { adminDb } from '@/utils/firebase/admin'
 import { ativarPosVenda, cancelarPosVenda } from '@/utils/pos-venda/cobranca'
+import { carregarCatalogo } from '@/utils/pos-venda/catalogo'
+import { planoDoServico } from '@/utils/pos-venda/catalogo-modelo'
 import { hojePosVenda, idPosVendaValido, servicoValido, servicosInclusos, type ContratoPosVenda } from '@/utils/pos-venda/modelo'
 import { clienteComPosVenda, contratosPosVenda, registrarSolicitacao, veiculosPosVenda } from '@/utils/pos-venda/repositorio'
 import { vendaPosVenda } from '@/utils/pos-venda/vinculo'
@@ -15,6 +17,8 @@ function atualizarPaginas() {
 export async function solicitarServicoPosVenda(veiculoId: string, servico: string) {
   const cliente = await clienteComPosVenda()
   if (!cliente || !idPosVendaValido(veiculoId) || !servicoValido(servico)) return { erro: 'Solicitação inválida.' }
+  // Disponibilidade definida no catálogo: serviço desligado não aceita novas solicitações.
+  if (planoDoServico(await carregarCatalogo(), servico)?.disponivel === false) return { erro: 'Este serviço não está disponível no momento.' }
   try {
     const resposta = await registrarSolicitacao(cliente, veiculoId, servico)
     atualizarPaginas()

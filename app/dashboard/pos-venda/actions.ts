@@ -10,6 +10,7 @@ import { clientesPortal, tokenPortal, type CadastroPortal } from '@/utils/portal
 import { ativarPosVenda, cancelarPosVenda, sincronizarMensalidadesPosVenda } from '@/utils/pos-venda/cobranca'
 import { ANDAMENTOS_POS_VENDA, hojePosVenda, idPosVendaValido, servicosInclusos, type ContratoPosVenda, type PropostaPosVenda } from '@/utils/pos-venda/modelo'
 import { contratosPosVenda, veiculosPosVenda } from '@/utils/pos-venda/repositorio'
+import { periodicidadeValida } from '@/utils/pos-venda/catalogo-modelo'
 import { vendaPosVenda } from '@/utils/pos-venda/vinculo'
 
 const texto = (form: FormData, chave: string) => String(form.get(chave) ?? '').trim()
@@ -36,6 +37,8 @@ export async function prepararPropostaPosVenda(id: string, form: FormData) {
   const termos = texto(form, 'termos')
   const rastreador = texto(form, 'rastreador')
   const honorarios20 = form.get('honorarios20') === 'on'
+  const periodicidade = texto(form, 'periodicidade') || 'mensal'
+  if (!periodicidadeValida(periodicidade)) return { erro: 'Periodicidade inválida.' }
   if (!Number.isSafeInteger(valorCentavos) || valorCentavos <= 0 || !vencimentoValido(vencimento) || !termos || termos.length > 8000) {
     return { erro: 'Informe a mensalidade, o primeiro vencimento e as condições da contratação.' }
   }
@@ -53,7 +56,7 @@ export async function prepararPropostaPosVenda(id: string, form: FormData) {
         return { erro: 'Informe o identificador do rastreador e confira a placa cadastrada no veículo.' }
       }
       const proposta: PropostaPosVenda = {
-        id: tokenPortal(), valorCentavos, vencimento, termos,
+        id: tokenPortal(), valorCentavos, vencimento, termos, periodicidade,
         honorarios20: inclui.includes('juridico') && honorarios20,
         rastreador: inclui.includes('rastreamento') ? rastreador : null,
       }

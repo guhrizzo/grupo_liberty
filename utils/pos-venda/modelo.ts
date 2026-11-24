@@ -1,3 +1,5 @@
+import type { Periodicidade } from './catalogo-modelo'
+
 export const SERVICOS_POS_VENDA = [
   { id: 'juridico', nome: 'Acompanhamento jurídico', descricao: 'Acompanhe processos e alertas. A defesa em caso de apreensão segue as condições acordadas com o advogado.' },
   { id: 'quitacao', nome: 'Negociação de quitação', descricao: 'Acompanhe as tentativas de negociação da Liberty com o banco.' },
@@ -41,6 +43,8 @@ export interface PropostaPosVenda {
   termos: string
   honorarios20: boolean
   rastreador: string | null
+  /** Propostas antigas não têm este campo e são mensais. */
+  periodicidade?: Periodicidade
 }
 
 export interface ContratoPosVenda {

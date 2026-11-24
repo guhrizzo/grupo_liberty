@@ -255,6 +255,7 @@ export interface AsaasAssinaturaServico {
   externalReference?: string
   status: string
   value?: number
+  cycle?: string
 }
 
 export type AsaasMensalidadeServico = AsaasPayment & { subscription?: string; deleted?: boolean }
@@ -265,9 +266,9 @@ export function assinaturasPorReferencia(referencia: string) {
   )
 }
 
-export function criarAssinaturaServico(customer: string, referencia: string, value: number, nextDueDate: string, description: string) {
+export function criarAssinaturaServico(customer: string, referencia: string, value: number, nextDueDate: string, description: string, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY' = 'MONTHLY') {
   return chamar<AsaasAssinaturaServico>('POST', '/subscriptions', {
-    customer, externalReference: referencia, value, nextDueDate, description, billingType: 'PIX', cycle: 'MONTHLY',
+    customer, externalReference: referencia, value, nextDueDate, description, billingType: 'PIX', cycle,
   })
 }
 

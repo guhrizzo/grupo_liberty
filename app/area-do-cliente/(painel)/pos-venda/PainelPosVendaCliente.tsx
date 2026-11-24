@@ -9,6 +9,7 @@ import {
   ANDAMENTOS_POS_VENDA, SERVICOS_POS_VENDA, SITUACOES_POS_VENDA, nomeServico,
   pendentePosVenda, pagoPosVenda, servicosInclusos,
 } from '@/utils/pos-venda/modelo'
+import { PERIODICIDADES, planoDoServico, type PlanoCatalogo } from '@/utils/pos-venda/catalogo-modelo'
 import type { carregarPosVendaCliente } from '@/utils/pos-venda/repositorio'
 import type { acompanharServicosAtivos } from '@/utils/pos-venda/servicos'
 import { aceitarServicoPosVenda, cancelarServicoPosVenda, solicitarServicoPosVenda } from './actions'
@@ -23,10 +24,11 @@ const statusFinanceiro = (status: string) => pagoPosVenda(status) ? 'Pago' : ({
 }[status] ?? 'Em conferência')
 const statusProcesso: Record<string, string> = { em_andamento: 'Em andamento', concluido: 'Concluído', pendente: 'Pendente', arquivado: 'Arquivado' }
 
-export default function PainelPosVendaCliente({ veiculos, contratos, acompanhamentos }: {
+export default function PainelPosVendaCliente({ veiculos, contratos, acompanhamentos, catalogo }: {
   veiculos: Omit<Dados['veiculos'][number], 'vinculo'>[]
   contratos: Dados['contratos']
   acompanhamentos: Acompanhamentos
+  catalogo: PlanoCatalogo[]
 }) {
   const [veiculoId, setVeiculoId] = useState(veiculos[0]?.id ?? '')
   const [mensagem, setMensagem] = useState<{ texto: string; erro: boolean }>()
@@ -62,15 +64,24 @@ export default function PainelPosVendaCliente({ veiculos, contratos, acompanhame
       <section aria-labelledby="servicos-disponiveis">
         <h2 id="servicos-disponiveis" className="mb-3 text-xl font-semibold">Serviços disponíveis</h2>
         <ul className="grid gap-3 sm:grid-cols-2">
-          {SERVICOS_POS_VENDA.map(({ id, nome, descricao }) => {
-            const indisponivel = servicosInclusos(id).some((servico) => ocupados.has(servico))
+          {SERVICOS_POS_VENDA.map(({ id, nome: nomePadrao, descricao: descricaoPadrao }) => {
+            const plano = planoDoServico(catalogo, id)
+            const nome = plano?.nome ?? nomePadrao
+            const descricao = plano?.descricao || descricaoPadrao
+            const fora = plano?.disponivel === false
+            const indisponivel = fora || servicosInclusos(id).some((servico) => ocupados.has(servico))
             return (
               <li className={`${card} flex flex-col items-start`} key={id}>
                 <h3 className="font-semibold">{nome}</h3>
                 <p className="mt-2 grow text-sm text-[var(--portal-secundario)]">{descricao}</p>
+                <p className="mt-3 text-sm font-semibold">
+                  {plano?.valorCentavos
+                    ? `${formatCurrency(plano.valorCentavos / 100)} ${PERIODICIDADES[plano.periodicidade].por}`
+                    : 'Valor informado na proposta'}
+                </p>
                 <button type="button" disabled={pendente || indisponivel} className={`${secundario} mt-4`}
                   onClick={() => executar(() => solicitarServicoPosVenda(veiculoId, id), 'Solicitação registrada. A Liberty enviará a proposta pelo portal.')}>
-                  {indisponivel ? 'Já incluído em uma solicitação' : 'Solicitar proposta'}
+                  {fora ? 'Indisponível no momento' : indisponivel ? 'Já incluído em uma solicitação' : 'Solicitar proposta'}
                 </button>
               </li>
             )
@@ -91,7 +102,7 @@ export default function PainelPosVendaCliente({ veiculos, contratos, acompanhame
                 </div>
                 {proposta && (
                   <div className="space-y-2 text-sm">
-                    <p><strong>{formatCurrency(proposta.valorCentavos / 100)}</strong> por mês via Pix · Primeiro vencimento {formatDate(proposta.vencimento)}</p>
+                    <p><strong>{formatCurrency(proposta.valorCentavos / 100)}</strong> {PERIODICIDADES[proposta.periodicidade ?? 'mensal'].por} via Pix · Primeiro vencimento {formatDate(proposta.vencimento)}</p>
                     <details open={contrato.situacao === 'proposta' ? true : undefined}>
                       <summary className="cursor-pointer font-medium">Condições da contratação</summary>
                       <p className="mt-2 whitespace-pre-wrap break-words text-[var(--portal-secundario)]">{proposta.termos}</p>

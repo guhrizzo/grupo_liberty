@@ -128,7 +128,7 @@ describe('Pós-venda Liberty', () => {
     fake.buscarAssinaturas.mockResolvedValue({ data: [] })
     fake.criarAssinatura.mockRejectedValue(new Error('Sem resposta'))
     expect(await ativarPosVenda(contratoId)).toHaveProperty('erro')
-    expect(fake.criarAssinatura).toHaveBeenCalledWith('cus_1', 'liberty-pos-venda:pedido', 99, hojePosVenda(), 'Rastreamento veicular')
+    expect(fake.criarAssinatura).toHaveBeenCalledWith('cus_1', 'liberty-pos-venda:pedido', 99, hojePosVenda(), 'Rastreamento veicular', 'MONTHLY')
     expect(fake.dados.get(caminho)?.situacao).toBe('ativando')
     expect(await ativarPosVenda(contratoId)).toHaveProperty('erro')
     expect(fake.criarAssinatura).toHaveBeenCalledTimes(1)

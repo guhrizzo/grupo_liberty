@@ -8,6 +8,7 @@ import {
   ANDAMENTOS_POS_VENDA, SITUACOES_POS_VENDA, nomeServico, servicosInclusos,
   hojePosVenda, pendentePosVenda, pagoPosVenda,
 } from '@/utils/pos-venda/modelo'
+import { PERIODICIDADES, planoDoServico, vencimentoSugerido, type PlanoCatalogo } from '@/utils/pos-venda/catalogo-modelo'
 import type { carregarPosVendaInterno } from '@/utils/pos-venda/repositorio'
 import { acaoFinanceiraPosVenda, prepararPropostaPosVenda, publicarAndamentoPosVenda } from './actions'
 
@@ -25,8 +26,9 @@ const financeiro = (status: string) => pagoPosVenda(status) ? 'Pago' : ({
   PENDING: 'Pendente', OVERDUE: 'Vencido', DELETED: 'Cancelado', REFUNDED: 'Estornado',
 }[status] ?? 'Em conferência')
 
-export default function PainelPosVendaInterno({ dados, habilitado, podeFinanceiro, podeJuridico, podeNegociar, podeRastrear }: {
+export default function PainelPosVendaInterno({ dados, catalogo, habilitado, podeFinanceiro, podeJuridico, podeNegociar, podeRastrear }: {
   dados: Dados
+  catalogo: PlanoCatalogo[]
   habilitado: boolean
   podeFinanceiro: boolean
   podeJuridico: boolean
@@ -63,7 +65,7 @@ export default function PainelPosVendaInterno({ dados, habilitado, podeFinanceir
         </div>
         {exibidos.length === 0 && <p className={card}>Nenhum registro neste filtro.</p>}
         {exibidos.map((contrato) => (
-          <Registro key={contrato.id} contrato={contrato} podeFinanceiro={podeFinanceiro} podeJuridico={podeJuridico} podeNegociar={podeNegociar} podeRastrear={podeRastrear} />
+          <Registro key={contrato.id} contrato={contrato} plano={planoDoServico(catalogo, contrato.servico)} podeFinanceiro={podeFinanceiro} podeJuridico={podeJuridico} podeNegociar={podeNegociar} podeRastrear={podeRastrear} />
         ))}
       </section>
       <section className={card} aria-labelledby="sem-pos-venda">
@@ -80,8 +82,9 @@ export default function PainelPosVendaInterno({ dados, habilitado, podeFinanceir
   )
 }
 
-function Registro({ contrato, podeFinanceiro, podeJuridico, podeNegociar, podeRastrear }: {
+function Registro({ contrato, plano, podeFinanceiro, podeJuridico, podeNegociar, podeRastrear }: {
   contrato: Linha
+  plano?: PlanoCatalogo
   podeFinanceiro: boolean
   podeJuridico: boolean
   podeNegociar: boolean
@@ -126,21 +129,24 @@ function Registro({ contrato, podeFinanceiro, podeJuridico, podeNegociar, podeRa
         </div>
         <span className="text-sm font-semibold text-liberty-deep">{SITUACOES_POS_VENDA[contrato.situacao]}</span>
       </div>
-      {proposta && <p className="text-sm">{formatCurrency(proposta.valorCentavos / 100)} por mês · Primeiro vencimento {formatDate(proposta.vencimento)}</p>}
+      {proposta && <p className="text-sm">{formatCurrency(proposta.valorCentavos / 100)} {PERIODICIDADES[proposta.periodicidade ?? 'mensal'].por} · Primeiro vencimento {formatDate(proposta.vencimento)}</p>}
       {podePropor && (
         <details>
           <summary className="cursor-pointer font-medium">{proposta ? 'Editar proposta' : 'Preparar proposta'}</summary>
           <form method="post" onSubmit={propor} className="mt-3 space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Input name="valor" label="Mensalidade (R$)" required inputMode="decimal" placeholder="Ex.: 99,90"
-                defaultValue={proposta ? (proposta.valorCentavos / 100).toFixed(2).replace('.', ',') : ''} />
-              <Input name="vencimento" label="Primeiro vencimento" type="date" required min={hojePosVenda()} defaultValue={proposta?.vencimento} />
+              <Input name="valor" label="Valor da cobrança (R$)" required inputMode="decimal" placeholder="Ex.: 99,90"
+                defaultValue={proposta ? (proposta.valorCentavos / 100).toFixed(2).replace('.', ',') : plano?.valorCentavos ? (plano.valorCentavos / 100).toFixed(2).replace('.', ',') : ''} />
+              <Input name="vencimento" label="Primeiro vencimento" type="date" required min={hojePosVenda()}
+                defaultValue={proposta && proposta.vencimento >= hojePosVenda() ? proposta.vencimento : vencimentoSugerido(hojePosVenda(), plano?.diasAteVencimento ?? 5)} />
+              <Select name="periodicidade" label="Periodicidade" defaultValue={proposta?.periodicidade ?? plano?.periodicidade ?? 'mensal'}
+                options={Object.entries(PERIODICIDADES).map(([value, { rotulo }]) => ({ value, label: rotulo }))} />
             </div>
             <Textarea name="termos" label="Condições da contratação" required rows={4} maxLength={8000}
               placeholder="Informe o que está incluído, as condições de cancelamento e, se aplicável, as condições da defesa judicial e dos honorários."
-              defaultValue={proposta?.termos} />
+              defaultValue={proposta?.termos ?? plano?.termos} />
             {inclusos.includes('juridico') && (
-              <label className="flex items-center gap-2 text-sm"><input name="honorarios20" type="checkbox" defaultChecked={proposta?.honorarios20} /> Honorários de 20% previstos nas condições desta proposta</label>
+              <label className="flex items-center gap-2 text-sm"><input name="honorarios20" type="checkbox" defaultChecked={proposta?.honorarios20 ?? plano?.honorarios20} /> Honorários de 20% previstos nas condições desta proposta</label>
             )}
             {inclusos.includes('rastreamento') && (
               <Input name="rastreador" label="Identificador do rastreador no Autocarsat" required maxLength={128}
