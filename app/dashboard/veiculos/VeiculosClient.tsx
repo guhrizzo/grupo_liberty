@@ -325,6 +325,22 @@ const ABAS_FORM: { valor: AbaForm; label: string }[] = [
   { valor: 'veiculo', label: 'Veículo' },
 ]
 
+type OrdemVeiculos =
+  | 'cadastro' | 'aquisicao-recente' | 'aquisicao-antiga' | 'preco-menor' | 'preco-maior'
+  | 'ano-novo' | 'ano-antigo' | 'km-menor' | 'marca'
+
+const OPCOES_ORDEM: { valor: OrdemVeiculos; rotulo: string }[] = [
+  { valor: 'aquisicao-recente', rotulo: 'Aquisição: mais recente' },
+  { valor: 'aquisicao-antiga', rotulo: 'Aquisição: mais antiga' },
+  { valor: 'cadastro', rotulo: 'Cadastro no sistema' },
+  { valor: 'preco-menor', rotulo: 'Preço: menor primeiro' },
+  { valor: 'preco-maior', rotulo: 'Preço: maior primeiro' },
+  { valor: 'ano-novo', rotulo: 'Ano: mais novo' },
+  { valor: 'ano-antigo', rotulo: 'Ano: mais antigo' },
+  { valor: 'km-menor', rotulo: 'Quilometragem: menor' },
+  { valor: 'marca', rotulo: 'Marca e modelo (A–Z)' },
+]
+
 export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes = {}, resumos = {}, seguros = {} }: VeiculosClientProps) {
   const router = useRouter()
   const toast = useToast()
@@ -385,6 +401,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   // "Vendidos" do site por 30 dias) ou Privado (fora do site).
   const [estoqueEstado, setEstoqueEstado] = useState<EstoqueEstado>('disponivel')
   const [filtroCidade, setFiltroCidade] = useState<string>('')
+  const [ordem, setOrdem] = useState<OrdemVeiculos>('aquisicao-recente')
   const [filtroBusca, setFiltroBusca] = useState<string>('')
   // Detalhes (somente leitura) e posição da lista, para voltar ao mesmo ponto depois de editar.
   const [detalhesId, setDetalhesId] = useState<string | null>(null)
@@ -1325,7 +1342,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   )
 
   const veiculosFiltrados = useMemo(() => {
-    return veiculos.filter((v) => {
+    const filtrados = veiculos.filter((v) => {
       if (filtroCidade && v.localizacao !== filtroCidade) return false
       return casaBusca(filtroBusca, [
         v.marca,
@@ -1338,7 +1355,29 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
         v.sellerCpf,
       ])
     })
-  }, [veiculos, filtroCidade, filtroBusca])
+    if (ordem === 'cadastro') return filtrados
+    const texto = (a: string, b: string) => a.localeCompare(b, 'pt-BR')
+    // Valores ausentes (sem data, sem preço...) vão sempre para o fim, em qualquer sentido.
+    const porCampo = <T extends string | number>(pegar: (v: Veiculo) => T | null | undefined, sentido: 1 | -1) =>
+      [...filtrados].sort((x, y) => {
+        const a = pegar(x)
+        const b = pegar(y)
+        if (a == null || a === '') return b == null || b === '' ? 0 : 1
+        if (b == null || b === '') return -1
+        const cmp = typeof a === 'string' ? texto(a, b as string) : (a as number) - (b as number)
+        return cmp * sentido
+      })
+    switch (ordem) {
+      case 'aquisicao-recente': return porCampo((v) => v.dataAquisicao, -1)
+      case 'aquisicao-antiga': return porCampo((v) => v.dataAquisicao, 1)
+      case 'preco-menor': return porCampo((v) => v.preco, 1)
+      case 'preco-maior': return porCampo((v) => v.preco, -1)
+      case 'ano-novo': return porCampo((v) => v.ano, -1)
+      case 'ano-antigo': return porCampo((v) => v.ano, 1)
+      case 'km-menor': return porCampo((v) => v.quilometragem, 1)
+      case 'marca': return porCampo((v) => `${v.marca} ${v.modelo}`, 1)
+    }
+  }, [veiculos, filtroCidade, filtroBusca, ordem])
 
   // Filtros da lista sobrevivem a sair e voltar (ex.: ir às Quitações e usar o Voltar do navegador).
   useEffect(() => {
@@ -1347,6 +1386,7 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
       if (salvo && typeof salvo === 'object') {
         if (typeof salvo.busca === 'string') setFiltroBusca(salvo.busca)
         if (typeof salvo.cidade === 'string') setFiltroCidade(salvo.cidade)
+        if (OPCOES_ORDEM.some((o) => o.valor === salvo.ordem)) setOrdem(salvo.ordem)
       }
     } catch {
       // sessionStorage indisponível: a lista simplesmente começa sem filtros.
@@ -1354,11 +1394,11 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
   }, [])
   useEffect(() => {
     try {
-      sessionStorage.setItem('veiculos:filtros', JSON.stringify({ busca: filtroBusca, cidade: filtroCidade }))
+      sessionStorage.setItem('veiculos:filtros', JSON.stringify({ busca: filtroBusca, cidade: filtroCidade, ordem }))
     } catch {
       // ignora
     }
-  }, [filtroBusca, filtroCidade])
+  }, [filtroBusca, filtroCidade, ordem])
 
   // ─── Render ──────────────────────────────────────────────────────────────
 
@@ -2776,6 +2816,16 @@ export default function VeiculosClient({ currentUser, veiculos, ultimasQuitacoes
                   <option key={cidade} value={cidade}>
                     {cidade}
                   </option>
+                ))}
+              </Select>
+              <Select
+                aria-label="Ordenar veículos"
+                value={ordem}
+                onChange={(e) => setOrdem(e.target.value as typeof ordem)}
+                containerClassName="w-full sm:w-64"
+              >
+                {OPCOES_ORDEM.map((o) => (
+                  <option key={o.valor} value={o.valor}>{o.rotulo}</option>
                 ))}
               </Select>
               <SeletorVisualizacao modo={modoVisualizacao} onChange={setModoVisualizacao} />
