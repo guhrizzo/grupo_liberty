@@ -2,6 +2,7 @@ export const modulosPortal = [
   { id: 'quitacao', nome: 'Quitação', descricao: 'Acompanhe o andamento da quitação do seu veículo.' },
   { id: 'posVenda', nome: 'Pós-venda', descricao: 'Acompanhe os atendimentos relacionados ao seu veículo.' },
   { id: 'investimentos', nome: 'Investimentos', descricao: 'Acompanhe suas operações de investimento.' },
+  { id: 'indicacoes', nome: 'Indique e ganhe', descricao: 'Indique pessoas e acompanhe suas recompensas.' },
 ] as const
 
 export interface PerfilPortal {

@@ -25,6 +25,7 @@ export type PermissionKey =
   | 'usuarios'
   | 'clientes_portal'
   | 'pos_venda'
+  | 'indicacoes'
   | 'investimentos'
   | 'analytics'
   | 'rede_apoio'
@@ -49,6 +50,7 @@ export const PAGE_DEFAULT_ROLES: Record<PermissionKey, readonly string[]> = {
   usuarios: ['admin'],
   clientes_portal: ['admin'],
   pos_venda: ['admin', 'financeiro'],
+  indicacoes: ['admin', 'financeiro'],
   investimentos: ['admin', 'financeiro'],
   analytics: ['admin'],
   rede_apoio: ['admin'],

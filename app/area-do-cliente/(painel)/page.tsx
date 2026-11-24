@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { IconArrowRight, IconBuildingBank, IconCar, IconFileDescription, IconLifebuoy, IconReceipt } from '@tabler/icons-react'
+import { IconArrowRight, IconBuildingBank, IconCar, IconFileDescription, IconGift, IconLifebuoy, IconReceipt } from '@tabler/icons-react'
 import { carregarPainelCliente } from '@/utils/portal/painel'
 import { modulosPortal } from '@/utils/portal/modelo'
 
@@ -9,6 +9,7 @@ const linksModulos = {
   quitacao: { href: '/area-do-cliente/quitacao', acao: 'Acompanhar quitação', Icone: IconReceipt },
   posVenda: { href: '/area-do-cliente/pos-venda', acao: 'Ver serviços', Icone: IconLifebuoy },
   investimentos: { href: '/area-do-cliente/investimentos', acao: 'Ver investimentos', Icone: IconBuildingBank },
+  indicacoes: { href: '/area-do-cliente/indicacoes', acao: 'Indicar e acompanhar', Icone: IconGift },
 }
 
 const cartaoResumo = 'flex min-w-0 scroll-mt-16 flex-col rounded-2xl border border-[var(--portal-divisor)] bg-[var(--portal-campo)] p-5 sm:p-6'

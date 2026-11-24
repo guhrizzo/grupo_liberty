@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { codigoExiste } from '@/utils/indicacoes/servidor'
 import { lerTemaPortal } from '@/utils/portal/tema'
 import { clienteAutenticado } from '@/utils/portal/acesso'
 import logo from '@/app/public/logo-liberty-car-white.png'
@@ -15,8 +16,9 @@ const destinos = [
   { rota: 'investimentos', modulo: 'investimentos' },
 ] as const
 
-export default async function EntrarPortalPage({ searchParams }: { searchParams: Promise<{ destino?: string | string[] }> }) {
-  const { destino } = await searchParams
+export default async function EntrarPortalPage({ searchParams }: { searchParams: Promise<{ destino?: string | string[]; ref?: string | string[] }> }) {
+  const { destino, ref } = await searchParams
+  const codigoIndicacao = typeof ref === 'string' && await codigoExiste(ref) ? ref : undefined
   const destinoPermitido = destinos.find(({ rota }) => rota === destino)
   const cliente = await clienteAutenticado()
   if (cliente) {
@@ -37,7 +39,7 @@ export default async function EntrarPortalPage({ searchParams }: { searchParams:
       <section className={styles.acesso} aria-labelledby="entrar-titulo">
         <div className={styles.conteudo}>
           <h1 id="entrar-titulo">Entrar na Área do Cliente</h1>
-          <FormEntrada destino={destinoPermitido?.rota} />
+          <FormEntrada destino={destinoPermitido?.rota} codigoIndicacao={codigoIndicacao} />
         </div>
       </section>
     </TemaEntrada>

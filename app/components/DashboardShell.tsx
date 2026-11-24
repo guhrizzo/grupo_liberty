@@ -115,6 +115,7 @@ const SETOR_DE: Record<string, SetorId> = {
   '/dashboard/usuarios': 'gestao',
   '/dashboard/clientes-portal': 'gestao',
   '/dashboard/pos-venda': 'gestao',
+  '/dashboard/indicacoes': 'gestao',
   '/dashboard/investimentos': 'financeiro',
   '/dashboard/analytics': 'gestao',
 }
@@ -286,6 +287,12 @@ const NAV_BASE: Omit<NavItem, 'setor'>[] = [
     label: 'Pós-venda',
     icon: 'users',
     permissionKey: 'pos_venda',
+  },
+  {
+    href: '/dashboard/indicacoes',
+    label: 'Indicações',
+    icon: 'users',
+    permissionKey: 'indicacoes',
   },
   {
     href: '/dashboard/clientes-portal',

@@ -5,6 +5,7 @@ import { enviarRedefinicaoPortal } from '@/utils/email/send-redefinicao-portal'
 import { atalhosPortal, idsMenuPortal, modulosPortal, normalizarEmail } from '@/utils/portal/modelo'
 import { rateLimit } from '@/utils/rate-limit'
 import { adminDb } from '@/utils/firebase/admin'
+import { converterPorLogin, registrarIndicado, type ResultadoRegistro } from '@/utils/indicacoes/servidor'
 import { chaveHash, clienteAutenticado, clientesPortal, encerrarSessaoPortal, iniciarSessaoPortal, type CadastroPortal } from '@/utils/portal/acesso'
 
 export async function entrarPortal(idToken: string) {
@@ -20,9 +21,27 @@ export async function entrarPortal(idToken: string) {
     if (resultado === 'sem-cadastro') {
       return { erro: 'Este e-mail ainda não tem acesso liberado. Fale com a equipe Liberty para vincular sua conta ao cadastro.' }
     }
+    // Primeiro acesso de uma pessoa indicada: converte a indicação (não bloqueia o login se falhar).
+    await converterPorLogin(idToken)
     return { sucesso: true }
   } catch {
     return { erro: 'Não foi possível iniciar a sessão. Tente novamente.' }
+  }
+}
+
+export async function registrarIndicadoPortal(
+  idToken: string,
+  codigo: string,
+  dados: { nome: string; cpf: string; telefone: string },
+): Promise<ResultadoRegistro> {
+  if (typeof idToken !== 'string' || !idToken || idToken.length > 8192 || typeof codigo !== 'string' ||
+    !dados || typeof dados.nome !== 'string' || typeof dados.cpf !== 'string' || typeof dados.telefone !== 'string') {
+    return { erro: 'Confira os dados informados.' }
+  }
+  try {
+    return await registrarIndicado({ idToken, codigo, nome: dados.nome, cpf: dados.cpf, telefone: dados.telefone })
+  } catch {
+    return { erro: 'Não foi possível concluir o cadastro. Tente novamente.' }
   }
 }
 

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   IconArrowDown, IconArrowUp, IconArrowsSort, IconBuildingBank, IconCar, IconChevronLeft, IconChevronRight, IconFileDescription,
-  IconHome, IconLifebuoy, IconLogout, IconMenu2, IconMoon, IconReceipt, IconSpeakerphone, IconSun, IconUser, IconWorld, IconX,
+  IconGift, IconHome, IconLifebuoy, IconLogout, IconMenu2, IconMoon, IconReceipt, IconSpeakerphone, IconSun, IconUser, IconWorld, IconX,
 } from '@tabler/icons-react'
 import logoEscuro from '@/app/public/logo-liberty-car-white.png'
 import logoClaro from '@/app/public/logo-liberty-car-blue.png'
@@ -17,7 +17,7 @@ import { sairPortal, salvarOrdemMenuPortal } from './actions'
 import styles from './entrar/entrada.module.css'
 
 const iconesAtalho = { 'inicio-portal': IconHome, 'veiculos-portal': IconCar, 'registros-portal': IconFileDescription, 'anunciar-portal': IconSpeakerphone, 'perfil-portal': IconUser }
-const iconesModulo = { quitacao: IconReceipt, posVenda: IconLifebuoy, investimentos: IconBuildingBank }
+const iconesModulo = { quitacao: IconReceipt, posVenda: IconLifebuoy, investimentos: IconBuildingBank, indicacoes: IconGift }
 const rotasAtalho: Partial<Record<string, string>> = {
   'veiculos-portal': '/area-do-cliente/veiculos',
   'registros-portal': '/area-do-cliente/contratos-e-operacoes',
@@ -26,6 +26,7 @@ const rotasAtalho: Partial<Record<string, string>> = {
   'modulo-quitacao': '/area-do-cliente/quitacao',
   'modulo-posVenda': '/area-do-cliente/pos-venda',
   'modulo-investimentos': '/area-do-cliente/investimentos',
+  'modulo-indicacoes': '/area-do-cliente/indicacoes',
 }
 const acao = 'flex min-h-10 w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium hover:bg-[var(--portal-selecao)] focus-visible:outline-2 focus-visible:outline-[var(--portal-foco)]'
 const hrefAtalho = (id: string) => rotasAtalho[id] ?? `/area-do-cliente#${id}`

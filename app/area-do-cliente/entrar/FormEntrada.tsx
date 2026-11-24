@@ -19,7 +19,7 @@ import {
 import { IconArrowRight, IconEye, IconEyeOff, IconLock, IconMail } from '@tabler/icons-react'
 import GoogleIcon from '@/app/components/GoogleIcon'
 import { app } from '@/utils/firebase/client'
-import { entrarPortal, solicitarRedefinicaoPortal } from '../actions'
+import { entrarPortal, registrarIndicadoPortal, solicitarRedefinicaoPortal } from '../actions'
 import styles from './entrada.module.css'
 
 const appPortal = 'liberty-portal'
@@ -64,15 +64,17 @@ function mensagemFirebase(erro: unknown) {
   }
 }
 
-export default function FormEntrada({ destino }: { destino?: string }) {
+export default function FormEntrada({ destino, codigoIndicacao }: { destino?: string; codigoIndicacao?: string }) {
   const router = useRouter()
-  const [modo, setModo] = useState<Modo>('entrar')
+  const [modo, setModo] = useState<Modo>(codigoIndicacao ? 'cadastro' : 'entrar')
   const [recuperando, setRecuperando] = useState(false)
   const [email, setEmail] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [mensagem, setMensagem] = useState<{ texto: string; erro: boolean } | null>(null)
   const [pendente, iniciar] = useTransition()
   const cadastro = modo === 'cadastro'
+  // Quem chega por um link de indicação cria a conta com e-mail e senha, informando nome, CPF e telefone.
+  const indicado = cadastro && !!codigoIndicacao
 
   function trocarModo(novoModo: Modo) {
     if (modo === novoModo) return
@@ -99,6 +101,20 @@ export default function FormEntrada({ destino }: { destino?: string }) {
             ? await createUserWithEmailAndPassword(auth, email, senha)
             : await signInWithEmailAndPassword(auth, email, senha)
           : await signInWithPopup(auth, new GoogleAuthProvider())
+
+        if (indicado && dados && codigoIndicacao) {
+          const registro = await registrarIndicadoPortal(await credencial.user.getIdToken(), codigoIndicacao, {
+            nome: String(dados.get('nome') ?? ''),
+            cpf: String(dados.get('cpf') ?? ''),
+            telefone: String(dados.get('telefone') ?? ''),
+          })
+          if ('erro' in registro) {
+            // Desfaz a conta criada para a pessoa poder corrigir os dados e tentar de novo.
+            await credencial.user.delete().catch(() => {})
+            setMensagem({ erro: true, texto: registro.erro })
+            return
+          }
+        }
 
         if (!credencial.user.emailVerified) {
           if (cadastro || dados?.get('reenviar') === '1') {
@@ -175,14 +191,36 @@ export default function FormEntrada({ destino }: { destino?: string }) {
         <button type="button" disabled={pendente} aria-pressed={cadastro} onClick={() => trocarModo('cadastro')}>Cadastro</button>
       </div>
       <p className={styles.instrucao}>
-        {cadastro ? 'Use o mesmo e-mail informado à Liberty para vincular seu cadastro.' : 'Entre com seu e-mail e senha ou com sua conta Google.'}
+        {indicado
+          ? 'Você foi indicado por um cliente Liberty. Crie sua conta, confirme o e-mail e entre para concluir.'
+          : cadastro ? 'Use o mesmo e-mail informado à Liberty para vincular seu cadastro.' : 'Entre com seu e-mail e senha ou com sua conta Google.'}
       </p>
-      <button className={styles.google} type="button" disabled={pendente} onClick={() => autenticar()}>
-        <GoogleIcon size={19} />
-        {cadastro ? 'Cadastrar com Google' : 'Entrar com Google'}
-      </button>
-      <div className={styles.divisor}>ou</div>
+      {!indicado && (
+        <>
+          <button className={styles.google} type="button" disabled={pendente} onClick={() => autenticar()}>
+            <GoogleIcon size={19} />
+            {cadastro ? 'Cadastrar com Google' : 'Entrar com Google'}
+          </button>
+          <div className={styles.divisor}>ou</div>
+        </>
+      )}
       <form key={modo} method="post" onSubmit={enviar} className={styles.formulario}>
+        {indicado && (
+          <>
+            <label className={styles.rotulo}>
+              Nome completo
+              <input name="nome" required minLength={3} maxLength={120} autoComplete="name" placeholder="Ex.: Maria da Silva" className={styles.campo} />
+            </label>
+            <label className={styles.rotulo}>
+              CPF
+              <input name="cpf" required inputMode="numeric" maxLength={14} autoComplete="off" placeholder="Ex.: 000.000.000-00" className={styles.campo} />
+            </label>
+            <label className={styles.rotulo}>
+              Telefone com DDD
+              <input name="telefone" type="tel" required inputMode="tel" maxLength={16} autoComplete="tel" placeholder="Ex.: (14) 99999-9999" className={styles.campo} />
+            </label>
+          </>
+        )}
         <label className={styles.rotulo}>
           E-mail
           <span className={styles.campoEmail}>

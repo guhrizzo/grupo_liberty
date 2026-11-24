@@ -45,6 +45,7 @@ const PERMISSION_TABS = [
   { key: 'interesses', label: 'Interesses' },
   { key: 'clientes_portal', label: 'Clientes do portal' },
   { key: 'pos_venda', label: 'Pós-venda' },
+  { key: 'indicacoes', label: 'Indicações' },
   { key: 'investimentos', label: 'Investimentos' },
   { key: 'rastreamento', label: 'Rastreamento' },
 ] as const
