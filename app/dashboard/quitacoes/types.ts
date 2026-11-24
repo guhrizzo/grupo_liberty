@@ -81,7 +81,7 @@ export function somarMeses(data: string, meses: number): string {
 /** Dados do cliente e do financiamento para ligar ao banco. Um por veículo (coleção `quitacao_fichas`). */
 export interface FichaQuitacao {
   portalChaveLegada?: string | null
-  portal?: { vinculo: string; etapa: EtapaQuitacao; publicados: Partial<Record<TipoAnexo, string>> }
+  portal?: { vinculo: string; etapa: EtapaQuitacao; publicados: Partial<Record<TipoAnexo, string>>; previsao?: string | null }
   veiculoId: string
   /** O veículo já foi quitado com o banco. */
   quitado: boolean

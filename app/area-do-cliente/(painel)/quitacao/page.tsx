@@ -20,7 +20,7 @@ export default async function QuitacaoClientePage() {
     <main className="mx-auto w-full max-w-5xl space-y-6 px-5 py-9 sm:px-8 sm:py-14">
       <AtualizarQuitacaoAberta />
       <header>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Acompanhamento de quitação</h1>
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Acompanhe sua Quitação</h1>
         <p className="mt-2 text-[var(--portal-secundario)]">Veja o andamento da quitação dos veículos vendidos à Liberty.</p>
       </header>
       {compras.length === 0 && (
@@ -37,6 +37,24 @@ export default async function QuitacaoClientePage() {
             <header>
               <h2 className="text-2xl font-semibold">{compra.titulo}</h2>
               {compra.placa && <p className="mt-1 text-sm text-[var(--portal-secundario)]">Placa {compra.placa}</p>}
+              <dl className="mt-3 grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-[var(--portal-secundario)]">Operação realizada em</dt>
+                  <dd className="font-medium">{formatarData(compra.dataOperacao)}</dd>
+                </div>
+                {compra.banco && (
+                  <div>
+                    <dt className="text-[var(--portal-secundario)]">Instituição financeira</dt>
+                    <dd className="font-medium">{compra.banco}</dd>
+                  </div>
+                )}
+                {compra.previsao && (
+                  <div>
+                    <dt className="text-[var(--portal-secundario)]">Previsão de conclusão</dt>
+                    <dd className="font-medium">{formatarData(compra.previsao)}</dd>
+                  </div>
+                )}
+              </dl>
               <p className="mt-2 font-semibold text-[var(--portal-link)]">{ETAPAS_QUITACAO[atual]?.nome}</p>
               <p className="mt-1 text-sm text-[var(--portal-secundario)]">Última atualização em {formatarData(compra.atualizadoEm)}</p>
             </header>

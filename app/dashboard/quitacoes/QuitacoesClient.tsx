@@ -414,6 +414,7 @@ export default function QuitacoesClient({ quitacoes, veiculos, fichas, anexos, v
                           (!ficha.dataCompra || v.portalVinculo.endsWith(`:${ficha.dataCompra}`))
                             ? 'quitado' : 'recebido'
                         )}
+                        previsaoInicial={acompanhamento?.previsao ?? ''}
                         anexos={anexosVeiculo}
                         publicados={acompanhamento?.publicados ?? {}}
                       />

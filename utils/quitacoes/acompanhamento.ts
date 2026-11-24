@@ -16,6 +16,8 @@ export type Acompanhamento = {
   historico: EventoQuitacao[]
   publicados: Partial<Record<TipoAnexo, string>>
   avisoId?: string | null
+  /** Estimativa de conclusão (AAAA-MM-DD), só quando a equipe cadastra. */
+  previsao?: string | null
 }
 export type PublicacaoQuitacao = { tipo: TipoAnexo; versao: string }
 export const versaoAnexoQuitacao = (path: string) => createHash('sha256').update(path).digest('hex')
@@ -41,7 +43,7 @@ export function acompanhamentoQuitacao(compra: NonNullable<ReturnType<typeof com
 }
 
 /** Atualiza a mesma ficha usada pela equipe e grava o evento de notificação na transação. */
-export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada: EtapaQuitacao, uid: string, publicacao?: { vinculo: string; arquivos: PublicacaoQuitacao[] }) {
+export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada: EtapaQuitacao, uid: string, publicacao?: { vinculo: string; arquivos: PublicacaoQuitacao[]; previsao?: string | null }) {
   const veiculoRef = adminDb.collection('veiculos').doc(veiculoId)
   const fichaRef = fichaQuitacao(veiculoId)
   const avisoRef = adminDb.collection(FILA_QUITACAO).doc(randomUUID())
@@ -72,14 +74,16 @@ export async function atualizarAcompanhamento(veiculoId: string, etapaSolicitada
     const agora = new Date()
     const em = agora.toISOString()
     const mudouAnexo = TIPOS_ANEXO.some(({ id }) => atual.publicados[id] !== publicados[id])
+    const previsao = publicacao ? publicacao.previsao || null : atual.previsao ?? null
+    const mudouPrevisao = previsao !== (atual.previsao ?? null)
     const quitado = etapaTemQuitacao(etapa)
     const anterior = ficha.data()
     const segueQuitado = !!anterior?.quitado && anterior.portalAcompanhamento?.vinculo === compra.vinculo
     const aviso = mudouEtapa && etapaNotificavel(etapa)
     const novo: Acompanhamento = {
-      ...atual, etapa, publicados,
+      ...atual, etapa, publicados, previsao,
       avisoId: mudouEtapa ? (aviso ? avisoRef.id : null) : atual.avisoId ?? null,
-      atualizadoEm: mudouEtapa || mudouAnexo ? em : atual.atualizadoEm,
+      atualizadoEm: mudouEtapa || mudouAnexo || mudouPrevisao ? em : atual.atualizadoEm,
       historico: mudouEtapa ? [...atual.historico, { etapa, em }] : atual.historico,
     }
     tx.set(fichaRef, {

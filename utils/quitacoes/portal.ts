@@ -3,6 +3,7 @@ import { adminDb } from '@/utils/firebase/admin'
 import { clienteAutenticado } from '@/utils/portal/acesso'
 import { TIPOS_ANEXO, type TipoAnexo } from '@/app/dashboard/quitacoes/types'
 import { acompanhamentoQuitacao, anexoQuitacao, fichaQuitacao } from './acompanhamento'
+import { etapaTemQuitacao } from './etapas'
 import { chaveTitularQuitacao, compraQuitacao } from './vinculo'
 
 export async function listarQuitacoesCliente() {
@@ -12,7 +13,7 @@ export async function listarQuitacoesCliente() {
   if (!chave) return []
 
   const snapshot = await adminDb.collection('veiculos').where('portalQuitacaoChave', '==', chave)
-    .select('sellerCpf', 'terceiro', 'dataAquisicao', 'marca', 'modelo', 'ano', 'placa').get()
+    .select('sellerCpf', 'terceiro', 'dataAquisicao', 'marca', 'modelo', 'ano', 'placa', 'banco').get()
   const titular = snapshot.docs.flatMap((veiculo) => {
     const compra = compraQuitacao(veiculo.data())
     return compra?.documento === cliente.documento ? [{ veiculo, compra }] : []
@@ -20,7 +21,7 @@ export async function listarQuitacoesCliente() {
 
   return Promise.all(titular.map(async ({ veiculo, compra }) => {
     const ficha = await fichaQuitacao(veiculo.id).get()
-    const { etapa, atualizadoEm, historico, publicados } = acompanhamentoQuitacao(compra, ficha.data())
+    const { etapa, atualizadoEm, historico, publicados, previsao } = acompanhamentoQuitacao(compra, ficha.data())
     const anexos = TIPOS_ANEXO.filter(({ id }) => !!publicados[id])
     const documentos = await Promise.all(anexos.map(async ({ id, label }) => {
       const anexo = await anexoQuitacao(veiculo.id, id).get()
@@ -33,6 +34,10 @@ export async function listarQuitacoesCliente() {
       id: veiculo.id,
       titulo: titulo || 'Veículo vendido à Liberty',
       placa: String(veiculo.get('placa') ?? ''),
+      banco: String(veiculo.get('banco') ?? '').trim(),
+      dataOperacao: compra.data,
+      // Previsão só aparece enquanto a quitação não terminou.
+      previsao: previsao && !etapaTemQuitacao(etapa) ? previsao : null,
       etapa, atualizadoEm, historico,
       documentos: documentos.filter((item) => item !== null),
     }

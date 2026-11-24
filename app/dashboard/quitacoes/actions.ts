@@ -264,6 +264,7 @@ function fichaSerialize(id: string, d: FirebaseFirestore.DocumentData): FichaQui
       vinculo: acompanhamento.vinculo,
       etapa: acompanhamento.etapa,
       publicados: Object.fromEntries(Object.entries(acompanhamento.publicados).map(([tipo, path]) => [tipo, versaoArquivo(path)])),
+      previsao: acompanhamento.previsao ?? null,
     } : undefined,
     quitado: d.quitado === true,
     quitadoEm: d.quitadoEm ?? null,
@@ -376,7 +377,7 @@ export async function salvarFicha(input: FichaInput): Promise<Resultado> {
   return { success: 'Dados do cliente salvos.' }
 }
 
-export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQuitacao, vinculo: string, anexos: PublicacaoQuitacao[]): Promise<Resultado> {
+export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQuitacao, vinculo: string, anexos: PublicacaoQuitacao[], previsao = ''): Promise<Resultado> {
   const acesso = await checarAcesso()
   if ('error' in acesso) return { error: acesso.error }
   if (typeof veiculoId !== 'string' || !ID_RE.test(veiculoId) || !etapaValida(etapa) ||
@@ -386,9 +387,13 @@ export async function atualizarQuitacaoPortal(veiculoId: string, etapa: EtapaQui
     new Set(anexos.map(({ tipo }) => tipo)).size !== anexos.length) {
     return { error: 'Confira a etapa e os documentos selecionados.' }
   }
+  const previsaoLimpa = typeof previsao === 'string' ? previsao.trim() : ''
+  if (previsaoLimpa && (!/^\d{4}-\d{2}-\d{2}$/.test(previsaoLimpa) || Number.isNaN(Date.parse(`${previsaoLimpa}T12:00:00Z`)))) {
+    return { error: 'Informe uma previsão de conclusão válida.' }
+  }
 
   try {
-    const resultado = await atualizarAcompanhamento(veiculoId, etapa, acesso.user.uid, { vinculo, arquivos: anexos })
+    const resultado = await atualizarAcompanhamento(veiculoId, etapa, acesso.user.uid, { vinculo, arquivos: anexos, previsao: previsaoLimpa || null })
     if (!resultado.vinculado) return { error: 'Preencha o documento do antigo proprietário e a data da aquisição no veículo.' }
     revalidatePath('/dashboard/quitacoes')
     revalidatePath('/area-do-cliente/quitacao')

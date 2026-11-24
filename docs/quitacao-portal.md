@@ -1,10 +1,10 @@
-# Acompanhamento de quitação na Área do Cliente
+# Acompanhe sua Quitação na Área do Cliente
 
 ## Operação
 
 - Registre o CPF ou CNPJ em **Dados do Vendedor** e a data de aquisição no cadastro do veículo. O portal usa esses dados para relacionar a compra ao titular.
 - O cliente precisa ter o acesso ativo e o módulo **Quitação** liberado em **Clientes do portal**.
-- Em **Quitações**, abra a ficha do veículo e use **Acompanhamento na Área do Cliente** para atualizar a etapa. O controle **Marcar como quitado** também atualiza o portal.
+- Em **Quitações**, abra a ficha do veículo e use **Acompanhe sua Quitação (Área do Cliente)** para atualizar a etapa e, se houver estimativa confiável, a **Previsão de conclusão**. O cliente também vê a data da operação (data de aquisição) e a instituição financeira (campo Banco do veículo). O controle **Marcar como quitado** também atualiza o portal.
 - Faça o upload na área de anexos da própria ficha. Selecione os arquivos em **Documentos visíveis ao cliente** e salve. Quando um arquivo é substituído, a nova versão precisa ser selecionada novamente.
 - O botão de atendimento usa o número em `QUITACAO_WHATSAPP`, com código do país e DDD. Se a variável estiver ausente, usa o WhatsApp do site da Liberty.
 
