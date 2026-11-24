@@ -11,7 +11,7 @@ const titulo = 'mt-5 max-w-[15ch] text-4xl font-bold leading-[1.06] tracking-tig
 const descricao = 'mt-3 max-w-xl leading-relaxed text-neutral-600 adobe-dark:text-adobe-text-md'
 const link = 'mt-7 inline-flex min-h-12 items-center gap-3 rounded-full bg-liberty-deep px-5 py-2 text-sm font-bold text-white hover:bg-[#005680] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-liberty-deep adobe-dark:bg-adobe-accent adobe-dark:text-adobe-bg-0 adobe-dark:hover:bg-adobe-accent-soft'
 const iconesPlano = { juridico: IconScale, rastreamento: IconMapPin, pacote: IconPackage }
-const planosVisiveis = SERVICOS_POS_VENDA.filter(({ id }) => id !== 'quitacao')
+const planosVisiveis = SERVICOS_POS_VENDA.filter((servico): servico is Exclude<(typeof SERVICOS_POS_VENDA)[number], { id: 'quitacao' }> => servico.id !== 'quitacao')
 
 export default function ServicosLiberty() {
   return (
