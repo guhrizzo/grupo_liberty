@@ -1,30 +1,43 @@
 'use client'
 
-import { useState, useTransition, type FormEvent } from 'react'
+import { useMemo, useState, useTransition, type FormEvent } from 'react'
 import Link from 'next/link'
 import { Button, Input, Select, Textarea, useToast } from '@/app/components/ui'
 import { formatCurrency, formatDate } from '@/utils/format'
 import {
-  ANDAMENTOS_POS_VENDA, SITUACOES_POS_VENDA, nomeServico, servicosInclusos,
+  ANDAMENTOS_POS_VENDA, SERVICOS_POS_VENDA, SITUACOES_POS_VENDA, nomeServico, servicosInclusos,
   hojePosVenda, pendentePosVenda, pagoPosVenda,
 } from '@/utils/pos-venda/modelo'
 import { PERIODICIDADES, planoDoServico, vencimentoSugerido, type PlanoCatalogo } from '@/utils/pos-venda/catalogo-modelo'
 import type { carregarPosVendaInterno } from '@/utils/pos-venda/repositorio'
+import {
+  ROTULO_STATUS_GESTAO, atendimentosRecentes, filtrarContratos, oportunidades, resumoGestao,
+  type FiltrosGestao, type StatusGestao,
+} from '@/utils/pos-venda/gestao'
+import { AtendimentosRecentes, Oportunidades, ReceitaRecorrente, VencimentosERenovacoes } from './GestaoPosVenda'
 import { acaoFinanceiraPosVenda, prepararPropostaPosVenda, publicarAndamentoPosVenda } from './actions'
 
 type Dados = Awaited<ReturnType<typeof carregarPosVendaInterno>>
 type Linha = Dados['contratos'][number]
 const card = 'rounded-xl border border-neutral-200 bg-white p-5'
-const filtroOpcoes = [
-  { value: 'todos', label: 'Todos os contratos e solicitações' },
-  { value: 'ativos', label: 'Serviços ativos' },
-  { value: 'pendentes', label: 'Mensalidades pendentes' },
-  { value: 'vencidos', label: 'Mensalidades vencidas' },
-  { value: 'solicitacoes', label: 'Solicitações e propostas' },
-]
 const financeiro = (status: string) => pagoPosVenda(status) ? 'Pago' : ({
   PENDING: 'Pendente', OVERDUE: 'Vencido', DELETED: 'Cancelado', REFUNDED: 'Estornado',
 }[status] ?? 'Em conferência')
+
+const abas = [
+  { id: 'contratos', nome: 'Contratos' },
+  { id: 'receita', nome: 'Receita recorrente' },
+  { id: 'vencimentos', nome: 'Vencimentos e renovações' },
+  { id: 'atendimentos', nome: 'Atendimentos' },
+  { id: 'oportunidades', nome: 'Oportunidades' },
+] as const
+type Aba = (typeof abas)[number]['id']
+
+const opcoesServico = [{ value: '', label: 'Todos os serviços' }, ...SERVICOS_POS_VENDA.map(({ id, nome }) => ({ value: id, label: nome }))]
+const opcoesStatus = [
+  { value: '', label: 'Todos os status' },
+  ...(Object.entries(ROTULO_STATUS_GESTAO) as [StatusGestao, string][]).map(([value, label]) => ({ value, label })),
+]
 
 export default function PainelPosVendaInterno({ dados, catalogo, habilitado, podeFinanceiro, podeJuridico, podeNegociar, podeRastrear }: {
   dados: Dados
@@ -35,49 +48,84 @@ export default function PainelPosVendaInterno({ dados, catalogo, habilitado, pod
   podeNegociar: boolean
   podeRastrear: boolean
 }) {
-  const [filtro, setFiltro] = useState('todos')
-  const ativos = dados.contratos.filter((c) => c.situacao === 'ativo')
-  const pendentes = dados.contratos.filter((c) => c.cobrancas.some((m) => pendentePosVenda(m.status)))
-  const vencidos = pendentes.filter((c) => c.cobrancas.some((m) => m.status === 'OVERDUE'))
-  const solicitacoes = dados.contratos.filter((c) => ['solicitado', 'proposta', 'aceito', 'ativando'].includes(c.situacao))
-  const exibidos = ({ ativos, pendentes, vencidos, solicitacoes })[filtro as 'ativos' | 'pendentes' | 'vencidos' | 'solicitacoes'] ?? dados.contratos
+  const [aba, setAba] = useState<Aba>('contratos')
+  const [filtros, setFiltros] = useState<FiltrosGestao>({ busca: '', servico: '', status: '', responsavel: '' })
+  const resumo = useMemo(() => resumoGestao(dados.contratos, hojePosVenda()), [dados.contratos])
+  const exibidos = useMemo(() => filtrarContratos(dados.contratos, filtros), [dados.contratos, filtros])
+  const atendimentos = useMemo(() => atendimentosRecentes(dados.contratos), [dados.contratos])
+  const chances = useMemo(() => oportunidades(dados.contratos, dados.semContrato), [dados.contratos, dados.semContrato])
+  const responsaveis = useMemo(
+    () => [...new Set(dados.contratos.map((c) => c.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [dados.contratos],
+  )
+  const filtrando = Object.values(filtros).some(Boolean)
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {[
-          ['Serviços ativos', ativos.length],
-          ['Solicitações e propostas', solicitacoes.length],
-          ['Contratos com mensalidades vencidas', vencidos.length],
-          ['Compras sem serviço ativo', dados.semContrato.length],
-        ].map(([rotulo, total]) => (
+          ['Receita recorrente mensal', formatCurrency(resumo.receitaMensal)],
+          ['Serviços ativos', resumo.contagem.ativos + resumo.contagem.inadimplentes],
+          ['Inadimplentes', resumo.contagem.inadimplentes],
+          ['Solicitações e propostas', resumo.contagem.solicitacoes],
+          ['Cobranças a vencer ou vencidas', resumo.vencimentos.length],
+          ['Oportunidades', chances.length],
+        ].map(([rotulo, valor]) => (
           <div key={rotulo} className={card}>
             <p className="text-sm text-neutral-600">{rotulo}</p>
-            <p className="mt-1 text-2xl font-bold text-neutral-900">{total}</p>
+            <p className="mt-1 text-2xl font-bold text-neutral-900">{valor}</p>
           </div>
         ))}
       </div>
       {!habilitado && <p className="rounded-xl border border-amber-300 p-3 text-sm">Cobrança automática indisponível neste ambiente. Ainda é possível preparar e registrar aceites de propostas.</p>}
-      <section className="space-y-3" aria-labelledby="lista-pos-venda">
-        <h2 id="lista-pos-venda" className="text-xl font-semibold">Contratos e solicitações</h2>
-        <div className="max-w-sm">
-          <Select label="Exibir" options={filtroOpcoes} value={filtro} onChange={(e) => setFiltro(e.target.value)} />
-        </div>
-        {exibidos.length === 0 && <p className={card}>Nenhum registro neste filtro.</p>}
-        {exibidos.map((contrato) => (
-          <Registro key={contrato.id} contrato={contrato} plano={planoDoServico(catalogo, contrato.servico)} podeFinanceiro={podeFinanceiro} podeJuridico={podeJuridico} podeNegociar={podeNegociar} podeRastrear={podeRastrear} />
+
+      <div role="tablist" aria-label="Seções da gestão do pós-venda" className="flex flex-wrap gap-1 border-b border-neutral-200">
+        {abas.map(({ id, nome }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`aba-${id}`}
+            aria-selected={aba === id}
+            aria-controls={`painel-${id}`}
+            onClick={() => setAba(id)}
+            className={`-mb-px cursor-pointer border-b-2 px-3 py-2 text-sm font-semibold ${aba === id ? 'border-liberty-deep text-liberty-deep' : 'border-transparent text-neutral-600 hover:text-neutral-900'}`}
+          >
+            {nome}
+          </button>
         ))}
-      </section>
-      <section className={card} aria-labelledby="sem-pos-venda">
-        <h2 id="sem-pos-venda" className="font-semibold">Compras sem serviço ativo</h2>
-        {dados.semContrato.length ? (
-          <ul className="mt-2 divide-y divide-neutral-200">
-            {dados.semContrato.map(({ id, comprador, nome }) => (
-              <li key={id} className="py-2 text-sm"><strong>{comprador}</strong> · {nome}</li>
+      </div>
+
+      <div role="tabpanel" id={`painel-${aba}`} aria-labelledby={`aba-${aba}`} className="space-y-4">
+        {aba === 'contratos' && (
+          <section className="space-y-3" aria-labelledby="lista-pos-venda">
+            <h2 id="lista-pos-venda" className="text-xl font-semibold">Contratos e solicitações</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Input label="Buscar por cliente ou veículo" value={filtros.busca} placeholder="Ex.: Maria ou Argo"
+                onChange={(e) => setFiltros((f) => ({ ...f, busca: e.target.value }))} />
+              <Select label="Serviço" options={opcoesServico} value={filtros.servico} onChange={(e) => setFiltros((f) => ({ ...f, servico: e.target.value }))} />
+              <Select label="Status" options={opcoesStatus} value={filtros.status} onChange={(e) => setFiltros((f) => ({ ...f, status: e.target.value }))} />
+              <Select label="Responsável" value={filtros.responsavel} onChange={(e) => setFiltros((f) => ({ ...f, responsavel: e.target.value }))}
+                options={[{ value: '', label: 'Todos os responsáveis' }, ...responsaveis.map((r) => ({ value: r, label: r }))]} />
+            </div>
+            <p className="text-sm text-neutral-600">
+              {exibidos.length} de {dados.contratos.length} registro{dados.contratos.length === 1 ? '' : 's'}
+              {filtrando && (
+                <button type="button" className="ml-3 cursor-pointer font-semibold text-liberty-deep hover:underline"
+                  onClick={() => setFiltros({ busca: '', servico: '', status: '', responsavel: '' })}>Limpar filtros</button>
+              )}
+            </p>
+            {exibidos.length === 0 && <p className={card}>Nenhum registro com estes filtros.</p>}
+            {exibidos.map((contrato) => (
+              <Registro key={contrato.id} contrato={contrato} plano={planoDoServico(catalogo, contrato.servico)} podeFinanceiro={podeFinanceiro} podeJuridico={podeJuridico} podeNegociar={podeNegociar} podeRastrear={podeRastrear} />
             ))}
-          </ul>
-        ) : <p className="mt-2 text-sm text-neutral-600">Nenhuma compra elegível sem serviço ativo.</p>}
-      </section>
+          </section>
+        )}
+        {aba === 'receita' && <ReceitaRecorrente resumo={resumo} />}
+        {aba === 'vencimentos' && <VencimentosERenovacoes resumo={resumo} />}
+        {aba === 'atendimentos' && <AtendimentosRecentes itens={atendimentos} />}
+        {aba === 'oportunidades' && <Oportunidades itens={chances} />}
+      </div>
     </div>
   )
 }

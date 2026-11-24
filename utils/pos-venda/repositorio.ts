@@ -64,6 +64,14 @@ async function mensalidades(id: string) {
   })
 }
 
+async function andamentosRecentes(id: string) {
+  const snap = await contratosPosVenda().doc(id).collection('andamentos').orderBy('em', 'desc').limit(10).get()
+  return snap.docs.map((doc) => ({
+    id: doc.id, tipo: String(doc.get('tipo') ?? ''), texto: String(doc.get('texto') ?? ''),
+    em: String(doc.get('em') ?? ''), responsavel: String(doc.get('responsavel') ?? ''),
+  }))
+}
+
 export async function carregarPosVendaCliente(cliente: ClientePosVenda) {
   const chave = chaveComprador(cliente.documento)
   if (!chave) return { veiculos: [], contratos: [] }
@@ -101,6 +109,13 @@ export async function carregarPosVendaCliente(cliente: ClientePosVenda) {
   }
 }
 
+async function detalhes(id: string) {
+  const [cobrancas, andamentos] = await Promise.all([mensalidades(id), andamentosRecentes(id)])
+  // Responsável: quem aparece no andamento mais recente que informou um nome.
+  const responsavel = andamentos.find((a) => a.responsavel)?.responsavel ?? ''
+  return { cobrancas, andamentos, responsavel }
+}
+
 export async function carregarPosVendaInterno() {
   const [estoque, pedidos] = await Promise.all([
     veiculosPosVenda().where('vendidoEm', '>', '').select(...camposVenda, 'nomeCliente').get(),
@@ -125,7 +140,10 @@ export async function carregarPosVendaInterno() {
       veiculo: atual ? venda.nome : 'Venda alterada ou indisponível',
       comprador: atual ? venda.comprador : 'Vínculo em revisão',
       atual,
-      cobrancas: await mensalidades(doc.id),
+      // Chave do cliente sem expor o CPF ao navegador.
+      clienteChave: chaveComprador(contrato.documento) ?? doc.id,
+      criadoEm: contrato.criadoEm,
+      ...(await detalhes(doc.id)),
     }
   }))
   const contratados = new Set(contratos.filter((c) => c.atual && c.situacao === 'ativo').map((c) => c.veiculoId))
