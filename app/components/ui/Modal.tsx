@@ -126,7 +126,7 @@ export function Modal({
       {open && (
         <motion.div
           key="modal-backdrop"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/60 backdrop-blur-sm p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1, transition: { duration: 0.2, ease: motionEasing } }}
           exit={{ opacity: 0, transition: { duration: 0.15, ease: motionEasing } }}
