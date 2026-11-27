@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 /** Mais recente primeiro. Adicione novas entradas SEMPRE no topo do array. */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-27-indicadores-indique-e-ganhe',
+    date: '2026-11-27',
+    title: 'Indicadores do Indique e ganhe',
+    tag: 'melhoria',
+    items: [
+      'Em Indicações, acompanhe o volume por mês de cadastro, o ranking de quem mais indica e as conversões no portal e em operações.',
+      'Veja compras e vendas originadas por indicação, recompensas pagas e o custo em recompensas por cliente adquirido.',
+      'Quem tem acesso ao Financeiro também vê a margem bruta das vendas atribuídas com preço e custo registrados.',
+    ],
+  },
+  {
     id: '2026-11-19-recibo-de-pagamento',
     date: '2026-11-19',
     title: 'Recibo de pagamento de veículo',
