@@ -4,8 +4,10 @@ import { useState, useTransition } from 'react'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { Button, Input, Select, useToast } from '@/app/components/ui'
 import { ROTULO_STATUS_INDICACAO, type ConfigIndicacoes, type FaixaRecompensa, type LinhaRecompensa, type StatusIndicacao } from '@/utils/indicacoes/modelo'
+import type { Indicadores } from '@/utils/indicacoes/indicadores'
 import { decidirIndicacao, salvarConfigIndicacoes } from './actions'
 import FinanceiroRecompensas from './FinanceiroRecompensas'
+import IndicadoresIndicacoes from './IndicadoresIndicacoes'
 
 type LinhaIndicacao = {
   id: string
@@ -19,10 +21,12 @@ type LinhaIndicacao = {
 const data = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' })
 const cartao = 'rounded-xl border border-neutral-200 bg-white p-5 shadow-xs'
 
-export default function IndicacoesClient({ config, indicacoes, recompensas, podeEditarRegras }: {
+export default function IndicacoesClient({ config, indicacoes, recompensas, indicadores, podeVerResultado, podeEditarRegras }: {
   config: ConfigIndicacoes
   indicacoes: LinhaIndicacao[]
   recompensas: LinhaRecompensa[]
+  indicadores: Indicadores
+  podeVerResultado: boolean
   podeEditarRegras: boolean
 }) {
   const [faixas, setFaixas] = useState<FaixaRecompensa[]>(config.faixas)
@@ -79,6 +83,7 @@ export default function IndicacoesClient({ config, indicacoes, recompensas, pode
         </p>
       </header>
 
+      <IndicadoresIndicacoes indicadores={indicadores} podeVerResultado={podeVerResultado} />
       <FinanceiroRecompensas recompensas={recompensas} />
 
       <section className={`${cartao} space-y-4`} aria-labelledby="regras">

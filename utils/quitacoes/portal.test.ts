@@ -8,21 +8,26 @@ const fake = vi.hoisted(() => {
   const runTransaction = vi.fn()
   const criar = vi.fn()
   const set = vi.fn()
+  const listarVeiculos = vi.fn()
+  const lerDocumento = vi.fn()
   const snap = (data: Record<string, unknown>) => ({ data: () => data, get: (key: string) => data[key] })
-  return { documento, arquivo, cliente, getAll, runTransaction, criar, set, snap }
+  return { documento, arquivo, cliente, getAll, runTransaction, criar, set, snap, listarVeiculos, lerDocumento }
 })
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/utils/portal/acesso', () => ({ clienteAutenticado: fake.cliente }))
 vi.mock('@/utils/firebase/admin', () => ({
   adminDb: {
-    collection: (collection: string) => ({ doc: (id: string) => ({ id, path: `${collection}/${id}` }) }),
+    collection: (collection: string) => ({
+      doc: (id: string) => ({ id, path: `${collection}/${id}`, get: () => fake.lerDocumento(collection, id) }),
+      where: (...filtros: unknown[]) => ({ select: () => ({ get: () => fake.listarVeiculos(...filtros) }) }),
+    }),
     runTransaction: fake.runTransaction,
   },
 }))
 
 import { acompanhamentoQuitacao, atualizarAcompanhamento, versaoAnexoQuitacao } from './acompanhamento'
-import { obterDocumentoQuitacaoCliente } from './portal'
+import { listarQuitacoesCliente, obterDocumentoQuitacaoCliente } from './portal'
 import { compraQuitacao } from './vinculo'
 import { ETAPAS_PADRAO, etapasDaOperacao } from './etapas'
 
@@ -92,6 +97,36 @@ describe('acompanhamento de quitação', () => {
     expect(await obterDocumentoQuitacaoCliente('veiculo', 'cliente')).toBeNull()
     fake.cliente.mockResolvedValueOnce({ documento: fake.documento, cadastro: { modulos: [] } })
     expect(await obterDocumentoQuitacaoCliente('veiculo', 'cliente')).toBeNull()
+  })
+
+  it('mostra duas operações do titular com etapas independentes e omite operação de outro CPF', async () => {
+    const outraCompra = { ...veiculo, dataAquisicao: '2026-11-12' }
+    const primeira = {
+      ...acompanhamentoQuitacao(compraQuitacao(veiculo)!), etapa: 'negociacao', previsao: '2026-12-10',
+      naoAplicaveis: ['documentacao_recebida'], publicados: { cliente: 'quitacoes/primeiro/documento.pdf' },
+    }
+    fake.listarVeiculos.mockResolvedValue({ docs: [
+      { id: 'primeiro', ...fake.snap({ ...veiculo, banco: 'Banco A' }) },
+      { id: 'segundo', ...fake.snap(outraCompra) },
+      { id: 'outro-titular', ...fake.snap({ ...veiculo, sellerCpf: '11144477735' }) },
+    ] })
+    fake.lerDocumento.mockImplementation((colecao, id) => {
+      if (colecao === 'quitacao_anexos') return fake.snap({
+        veiculoId: 'primeiro', tipo: 'cliente', storagePath: primeira.publicados.cliente,
+      })
+      return fake.snap(id === 'primeiro' ? { portalAcompanhamento: primeira } : {})
+    })
+    const operacoes = await listarQuitacoesCliente()
+    expect(operacoes).toMatchObject([
+      { id: 'primeiro', etapa: 'negociacao', banco: 'Banco A', previsao: '2026-12-10', documentos: [{ tipo: 'cliente' }] },
+      { id: 'segundo', etapa: 'recebido', dataOperacao: '2026-11-12', previsao: null, documentos: [] },
+    ])
+    expect(operacoes?.[0].etapas.map((e) => e.id)).not.toContain('documentacao_recebida')
+    expect(fake.listarVeiculos).toHaveBeenCalledWith('portalQuitacaoChave', '==', compraQuitacao(veiculo)?.chave)
+
+    fake.cliente.mockResolvedValueOnce({ documento: fake.documento, cadastro: { modulos: [] } })
+    expect(await listarQuitacoesCliente()).toBeNull()
+    expect(fake.listarVeiculos).toHaveBeenCalledTimes(1)
   })
 
   it('guarda as etapas que não se aplicam e ignora ids inexistentes ou a etapa atual', async () => {

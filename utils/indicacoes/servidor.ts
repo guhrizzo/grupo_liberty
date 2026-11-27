@@ -5,6 +5,9 @@ import { chaveHash, chavesPortal, clientesPortal, tokenPortal, type CadastroPort
 import { normalizarDocumento } from '@/utils/portal/documento'
 import { normalizarEmail } from '@/utils/portal/modelo'
 import { rateLimit } from '@/utils/rate-limit'
+import { compraQuitacao } from '@/utils/quitacoes/vinculo'
+import { vendaPosVenda } from '@/utils/pos-venda/vinculo'
+import { gerarIndicadores, type OperacaoIndicada } from './indicadores'
 import {
   CONFIG_PADRAO, codigoIndicacaoValido, gerarCodigoIndicacao, normalizarConfig, transicaoRecompensa, valorRecompensa,
   type AcaoRecompensa, type ConfigIndicacoes, type EventoAuditoria, type LinhaRecompensa, type StatusIndicacao, type StatusRecompensa,
@@ -245,18 +248,57 @@ export async function listarDoIndicador(documento: string) {
 }
 
 /** Visão da equipe: todas as indicações, com o nome do indicador. */
-export async function listarTodasIndicacoes() {
-  const snap = await indicacoesRef().orderBy('criadoEm', 'desc').limit(300).get()
+export async function listarTodasIndicacoes(podeVerResultado: boolean) {
+  const [snap, pagamentos] = await Promise.all([
+    indicacoesRef().orderBy('criadoEm', 'desc')
+      .select('indicadorDocumento', 'indicadoNome', 'indicadoDocumentoHash', 'status', 'criadoEm', 'motivoRevisao').get(),
+    recompensasRef().where('status', '==', 'paga').select('indicacaoId', 'valor').get(),
+  ])
   const documentos = [...new Set(snap.docs.map((d) => String(d.get('indicadorDocumento'))))]
-  const clientes = documentos.length ? await adminDb.getAll(...documentos.map((doc) => clientesPortal().doc(doc))) : []
+  const clientes = []
+  for (let inicio = 0; inicio < documentos.length; inicio += 250) {
+    clientes.push(...await adminDb.getAll(...documentos.slice(inicio, inicio + 250).map((doc) => clientesPortal().doc(doc))))
+  }
   const nomes = new Map(clientes.map((c) => [c.id, String(c.get('contratante.nome') ?? 'Cliente')]))
-  return snap.docs.map((d) => {
+  const linhas = snap.docs.map((d) => {
     const i = d.data() as Indicacao
     return {
       id: d.id, indicadoNome: i.indicadoNome, indicadorNome: nomes.get(i.indicadorDocumento) ?? 'Cliente',
+      indicadorDocumento: i.indicadorDocumento, indicadoDocumentoHash: i.indicadoDocumentoHash,
       status: i.status, criadoEm: i.criadoEm, motivoRevisao: i.motivoRevisao ?? null,
     }
   })
+  const porIndicado = new Map(linhas.filter((i) => i.status === 'convertida').map((i) => [i.indicadoDocumentoHash, i]))
+  const operacoes: OperacaoIndicada[] = []
+  if (porIndicado.size) {
+    const campos = ['sellerCpf', 'cpfCliente', 'terceiro', 'dataAquisicao', 'vendidoEm', 'vendidoRegistradoEm']
+    if (podeVerResultado) campos.push('precoVendaFinal', 'custoEfetivoTotal')
+    const veiculos = await adminDb.collection('veiculos').select(...campos).get()
+    for (const veiculo of veiculos.docs) {
+      const dados = veiculo.data()
+      const compra = compraQuitacao(dados)
+      const venda = vendaPosVenda(dados)
+      for (const operacao of [compra && { ...compra, tipo: 'compra' as const }, venda && { ...venda, tipo: 'venda' as const }]) {
+        if (!operacao || !operacao.documento) continue
+        const indicacao = porIndicado.get(hashIdentidade('cpf', operacao.documento))
+        if (!indicacao) continue
+        const preco = dados.precoVendaFinal
+        const custo = dados.custoEfetivoTotal
+        operacoes.push({
+          indicacaoId: indicacao.id, data: operacao.data, tipo: operacao.tipo,
+          margemCentavos: operacao.tipo === 'venda' && Number.isFinite(preco) && preco > 0 && Number.isFinite(custo) && custo > 0
+            ? Math.round(preco * 100) - Math.round(custo * 100) : null,
+        })
+      }
+    }
+  }
+  return {
+    indicacoes: linhas.slice(0, 300).map(({ id, indicadoNome, indicadorNome, status, criadoEm, motivoRevisao }) =>
+      ({ id, indicadoNome, indicadorNome, status, criadoEm, motivoRevisao })),
+    indicadores: gerarIndicadores(linhas, pagamentos.docs.map((d) => ({
+      indicacaoId: String(d.get('indicacaoId') ?? d.id), valor: Number(d.get('valor')) || 0,
+    })), operacoes),
+  }
 }
 
 /** Decisão da equipe sobre uma indicação em revisão (conflito de atribuição). */

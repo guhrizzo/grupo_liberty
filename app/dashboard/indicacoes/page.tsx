@@ -14,12 +14,16 @@ export default async function IndicacoesPage() {
   if (!user) redirect('/login')
   if (!hasPageAccess(user, 'indicacoes')) redirect('/dashboard?error=acesso_negado')
 
-  const [config, indicacoes, recompensas] = await Promise.all([carregarConfigIndicacoes(), listarTodasIndicacoes(), listarRecompensasAdmin()])
+  const podeVerResultado = hasPageAccess(user, 'financeiro')
+  const [config, recompensas, { indicacoes, indicadores }] = await Promise.all([
+    carregarConfigIndicacoes(), listarRecompensasAdmin(), listarTodasIndicacoes(podeVerResultado),
+  ])
 
   return (
     <div className="space-y-6">
       <Breadcrumb items={[{ label: 'Dashboard', href: '/dashboard' }, { label: 'Indicações' }]} />
-      <IndicacoesClient config={config} indicacoes={indicacoes} recompensas={recompensas} podeEditarRegras={user.role === 'admin'} />
+      <IndicacoesClient config={config} indicacoes={indicacoes} recompensas={recompensas} indicadores={indicadores}
+        podeVerResultado={podeVerResultado} podeEditarRegras={user.role === 'admin'} />
     </div>
   )
 }
